@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>European Electricity Price Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f0f2f5;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        .header {
+            background: #2c3e50;
+            color: white;
+            padding: 20px 30px;
+        }
+        .header h1 { font-size: 24px; font-weight: 500; }
+        .header p { font-size: 14px; opacity: 0.9; margin-top: 6px; }
+        .controls {
+            padding: 20px 30px 0 30px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 24px;
+            align-items: flex-start;
+            background: #fff;
+            border-bottom: 1px solid #e6e9ed;
+        }
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            min-width: 220px;
+            flex: 0 0 auto;
+        }
+        .control-group label {
+            font-size: 13px;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+        select, input, button {
+            padding: 8px 12px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            font-size: 14px;
+            width: 100%;
+        }
+        .country-container {
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            padding: 8px;
+            background: #fafafa;
+        }
+        .btn-group {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+        .btn-small {
+            padding: 4px 8px;
+            font-size: 12px;
+            background: #e9ecef;
+            border: 1px solid #ccc;
+            cursor: pointer;
+            border-radius: 4px;
+            width: auto;
+        }
+        .btn-small:hover {
+            background: #dee2e6;
+        }
+        .checkbox-group {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(70px, auto));
+            gap: 6px 12px;
+            max-height: 160px;
+            overflow-y: auto;
+        }
+        .checkbox-group label {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            font-weight: normal;
+            font-size: 13px;
+            cursor: pointer;
+            margin: 0;
+            padding: 0;
+            white-space: nowrap;
+        }
+        .datetime-row {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .datetime-row select, .datetime-row input {
+            flex: 1;
+            min-width: 100px;
+        }
+        .btn-primary {
+            background: #2c3e50;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        .btn-primary:hover { background: #1e2b38; }
+        .chart-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+            gap: 24px;
+            padding: 24px 30px;
+        }
+        .chart-card {
+            background: #fff;
+            border-radius: 8px;
+            border: 1px solid #e6e9ed;
+            padding: 16px;
+        }
+        .chart-card h3 {
+            font-size: 18px;
+            margin-bottom: 12px;
+            font-weight: 500;
+            color: #2c3e50;
+            border-left: 4px solid #2c3e50;
+            padding-left: 12px;
+        }
+        .chart-container { width: 100%; height: 400px; }
+        .full-width-card {
+            grid-column: 1 / -1;
+        }
+        .dual-panel {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+        .dual-panel > div {
+            flex: 1;
+            min-width: 280px;
+        }
+        .card-control {
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        .info {
+            padding: 0 30px 20px 30px;
+            font-size: 13px;
+            color: #6c757d;
+            text-align: center;
+            border-top: 1px solid #e6e9ed;
+            margin-top: 10px;
+        }
+        @media (max-width: 900px) {
+            .chart-grid { grid-template-columns: 1fr; }
+            .controls { flex-direction: column; align-items: stretch; }
+            .control-group { width: 100%; }
+            .dual-panel { flex-direction: column; }
+        }
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+        }
+        #europeMap {
+            height: 400px;
+            background: #f0f2f5;
+            border-radius: 8px;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <h1>📈 European Electricity Day-Ahead Prices</h1>
+        <p>Data source: Local Excel file (via Python backend)</p>
+    </div>
+    <div class="controls">
+        <div class="control-group">
+            <label>📅 Year</label>
+            <select id="yearSelect" disabled></select>
+        </div>
+        <div class="control-group">
+            <label>🌍 Countries</label>
+            <div class="country-container">
+                <div class="btn-group">
+                    <button id="selectAllBtn" class="btn-small" disabled>Select All</button>
+                    <button id="clearAllBtn" class="btn-small" disabled>Clear All</button>
+                </div>
+                <div id="countryCheckboxes" class="checkbox-group"></div>
+            </div>
+        </div>
+        <div class="control-group">
+            <label>⏱️ Date Range (hourly)</label>
+            <div class="datetime-row">
+                <input type="date" id="startDate" disabled>
+                <select id="startHour" disabled>
+                    <option value="0">00:00</option>
+                    <option value="1">01:00</option><option value="2">02:00</option><option value="3">03:00</option>
+                    <option value="4">04:00</option><option value="5">05:00</option><option value="6">06:00</option>
+                    <option value="7">07:00</option><option value="8">08:00</option><option value="9">09:00</option>
+                    <option value="10">10:00</option><option value="11">11:00</option><option value="12">12:00</option>
+                    <option value="13">13:00</option><option value="14">14:00</option><option value="15">15:00</option>
+                    <option value="16">16:00</option><option value="17">17:00</option><option value="18">18:00</option>
+                    <option value="19">19:00</option><option value="20">20:00</option><option value="21">21:00</option>
+                    <option value="22">22:00</option><option value="23">23:00</option>
+                </select>
+                <span>to</span>
+                <input type="date" id="endDate" disabled>
+                <select id="endHour" disabled>
+                    <option value="0">00:00</option>
+                    <option value="1">01:00</option><option value="2">02:00</option><option value="3">03:00</option>
+                    <option value="4">04:00</option><option value="5">05:00</option><option value="6">06:00</option>
+                    <option value="7">07:00</option><option value="8">08:00</option><option value="9">09:00</option>
+                    <option value="10">10:00</option><option value="11">11:00</option><option value="12">12:00</option>
+                    <option value="13">13:00</option><option value="14">14:00</option><option value="15">15:00</option>
+                    <option value="16">16:00</option><option value="17">17:00</option><option value="18">18:00</option>
+                    <option value="19">19:00</option><option value="20">20:00</option><option value="21">21:00</option>
+                    <option value="22">22:00</option><option value="23">23:00</option>
+                </select>
+            </div>
+        </div>
+        <div class="control-group">
+            <label>&nbsp;</label>
+            <button id="refreshBtn" class="btn-primary" disabled>Refresh Charts</button>
+        </div>
+    </div>
+    <div id="loadingMsg" class="loading">Loading data...</div>
+    <div class="chart-grid" style="display: none;" id="chartGrid">
+        <div class="chart-card">
+            <h3>Hourly Price Trends (multiple countries)</h3>
+            <div id="hourlyChart" class="chart-container"></div>
+        </div>
+        <div class="chart-card">
+            <h3>Monthly Average Price (multiple countries)</h3>
+            <div id="monthlyChart" class="chart-container"></div>
+        </div>
+        <div class="chart-card full-width-card">
+            <h3>Hourly Average Price (selected month) & European Map</h3>
+            <div class="dual-panel">
+                <div>
+                    <div class="card-control">
+                        <label>📆 Month for left chart:</label>
+                        <select id="monthSelect" disabled>
+                            <option value="">-- Select month --</option>
+                            <option value="1">January</option><option value="2">February</option><option value="3">March</option>
+                            <option value="4">April</option><option value="5">May</option><option value="6">June</option>
+                            <option value="7">July</option><option value="8">August</option><option value="9">September</option>
+                            <option value="10">October</option><option value="11">November</option><option value="12">December</option>
+                        </select>
+                    </div>
+                    <div id="hourlyAvgChart" style="height: 400px;"></div>
+                </div>
+                <div>
+                    <div id="europeMap"></div>
+                </div>
+            </div>
+        </div>
+        <div class="chart-card">
+            <h3>Price Difference (HU - DE)</h3>
+            <div id="diffChart" class="chart-container"></div>
+        </div>
+    </div>
+    <div class="info">
+        ⚡ Hourly chart supports date range filtering; monthly chart shows averages by month; hourly average chart shows average price for each hour in selected month per country; map shows monthly average price per country (selected year & month). All charts support zoom/pan.
+    </div>
+</div>
+
+<script>
+    let fullData = null;
+    let hourlyChart, monthlyChart, hourlyAvgChart, diffChart = null;
+    let map = null;
+    let geojsonLayer = null;
+
+    // Fetch data from backend
+    async function fetchData() {
+        try {
+            const resp = await fetch('/api/data');
+            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+            const json = await resp.json();
+            if (json.error) throw new Error(json.error);
+            fullData = json;
+            return true;
+        } catch (err) {
+            alert(`Failed to load data: ${err.message}\nMake sure the Python backend is running and Excel path is correct.`);
+            return false;
+        }
+    }
+
+    // Build checkboxes
+    function buildCountryCheckboxes() {
+        const container = document.getElementById('countryCheckboxes');
+        container.innerHTML = '';
+        fullData.countries.forEach(country => {
+            const label = document.createElement('label');
+            const cb = document.createElement('input');
+            cb.type = 'checkbox';
+            cb.value = country;
+            cb.checked = true;
+            cb.addEventListener('change', () => refresh());
+            label.appendChild(cb);
+            label.appendChild(document.createTextNode(country));
+            container.appendChild(label);
+        });
+        document.getElementById('selectAllBtn').disabled = false;
+        document.getElementById('clearAllBtn').disabled = false;
+    }
+
+    function getSelectedCountries() {
+        const checkboxes = document.querySelectorAll('#countryCheckboxes input[type="checkbox"]');
+        const selected = [];
+        checkboxes.forEach(cb => { if (cb.checked) selected.push(cb.value); });
+        return selected;
+    }
+
+    function selectAll() {
+        document.querySelectorAll('#countryCheckboxes input[type="checkbox"]').forEach(cb => cb.checked = true);
+        refresh();
+    }
+    function clearAll() {
+        document.querySelectorAll('#countryCheckboxes input[type="checkbox"]').forEach(cb => cb.checked = false);
+        refresh();
+    }
+
+    function getDateTimeFromParts(dateStr, hour) {
+        if (!dateStr || hour === undefined) return null;
+        const d = new Date(dateStr);
+        d.setHours(parseInt(hour), 0, 0, 0);
+        return d;
+    }
+
+    // Format datetime for xAxis: YYYY/MM/DD HH:00
+    function formatDateTime(date) {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        const hour = String(date.getHours()).padStart(2, '0');
+        return `${year}/${month}/${day} ${hour}:00`;
+    }
+
+    function initControls() {
+        const yearSelect = document.getElementById('yearSelect');
+        const monthSelect = document.getElementById('monthSelect');
+        yearSelect.innerHTML = '<option value="">-- Select year --</option>' +
+            fullData.years.map(y => `<option value="${y}">${y}</option>`).join('');
+        yearSelect.disabled = false;
+        monthSelect.disabled = false;
+        document.getElementById('refreshBtn').disabled = false;
+        if (fullData.years.length) yearSelect.value = fullData.years[0];
+        monthSelect.value = "1";
+        const year = parseInt(yearSelect.value);
+        if (year) {
+            document.getElementById('startDate').value = `${year}-01-01`;
+            document.getElementById('endDate').value = `${year}-12-31`;
+            document.getElementById('startHour').value = "0";
+            document.getElementById('endHour').value = "23";
+        }
+        document.getElementById('startDate').disabled = false;
+        document.getElementById('endDate').disabled = false;
+        document.getElementById('startHour').disabled = false;
+        document.getElementById('endHour').disabled = false;
+    }
+
+    // Draw hourly chart
+    function drawHourly(year, countries, startDateTime, endDateTime) {
+        if (!hourlyChart || !countries.length) return;
+        let dataPoints = fullData.data.filter(d => d.year === year);
+        if (startDateTime && endDateTime) {
+            const start = new Date(startDateTime);
+            const end = new Date(endDateTime);
+            dataPoints = dataPoints.filter(d => new Date(d.datetime) >= start && new Date(d.datetime) <= end);
+        }
+        if (dataPoints.length === 0) {
+            hourlyChart.setOption({ series: [] }, true);
+            return;
+        }
+        dataPoints.sort((a,b) => new Date(a.datetime) - new Date(b.datetime));
+        const xData = dataPoints.map(d => formatDateTime(new Date(d.datetime)));
+        const series = [];
+        for (let country of countries) {
+            const yData = dataPoints.map(d => d.values[country] !== undefined ? d.values[country] : null);
+            series.push({ name: country, type: 'line', data: yData, connectNulls: false, lineStyle: { width: 1.5 }, showSymbol: false });
+        }
+        hourlyChart.setOption({
+            tooltip: { trigger: 'axis', valueFormatter: v => v !== null ? v.toFixed(2) + ' €/MWh' : 'N/A' },
+            xAxis: { type: 'category', data: xData, axisLabel: { rotate: 45, interval: 'auto' } },
+            yAxis: { type: 'value', name: 'Price (€/MWh)' },
+            series: series,
+            dataZoom: [{ type: 'inside', start: 0, end: 100 }, { type: 'slider', start: 0, end: 100 }]
+        }, true);
+    }
+
+    // Draw monthly average chart
+    function drawMonthly(year, countries) {
+        if (!monthlyChart || !countries.length) return;
+        const monthlyAvg = {};
+        for (let c of countries) monthlyAvg[c] = Array(12).fill(null);
+        const monthlyCount = Array(12).fill(0);
+        fullData.data.forEach(d => {
+            if (d.year !== year) return;
+            const m = d.month - 1;
+            for (let c of countries) {
+                const val = d.values[c];
+                if (val !== null && val !== undefined) {
+                    if (monthlyAvg[c][m] === null) monthlyAvg[c][m] = 0;
+                    monthlyAvg[c][m] += val;
+                    monthlyCount[m] = (monthlyCount[m] || 0) + 1;
+                }
+            }
+        });
+        const series = [];
+        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        for (let c of countries) {
+            const yData = monthlyAvg[c].map((sum, idx) => {
+                if (sum !== null && monthlyCount[idx] > 0) return sum / monthlyCount[idx];
+                return null;
+            });
+            series.push({ name: c, type: 'line', data: yData, connectNulls: false, lineStyle: { width: 2 }, symbol: 'circle', symbolSize: 6 });
+        }
+        monthlyChart.setOption({
+            tooltip: { trigger: 'axis', valueFormatter: v => v !== null ? v.toFixed(2) + ' €/MWh' : 'N/A' },
+            xAxis: { type: 'category', data: months },
+            yAxis: { type: 'value', name: 'Average Price (€/MWh)' },
+            series: series
+        }, true);
+    }
+
+    // Draw hourly average for month (each country)
+    function drawHourlyAvg(year, month, selectedCountries) {
+        if (!hourlyAvgChart || !year || !month) return;
+        if (!selectedCountries.length) return;
+        const hourlyData = {};
+        for (let c of selectedCountries) {
+            hourlyData[c] = Array(24).fill(null);
+            hourlyData[`${c}_count`] = Array(24).fill(0);
+        }
+        fullData.data.forEach(d => {
+            if (d.year === year && d.month === month) {
+                const h = d.hour;
+                for (let c of selectedCountries) {
+                    const val = d.values[c];
+                    if (val !== null && val !== undefined) {
+                        if (hourlyData[c][h] === null) hourlyData[c][h] = 0;
+                        hourlyData[c][h] += val;
+                        hourlyData[`${c}_count`][h]++;
+                    }
+                }
+            }
+        });
+        const series = [];
+        const hours = Array.from({length: 24}, (_,i) => `${i}:00`);
+        for (let c of selectedCountries) {
+            const yData = hourlyData[c].map((sum, idx) => {
+                if (sum !== null && hourlyData[`${c}_count`][idx] > 0) return sum / hourlyData[`${c}_count`][idx];
+                return null;
+            });
+            series.push({ name: c, type: 'line', data: yData, connectNulls: false, lineStyle: { width: 2 }, symbol: 'circle', symbolSize: 6 });
+        }
+        hourlyAvgChart.setOption({
+            tooltip: { trigger: 'axis', valueFormatter: v => v !== null ? v.toFixed(2) + ' €/MWh' : 'N/A' },
+            xAxis: { type: 'category', data: hours },
+            yAxis: { type: 'value', name: 'Average Price (€/MWh)' },
+            series: series
+        }, true);
+    }
+
+    // Draw map with country borders and tooltip on hover
+    async function drawMap(year, month) {
+        if (!map) return;
+        if (geojsonLayer) map.removeLayer(geojsonLayer);
+
+        // Compute monthly average per country
+        const avgMap = {};
+        for (let c of fullData.countries) {
+            avgMap[c] = { sum: 0, count: 0 };
+        }
+        fullData.data.forEach(d => {
+            if (d.year === year && d.month === month) {
+                for (let c of fullData.countries) {
+                    const val = d.values[c];
+                    if (val !== null && val !== undefined) {
+                        avgMap[c].sum += val;
+                        avgMap[c].count++;
+                    }
+                }
+            }
+        });
+        const countryPrices = {};
+        for (let c of fullData.countries) {
+            const avg = avgMap[c].count > 0 ? avgMap[c].sum / avgMap[c].count : null;
+            countryPrices[c] = avg !== null ? avg.toFixed(2) + ' €/MWh' : 'N/A';
+        }
+
+        // Load GeoJSON with ISO_A2 codes
+        const geojsonUrl = 'https://raw.githubusercontent.com/datasets/geo-countries/master/data/countries.geojson';
+        try {
+            const response = await fetch(geojsonUrl);
+            const geoData = await response.json();
+            geojsonLayer = L.geoJSON(geoData, {
+                style: { color: '#2c3e50', weight: 1.5, fillColor: 'none', fillOpacity: 0 },
+                onEachFeature: (feature, layer) => {
+                    // Try to get ISO_A2 code from properties
+                    let code = feature.properties?.ISO_A2 || feature.properties?.iso_a2;
+                    if (!code) {
+                        // Fallback: try ADMIN or name
+                        const name = feature.properties?.ADMIN || feature.properties?.name;
+                        // Simple mapping for common names
+                        const nameMap = {
+                            'Germany': 'DE', 'France': 'FR', 'Spain': 'ES', 'Italy': 'IT',
+                            'Greece': 'GR', 'Romania': 'RO', 'Hungary': 'HU', 'Austria': 'AT',
+                            'Poland': 'PL', 'Slovakia': 'SK', 'Serbia': 'RS', 'Croatia': 'HR',
+                            'Bulgaria': 'BG'
+                        };
+                        if (name && nameMap[name]) code = nameMap[name];
+                    }
+                    const price = countryPrices[code];
+                    if (price) {
+                        layer.bindTooltip(`${code}: ${price}`, { sticky: true });
+                    }
+                }
+            }).addTo(map);
+            map.fitBounds(geojsonLayer.getBounds());
+        } catch (err) {
+            console.warn('Failed to load GeoJSON, using fallback', err);
+            // If fails, just show basic map
+            map.setView([50, 10], 4);
+        }
+    }
+
+    // Draw HU-DE difference
+    function drawDiff(year, startDateTime, endDateTime) {
+        if (!diffChart) return;
+        let dataPoints = fullData.data.filter(d => d.year === year && d.values['HU'] !== null && d.values['DE'] !== null);
+        if (startDateTime && endDateTime) {
+            const start = new Date(startDateTime);
+            const end = new Date(endDateTime);
+            dataPoints = dataPoints.filter(d => new Date(d.datetime) >= start && new Date(d.datetime) <= end);
+        }
+        if (dataPoints.length === 0) {
+            diffChart.setOption({ series: [] }, true);
+            return;
+        }
+        dataPoints.sort((a,b) => new Date(a.datetime) - new Date(b.datetime));
+        const xData = dataPoints.map(d => formatDateTime(new Date(d.datetime)));
+        const yData = dataPoints.map(d => d.values['HU'] - d.values['DE']);
+        diffChart.setOption({
+            tooltip: { trigger: 'axis', valueFormatter: v => v !== null ? v.toFixed(2) + ' €/MWh' : 'N/A' },
+            xAxis: { type: 'category', data: xData, axisLabel: { rotate: 45, interval: 'auto' } },
+            yAxis: { type: 'value', name: 'Price Difference (HU - DE) (€/MWh)' },
+            series: [{ name: 'HU - DE', type: 'line', data: yData, lineStyle: { width: 1.5 }, areaStyle: { opacity: 0.1 } }],
+            dataZoom: [{ type: 'inside', start: 0, end: 100 }, { type: 'slider', start: 0, end: 100 }]
+        }, true);
+    }
+
+    // Refresh all
+    function refresh() {
+        const year = parseInt(document.getElementById('yearSelect').value);
+        const selectedCountries = getSelectedCountries();
+        const startDateStr = document.getElementById('startDate').value;
+        const startHour = document.getElementById('startHour').value;
+        const endDateStr = document.getElementById('endDate').value;
+        const endHour = document.getElementById('endHour').value;
+        const startDateTime = startDateStr && startHour !== undefined ? getDateTimeFromParts(startDateStr, startHour) : null;
+        const endDateTime = endDateStr && endHour !== undefined ? getDateTimeFromParts(endDateStr, endHour) : null;
+        const month = parseInt(document.getElementById('monthSelect').value);
+        if (!year) return;
+        drawHourly(year, selectedCountries, startDateTime, endDateTime);
+        drawMonthly(year, selectedCountries);
+        drawHourlyAvg(year, month, selectedCountries);
+        drawMap(year, month);
+        drawDiff(year, startDateTime, endDateTime);
+    }
+
+    function onYearChange() {
+        const year = parseInt(document.getElementById('yearSelect').value);
+        if (year) {
+            document.getElementById('startDate').value = `${year}-01-01`;
+            document.getElementById('endDate').value = `${year}-12-31`;
+            document.getElementById('startHour').value = "0";
+            document.getElementById('endHour').value = "23";
+        }
+        refresh();
+    }
+
+    async function init() {
+        const ok = await fetchData();
+        if (!ok) return;
+        document.getElementById('loadingMsg').style.display = 'none';
+        document.getElementById('chartGrid').style.display = 'grid';
+
+        hourlyChart = echarts.init(document.getElementById('hourlyChart'));
+        monthlyChart = echarts.init(document.getElementById('monthlyChart'));
+        hourlyAvgChart = echarts.init(document.getElementById('hourlyAvgChart'));
+        diffChart = echarts.init(document.getElementById('diffChart'));
+
+        // Initialize map
+        map = L.map('europeMap').setView([50, 10], 4);
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> & CartoDB'
+        }).addTo(map);
+
+        window.addEventListener('resize', () => {
+            hourlyChart.resize(); monthlyChart.resize(); hourlyAvgChart.resize(); diffChart.resize();
+            if (map) map.invalidateSize();
+        });
+
+        buildCountryCheckboxes();
+        initControls();
+        refresh();
+
+        document.getElementById('selectAllBtn').addEventListener('click', selectAll);
+        document.getElementById('clearAllBtn').addEventListener('click', clearAll);
+        document.getElementById('yearSelect').addEventListener('change', onYearChange);
+        document.getElementById('monthSelect').addEventListener('change', refresh);
+        document.getElementById('refreshBtn').addEventListener('click', refresh);
+        document.getElementById('startDate').addEventListener('change', refresh);
+        document.getElementById('endDate').addEventListener('change', refresh);
+        document.getElementById('startHour').addEventListener('change', refresh);
+        document.getElementById('endHour').addEventListener('change', refresh);
+    }
+
+    init();
+</script>
+</body>
+</html>

@@ -2,8 +2,8 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>European Electricity Price Dashboard</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>European Electricity Price Dashboard </title>
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -26,7 +26,7 @@
         .checkbox-group label { display: inline-flex; align-items: center; gap: 4px; font-weight: normal; font-size: 13px; cursor: pointer; margin: 0; padding: 0; white-space: nowrap; }
         .datetime-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
         .datetime-row select, .datetime-row input { flex: 1; min-width: 100px; }
-        .btn-primary { background: #2c3e50; color: white; border: none; cursor: pointer; }
+        .btn-primary { background: #2c3e50; color: white; border: none; cursor: pointer; transition: 0.2s; }
         .btn-primary:hover { background: #1e2b38; }
         .chart-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(500px, 1fr)); gap: 24px; padding: 24px 30px; }
         .chart-card { background: #fff; border-radius: 8px; border: 1px solid #e6e9ed; padding: 16px; }
@@ -34,12 +34,46 @@
         .chart-container { width: 100%; height: 400px; }
         .full-width-card { grid-column: 1 / -1; }
         .dual-panel { display: flex; gap: 20px; flex-wrap: wrap; }
-        .dual-panel > div { flex: 1; min-width: 280px; }
+        .dual-panel > div { flex: 1; min-width: 280px; position: relative; }
         .card-control { margin-bottom: 12px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
         .info { padding: 0 30px 20px 30px; font-size: 13px; color: #6c757d; text-align: center; border-top: 1px solid #e6e9ed; margin-top: 10px; }
         @media (max-width: 900px) { .chart-grid { grid-template-columns: 1fr; } .controls { flex-direction: column; align-items: stretch; } .control-group { width: 100%; } .dual-panel { flex-direction: column; } }
         .loading { text-align: center; padding: 20px; color: #666; }
-        #europeMap { height: 400px; background: #f0f2f5; border-radius: 8px; }
+        #europeMap { height: 400px; background: #eef2f5; border-radius: 8px; transition: all 0.2s; }
+        /* 地图图例样式 */
+        .map-legend {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(255,255,255,0.92);
+            padding: 8px 12px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+            font-size: 12px;
+            font-weight: 500;
+            border-left: 3px solid #cc0000;
+            z-index: 1000;
+            pointer-events: none;
+            backdrop-filter: blur(2px);
+        }
+        .map-legend .gradient-bar {
+            width: 160px;
+            height: 14px;
+            background: linear-gradient(to right, #ffcccc, #cc0000);
+            border-radius: 20px;
+            margin: 6px 0 4px;
+        }
+        .map-legend .labels {
+            display: flex;
+            justify-content: space-between;
+            font-size: 11px;
+            color: #2c3e50;
+        }
+        .map-legend h4 {
+            margin: 0 0 4px 0;
+            font-size: 12px;
+            font-weight: 600;
+        }
     </style>
 </head>
 <body>
@@ -124,8 +158,9 @@
                     </div>
                     <div id="hourlyAvgChart" style="height: 400px;"></div>
                 </div>
-                <div>
+                <div style="position: relative;">
                     <div id="europeMap"></div>
+                    <!-- 动态图例会通过js实时更新 -->
                 </div>
             </div>
         </div>
@@ -135,7 +170,7 @@
         </div>
     </div>
     <div class="info">
-        ⚡ Hourly chart supports date range filtering; monthly chart shows averages by month; hourly average chart shows average price for each hour in selected month per country; map shows monthly average price per country (selected year & month). All charts support zoom/pan.
+        
     </div>
 </div>
 
@@ -149,9 +184,7 @@
     function parseCSV(csvText) {
         const lines = csvText.trim().split(/\r?\n/);
         if (lines.length === 0) return [];
-        // 表头：去除末尾可能因逗号产生的空列
         let headers = lines[0].split(',').map(h => h.trim());
-        // 删除末尾空字符串（例如 "Date,DE,FR,,," 产生多余空列）
         while (headers.length > 0 && headers[headers.length-1] === "") {
             headers.pop();
         }
@@ -160,13 +193,10 @@
             const line = lines[i];
             if (!line.trim()) continue;
             let values = line.split(',').map(v => v.trim());
-            // 去掉末尾多余的空值（因为每行末尾有逗号）
             while (values.length > headers.length && values[values.length-1] === "") {
                 values.pop();
             }
-            // 如果 values 长度超过 headers，截断
             if (values.length > headers.length) values = values.slice(0, headers.length);
-            // 如果 values 长度不足，补空字符串
             while (values.length < headers.length) values.push("");
             const row = {};
             for (let j = 0; j < headers.length; j++) {
@@ -180,7 +210,6 @@
     // ---------- 专门解析 "DD/MM/YY HH:MM" 格式日期 ----------
     function parseDateFromString(dateStr) {
         if (!dateStr) return null;
-        // 匹配类似 "01/01/24 00:00"
         const match = dateStr.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2})\s+(\d{1,2}):(\d{2})$/);
         if (!match) return null;
         const day = parseInt(match[1], 10);
@@ -188,7 +217,7 @@
         const yearShort = parseInt(match[3], 10);
         const hour = parseInt(match[4], 10);
         const minute = parseInt(match[5], 10);
-        const year = 2000 + yearShort;  // 假设年份在 2000-2099 之间
+        const year = 2000 + yearShort;
         const isoStr = `${year}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')}T${String(hour).padStart(2,'0')}:${String(minute).padStart(2,'0')}:00.000Z`;
         return { year, month, day, hour, minute, isoStr };
     }
@@ -201,15 +230,9 @@
 
         for (const row of rows) {
             const dtStr = row.Date || row.datetime;
-            if (!dtStr) {
-                console.warn('行缺少日期字段:', row);
-                continue;
-            }
+            if (!dtStr) continue;
             const parsed = parseDateFromString(dtStr);
-            if (!parsed) {
-                console.warn('日期解析失败:', dtStr);
-                continue;
-            }
+            if (!parsed) continue;
             const year = parsed.year;
             const month = parsed.month;
             const hour = parsed.hour;
@@ -231,13 +254,9 @@
                 hour: hour,
                 values: values
             });
-            console.log(`Parsed row: ${dtStr} -> year=${year}, month=${month}, hour=${hour}`);
         }
-
         const countries = Array.from(countriesSet).sort();
         const years = Array.from(yearsSet).sort();
-        console.log('最终年份:', years);
-        console.log('国家列表:', countries);
         return { countries, years, data };
     }
 
@@ -247,12 +266,10 @@
             const response = await fetch('data.csv');
             if (!response.ok) throw new Error(`HTTP ${response.status}`);
             const csvText = await response.text();
-            console.log('CSV 原始内容前200字符:', csvText.slice(0,200));
             const rows = parseCSV(csvText);
-            console.log('解析后行数:', rows.length);
             if (rows.length === 0) throw new Error('CSV 解析后无数据行');
             fullData = transformCsvToData(rows);
-            console.log('数据加载成功, 数据点数量:', fullData.data.length);
+            console.log(`数据加载成功, 数据点: ${fullData.data.length}, 国家: ${fullData.countries.length}`);
             return true;
         } catch (err) {
             alert(`数据加载失败: ${err.message}\n请确保 data.csv 文件存在且格式正确。`);
@@ -261,7 +278,7 @@
         }
     }
 
-    // ---------- 以下绘图函数与原始代码完全一致 ----------
+    // ---------- 界面控件 ----------
     function buildCountryCheckboxes() {
         const container = document.getElementById('countryCheckboxes');
         container.innerHTML = '';
@@ -334,6 +351,7 @@
         document.getElementById('endHour').disabled = false;
     }
 
+    // ---------- 图表绘制函数 (与原逻辑一致) ----------
     function drawHourly(year, countries, startDateTime, endDateTime) {
         if (!hourlyChart || !countries.length) return;
         let dataPoints = fullData.data.filter(d => d.year === year);
@@ -342,10 +360,7 @@
             const end = new Date(endDateTime);
             dataPoints = dataPoints.filter(d => new Date(d.datetime) >= start && new Date(d.datetime) <= end);
         }
-        if (dataPoints.length === 0) {
-            hourlyChart.setOption({ series: [] }, true);
-            return;
-        }
+        if (dataPoints.length === 0) { hourlyChart.setOption({ series: [] }, true); return; }
         dataPoints.sort((a,b) => new Date(a.datetime) - new Date(b.datetime));
         const xData = dataPoints.map(d => formatDateTime(new Date(d.datetime)));
         const series = [];
@@ -434,64 +449,6 @@
         }, true);
     }
 
-    const countryNameToCode = {
-        "Germany": "DE", "France": "FR", "Italy": "IT", "Spain": "ES",
-        "Greece": "GR", "Romania": "RO", "Hungary": "HU", "Austria": "AT",
-        "Poland": "PL", "Slovakia": "SK", "Serbia": "RS", "Croatia": "HR",
-        "Bulgaria": "BG", "Netherlands": "NL", "Belgium": "BE", "Czech Republic": "CZ",
-        "Denmark": "DK", "Finland": "FI", "Ireland": "IE", "Lithuania": "LT",
-        "Luxembourg": "LU", "Norway": "NO", "Portugal": "PT", "Slovenia": "SI",
-        "Sweden": "SE", "Switzerland": "CH", "United Kingdom": "GB"
-    };
-
-    async function drawMap(year, month) {
-        if (!map) return;
-        if (geojsonLayer) map.removeLayer(geojsonLayer);
-
-        const avgMap = {};
-        for (let c of fullData.countries) {
-            avgMap[c] = { sum: 0, count: 0 };
-        }
-        fullData.data.forEach(d => {
-            if (d.year === year && d.month === month) {
-                for (let c of fullData.countries) {
-                    const val = d.values[c];
-                    if (val !== null && val !== undefined) {
-                        avgMap[c].sum += val;
-                        avgMap[c].count++;
-                    }
-                }
-            }
-        });
-        const countryPrices = {};
-        for (let c of fullData.countries) {
-            const avg = avgMap[c].count > 0 ? avgMap[c].sum / avgMap[c].count : null;
-            countryPrices[c] = avg !== null ? avg.toFixed(2) + ' €/MWh' : 'N/A';
-        }
-
-        const geojsonUrl = 'https://raw.githubusercontent.com/datasets/geo-countries/master/data/countries.geojson';
-        try {
-            const response = await fetch(geojsonUrl);
-            const geoData = await response.json();
-            geojsonLayer = L.geoJSON(geoData, {
-                style: { color: '#2c3e50', weight: 1.5, fillColor: 'none', fillOpacity: 0 },
-                onEachFeature: (feature, layer) => {
-                    let code = feature.properties?.ISO_A2 || feature.properties?.iso_a2;
-                    if (!code) {
-                        const name = feature.properties?.ADMIN || feature.properties?.name;
-                        if (name && countryNameToCode[name]) code = countryNameToCode[name];
-                    }
-                    const price = countryPrices[code];
-                    if (price) layer.bindTooltip(`${code}: ${price}`, { sticky: true });
-                }
-            }).addTo(map);
-            map.fitBounds(geojsonLayer.getBounds());
-        } catch (err) {
-            console.warn('GeoJSON 加载失败', err);
-            map.setView([50, 10], 4);
-        }
-    }
-
     function drawDiff(year, startDateTime, endDateTime) {
         if (!diffChart) return;
         let dataPoints = fullData.data.filter(d => d.year === year && d.values['HU'] !== null && d.values['DE'] !== null);
@@ -500,10 +457,7 @@
             const end = new Date(endDateTime);
             dataPoints = dataPoints.filter(d => new Date(d.datetime) >= start && new Date(d.datetime) <= end);
         }
-        if (dataPoints.length === 0) {
-            diffChart.setOption({ series: [] }, true);
-            return;
-        }
+        if (dataPoints.length === 0) { diffChart.setOption({ series: [] }, true); return; }
         dataPoints.sort((a,b) => new Date(a.datetime) - new Date(b.datetime));
         const xData = dataPoints.map(d => formatDateTime(new Date(d.datetime)));
         const yData = dataPoints.map(d => d.values['HU'] - d.values['DE']);
@@ -516,6 +470,133 @@
         }, true);
     }
 
+    // ---------- 地图增强: 填充色 (浅红->深红)  + 区域悬停显示价格 ----------
+    const countryNameToCode = {
+        "Germany": "DE", "France": "FR", "Italy": "IT", "Spain": "ES",
+        "Greece": "GR", "Romania": "RO", "Hungary": "HU", "Austria": "AT",
+        "Poland": "PL", "Slovakia": "SK", "Serbia": "RS", "Croatia": "HR",
+        "Bulgaria": "BG", "Netherlands": "NL", "Belgium": "BE", "Czech Republic": "CZ",
+        "Denmark": "DK", "Finland": "FI", "Ireland": "IE", "Lithuania": "LT",
+        "Luxembourg": "LU", "Norway": "NO", "Portugal": "PT", "Slovenia": "SI",
+        "Sweden": "SE", "Switzerland": "CH", "United Kingdom": "GB"
+    };
+    
+    // 根据价格范围返回红色渐变 (浅红 -> 深红)
+    function getColorForPrice(price, minPrice, maxPrice) {
+        if (price === null || price === undefined || isNaN(price)) return "#b0b0b0";  // 无数据灰色
+        if (minPrice === maxPrice) return "#e67e22"; // 单一价格时暖橙色
+        // 归一化 0~1
+        let t = (price - minPrice) / (maxPrice - minPrice);
+        t = Math.min(1, Math.max(0, t));
+        // 浅红 RGB(255,204,204) -> 深红 RGB(204,0,0)
+        const startR = 255, startG = 204, startB = 204;
+        const endR = 204, endG = 0, endB = 0;
+        const r = Math.round(startR + t * (endR - startR));
+        const g = Math.round(startG + t * (endG - startG));
+        const b = Math.round(startB + t * (endB - startB));
+        return `rgb(${r}, ${g}, ${b})`;
+    }
+    
+    // 从feature中获取标准国家代码 (优先ISO_A2，再尝试名称映射)
+    function getCountryCodeFromFeature(feature) {
+        let code = feature.properties?.ISO_A2 || feature.properties?.iso_a2;
+        if (code && code.length === 2) return code;
+        const name = feature.properties?.ADMIN || feature.properties?.name;
+        if (name && countryNameToCode[name]) return countryNameToCode[name];
+        return null;
+    }
+    
+    // 更新地图图例
+    function updateLegend(minPrice, maxPrice) {
+        let legendDiv = document.querySelector('.map-legend');
+        const mapContainer = document.getElementById('europeMap').parentNode;
+        if (!legendDiv) {
+            legendDiv = document.createElement('div');
+            legendDiv.className = 'map-legend';
+            mapContainer.style.position = 'relative';
+            mapContainer.appendChild(legendDiv);
+        }
+        if (minPrice === null || maxPrice === null || minPrice === maxPrice) {
+            legendDiv.innerHTML = `<h4>💰 Price (€/MWh)</h4><div class="gradient-bar"></div><div class="labels"><span>N/A</span><span>N/A</span></div>`;
+        } else {
+            legendDiv.innerHTML = `<h4>💰 Monthly Avg Price</h4><div class="gradient-bar"></div><div class="labels"><span>${minPrice.toFixed(1)} €</span><span>${maxPrice.toFixed(1)} €</span></div>`;
+        }
+    }
+    
+    async function drawMap(year, month) {
+        if (!map) return;
+        if (geojsonLayer) map.removeLayer(geojsonLayer);
+        
+        // 1. 计算所选年月各国平均价格 (基于fullData)
+        const avgMap = {};
+        for (let c of fullData.countries) {
+            avgMap[c] = { sum: 0, count: 0 };
+        }
+        fullData.data.forEach(d => {
+            if (d.year === year && d.month === month) {
+                for (let c of fullData.countries) {
+                    const val = d.values[c];
+                    if (val !== null && val !== undefined && !isNaN(val)) {
+                        avgMap[c].sum += val;
+                        avgMap[c].count++;
+                    }
+                }
+            }
+        });
+        const countryPrices = {};
+        const priceValues = [];
+        for (let c of fullData.countries) {
+            const avg = avgMap[c].count > 0 ? avgMap[c].sum / avgMap[c].count : null;
+            countryPrices[c] = avg;
+            if (avg !== null) priceValues.push(avg);
+        }
+        const minPrice = priceValues.length ? Math.min(...priceValues) : null;
+        const maxPrice = priceValues.length ? Math.max(...priceValues) : null;
+        updateLegend(minPrice, maxPrice);
+        
+        // 2. 加载GeoJSON并应用填充样式 (每个国家内部填色，悬停显示)
+        const geojsonUrl = 'https://raw.githubusercontent.com/datasets/geo-countries/master/data/countries.geojson';
+        try {
+            const response = await fetch(geojsonUrl);
+            const geoData = await response.json();
+            
+            geojsonLayer = L.geoJSON(geoData, {
+                style: (feature) => {
+                    const code = getCountryCodeFromFeature(feature);
+                    let price = null;
+                    if (code && countryPrices[code] !== undefined) price = countryPrices[code];
+                    const fillColor = getColorForPrice(price, minPrice, maxPrice);
+                    return {
+                        color: '#2c3e50',        // 边框深灰
+                        weight: 1.2,
+                        fillColor: fillColor,
+                        fillOpacity: 0.75,
+                        opacity: 0.9
+                    };
+                },
+                onEachFeature: (feature, layer) => {
+                    const code = getCountryCodeFromFeature(feature);
+                    let priceVal = null;
+                    let priceDisplay = 'N/A';
+                    if (code && countryPrices[code] !== undefined && countryPrices[code] !== null) {
+                        priceVal = countryPrices[code];
+                        priceDisplay = priceVal.toFixed(2) + ' €/MWh';
+                    } else {
+                        priceDisplay = 'Data N/A';
+                    }
+                    const displayCode = code ? code : '?';
+                    layer.bindTooltip(`${displayCode}: ${priceDisplay}`, { sticky: true, className: 'country-tooltip' });
+                }
+            }).addTo(map);
+            
+            map.fitBounds(geojsonLayer.getBounds());
+        } catch (err) {
+            console.warn('GeoJSON 加载失败', err);
+            map.setView([50, 10], 4);
+        }
+    }
+
+    // ---------- 全局刷新 ----------
     function refresh() {
         const year = parseInt(document.getElementById('yearSelect').value);
         const selectedCountries = getSelectedCountries();
@@ -527,13 +608,14 @@
         const endDateTime = endDateStr && endHour !== undefined ? getDateTimeFromParts(endDateStr, endHour) : null;
         const month = parseInt(document.getElementById('monthSelect').value);
         if (!year) return;
+        
         drawHourly(year, selectedCountries, startDateTime, endDateTime);
         drawMonthly(year, selectedCountries);
         drawHourlyAvg(year, month, selectedCountries);
-        drawMap(year, month);
+        drawMap(year, month);          // 地图随年月动态填色
         drawDiff(year, startDateTime, endDateTime);
     }
-
+    
     function onYearChange() {
         const year = parseInt(document.getElementById('yearSelect').value);
         if (year) {
@@ -544,32 +626,33 @@
         }
         refresh();
     }
-
+    
+    // ---------- 初始化 ----------
     async function init() {
         const ok = await fetchData();
         if (!ok) return;
         document.getElementById('loadingMsg').style.display = 'none';
         document.getElementById('chartGrid').style.display = 'grid';
-
+        
         hourlyChart = echarts.init(document.getElementById('hourlyChart'));
         monthlyChart = echarts.init(document.getElementById('monthlyChart'));
         hourlyAvgChart = echarts.init(document.getElementById('hourlyAvgChart'));
         diffChart = echarts.init(document.getElementById('diffChart'));
-
+        
         map = L.map('europeMap').setView([50, 10], 4);
         L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> & CartoDB'
         }).addTo(map);
-
+        
         window.addEventListener('resize', () => {
             hourlyChart.resize(); monthlyChart.resize(); hourlyAvgChart.resize(); diffChart.resize();
             if (map) map.invalidateSize();
         });
-
+        
         buildCountryCheckboxes();
         initControls();
         refresh();
-
+        
         document.getElementById('selectAllBtn').addEventListener('click', selectAll);
         document.getElementById('clearAllBtn').addEventListener('click', clearAll);
         document.getElementById('yearSelect').addEventListener('change', onYearChange);
@@ -580,7 +663,7 @@
         document.getElementById('startHour').addEventListener('change', refresh);
         document.getElementById('endHour').addEventListener('change', refresh);
     }
-
+    
     init();
 </script>
 </body>

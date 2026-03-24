@@ -46,7 +46,7 @@
 <div class="container">
     <div class="header">
         <h1>📈 European Electricity Day-Ahead Prices</h1>
-        <p>Data source: CSV file (wide format)</p>
+        <p>Data source: Entsoe </p>
     </div>
     <div class="controls">
         <div class="control-group">
@@ -356,7 +356,7 @@
         hourlyChart.setOption({
             tooltip: { trigger: 'axis', valueFormatter: v => v !== null ? v.toFixed(2) + ' €/MWh' : 'N/A' },
             xAxis: { type: 'category', data: xData, axisLabel: { rotate: 45, interval: 'auto' } },
-            yAxis: { type: 'value', name: 'Price (€/MWh)' },
+            yAxis: { type: 'value', name: '€/MWh' },
             series: series,
             dataZoom: [{ type: 'inside', start: 0, end: 100 }, { type: 'slider', start: 0, end: 100 }]
         }, true);
@@ -391,7 +391,7 @@
         monthlyChart.setOption({
             tooltip: { trigger: 'axis', valueFormatter: v => v !== null ? v.toFixed(2) + ' €/MWh' : 'N/A' },
             xAxis: { type: 'category', data: months },
-            yAxis: { type: 'value', name: 'Average Price (€/MWh)' },
+            yAxis: { type: 'value', name: '€/MWh' },
             series: series
         }, true);
     }
@@ -429,7 +429,7 @@
         hourlyAvgChart.setOption({
             tooltip: { trigger: 'axis', valueFormatter: v => v !== null ? v.toFixed(2) + ' €/MWh' : 'N/A' },
             xAxis: { type: 'category', data: hours },
-            yAxis: { type: 'value', name: 'Average Price (€/MWh)' },
+            yAxis: { type: 'value', name: '€/MWh' },
             series: series
         }, true);
     }
@@ -510,7 +510,7 @@
         diffChart.setOption({
             tooltip: { trigger: 'axis', valueFormatter: v => v !== null ? v.toFixed(2) + ' €/MWh' : 'N/A' },
             xAxis: { type: 'category', data: xData, axisLabel: { rotate: 45, interval: 'auto' } },
-            yAxis: { type: 'value', name: 'Price Difference (HU - DE) (€/MWh)' },
+            yAxis: { type: 'value', name: '€/MWh' },
             series: [{ name: 'HU - DE', type: 'line', data: yData, lineStyle: { width: 1.5 }, areaStyle: { opacity: 0.1 } }],
             dataZoom: [{ type: 'inside', start: 0, end: 100 }, { type: 'slider', start: 0, end: 100 }]
         }, true);

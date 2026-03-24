@@ -41,7 +41,7 @@
             .header { text-align: center; }
         }
         
-        .controls { padding: 20px 30px 0 30px; display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start; background: #fff; border-bottom: 1px solid #e6e9ed; }
+        .controls { padding: 20px 30px 20px 30px; display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start; background: #fff; border-bottom: 1px solid #e6e9ed; }
         .control-group { display: flex; flex-direction: column; gap: 6px; min-width: 220px; flex: 0 0 auto; }
         .control-group label { font-size: 13px; font-weight: 600; color: #2c3e50; }
         select, input, button { padding: 8px 12px; border: 1px solid #ccc; border-radius: 6px; font-size: 14px; width: 100%; }
@@ -100,6 +100,25 @@
             font-size: 12px;
             font-weight: 600;
         }
+        .below-chart-controls {
+            margin-top: 20px;
+            padding: 16px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border: 1px solid #e6e9ed;
+        }
+        .below-chart-controls .control-row {
+            display: flex;
+            gap: 24px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .below-chart-controls label.main-label {
+            font-size: 13px;
+            font-weight: 600;
+            color: #2c3e50;
+            margin-right: 8px;
+        }
     </style>
 </head>
 <body>
@@ -115,20 +134,15 @@
 
     <div class="controls">
         <div class="control-group">
-            <label>📅 Year</label>
-            <select id="yearSelect" disabled></select>
-        </div>
-        <div class="control-group">
             <label>🌍 Countries</label>
             <div class="country-container">
                 <div class="btn-group">
-                    <button id="selectAllBtn" class="btn-small" disabled>Select All</button>
-                    <button id="clearAllBtn" class="btn-small" disabled>Clear All</button>
+                    <button id="selectAllBtn" class="btn-small">Select All</button>
+                    <button id="clearAllBtn" class="btn-small">Clear All</button>
                 </div>
                 <div id="countryCheckboxes" class="checkbox-group"></div>
             </div>
         </div>
-        <!-- Date Range 控件已删除 -->
         <div class="control-group">
             <label>&nbsp;</label>
             <button id="refreshBtn" class="btn-primary" disabled>Refresh Charts</button>
@@ -141,16 +155,24 @@
         <div class="chart-card full-width-card">
             <h3>7-Day Moving Average of Daily Load (Comparison)</h3>
             <div class="year-check-group">
-                <label><input type="checkbox" value="2024" checked> <span style="background:#ffaa00; display:inline-block; width:20px; height:12px; margin-right:4px;"></span> 2024</label>
-                <label><input type="checkbox" value="2025" checked> <span style="background:#000000; display:inline-block; width:20px; height:12px; margin-right:4px;"></span> 2025</label>
-                <label><input type="checkbox" value="2026" checked> <span style="background:#cc0000; display:inline-block; width:20px; height:12px; margin-right:4px;"></span> 2026</label>
+                <label><input type="checkbox" class="year-cb" value="2024" checked> <span style="background:#ffaa00; display:inline-block; width:20px; height:12px; margin-right:4px; border-radius:2px;"></span> 2024</label>
+                <label><input type="checkbox" class="year-cb" value="2025" checked> <span style="background:#000000; display:inline-block; width:20px; height:12px; margin-right:4px; border-radius:2px;"></span> 2025</label>
+                <label><input type="checkbox" class="year-cb" value="2026" checked> <span style="background:#cc0000; display:inline-block; width:20px; height:12px; margin-right:4px; border-radius:2px;"></span> 2026</label>
             </div>
             <div class="weekday-check-group">
-                <label><input type="checkbox" id="showWeekday" checked> <span style="background:#2c6e2c; display:inline-block; width:20px; height:12px; margin-right:4px;"></span> Weekday (Mon-Fri)</label>
-                <label><input type="checkbox" id="showWeekend" checked> <span style="background:#d95f02; display:inline-block; width:20px; height:12px; margin-right:4px;"></span> Weekend (Sat-Sun)</label>
-                <span style="font-size:12px; color:#666;">(When both selected, uses all days)</span>
+                <label><input type="checkbox" id="showWeekday" checked> Weekday (Mon-Fri)</label>
+                <label><input type="checkbox" id="showWeekend" checked> Weekend (Sat-Sun)</label>
+                <span style="font-size:12px; color:#666;">(Both selected = all days; single selection = only that type)</span>
             </div>
             <div id="movingAvgChart" style="height: 400px; width: 100%;"></div>
+            
+            <!-- 年份选择器移到七日平均图下方 -->
+            <div class="below-chart-controls">
+                <div class="control-row">
+                    <label class="main-label">📅 Year (for charts below):</label>
+                    <select id="yearSelect" style="width: 120px;" disabled></select>
+                </div>
+            </div>
         </div>
 
         <div class="chart-card">
@@ -291,14 +313,12 @@
             const cb = document.createElement('input');
             cb.type = 'checkbox';
             cb.value = country;
+            cb.className = 'country-cb';
             cb.checked = (country === 'HU');
-            cb.addEventListener('change', () => refresh());
             label.appendChild(cb);
             label.appendChild(document.createTextNode(country));
             container.appendChild(label);
         });
-        document.getElementById('selectAllBtn').disabled = false;
-        document.getElementById('clearAllBtn').disabled = false;
     }
 
     function getSelectedCountries() {
@@ -309,11 +329,12 @@
     }
 
     function selectAll() {
-        document.querySelectorAll('#countryCheckboxes input').forEach(cb => cb.checked = true);
+        document.querySelectorAll('#countryCheckboxes input[type="checkbox"]').forEach(cb => cb.checked = true);
         refresh();
     }
+    
     function clearAll() {
-        document.querySelectorAll('#countryCheckboxes input').forEach(cb => cb.checked = false);
+        document.querySelectorAll('#countryCheckboxes input[type="checkbox"]').forEach(cb => cb.checked = false);
         refresh();
     }
 
@@ -330,7 +351,11 @@
 
     // 绘图函数（单位 MW）
     function drawHourly(year, countries) {
-        if (!hourlyChart || !countries.length) return;
+        if (!hourlyChart) return;
+        if (!countries.length || !year) { 
+            hourlyChart.setOption({ series: [], xAxis: { data: [] } }, true); 
+            return; 
+        }
         let dataPoints = fullData.data.filter(d => d.year === year);
         if (dataPoints.length === 0) { hourlyChart.setOption({ series: [] }, true); return; }
         dataPoints.sort((a,b) => new Date(a.datetime) - new Date(b.datetime));
@@ -345,6 +370,7 @@
         }
         hourlyChart.setOption({
             tooltip: { trigger: 'axis', valueFormatter: v => v !== null ? v.toFixed(0) + ' MW' : 'N/A' },
+            legend: { data: countries, top: 0 },
             xAxis: { type: 'category', data: xData, axisLabel: { rotate: 45, interval: 'auto' } },
             yAxis: { type: 'value', name: 'MW' },
             series: series,
@@ -353,30 +379,37 @@
     }
 
     function drawMonthly(year, countries) {
-        if (!monthlyChart || !countries.length) return;
-        const monthlyAvg = {};
-        for (let c of countries) monthlyAvg[c] = Array(12).fill(null);
-        const monthlyCount = Array(12).fill(0);
+        if (!monthlyChart) return;
+        if (!countries.length || !year) { 
+            monthlyChart.setOption({ series: [], xAxis: { data: [] } }, true); 
+            return; 
+        }
+        const monthlySum = {};
+        const monthlyCount = {};
+        for (let c of countries) {
+            monthlySum[c] = Array(12).fill(0);
+            monthlyCount[c] = Array(12).fill(0);
+        }
         fullData.data.forEach(d => {
             if (d.year !== year) return;
             const m = d.month - 1;
             for (let c of countries) {
                 const val = d.values[c];
-                if (val !== null && val !== undefined) {
-                    if (monthlyAvg[c][m] === null) monthlyAvg[c][m] = 0;
-                    monthlyAvg[c][m] += val;
-                    monthlyCount[m]++;
+                if (val !== null && val !== undefined && !isNaN(val)) {
+                    monthlySum[c][m] += val;
+                    monthlyCount[c][m]++;
                 }
             }
         });
         const series = [];
         const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
         for (let c of countries) {
-            const yData = monthlyAvg[c].map((sum, idx) => (sum !== null && monthlyCount[idx] > 0) ? sum / monthlyCount[idx] : null);
+            const yData = monthlySum[c].map((sum, idx) => monthlyCount[c][idx] > 0 ? sum / monthlyCount[c][idx] : null);
             series.push({ name: c, type: 'line', data: yData, connectNulls: false, lineStyle: { width: 2 }, symbol: 'circle', symbolSize: 6 });
         }
         monthlyChart.setOption({
             tooltip: { trigger: 'axis', valueFormatter: v => v !== null ? v.toFixed(0) + ' MW' : 'N/A' },
+            legend: { data: countries, top: 0 },
             xAxis: { type: 'category', data: months },
             yAxis: { type: 'value', name: 'MW' },
             series: series
@@ -384,22 +417,25 @@
     }
 
     function drawHourlyAvg(year, month, selectedCountries) {
-        if (!hourlyAvgChart || !year || !month) return;
-        if (!selectedCountries.length) return;
-        const hourlyData = {};
+        if (!hourlyAvgChart) return;
+        if (!year || !month || !selectedCountries.length) {
+            hourlyAvgChart.setOption({ series: [], xAxis: { data: [] } }, true);
+            return;
+        }
+        const hourlySum = {};
+        const hourlyCount = {};
         for (let c of selectedCountries) {
-            hourlyData[c] = Array(24).fill(null);
-            hourlyData[`${c}_count`] = Array(24).fill(0);
+            hourlySum[c] = Array(24).fill(0);
+            hourlyCount[c] = Array(24).fill(0);
         }
         fullData.data.forEach(d => {
             if (d.year === year && d.month === month) {
                 const h = d.hour;
                 for (let c of selectedCountries) {
                     const val = d.values[c];
-                    if (val !== null && val !== undefined) {
-                        if (hourlyData[c][h] === null) hourlyData[c][h] = 0;
-                        hourlyData[c][h] += val;
-                        hourlyData[`${c}_count`][h]++;
+                    if (val !== null && val !== undefined && !isNaN(val)) {
+                        hourlySum[c][h] += val;
+                        hourlyCount[c][h]++;
                     }
                 }
             }
@@ -407,49 +443,60 @@
         const series = [];
         const hours = Array.from({length: 24}, (_,i) => `${i}:00`);
         for (let c of selectedCountries) {
-            const yData = hourlyData[c].map((sum, idx) => (sum !== null && hourlyData[`${c}_count`][idx] > 0) ? sum / hourlyData[`${c}_count`][idx] : null);
+            const yData = hourlySum[c].map((sum, idx) => hourlyCount[c][idx] > 0 ? sum / hourlyCount[c][idx] : null);
             series.push({ name: c, type: 'line', data: yData, connectNulls: false, lineStyle: { width: 2 }, symbol: 'circle', symbolSize: 6 });
         }
         hourlyAvgChart.setOption({
             tooltip: { trigger: 'axis', valueFormatter: v => v !== null ? v.toFixed(0) + ' MW' : 'N/A' },
+            legend: { data: selectedCountries, top: 0 },
             xAxis: { type: 'category', data: hours },
             yAxis: { type: 'value', name: 'MW' },
             series: series
         }, true);
     }
 
-    // 七日滑动平均：支持 weekday/weekend 筛选，年份动态显示
+    // 七日滑动平均：修复版本
     function drawMovingAvg(selectedCountries) {
         if (!movingAvgChart) return;
+        
         // 获取选中年份
-        const yearCheckboxes = document.querySelectorAll('.year-check-group input[type="checkbox"]');
+        const yearCheckboxes = document.querySelectorAll('.year-cb');
         const selectedYears = [];
         yearCheckboxes.forEach(cb => { if (cb.checked) selectedYears.push(parseInt(cb.value)); });
+        
         // 获取 weekday/weekend 选项
         const showWeekday = document.getElementById('showWeekday').checked;
         const showWeekend = document.getElementById('showWeekend').checked;
+        
         // 如果没有任何年份或没有任何日期类型被选中，清空图表
         if (selectedYears.length === 0 || (!showWeekday && !showWeekend) || !selectedCountries.length) {
-            movingAvgChart.setOption({ series: [] }, true);
+            movingAvgChart.setOption({ series: [], xAxis: { data: [] }, legend: { data: [] } }, true);
             return;
         }
 
-        // 为每个年份生成全年的日期序列，并根据 weekday/weekend 过滤
-        const yearData = {}; // year -> { dailyMap: { dateKey: { total, count } } }
-        for (let year of selectedYears) {
+        // 为每个年份生成数据
+        const yearData = {};
+        for (let year of [2024, 2025, 2026]) {
             yearData[year] = { dailyMap: {} };
         }
 
         // 按日期聚合每日平均负荷（所有选中国家平均）
         fullData.data.forEach(d => {
-            if (!selectedYears.includes(d.year)) return;
-            // 获取该日的星期几 (0=周日, 1=周一, ... 6=周六)
+            if (!yearData[d.year]) return;
+            
+            // 获取该日的星期几
             const dateObj = new Date(Date.UTC(d.year, d.month-1, d.day));
-            const dayOfWeek = dateObj.getUTCDay(); // 0=Sunday, 1=Monday, ..., 6=Saturday
-            const isWeekday = (dayOfWeek >= 1 && dayOfWeek <= 5); // 周一到周五
+            const dayOfWeek = dateObj.getUTCDay();
+            const isWeekday = (dayOfWeek >= 1 && dayOfWeek <= 5);
             const isWeekend = (dayOfWeek === 0 || dayOfWeek === 6);
+            
             // 根据选项决定是否包含该日
-            if ((isWeekday && !showWeekday) || (isWeekend && !showWeekend)) return;
+            // 如果两者都选中，则包含全部日期
+            // 如果只选中 weekday，则只包含工作日
+            // 如果只选中 weekend，则只包含周末
+            const includeBoth = showWeekday && showWeekend;
+            const includeThisDay = includeBoth || (isWeekday && showWeekday) || (isWeekend && showWeekend);
+            if (!includeThisDay) return;
 
             let sumForDay = 0;
             let cnt = 0;
@@ -461,6 +508,7 @@
                 }
             }
             if (cnt === 0) return;
+            
             const dateKey = `${d.year}-${String(d.month).padStart(2,'0')}-${String(d.day).padStart(2,'0')}`;
             if (!yearData[d.year].dailyMap[dateKey]) {
                 yearData[d.year].dailyMap[dateKey] = { total: 0, count: 0 };
@@ -469,30 +517,44 @@
             yearData[d.year].dailyMap[dateKey].count += cnt;
         });
 
-        // 为每个年份生成全年日序列并计算7日滑动平均
+        // 生成全年日期序列并计算7日滑动平均
         const series = [];
+        const legendData = [];
         const yearColor = { 2024: '#ffaa00', 2025: '#000000', 2026: '#cc0000' };
-        // 由于 weekday/weekend 过滤会导致某些天缺失，我们需要构建完整的日期轴（全年365/366天），但只对存在的天计算滑动平均
-        // 为了保持滑动平均的连续性，我们将缺失的日负荷设为 null，滑动平均时会忽略 null。
-        for (let year of selectedYears) {
+        
+        // 生成统一的横坐标（基于非闰年的366天，用于对齐）
+        let dateStrings = [];
+        for (let dayOfYear = 1; dayOfYear <= 366; dayOfYear++) {
+            const date = new Date(Date.UTC(2024, 0, dayOfYear)); // 2024是闰年
+            if (date.getUTCFullYear() !== 2024) break;
+            const month = date.getUTCMonth() + 1;
+            const day = date.getUTCDate();
+            dateStrings.push(`${month}/${day}`);
+        }
+        
+        for (let year of [2024, 2025, 2026]) {
+            // 只处理选中的年份
+            if (!selectedYears.includes(year)) continue;
+            
             const isLeap = (year % 4 === 0 && year % 100 !== 0) || (year % 400 === 0);
             const daysInYear = isLeap ? 366 : 365;
-            const dailyLoads = new Array(daysInYear).fill(null);
-            const dateStrings = [];
+            const dailyLoads = new Array(366).fill(null); // 统一用366天
+            
             for (let dayOfYear = 1; dayOfYear <= daysInYear; dayOfYear++) {
                 const date = new Date(Date.UTC(year, 0, dayOfYear));
                 const month = date.getUTCMonth() + 1;
                 const day = date.getUTCDate();
                 const dateKey = `${year}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
-                dateStrings.push(`${month}/${day}`);
+                
                 if (yearData[year].dailyMap[dateKey]) {
                     const item = yearData[year].dailyMap[dateKey];
                     dailyLoads[dayOfYear - 1] = item.total / item.count;
                 }
             }
-            // 计算7日滑动平均（忽略 null，但窗口内只要有值就计算平均）
+            
+            // 计算7日滑动平均
             const windowSize = 7;
-            const movingAvg = new Array(daysInYear).fill(null);
+            const movingAvg = new Array(366).fill(null);
             for (let i = 0; i < daysInYear; i++) {
                 let sum = 0, count = 0;
                 for (let j = Math.max(0, i - windowSize + 1); j <= i; j++) {
@@ -503,20 +565,23 @@
                 }
                 if (count > 0) movingAvg[i] = sum / count;
             }
-            // 根据 weekday/weekend 的选择情况，决定线条样式（实线/虚线）其实两种模式不会同时出现两条线，这里统一用实线即可，因为已经通过数据筛选区分了
-            // 但为了美观，我们仍然用实线
+            
+            legendData.push(String(year));
             series.push({
-                name: `${year}`,
+                name: String(year),
                 type: 'line',
                 data: movingAvg,
-                lineStyle: { width: 2, color: yearColor[year] || '#999' },
+                lineStyle: { width: 2, color: yearColor[year] },
+                itemStyle: { color: yearColor[year] },
                 symbol: 'none',
                 connectNulls: false
             });
         }
+        
         movingAvgChart.setOption({
             tooltip: { trigger: 'axis', valueFormatter: v => v !== null ? v.toFixed(0) + ' MW' : 'N/A' },
-            xAxis: { type: 'category', data: dateStrings, axisLabel: { rotate: 45, interval: 'auto' } },
+            legend: { data: legendData, top: 0 },
+            xAxis: { type: 'category', data: dateStrings, axisLabel: { rotate: 45, interval: 30 } },
             yAxis: { type: 'value', name: 'MW (7-day moving avg)' },
             series: series,
             dataZoom: [{ type: 'inside', start: 0, end: 100 }, { type: 'slider', start: 0, end: 100 }]
@@ -574,6 +639,12 @@
     async function drawMap(year, month) {
         if (!map) return;
         if (geojsonLayer) map.removeLayer(geojsonLayer);
+        
+        if (!year || !month) {
+            updateLegend(null, null);
+            return;
+        }
+        
         const avgMap = {};
         for (let c of fullData.countries) {
             avgMap[c] = { sum: 0, count: 0 };
@@ -633,20 +704,18 @@
 
     // 全局刷新
     function refresh() {
-        const year = parseInt(document.getElementById('yearSelect').value);
+        const year = parseInt(document.getElementById('yearSelect').value) || null;
         const selectedCountries = getSelectedCountries();
-        const month = parseInt(document.getElementById('monthSelect').value);
-        if (!year) return;
+        const month = parseInt(document.getElementById('monthSelect').value) || null;
         
+        // 七日滑动平均图不依赖年份选择器
+        drawMovingAvg(selectedCountries);
+        
+        // 其他图表依赖年份选择器
         drawHourly(year, selectedCountries);
         drawMonthly(year, selectedCountries);
         drawHourlyAvg(year, month, selectedCountries);
         drawMap(year, month);
-        drawMovingAvg(selectedCountries);
-    }
-    
-    function onYearChange() {
-        refresh();
     }
     
     async function init() {
@@ -672,18 +741,26 @@
         
         buildCountryCheckboxes();
         initControls();
-        refresh();
         
+        // 绑定事件
         document.getElementById('selectAllBtn').addEventListener('click', selectAll);
         document.getElementById('clearAllBtn').addEventListener('click', clearAll);
-        document.getElementById('yearSelect').addEventListener('change', onYearChange);
+        document.getElementById('yearSelect').addEventListener('change', refresh);
         document.getElementById('monthSelect').addEventListener('change', refresh);
         document.getElementById('refreshBtn').addEventListener('click', refresh);
+        
+        // 国家复选框变化时刷新
+        document.getElementById('countryCheckboxes').addEventListener('change', refresh);
+        
         // 七日滑动平均年份复选框监听
-        document.querySelectorAll('.year-check-group input').forEach(cb => cb.addEventListener('change', () => refresh()));
+        document.querySelectorAll('.year-cb').forEach(cb => cb.addEventListener('change', () => drawMovingAvg(getSelectedCountries())));
+        
         // Weekday/Weekend 复选框监听
-        document.getElementById('showWeekday').addEventListener('change', () => refresh());
-        document.getElementById('showWeekend').addEventListener('change', () => refresh());
+        document.getElementById('showWeekday').addEventListener('change', () => drawMovingAvg(getSelectedCountries()));
+        document.getElementById('showWeekend').addEventListener('change', () => drawMovingAvg(getSelectedCountries()));
+        
+        // 初始刷新
+        refresh();
     }
     
     init();

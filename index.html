@@ -107,7 +107,7 @@
 <div class="container">
     <div class="header">
         <h1>📈 European Electricity Day-Ahead Prices</h1>
-        <p>Data source: Entsoe | Author: Hanyu Jian</p>
+        <p>Data source: ENTSO-E | Author: Hanyu Jian</p>
         <div class="nav-links">
             <a href="price.html" class="nav-link active">Price Analysis</a>
             <a href="load.html" class="nav-link">Load Analysis</a>
@@ -161,11 +161,11 @@
         </div>
         <div class="control-group">
             <label>&nbsp;</label>
-            <button id="refreshBtn" class="btn-primary" disabled>Refresh Charts</button>
+            <button id="refreshBtn" class="btn-primary" disabled>Refresh</button>
         </div>
     </div>
 
-    <div id="loadingMsg" class="loading">Loading data...</div>
+    <div id="loadingMsg" class="loading">Loading price data from price.csv...</div>
     <div class="chart-grid" style="display: none;" id="chartGrid">
         <div class="chart-card">
             <h3>Hourly Price Trends (multiple countries)</h3>
@@ -202,8 +202,7 @@
         </div>
     </div>
     <div class="info">
-        ⚡ 当前模块: Price | 单位: €/MWh | 地图填色基于月度均价，鼠标悬停显示具体数值。
-    </div>
+     
 </div>
 
 <script>
@@ -239,17 +238,18 @@
         return rows;
     }
 
-    // ---------- 专门解析 "DD/MM/YY HH:MM" 格式日期 ----------
+    // ---------- 解析新版日期格式: "2024/1/1 0:00" 或 "2024/12/31 23:00" 兼容年月日小时分钟 ----------
     function parseDateFromString(dateStr) {
         if (!dateStr) return null;
-        const match = dateStr.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2})\s+(\d{1,2}):(\d{2})$/);
+        // 匹配格式: YYYY/M/D H:MM 或 YYYY/MM/DD HH:MM (支持0填充)
+        const match = dateStr.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})\s+(\d{1,2}):(\d{2})$/);
         if (!match) return null;
-        const day = parseInt(match[1], 10);
+        const year = parseInt(match[1], 10);
         const month = parseInt(match[2], 10);
-        const yearShort = parseInt(match[3], 10);
+        const day = parseInt(match[3], 10);
         const hour = parseInt(match[4], 10);
         const minute = parseInt(match[5], 10);
-        const year = 2000 + yearShort;
+        // 构造ISO格式UTC字符串，与原有逻辑保持一致（时区统一为UTC，避免偏移影响x轴展示一致性）
         const isoStr = `${year}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')}T${String(hour).padStart(2,'0')}:${String(minute).padStart(2,'0')}:00.000Z`;
         return { year, month, day, hour, minute, isoStr };
     }
@@ -264,7 +264,11 @@
             const dtStr = row.Date || row.datetime;
             if (!dtStr) continue;
             const parsed = parseDateFromString(dtStr);
-            if (!parsed) continue;
+            if (!parsed) {
+                // 如果解析失败，跳过该行
+                console.warn("无法解析日期:", dtStr);
+                continue;
+            }
             const year = parsed.year;
             const month = parsed.month;
             const hour = parsed.hour;
@@ -292,19 +296,19 @@
         return { countries, years, data };
     }
 
-    // ---------- 加载 CSV ----------
+    // ---------- 加载 CSV (改为 price.csv) ----------
     async function fetchData() {
         try {
-            const response = await fetch('data.csv');
-            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            const response = await fetch('price.csv');
+            if (!response.ok) throw new Error(`HTTP ${response.status} - 请确保 price.csv 文件存在`);
             const csvText = await response.text();
             const rows = parseCSV(csvText);
-            if (rows.length === 0) throw new Error('CSV 解析后无数据行');
+            if (rows.length === 0) throw new Error('CSV 解析后无数据行，请检查 price.csv 格式');
             fullData = transformCsvToData(rows);
-            console.log(`数据加载成功, 数据点: ${fullData.data.length}, 国家: ${fullData.countries.length}`);
+            console.log(`数据加载成功, 数据点: ${fullData.data.length}, 国家: ${fullData.countries.join(', ')}`);
             return true;
         } catch (err) {
-            alert(`数据加载失败: ${err.message}\n请确保 data.csv 文件存在且格式正确。`);
+            alert(`数据加载失败: ${err.message}\n请确保 price.csv 文件与网页在同一目录，且格式正确。\n期望格式: 第一列为Date (例如2024/1/1 0:00)，后续列为国家代码及价格数值。`);
             console.error(err);
             return false;
         }
@@ -383,7 +387,7 @@
         document.getElementById('endHour').disabled = false;
     }
 
-    // --------------------
+    // -------------------- 绘图函数 --------------------
     function drawHourly(year, countries, startDateTime, endDateTime) {
         if (!hourlyChart || !countries.length) return;
         let dataPoints = fullData.data.filter(d => d.year === year);
@@ -502,7 +506,7 @@
         }, true);
     }
 
-    // ---------- 地图填充色 (浅红->深红)  + 区域悬停显示价格 ----------
+    // ---------- 地图填充色 + 悬停 ----------
     const countryNameToCode = {
         "Germany": "DE", "France": "FR", "Italy": "IT", "Spain": "ES",
         "Greece": "GR", "Romania": "RO", "Hungary": "HU", "Austria": "AT",
@@ -513,14 +517,11 @@
         "Sweden": "SE", "Switzerland": "CH", "United Kingdom": "GB"
     };
     
-    // 根据价格范围返回红色渐变 (浅红 -> 深红)
     function getColorForPrice(price, minPrice, maxPrice) {
-        if (price === null || price === undefined || isNaN(price)) return "#b0b0b0";  // 无数据灰色
-        if (minPrice === maxPrice) return "#e67e22"; // 单一价格时暖橙色
-        // 归一化 0~1
+        if (price === null || price === undefined || isNaN(price)) return "#b0b0b0";
+        if (minPrice === maxPrice) return "#e67e22";
         let t = (price - minPrice) / (maxPrice - minPrice);
         t = Math.min(1, Math.max(0, t));
-        // 浅红 RGB(255,204,204) -> 深红 RGB(204,0,0)
         const startR = 255, startG = 204, startB = 204;
         const endR = 204, endG = 0, endB = 0;
         const r = Math.round(startR + t * (endR - startR));
@@ -529,7 +530,6 @@
         return `rgb(${r}, ${g}, ${b})`;
     }
     
-    // 从feature中获取标准国家代码 (优先ISO_A2，再尝试名称映射)
     function getCountryCodeFromFeature(feature) {
         let code = feature.properties?.ISO_A2 || feature.properties?.iso_a2;
         if (code && code.length === 2) return code;
@@ -538,7 +538,6 @@
         return null;
     }
     
-    // 更新地图图例 (无Emoji)
     function updateLegend(minPrice, maxPrice) {
         let legendDiv = document.querySelector('.map-legend');
         const mapContainer = document.getElementById('europeMap').parentNode;
@@ -559,7 +558,6 @@
         if (!map) return;
         if (geojsonLayer) map.removeLayer(geojsonLayer);
         
-        // 1. 计算所选年月各国平均价格
         const avgMap = {};
         for (let c of fullData.countries) {
             avgMap[c] = { sum: 0, count: 0 };
@@ -586,25 +584,17 @@
         const maxPrice = priceValues.length ? Math.max(...priceValues) : null;
         updateLegend(minPrice, maxPrice);
         
-        // 2. 加载GeoJSON并应用填充样式 (每个国家内部填色，悬停显示)
         const geojsonUrl = 'https://raw.githubusercontent.com/datasets/geo-countries/master/data/countries.geojson';
         try {
             const response = await fetch(geojsonUrl);
             const geoData = await response.json();
-            
             geojsonLayer = L.geoJSON(geoData, {
                 style: (feature) => {
                     const code = getCountryCodeFromFeature(feature);
                     let price = null;
                     if (code && countryPrices[code] !== undefined) price = countryPrices[code];
                     const fillColor = getColorForPrice(price, minPrice, maxPrice);
-                    return {
-                        color: '#2c3e50',        // 边框深灰
-                        weight: 1.2,
-                        fillColor: fillColor,
-                        fillOpacity: 0.75,
-                        opacity: 0.9
-                    };
+                    return { color: '#2c3e50', weight: 1.2, fillColor: fillColor, fillOpacity: 0.75, opacity: 0.9 };
                 },
                 onEachFeature: (feature, layer) => {
                     const code = getCountryCodeFromFeature(feature);
@@ -620,10 +610,8 @@
                     layer.bindTooltip(`${displayCode}: ${priceDisplay}`, { sticky: true, className: 'country-tooltip' });
                 }
             }).addTo(map);
-            
-            // 固定欧洲视角，不自动缩放
         } catch (err) {
-            console.warn('GeoJSON 加载失败', err);
+            console.warn('GeoJSON 加载失败，地图将无边界:', err);
         }
     }
 
@@ -670,7 +658,6 @@
         hourlyAvgChart = echarts.init(document.getElementById('hourlyAvgChart'));
         diffChart = echarts.init(document.getElementById('diffChart'));
         
-        // 初始化地图，固定欧洲视角 (中心约北纬50°，东经10°，缩放级别4)
         map = L.map('europeMap').setView([50, 10], 4);
         L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> & CartoDB'

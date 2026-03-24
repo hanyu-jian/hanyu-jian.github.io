@@ -149,25 +149,30 @@
     function parseCSV(csvText) {
         const lines = csvText.trim().split(/\r?\n/);
         if (lines.length === 0) return [];
-        // 处理表头：去掉可能的空列（因为每行末尾有逗号）
-        const headers = lines[0].split(',').map(h => h.trim()).filter(h => h !== "");
+        // 表头：去掉空列（末尾逗号产生的空字符串）
+        let headers = lines[0].split(',').map(h => h.trim());
+        if (headers[headers.length-1] === "") headers.pop();
         const rows = [];
         for (let i = 1; i < lines.length; i++) {
             const line = lines[i];
             if (!line.trim()) continue;
-            // 分割，保留空值（因为末尾逗号会产生空字符串）
             let values = line.split(',').map(v => v.trim());
-            // 如果最后一个值是空字符串且多余列数，则去掉末尾多余的空值
             while (values.length > headers.length && values[values.length-1] === "") {
                 values.pop();
             }
-            // 确保 values 长度与 headers 一致
-            if (values.length > headers.length) values = values.slice(0, headers.length);
+            if (values.length < headers.length) {
+                values = values.concat(new Array(headers.length - values.length).fill(""));
+            }
             const row = {};
             for (let j = 0; j < headers.length; j++) {
                 let val = values[j] !== undefined ? values[j] : "";
-                const num = parseFloat(val);
-                row[headers[j]] = isNaN(num) ? val : num;
+                // 日期列保留为字符串
+                if (headers[j] === 'Date' || headers[j] === 'datetime') {
+                    row[headers[j]] = val;
+                } else {
+                    const num = parseFloat(val);
+                    row[headers[j]] = isNaN(num) ? val : num;
+                }
             }
             rows.push(row);
         }
@@ -230,6 +235,8 @@
         for (const row of rows) {
             let dtStr = row.Date || row.datetime;
             if (!dtStr) continue;
+            // 确保是字符串
+            dtStr = String(dtStr).trim();
             const dt = parseCustomDate(dtStr);
             if (isNaN(dt)) continue;
 

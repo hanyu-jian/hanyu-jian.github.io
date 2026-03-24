@@ -61,8 +61,8 @@
         .dual-panel { display: flex; gap: 20px; flex-wrap: wrap; }
         .dual-panel > div { flex: 1; min-width: 280px; position: relative; }
         .card-control { margin-bottom: 12px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-        .year-check-group { margin: 12px 0; display: flex; gap: 20px; align-items: center; flex-wrap: wrap; }
-        .year-check-group label { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; font-weight: normal; cursor: pointer; }
+        .year-check-group, .weekday-check-group { margin: 12px 0; display: flex; gap: 20px; align-items: center; flex-wrap: wrap; }
+        .year-check-group label, .weekday-check-group label { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; font-weight: normal; cursor: pointer; }
         .info { padding: 0 30px 20px 30px; font-size: 13px; color: #6c757d; text-align: center; border-top: 1px solid #e6e9ed; margin-top: 10px; }
         @media (max-width: 900px) { .chart-grid { grid-template-columns: 1fr; } .controls { flex-direction: column; align-items: stretch; } .control-group { width: 100%; } .dual-panel { flex-direction: column; } }
         .loading { text-align: center; padding: 20px; color: #666; }
@@ -137,6 +137,22 @@
 
     <div id="loadingMsg" class="loading">Loading load data from load.csv...</div>
     <div class="chart-grid" style="display: none;" id="chartGrid">
+        <!-- 七日滑动平均图 - 放在最上面 -->
+        <div class="chart-card full-width-card">
+            <h3>7-Day Moving Average of Daily Load (Comparison)</h3>
+            <div class="year-check-group">
+                <label><input type="checkbox" value="2024" checked> <span style="background:#ffaa00; display:inline-block; width:20px; height:12px; margin-right:4px;"></span> 2024</label>
+                <label><input type="checkbox" value="2025" checked> <span style="background:#000000; display:inline-block; width:20px; height:12px; margin-right:4px;"></span> 2025</label>
+                <label><input type="checkbox" value="2026" checked> <span style="background:#cc0000; display:inline-block; width:20px; height:12px; margin-right:4px;"></span> 2026</label>
+            </div>
+            <div class="weekday-check-group">
+                <label><input type="checkbox" id="showWeekday" checked> <span style="background:#2c6e2c; display:inline-block; width:20px; height:12px; margin-right:4px;"></span> Weekday (Mon-Fri)</label>
+                <label><input type="checkbox" id="showWeekend" checked> <span style="background:#d95f02; display:inline-block; width:20px; height:12px; margin-right:4px;"></span> Weekend (Sat-Sun)</label>
+                <span style="font-size:12px; color:#666;">(When both selected, uses all days)</span>
+            </div>
+            <div id="movingAvgChart" style="height: 400px; width: 100%;"></div>
+        </div>
+
         <div class="chart-card">
             <h3>Hourly Load Trends (multiple countries)</h3>
             <div id="hourlyChart" class="chart-container"></div>
@@ -165,20 +181,10 @@
                     <div id="europeMap"></div>
                 </div>
             </div>
-            <!-- 七日滑动平均对比图区域（已修改） -->
-            <div style="margin-top: 24px;">
-                <h3 style="font-size: 16px; margin-bottom: 8px;">7-Day Moving Average of Daily Load (Comparison)</h3>
-                <div class="year-check-group">
-                    <label><input type="checkbox" value="2024" checked> <span style="background:#ffaa00; display:inline-block; width:20px; height:12px; margin-right:4px;"></span> 2024</label>
-                    <label><input type="checkbox" value="2025" checked> <span style="background:#000000; display:inline-block; width:20px; height:12px; margin-right:4px;"></span> 2025</label>
-                    <label><input type="checkbox" value="2026" checked> <span style="background:#cc0000; display:inline-block; width:20px; height:12px; margin-right:4px;"></span> 2026</label>
-                </div>
-                <div id="movingAvgChart" style="height: 400px; width: 100%;"></div>
-            </div>
         </div>
     </div>
     <div class="info">
-        ⚡ 当前模块: Load Analysis | 单位: MW | 地图填色基于月度平均负荷，鼠标悬停显示具体数值。七日滑动平均基于每日平均负荷计算，横坐标固定为全年。
+        ⚡ 当前模块: Load Analysis | 单位: MW | 地图填色基于月度平均负荷，鼠标悬停显示具体数值。七日滑动平均基于每日平均负荷计算，横坐标固定为全年，可筛选工作日/周末数据。
     </div>
 </div>
 
@@ -276,7 +282,7 @@
         }
     }
 
-    // 修改国家复选框：默认只选中 HU
+    // 国家复选框：默认只选中 HU
     function buildCountryCheckboxes() {
         const container = document.getElementById('countryCheckboxes');
         container.innerHTML = '';
@@ -285,7 +291,6 @@
             const cb = document.createElement('input');
             cb.type = 'checkbox';
             cb.value = country;
-            // 默认只选中 "HU"
             cb.checked = (country === 'HU');
             cb.addEventListener('change', () => refresh());
             label.appendChild(cb);
@@ -321,8 +326,6 @@
         document.getElementById('refreshBtn').disabled = false;
         if (fullData.years.length) yearSelect.value = fullData.years[0];
         monthSelect.value = "1";
-        const year = parseInt(yearSelect.value);
-        // 不再设置日期范围控件，因为它们已被删除
     }
 
     // 绘图函数（单位 MW）
@@ -415,19 +418,24 @@
         }, true);
     }
 
-    // 七日滑动平均：固定横坐标全年（1月1日～12月31日）
+    // 七日滑动平均：支持 weekday/weekend 筛选，年份动态显示
     function drawMovingAvg(selectedCountries) {
         if (!movingAvgChart) return;
-        const checkboxes = document.querySelectorAll('.year-check-group input[type="checkbox"]');
+        // 获取选中年份
+        const yearCheckboxes = document.querySelectorAll('.year-check-group input[type="checkbox"]');
         const selectedYears = [];
-        checkboxes.forEach(cb => { if (cb.checked) selectedYears.push(parseInt(cb.value)); });
-        if (selectedYears.length === 0 || !selectedCountries.length) {
+        yearCheckboxes.forEach(cb => { if (cb.checked) selectedYears.push(parseInt(cb.value)); });
+        // 获取 weekday/weekend 选项
+        const showWeekday = document.getElementById('showWeekday').checked;
+        const showWeekend = document.getElementById('showWeekend').checked;
+        // 如果没有任何年份或没有任何日期类型被选中，清空图表
+        if (selectedYears.length === 0 || (!showWeekday && !showWeekend) || !selectedCountries.length) {
             movingAvgChart.setOption({ series: [] }, true);
             return;
         }
 
-        // 为每个年份生成全年的日期序列
-        const yearData = {}; // year -> { dateMap: { dateKey: dailyAvgLoad }, 以及完整序列 }
+        // 为每个年份生成全年的日期序列，并根据 weekday/weekend 过滤
+        const yearData = {}; // year -> { dailyMap: { dateKey: { total, count } } }
         for (let year of selectedYears) {
             yearData[year] = { dailyMap: {} };
         }
@@ -435,6 +443,14 @@
         // 按日期聚合每日平均负荷（所有选中国家平均）
         fullData.data.forEach(d => {
             if (!selectedYears.includes(d.year)) return;
+            // 获取该日的星期几 (0=周日, 1=周一, ... 6=周六)
+            const dateObj = new Date(Date.UTC(d.year, d.month-1, d.day));
+            const dayOfWeek = dateObj.getUTCDay(); // 0=Sunday, 1=Monday, ..., 6=Saturday
+            const isWeekday = (dayOfWeek >= 1 && dayOfWeek <= 5); // 周一到周五
+            const isWeekend = (dayOfWeek === 0 || dayOfWeek === 6);
+            // 根据选项决定是否包含该日
+            if ((isWeekday && !showWeekday) || (isWeekend && !showWeekend)) return;
+
             let sumForDay = 0;
             let cnt = 0;
             for (let c of selectedCountries) {
@@ -456,13 +472,13 @@
         // 为每个年份生成全年日序列并计算7日滑动平均
         const series = [];
         const yearColor = { 2024: '#ffaa00', 2025: '#000000', 2026: '#cc0000' };
+        // 由于 weekday/weekend 过滤会导致某些天缺失，我们需要构建完整的日期轴（全年365/366天），但只对存在的天计算滑动平均
+        // 为了保持滑动平均的连续性，我们将缺失的日负荷设为 null，滑动平均时会忽略 null。
         for (let year of selectedYears) {
-            // 获取该年的天数（闰年处理）
             const isLeap = (year % 4 === 0 && year % 100 !== 0) || (year % 400 === 0);
             const daysInYear = isLeap ? 366 : 365;
-            const dailyLoads = new Array(daysInYear).fill(null); // 每日平均负荷
+            const dailyLoads = new Array(daysInYear).fill(null);
             const dateStrings = [];
-            // 构建完整日期数组
             for (let dayOfYear = 1; dayOfYear <= daysInYear; dayOfYear++) {
                 const date = new Date(Date.UTC(year, 0, dayOfYear));
                 const month = date.getUTCMonth() + 1;
@@ -474,7 +490,7 @@
                     dailyLoads[dayOfYear - 1] = item.total / item.count;
                 }
             }
-            // 计算7日滑动平均
+            // 计算7日滑动平均（忽略 null，但窗口内只要有值就计算平均）
             const windowSize = 7;
             const movingAvg = new Array(daysInYear).fill(null);
             for (let i = 0; i < daysInYear; i++) {
@@ -487,6 +503,8 @@
                 }
                 if (count > 0) movingAvg[i] = sum / count;
             }
+            // 根据 weekday/weekend 的选择情况，决定线条样式（实线/虚线）其实两种模式不会同时出现两条线，这里统一用实线即可，因为已经通过数据筛选区分了
+            // 但为了美观，我们仍然用实线
             series.push({
                 name: `${year}`,
                 type: 'line',
@@ -495,19 +513,17 @@
                 symbol: 'none',
                 connectNulls: false
             });
-            movingAvgChart.setOption({
-                tooltip: { trigger: 'axis', valueFormatter: v => v !== null ? v.toFixed(0) + ' MW' : 'N/A' },
-                xAxis: { type: 'category', data: dateStrings, axisLabel: { rotate: 45, interval: 'auto' } },
-                yAxis: { type: 'value', name: 'MW (7-day moving avg)' },
-                series: series,
-                dataZoom: [{ type: 'inside', start: 0, end: 100 }, { type: 'slider', start: 0, end: 100 }]
-            }, true);
         }
-        if (series.length === 0) movingAvgChart.setOption({ series: [] }, true);
-        else movingAvgChart.setOption({ series: series }, true);
+        movingAvgChart.setOption({
+            tooltip: { trigger: 'axis', valueFormatter: v => v !== null ? v.toFixed(0) + ' MW' : 'N/A' },
+            xAxis: { type: 'category', data: dateStrings, axisLabel: { rotate: 45, interval: 'auto' } },
+            yAxis: { type: 'value', name: 'MW (7-day moving avg)' },
+            series: series,
+            dataZoom: [{ type: 'inside', start: 0, end: 100 }, { type: 'slider', start: 0, end: 100 }]
+        }, true);
     }
 
-    // 地图相关（与之前相同，单位 MW）
+    // 地图相关（单位 MW）
     const countryNameToCode = {
         "Germany": "DE", "France": "FR", "Italy": "IT", "Spain": "ES",
         "Greece": "GR", "Romania": "RO", "Hungary": "HU", "Austria": "AT",
@@ -630,8 +646,6 @@
     }
     
     function onYearChange() {
-        const year = parseInt(document.getElementById('yearSelect').value);
-        // 不再设置日期范围
         refresh();
     }
     
@@ -665,8 +679,11 @@
         document.getElementById('yearSelect').addEventListener('change', onYearChange);
         document.getElementById('monthSelect').addEventListener('change', refresh);
         document.getElementById('refreshBtn').addEventListener('click', refresh);
-        // 七日滑动平均复选框监听
+        // 七日滑动平均年份复选框监听
         document.querySelectorAll('.year-check-group input').forEach(cb => cb.addEventListener('change', () => refresh()));
+        // Weekday/Weekend 复选框监听
+        document.getElementById('showWeekday').addEventListener('change', () => refresh());
+        document.getElementById('showWeekend').addEventListener('change', () => refresh());
     }
     
     init();

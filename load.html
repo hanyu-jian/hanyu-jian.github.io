@@ -51,8 +51,6 @@
         .btn-small:hover { background: #dee2e6; }
         .checkbox-group { display: grid; grid-template-columns: repeat(auto-fill, minmax(70px, auto)); gap: 6px 12px; max-height: 160px; overflow-y: auto; }
         .checkbox-group label { display: inline-flex; align-items: center; gap: 4px; font-weight: normal; font-size: 13px; cursor: pointer; margin: 0; padding: 0; white-space: nowrap; }
-        .datetime-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-        .datetime-row select, .datetime-row input { flex: 1; min-width: 100px; }
         .btn-primary { background: #2c3e50; color: white; border: none; cursor: pointer; transition: 0.2s; }
         .btn-primary:hover { background: #1e2b38; }
         .chart-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(500px, 1fr)); gap: 24px; padding: 24px 30px; }
@@ -108,7 +106,7 @@
 <div class="container">
     <div class="header">
         <h1>⚡ European Electricity Load Dashboard</h1>
-        <p>Data source: ENTSO-E (load.csv) | Unit: MW | Author: Hanyu Jian</p>
+        <p>Data source: ENTSO-E | Author: Hanyu Jian</p>
         <div class="nav-links">
             <a href="price.html" class="nav-link">Price Analysis</a>
             <a href="load.html" class="nav-link active">Load Analysis</a>
@@ -130,36 +128,7 @@
                 <div id="countryCheckboxes" class="checkbox-group"></div>
             </div>
         </div>
-        <div class="control-group">
-            <label>⏱️ Date Range (hourly)</label>
-            <div class="datetime-row">
-                <input type="date" id="startDate" disabled>
-                <select id="startHour" disabled>
-                    <option value="0">00:00</option>
-                    <option value="1">01:00</option><option value="2">02:00</option><option value="3">03:00</option>
-                    <option value="4">04:00</option><option value="5">05:00</option><option value="6">06:00</option>
-                    <option value="7">07:00</option><option value="8">08:00</option><option value="9">09:00</option>
-                    <option value="10">10:00</option><option value="11">11:00</option><option value="12">12:00</option>
-                    <option value="13">13:00</option><option value="14">14:00</option><option value="15">15:00</option>
-                    <option value="16">16:00</option><option value="17">17:00</option><option value="18">18:00</option>
-                    <option value="19">19:00</option><option value="20">20:00</option><option value="21">21:00</option>
-                    <option value="22">22:00</option><option value="23">23:00</option>
-                </select>
-                <span>to</span>
-                <input type="date" id="endDate" disabled>
-                <select id="endHour" disabled>
-                    <option value="0">00:00</option>
-                    <option value="1">01:00</option><option value="2">02:00</option><option value="3">03:00</option>
-                    <option value="4">04:00</option><option value="5">05:00</option><option value="6">06:00</option>
-                    <option value="7">07:00</option><option value="8">08:00</option><option value="9">09:00</option>
-                    <option value="10">10:00</option><option value="11">11:00</option><option value="12">12:00</option>
-                    <option value="13">13:00</option><option value="14">14:00</option><option value="15">15:00</option>
-                    <option value="16">16:00</option><option value="17">17:00</option><option value="18">18:00</option>
-                    <option value="19">19:00</option><option value="20">20:00</option><option value="21">21:00</option>
-                    <option value="22">22:00</option><option value="23">23:00</option>
-                </select>
-            </div>
-        </div>
+        <!-- Date Range 控件已删除 -->
         <div class="control-group">
             <label>&nbsp;</label>
             <button id="refreshBtn" class="btn-primary" disabled>Refresh Charts</button>
@@ -196,20 +165,20 @@
                     <div id="europeMap"></div>
                 </div>
             </div>
-            <!-- 新增七日滑动平均对比图区域 -->
+            <!-- 七日滑动平均对比图区域（已修改） -->
             <div style="margin-top: 24px;">
                 <h3 style="font-size: 16px; margin-bottom: 8px;">7-Day Moving Average of Daily Load (Comparison)</h3>
                 <div class="year-check-group">
-                    <label><input type="checkbox" value="2024" checked> <span style="background:#ffaa00; display:inline-block; width:20px; height:12px; margin-right:4px;"></span> 2024 (Yellow)</label>
-                    <label><input type="checkbox" value="2025" checked> <span style="background:#000000; display:inline-block; width:20px; height:12px; margin-right:4px;"></span> 2025 (Black)</label>
-                    <label><input type="checkbox" value="2026" checked> <span style="background:#cc0000; display:inline-block; width:20px; height:12px; margin-right:4px;"></span> 2026 (Red)</label>
+                    <label><input type="checkbox" value="2024" checked> <span style="background:#ffaa00; display:inline-block; width:20px; height:12px; margin-right:4px;"></span> 2024</label>
+                    <label><input type="checkbox" value="2025" checked> <span style="background:#000000; display:inline-block; width:20px; height:12px; margin-right:4px;"></span> 2025</label>
+                    <label><input type="checkbox" value="2026" checked> <span style="background:#cc0000; display:inline-block; width:20px; height:12px; margin-right:4px;"></span> 2026</label>
                 </div>
                 <div id="movingAvgChart" style="height: 400px; width: 100%;"></div>
             </div>
         </div>
     </div>
     <div class="info">
-        ⚡ 当前模块: Load Analysis | 单位: MW | 地图填色基于月度平均负荷，鼠标悬停显示具体数值。七日滑动平均基于每日平均负荷计算。
+        ⚡ 当前模块: Load Analysis | 单位: MW | 地图填色基于月度平均负荷，鼠标悬停显示具体数值。七日滑动平均基于每日平均负荷计算，横坐标固定为全年。
     </div>
 </div>
 
@@ -219,7 +188,7 @@
     let map = null;
     let geojsonLayer = null;
 
-    // 解析 CSV（同 price 版本）
+    // 解析 CSV
     function parseCSV(csvText) {
         const lines = csvText.trim().split(/\r?\n/);
         if (lines.length === 0) return [];
@@ -240,7 +209,7 @@
         return rows;
     }
 
-    // 日期解析：支持 "2024/1/1 0:00" 格式
+    // 日期解析："2024/1/1 0:00"
     function parseDateFromString(dateStr) {
         if (!dateStr) return null;
         const match = dateStr.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})\s+(\d{1,2}):(\d{2})$/);
@@ -307,6 +276,7 @@
         }
     }
 
+    // 修改国家复选框：默认只选中 HU
     function buildCountryCheckboxes() {
         const container = document.getElementById('countryCheckboxes');
         container.innerHTML = '';
@@ -315,7 +285,8 @@
             const cb = document.createElement('input');
             cb.type = 'checkbox';
             cb.value = country;
-            cb.checked = true;
+            // 默认只选中 "HU"
+            cb.checked = (country === 'HU');
             cb.addEventListener('change', () => refresh());
             label.appendChild(cb);
             label.appendChild(document.createTextNode(country));
@@ -332,22 +303,13 @@
         return selected;
     }
 
-    function selectAll() { document.querySelectorAll('#countryCheckboxes input').forEach(cb => cb.checked = true); refresh(); }
-    function clearAll() { document.querySelectorAll('#countryCheckboxes input').forEach(cb => cb.checked = false); refresh(); }
-
-    function getDateTimeFromParts(dateStr, hour) {
-        if (!dateStr || hour === undefined) return null;
-        const d = new Date(dateStr);
-        d.setHours(parseInt(hour), 0, 0, 0);
-        return d;
+    function selectAll() {
+        document.querySelectorAll('#countryCheckboxes input').forEach(cb => cb.checked = true);
+        refresh();
     }
-
-    function formatDateTime(date) {
-        const year = date.getFullYear();
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const day = String(date.getDate()).padStart(2, '0');
-        const hour = String(date.getHours()).padStart(2, '0');
-        return `${year}/${month}/${day} ${hour}:00`;
+    function clearAll() {
+        document.querySelectorAll('#countryCheckboxes input').forEach(cb => cb.checked = false);
+        refresh();
     }
 
     function initControls() {
@@ -360,30 +322,19 @@
         if (fullData.years.length) yearSelect.value = fullData.years[0];
         monthSelect.value = "1";
         const year = parseInt(yearSelect.value);
-        if (year) {
-            document.getElementById('startDate').value = `${year}-01-01`;
-            document.getElementById('endDate').value = `${year}-12-31`;
-            document.getElementById('startHour').value = "0";
-            document.getElementById('endHour').value = "23";
-        }
-        document.getElementById('startDate').disabled = false;
-        document.getElementById('endDate').disabled = false;
-        document.getElementById('startHour').disabled = false;
-        document.getElementById('endHour').disabled = false;
+        // 不再设置日期范围控件，因为它们已被删除
     }
 
-    // 绘图函数（单位改为 MW）
-    function drawHourly(year, countries, startDateTime, endDateTime) {
+    // 绘图函数（单位 MW）
+    function drawHourly(year, countries) {
         if (!hourlyChart || !countries.length) return;
         let dataPoints = fullData.data.filter(d => d.year === year);
-        if (startDateTime && endDateTime) {
-            const start = new Date(startDateTime);
-            const end = new Date(endDateTime);
-            dataPoints = dataPoints.filter(d => new Date(d.datetime) >= start && new Date(d.datetime) <= end);
-        }
         if (dataPoints.length === 0) { hourlyChart.setOption({ series: [] }, true); return; }
         dataPoints.sort((a,b) => new Date(a.datetime) - new Date(b.datetime));
-        const xData = dataPoints.map(d => formatDateTime(new Date(d.datetime)));
+        const xData = dataPoints.map(d => {
+            const dt = new Date(d.datetime);
+            return `${dt.getFullYear()}/${String(dt.getMonth()+1).padStart(2,'0')}/${String(dt.getDate()).padStart(2,'0')} ${String(dt.getHours()).padStart(2,'0')}:00`;
+        });
         const series = [];
         for (let country of countries) {
             const yData = dataPoints.map(d => d.values[country] !== undefined ? d.values[country] : null);
@@ -464,34 +415,26 @@
         }, true);
     }
 
-    // 七日滑动平均：基于每日平均负荷，计算7日滑动平均，按年份绘制
-    function computeDailyAverageLoad() {
-        // 按日期聚合所有国家的平均负荷（我们取所有选中国家的平均，还是单独？这里为了对比年份，我们将所有国家平均，或者只取第一个？为简化，对每个国家单独绘制会太乱。需求是“七日滑动平均”对比年份，可能是指某个代表性国家或全欧洲平均。这里采用所有选中国家的平均负荷作为代表（避免过多线条）。也可以让用户选择国家，但需求没明确。为简洁，我们取所有选中国家的平均负荷作为“系统负荷”展示。
-        // 但更合理：展示每个年份的滑动平均曲线，每条曲线代表该年份所有选中国家的平均负荷的日平均滑动平均。
-        // 我们将在 movingAvgChart 中为每个选中年份绘制一条线。
-        // 首先按日期聚合所有选中国家的平均负荷（每小时），然后计算每日平均。
-        // 为了性能，预先计算所有年份所有日期的每日平均负荷（基于所有国家，但刷新时传入 selectedCountries）。
-        // 在 drawMovingAvg 中动态计算。
-    }
-
+    // 七日滑动平均：固定横坐标全年（1月1日～12月31日）
     function drawMovingAvg(selectedCountries) {
         if (!movingAvgChart) return;
-        // 获取用户勾选的年份
         const checkboxes = document.querySelectorAll('.year-check-group input[type="checkbox"]');
         const selectedYears = [];
         checkboxes.forEach(cb => { if (cb.checked) selectedYears.push(parseInt(cb.value)); });
-        if (selectedYears.length === 0) {
+        if (selectedYears.length === 0 || !selectedCountries.length) {
             movingAvgChart.setOption({ series: [] }, true);
             return;
         }
-        if (!selectedCountries.length) return;
 
-        // 按日期聚合每个国家的每日平均负荷，再对选中国家平均（简单平均）
-        // 先按日期聚合：dateKey -> { 各国家总负荷, 小时数 }，再平均
-        const dailyData = {}; // key: "YYYY-MM-DD", value: { year, month, day, sumLoad: 总负荷(各国家求和), countHours }
+        // 为每个年份生成全年的日期序列
+        const yearData = {}; // year -> { dateMap: { dateKey: dailyAvgLoad }, 以及完整序列 }
+        for (let year of selectedYears) {
+            yearData[year] = { dailyMap: {} };
+        }
+
+        // 按日期聚合每日平均负荷（所有选中国家平均）
         fullData.data.forEach(d => {
-            // 只考虑选中国家
-            let valid = false;
+            if (!selectedYears.includes(d.year)) return;
             let sumForDay = 0;
             let cnt = 0;
             for (let c of selectedCountries) {
@@ -499,79 +442,72 @@
                 if (val !== null && val !== undefined && !isNaN(val)) {
                     sumForDay += val;
                     cnt++;
-                    valid = true;
                 }
             }
-            if (!valid) return;
+            if (cnt === 0) return;
             const dateKey = `${d.year}-${String(d.month).padStart(2,'0')}-${String(d.day).padStart(2,'0')}`;
-            if (!dailyData[dateKey]) {
-                dailyData[dateKey] = { year: d.year, month: d.month, day: d.day, totalLoad: 0, hoursCount: 0 };
+            if (!yearData[d.year].dailyMap[dateKey]) {
+                yearData[d.year].dailyMap[dateKey] = { total: 0, count: 0 };
             }
-            dailyData[dateKey].totalLoad += sumForDay;
-            dailyData[dateKey].hoursCount += cnt;
+            yearData[d.year].dailyMap[dateKey].total += sumForDay;
+            yearData[d.year].dailyMap[dateKey].count += cnt;
         });
-        // 转换为日平均负荷（所有选中国家平均）
-        const dailyAvgList = [];
-        for (let dateKey in dailyData) {
-            const item = dailyData[dateKey];
-            const avgLoad = item.totalLoad / item.hoursCount; // 平均负荷 (MW)
-            dailyAvgList.push({
-                date: new Date(dateKey),
-                year: item.year,
-                load: avgLoad
-            });
-        }
-        dailyAvgList.sort((a,b) => a.date - b.date);
-        // 计算7日滑动平均
-        const window = 7;
-        const movingAvgByYear = {};
-        for (let i = 0; i < dailyAvgList.length; i++) {
-            const item = dailyAvgList[i];
-            const year = item.year;
-            if (!movingAvgByYear[year]) movingAvgByYear[year] = { dates: [], values: [] };
-            // 计算滑动平均
-            let sum = 0, count = 0;
-            for (let j = Math.max(0, i - window + 1); j <= i; j++) {
-                sum += dailyAvgList[j].load;
-                count++;
-            }
-            const avg = sum / count;
-            movingAvgByYear[year].dates.push(item.date);
-            movingAvgByYear[year].values.push(avg);
-        }
-        // 绘制
+
+        // 为每个年份生成全年日序列并计算7日滑动平均
         const series = [];
         const yearColor = { 2024: '#ffaa00', 2025: '#000000', 2026: '#cc0000' };
         for (let year of selectedYears) {
-            if (movingAvgByYear[year]) {
-                const dates = movingAvgByYear[year].dates;
-                const values = movingAvgByYear[year].values;
-                // 格式化 xAxis 为 月/日
-                const xData = dates.map(d => `${d.getMonth()+1}/${d.getDate()}`);
-                series.push({
-                    name: `${year}`,
-                    type: 'line',
-                    data: values,
-                    lineStyle: { width: 2, color: yearColor[year] || '#999' },
-                    symbol: 'none',
-                    connectNulls: false
-                });
-                movingAvgChart.setOption({
-                    tooltip: { trigger: 'axis', valueFormatter: v => v !== null ? v.toFixed(0) + ' MW' : 'N/A' },
-                    xAxis: { type: 'category', data: xData, axisLabel: { rotate: 45, interval: 'auto' } },
-                    yAxis: { type: 'value', name: 'MW (7-day moving avg)' },
-                    series: series,
-                    dataZoom: [{ type: 'inside', start: 0, end: 100 }, { type: 'slider', start: 0, end: 100 }]
-                }, true);
-            } else {
-                // 没有数据时，移除该系列
+            // 获取该年的天数（闰年处理）
+            const isLeap = (year % 4 === 0 && year % 100 !== 0) || (year % 400 === 0);
+            const daysInYear = isLeap ? 366 : 365;
+            const dailyLoads = new Array(daysInYear).fill(null); // 每日平均负荷
+            const dateStrings = [];
+            // 构建完整日期数组
+            for (let dayOfYear = 1; dayOfYear <= daysInYear; dayOfYear++) {
+                const date = new Date(Date.UTC(year, 0, dayOfYear));
+                const month = date.getUTCMonth() + 1;
+                const day = date.getUTCDate();
+                const dateKey = `${year}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+                dateStrings.push(`${month}/${day}`);
+                if (yearData[year].dailyMap[dateKey]) {
+                    const item = yearData[year].dailyMap[dateKey];
+                    dailyLoads[dayOfYear - 1] = item.total / item.count;
+                }
             }
+            // 计算7日滑动平均
+            const windowSize = 7;
+            const movingAvg = new Array(daysInYear).fill(null);
+            for (let i = 0; i < daysInYear; i++) {
+                let sum = 0, count = 0;
+                for (let j = Math.max(0, i - windowSize + 1); j <= i; j++) {
+                    if (dailyLoads[j] !== null) {
+                        sum += dailyLoads[j];
+                        count++;
+                    }
+                }
+                if (count > 0) movingAvg[i] = sum / count;
+            }
+            series.push({
+                name: `${year}`,
+                type: 'line',
+                data: movingAvg,
+                lineStyle: { width: 2, color: yearColor[year] || '#999' },
+                symbol: 'none',
+                connectNulls: false
+            });
+            movingAvgChart.setOption({
+                tooltip: { trigger: 'axis', valueFormatter: v => v !== null ? v.toFixed(0) + ' MW' : 'N/A' },
+                xAxis: { type: 'category', data: dateStrings, axisLabel: { rotate: 45, interval: 'auto' } },
+                yAxis: { type: 'value', name: 'MW (7-day moving avg)' },
+                series: series,
+                dataZoom: [{ type: 'inside', start: 0, end: 100 }, { type: 'slider', start: 0, end: 100 }]
+            }, true);
         }
         if (series.length === 0) movingAvgChart.setOption({ series: [] }, true);
         else movingAvgChart.setOption({ series: series }, true);
     }
 
-    // 地图相关（与 price 类似，但颜色改为橙色渐变，单位 MW）
+    // 地图相关（与之前相同，单位 MW）
     const countryNameToCode = {
         "Germany": "DE", "France": "FR", "Italy": "IT", "Spain": "ES",
         "Greece": "GR", "Romania": "RO", "Hungary": "HU", "Austria": "AT",
@@ -587,8 +523,8 @@
         if (minLoad === maxLoad) return "#ffaa66";
         let t = (load - minLoad) / (maxLoad - minLoad);
         t = Math.min(1, Math.max(0, t));
-        const startR = 255, startG = 247, startB = 230; // 浅橙色
-        const endR = 255, endG = 140, endB = 0;        // 深橙色
+        const startR = 255, startG = 247, startB = 230;
+        const endR = 255, endG = 140, endB = 0;
         const r = Math.round(startR + t * (endR - startR));
         const g = Math.round(startG + t * (endG - startG));
         const b = Math.round(startB + t * (endB - startB));
@@ -619,10 +555,9 @@
         }
     }
     
-    async function drawMap(year, month, selectedCountries) {
+    async function drawMap(year, month) {
         if (!map) return;
         if (geojsonLayer) map.removeLayer(geojsonLayer);
-        // 计算月度平均负荷
         const avgMap = {};
         for (let c of fullData.countries) {
             avgMap[c] = { sum: 0, count: 0 };
@@ -680,34 +615,23 @@
         }
     }
 
-    // 刷新所有图表
+    // 全局刷新
     function refresh() {
         const year = parseInt(document.getElementById('yearSelect').value);
         const selectedCountries = getSelectedCountries();
-        const startDateStr = document.getElementById('startDate').value;
-        const startHour = document.getElementById('startHour').value;
-        const endDateStr = document.getElementById('endDate').value;
-        const endHour = document.getElementById('endHour').value;
-        const startDateTime = startDateStr && startHour !== undefined ? getDateTimeFromParts(startDateStr, startHour) : null;
-        const endDateTime = endDateStr && endHour !== undefined ? getDateTimeFromParts(endDateStr, endHour) : null;
         const month = parseInt(document.getElementById('monthSelect').value);
         if (!year) return;
         
-        drawHourly(year, selectedCountries, startDateTime, endDateTime);
+        drawHourly(year, selectedCountries);
         drawMonthly(year, selectedCountries);
         drawHourlyAvg(year, month, selectedCountries);
-        drawMap(year, month, selectedCountries);
-        drawMovingAvg(selectedCountries);  // 新增七日滑动平均
+        drawMap(year, month);
+        drawMovingAvg(selectedCountries);
     }
     
     function onYearChange() {
         const year = parseInt(document.getElementById('yearSelect').value);
-        if (year) {
-            document.getElementById('startDate').value = `${year}-01-01`;
-            document.getElementById('endDate').value = `${year}-12-31`;
-            document.getElementById('startHour').value = "0";
-            document.getElementById('endHour').value = "23";
-        }
+        // 不再设置日期范围
         refresh();
     }
     
@@ -741,11 +665,7 @@
         document.getElementById('yearSelect').addEventListener('change', onYearChange);
         document.getElementById('monthSelect').addEventListener('change', refresh);
         document.getElementById('refreshBtn').addEventListener('click', refresh);
-        document.getElementById('startDate').addEventListener('change', refresh);
-        document.getElementById('endDate').addEventListener('change', refresh);
-        document.getElementById('startHour').addEventListener('change', refresh);
-        document.getElementById('endHour').addEventListener('change', refresh);
-        // 监听七日滑动平均年份复选框变化
+        // 七日滑动平均复选框监听
         document.querySelectorAll('.year-check-group input').forEach(cb => cb.addEventListener('change', () => refresh()));
     }
     

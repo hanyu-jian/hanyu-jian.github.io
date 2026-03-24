@@ -5,181 +5,41 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>European Electricity Price Dashboard</title>
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: #f0f2f5;
-            padding: 20px;
-        }
-        .container {
-            max-width: 1600px;
-            margin: 0 auto;
-            background: white;
-            border-radius: 12px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-            overflow: hidden;
-        }
-        .header {
-            background: #2c3e50;
-            color: white;
-            padding: 20px 30px;
-        }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f2f5; padding: 20px; }
+        .container { max-width: 1600px; margin: 0 auto; background: white; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); overflow: hidden; }
+        .header { background: #2c3e50; color: white; padding: 20px 30px; }
         .header h1 { font-size: 24px; font-weight: 500; }
         .header p { font-size: 14px; opacity: 0.9; margin-top: 6px; }
-        .controls {
-            padding: 20px 30px 0 30px;
-            display: flex;
-            flex-wrap: wrap;
-            gap: 24px;
-            align-items: flex-start;
-            background: #fff;
-            border-bottom: 1px solid #e6e9ed;
-        }
-        .control-group {
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-            min-width: 220px;
-            flex: 0 0 auto;
-        }
-        .control-group label {
-            font-size: 13px;
-            font-weight: 600;
-            color: #2c3e50;
-        }
-        select, input, button {
-            padding: 8px 12px;
-            border: 1px solid #ccc;
-            border-radius: 6px;
-            font-size: 14px;
-            width: 100%;
-        }
-        .country-container {
-            border: 1px solid #ccc;
-            border-radius: 6px;
-            padding: 8px;
-            background: #fafafa;
-        }
-        .btn-group {
-            display: flex;
-            gap: 8px;
-            margin-bottom: 8px;
-        }
-        .btn-small {
-            padding: 4px 8px;
-            font-size: 12px;
-            background: #e9ecef;
-            border: 1px solid #ccc;
-            cursor: pointer;
-            border-radius: 4px;
-            width: auto;
-        }
-        .btn-small:hover {
-            background: #dee2e6;
-        }
-        .checkbox-group {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(70px, auto));
-            gap: 6px 12px;
-            max-height: 160px;
-            overflow-y: auto;
-        }
-        .checkbox-group label {
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
-            font-weight: normal;
-            font-size: 13px;
-            cursor: pointer;
-            margin: 0;
-            padding: 0;
-            white-space: nowrap;
-        }
-        .datetime-row {
-            display: flex;
-            gap: 8px;
-            align-items: center;
-            flex-wrap: wrap;
-        }
-        .datetime-row select, .datetime-row input {
-            flex: 1;
-            min-width: 100px;
-        }
-        .btn-primary {
-            background: #2c3e50;
-            color: white;
-            border: none;
-            cursor: pointer;
-        }
+        .controls { padding: 20px 30px 0 30px; display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start; background: #fff; border-bottom: 1px solid #e6e9ed; }
+        .control-group { display: flex; flex-direction: column; gap: 6px; min-width: 220px; flex: 0 0 auto; }
+        .control-group label { font-size: 13px; font-weight: 600; color: #2c3e50; }
+        select, input, button { padding: 8px 12px; border: 1px solid #ccc; border-radius: 6px; font-size: 14px; width: 100%; }
+        .country-container { border: 1px solid #ccc; border-radius: 6px; padding: 8px; background: #fafafa; }
+        .btn-group { display: flex; gap: 8px; margin-bottom: 8px; }
+        .btn-small { padding: 4px 8px; font-size: 12px; background: #e9ecef; border: 1px solid #ccc; cursor: pointer; border-radius: 4px; width: auto; }
+        .btn-small:hover { background: #dee2e6; }
+        .checkbox-group { display: grid; grid-template-columns: repeat(auto-fill, minmax(70px, auto)); gap: 6px 12px; max-height: 160px; overflow-y: auto; }
+        .checkbox-group label { display: inline-flex; align-items: center; gap: 4px; font-weight: normal; font-size: 13px; cursor: pointer; margin: 0; padding: 0; white-space: nowrap; }
+        .datetime-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+        .datetime-row select, .datetime-row input { flex: 1; min-width: 100px; }
+        .btn-primary { background: #2c3e50; color: white; border: none; cursor: pointer; }
         .btn-primary:hover { background: #1e2b38; }
-        .chart-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
-            gap: 24px;
-            padding: 24px 30px;
-        }
-        .chart-card {
-            background: #fff;
-            border-radius: 8px;
-            border: 1px solid #e6e9ed;
-            padding: 16px;
-        }
-        .chart-card h3 {
-            font-size: 18px;
-            margin-bottom: 12px;
-            font-weight: 500;
-            color: #2c3e50;
-            border-left: 4px solid #2c3e50;
-            padding-left: 12px;
-        }
+        .chart-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(500px, 1fr)); gap: 24px; padding: 24px 30px; }
+        .chart-card { background: #fff; border-radius: 8px; border: 1px solid #e6e9ed; padding: 16px; }
+        .chart-card h3 { font-size: 18px; margin-bottom: 12px; font-weight: 500; color: #2c3e50; border-left: 4px solid #2c3e50; padding-left: 12px; }
         .chart-container { width: 100%; height: 400px; }
-        .full-width-card {
-            grid-column: 1 / -1;
-        }
-        .dual-panel {
-            display: flex;
-            gap: 20px;
-            flex-wrap: wrap;
-        }
-        .dual-panel > div {
-            flex: 1;
-            min-width: 280px;
-        }
-        .card-control {
-            margin-bottom: 12px;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            flex-wrap: wrap;
-        }
-        .info {
-            padding: 0 30px 20px 30px;
-            font-size: 13px;
-            color: #6c757d;
-            text-align: center;
-            border-top: 1px solid #e6e9ed;
-            margin-top: 10px;
-        }
-        @media (max-width: 900px) {
-            .chart-grid { grid-template-columns: 1fr; }
-            .controls { flex-direction: column; align-items: stretch; }
-            .control-group { width: 100%; }
-            .dual-panel { flex-direction: column; }
-        }
-        .loading {
-            text-align: center;
-            padding: 20px;
-            color: #666;
-        }
-        #europeMap {
-            height: 400px;
-            background: #f0f2f5;
-            border-radius: 8px;
-        }
+        .full-width-card { grid-column: 1 / -1; }
+        .dual-panel { display: flex; gap: 20px; flex-wrap: wrap; }
+        .dual-panel > div { flex: 1; min-width: 280px; }
+        .card-control { margin-bottom: 12px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+        .info { padding: 0 30px 20px 30px; font-size: 13px; color: #6c757d; text-align: center; border-top: 1px solid #e6e9ed; margin-top: 10px; }
+        @media (max-width: 900px) { .chart-grid { grid-template-columns: 1fr; } .controls { flex-direction: column; align-items: stretch; } .control-group { width: 100%; } .dual-panel { flex-direction: column; } }
+        .loading { text-align: center; padding: 20px; color: #666; }
+        #europeMap { height: 400px; background: #f0f2f5; border-radius: 8px; }
     </style>
 </head>
 <body>
@@ -285,38 +145,46 @@
     let map = null;
     let geojsonLayer = null;
 
-    // ---------- 手动解析日期字符串 "DD/MM/YY HH:MM" ----------
+    // ---------- 手动解析 CSV ----------
+    function parseCSV(csvText) {
+        const lines = csvText.trim().split(/\r?\n/);
+        if (lines.length === 0) return [];
+        const headers = lines[0].split(',').map(h => h.trim());
+        const rows = [];
+        for (let i = 1; i < lines.length; i++) {
+            const line = lines[i];
+            if (!line.trim()) continue;
+            const values = line.split(',').map(v => v.trim());
+            const row = {};
+            for (let j = 0; j < headers.length; j++) {
+                let val = values[j] !== undefined ? values[j] : '';
+                const num = parseFloat(val);
+                row[headers[j]] = isNaN(num) ? val : num;
+            }
+            rows.push(row);
+        }
+        return rows;
+    }
+
     function parseCustomDate(dateStr) {
-        // 格式: "01/01/24 00:00"
         const [datePart, timePart] = dateStr.split(' ');
+        if (!datePart || !timePart) return new Date(NaN);
         const [day, month, yearShort] = datePart.split('/');
         const [hour, minute] = timePart.split(':');
-        // 将两位年份转为四位 (假设2000-2099)
         const year = 2000 + parseInt(yearShort);
         return new Date(year, parseInt(month) - 1, parseInt(day), parseInt(hour), parseInt(minute), 0);
     }
 
-    // ---------- 从宽格式 CSV 转换数据 ----------
     function transformCsvToData(rows) {
         const data = [];
         const countriesSet = new Set();
         const yearsSet = new Set();
 
-        for (let row of rows) {
-            // 兼容 "Date" 和 "datetime" 列名
+        for (const row of rows) {
             let dtStr = row.Date || row.datetime;
             if (!dtStr) continue;
-
-            let dt;
-            try {
-                // 尝试标准解析，如果失败则用自定义解析
-                dt = new Date(dtStr);
-                if (isNaN(dt)) {
-                    dt = parseCustomDate(dtStr);
-                }
-            } catch (e) {
-                dt = parseCustomDate(dtStr);
-            }
+            let dt = new Date(dtStr);
+            if (isNaN(dt)) dt = parseCustomDate(dtStr);
             if (isNaN(dt)) continue;
 
             const year = dt.getFullYear();
@@ -325,17 +193,13 @@
             yearsSet.add(year);
 
             const values = {};
-            for (let [key, val] of Object.entries(row)) {
-                // 跳过日期列和空键（CSV末尾逗号可能产生空key）
-                if (key === 'Date' || key === 'datetime' || key === '') continue;
-                // 确保价格是数字
-                if (val !== null && val !== undefined && !isNaN(parseFloat(val))) {
-                    const numVal = parseFloat(val);
-                    values[key] = numVal;
+            for (const [key, val] of Object.entries(row)) {
+                if (key === 'Date' || key === 'datetime') continue;
+                if (typeof val === 'number' && !isNaN(val)) {
+                    values[key] = val;
                     countriesSet.add(key);
                 }
             }
-
             data.push({
                 datetime: dt.toISOString(),
                 year: year,
@@ -344,40 +208,29 @@
                 values: values
             });
         }
-
         const countries = Array.from(countriesSet).sort();
         const years = Array.from(yearsSet).sort();
-
         return { countries, years, data };
     }
 
-    // ---------- 读取 CSV 文件 ----------
     async function fetchData() {
         try {
-            const csvUrl = 'data.csv';   // 请确保文件名一致
-            const response = await fetch(csvUrl);
+            const response = await fetch('data.csv');
             if (!response.ok) throw new Error(`HTTP ${response.status}`);
             const csvText = await response.text();
-
-            const result = Papa.parse(csvText, {
-                header: true,
-                dynamicTyping: true,
-                skipEmptyLines: true
-            });
-            if (result.errors.length) {
-                console.warn('CSV parsing warnings:', result.errors);
-            }
-
-            fullData = transformCsvToData(result.data);
-            console.log('Loaded data:', fullData);  // 调试用，可删除
+            const rows = parseCSV(csvText);
+            if (rows.length === 0) throw new Error('CSV 解析后无数据行');
+            fullData = transformCsvToData(rows);
+            console.log('数据加载成功:', fullData);
             return true;
         } catch (err) {
-            alert(`Failed to load data: ${err.message}\nMake sure data.csv exists in the same folder.`);
+            alert(`数据加载失败: ${err.message}\n请确保 data.csv 文件存在且格式正确。`);
+            console.error(err);
             return false;
         }
     }
 
-    // ---------- 国家复选框 ----------
+    // ---------- 以下所有函数与原代码完全相同 ----------
     function buildCountryCheckboxes() {
         const container = document.getElementById('countryCheckboxes');
         container.innerHTML = '';
@@ -412,7 +265,6 @@
         refresh();
     }
 
-    // ---------- 辅助函数 ----------
     function getDateTimeFromParts(dateStr, hour) {
         if (!dateStr || hour === undefined) return null;
         const d = new Date(dateStr);
@@ -428,7 +280,6 @@
         return `${year}/${month}/${day} ${hour}:00`;
     }
 
-    // ---------- 初始化控件 ----------
     function initControls() {
         const yearSelect = document.getElementById('yearSelect');
         const monthSelect = document.getElementById('monthSelect');
@@ -452,7 +303,6 @@
         document.getElementById('endHour').disabled = false;
     }
 
-    // ---------- 绘图函数 ----------
     function drawHourly(year, countries, startDateTime, endDateTime) {
         if (!hourlyChart || !countries.length) return;
         let dataPoints = fullData.data.filter(d => d.year === year);
@@ -553,7 +403,6 @@
         }, true);
     }
 
-    // 国家名称到 ISO 代码的映射（根据需要添加）
     const countryNameToCode = {
         "Germany": "DE", "France": "FR", "Italy": "IT", "Spain": "ES",
         "Greece": "GR", "Romania": "RO", "Hungary": "HU", "Austria": "AT",
@@ -568,7 +417,6 @@
         if (!map) return;
         if (geojsonLayer) map.removeLayer(geojsonLayer);
 
-        // 计算每月平均价格
         const avgMap = {};
         for (let c of fullData.countries) {
             avgMap[c] = { sum: 0, count: 0 };
@@ -590,7 +438,6 @@
             countryPrices[c] = avg !== null ? avg.toFixed(2) + ' €/MWh' : 'N/A';
         }
 
-        // 加载 GeoJSON
         const geojsonUrl = 'https://raw.githubusercontent.com/datasets/geo-countries/master/data/countries.geojson';
         try {
             const response = await fetch(geojsonUrl);
@@ -598,23 +445,18 @@
             geojsonLayer = L.geoJSON(geoData, {
                 style: { color: '#2c3e50', weight: 1.5, fillColor: 'none', fillOpacity: 0 },
                 onEachFeature: (feature, layer) => {
-                    // 尝试获取 ISO_A2 代码
                     let code = feature.properties?.ISO_A2 || feature.properties?.iso_a2;
                     if (!code) {
                         const name = feature.properties?.ADMIN || feature.properties?.name;
-                        if (name && countryNameToCode[name]) {
-                            code = countryNameToCode[name];
-                        }
+                        if (name && countryNameToCode[name]) code = countryNameToCode[name];
                     }
                     const price = countryPrices[code];
-                    if (price) {
-                        layer.bindTooltip(`${code}: ${price}`, { sticky: true });
-                    }
+                    if (price) layer.bindTooltip(`${code}: ${price}`, { sticky: true });
                 }
             }).addTo(map);
             map.fitBounds(geojsonLayer.getBounds());
         } catch (err) {
-            console.warn('Failed to load GeoJSON, using fallback', err);
+            console.warn('GeoJSON 加载失败', err);
             map.setView([50, 10], 4);
         }
     }
@@ -643,7 +485,6 @@
         }, true);
     }
 
-    // ---------- 刷新所有图表 ----------
     function refresh() {
         const year = parseInt(document.getElementById('yearSelect').value);
         const selectedCountries = getSelectedCountries();
@@ -673,7 +514,6 @@
         refresh();
     }
 
-    // ---------- 初始化 ----------
     async function init() {
         const ok = await fetchData();
         if (!ok) return;

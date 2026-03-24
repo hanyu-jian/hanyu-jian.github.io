@@ -175,43 +175,45 @@
         return new Date(year, parseInt(month) - 1, parseInt(day), parseInt(hour), parseInt(minute), 0);
     }
 
-    function transformCsvToData(rows) {
-        const data = [];
-        const countriesSet = new Set();
-        const yearsSet = new Set();
+function transformCsvToData(rows) {
+    const data = [];
+    const countriesSet = new Set();
+    const yearsSet = new Set();
 
-        for (const row of rows) {
-            let dtStr = row.Date || row.datetime;
-            if (!dtStr) continue;
-            let dt = new Date(dtStr);
-            if (isNaN(dt)) dt = parseCustomDate(dtStr);
-            if (isNaN(dt)) continue;
+    for (const row of rows) {
+        let dtStr = row.Date || row.datetime;
+        if (!dtStr) continue;
+        dtStr = dtStr.trim();  // 移除前后空格
+        // 直接使用自定义解析，避免浏览器默认解析的歧义
+        const dt = parseCustomDate(dtStr);
+        if (isNaN(dt)) continue;
 
-            const year = dt.getFullYear();
-            const month = dt.getMonth() + 1;
-            const hour = dt.getHours();
-            yearsSet.add(year);
+        const year = dt.getFullYear();
+        const month = dt.getMonth() + 1;
+        const hour = dt.getHours();
+        yearsSet.add(year);
 
-            const values = {};
-            for (const [key, val] of Object.entries(row)) {
-                if (key === 'Date' || key === 'datetime') continue;
-                if (typeof val === 'number' && !isNaN(val)) {
-                    values[key] = val;
-                    countriesSet.add(key);
-                }
+        const values = {};
+        for (const [key, val] of Object.entries(row)) {
+            if (key === 'Date' || key === 'datetime') continue;
+            if (typeof val === 'number' && !isNaN(val)) {
+                values[key] = val;
+                countriesSet.add(key);
             }
-            data.push({
-                datetime: dt.toISOString(),
-                year: year,
-                month: month,
-                hour: hour,
-                values: values
-            });
         }
-        const countries = Array.from(countriesSet).sort();
-        const years = Array.from(yearsSet).sort();
-        return { countries, years, data };
+        data.push({
+            datetime: dt.toISOString(),
+            year: year,
+            month: month,
+            hour: hour,
+            values: values
+        });
     }
+
+    const countries = Array.from(countriesSet).sort();
+    const years = Array.from(yearsSet).sort();
+    return { countries, years, data };
+}
 
     async function fetchData() {
         try {

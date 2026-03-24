@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>European Electricity Price Dashboard </title>
+    <title>European Electricity Price Dashboard</title>
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -40,7 +40,7 @@
         @media (max-width: 900px) { .chart-grid { grid-template-columns: 1fr; } .controls { flex-direction: column; align-items: stretch; } .control-group { width: 100%; } .dual-panel { flex-direction: column; } }
         .loading { text-align: center; padding: 20px; color: #666; }
         #europeMap { height: 400px; background: #eef2f5; border-radius: 8px; transition: all 0.2s; }
-        /* 地图图例样式 */
+
         .map-legend {
             position: absolute;
             bottom: 20px;
@@ -147,6 +147,7 @@
             <div class="dual-panel">
                 <div>
                     <div class="card-control">
+                        <label>📆 Month for left chart:</label>
                         <select id="monthSelect" disabled>
                             <option value="">-- Select month --</option>
                             <option value="1">January</option><option value="2">February</option><option value="3">March</option>
@@ -169,7 +170,7 @@
         </div>
     </div>
     <div class="info">
-        
+         
     </div>
 </div>
 
@@ -350,7 +351,7 @@
         document.getElementById('endHour').disabled = false;
     }
 
-    // ---------- 图表绘制函数 (与原逻辑一致) ----------
+    // --------------------
     function drawHourly(year, countries, startDateTime, endDateTime) {
         if (!hourlyChart || !countries.length) return;
         let dataPoints = fullData.data.filter(d => d.year === year);
@@ -469,7 +470,7 @@
         }, true);
     }
 
-    // ---------- 地图增强: 填充色 (浅红->深红)  + 区域悬停显示价格 ----------
+    // ---------- 地图填充色 (浅红->深红)  + 区域悬停显示价格 ----------
     const countryNameToCode = {
         "Germany": "DE", "France": "FR", "Italy": "IT", "Spain": "ES",
         "Greece": "GR", "Romania": "RO", "Hungary": "HU", "Austria": "AT",
@@ -505,7 +506,7 @@
         return null;
     }
     
-    // 更新地图图例
+    // 更新地图图例 (无Emoji)
     function updateLegend(minPrice, maxPrice) {
         let legendDiv = document.querySelector('.map-legend');
         const mapContainer = document.getElementById('europeMap').parentNode;
@@ -516,9 +517,9 @@
             mapContainer.appendChild(legendDiv);
         }
         if (minPrice === null || maxPrice === null || minPrice === maxPrice) {
-            legendDiv.innerHTML = `<h4>💰 Price (€/MWh)</h4><div class="gradient-bar"></div><div class="labels"><span>N/A</span><span>N/A</span></div>`;
+            legendDiv.innerHTML = `<h4>Monthly Avg Price (€/MWh)</h4><div class="gradient-bar"></div><div class="labels"><span>N/A</span><span>N/A</span></div>`;
         } else {
-            legendDiv.innerHTML = `<h4>💰 Monthly Avg Price</h4><div class="gradient-bar"></div><div class="labels"><span>${minPrice.toFixed(1)} €</span><span>${maxPrice.toFixed(1)} €</span></div>`;
+            legendDiv.innerHTML = `<h4>Monthly Avg Price (€/MWh)</h4><div class="gradient-bar"></div><div class="labels"><span>${minPrice.toFixed(1)} €</span><span>${maxPrice.toFixed(1)} €</span></div>`;
         }
     }
     
@@ -526,7 +527,7 @@
         if (!map) return;
         if (geojsonLayer) map.removeLayer(geojsonLayer);
         
-        // 1. 计算所选年月各国平均价格 (基于fullData)
+        // 1. 计算所选年月各国平均价格
         const avgMap = {};
         for (let c of fullData.countries) {
             avgMap[c] = { sum: 0, count: 0 };
@@ -588,10 +589,12 @@
                 }
             }).addTo(map);
             
-            map.fitBounds(geojsonLayer.getBounds());
+            // 固定欧洲视角，不自动缩放，保持用户之前可能调整过的视图，但首次初始化已设置欧洲中心
+            // 如果希望每次刷新都回到欧洲中心，可取消注释以下行，但用户要求固定欧洲，这里选择不自动缩放。
+            // 为了更好的体验，若地图刚初始化（无手动缩放），可以保持欧洲视图，但为防止GeoJSON加载后漂移，不做fitBounds。
         } catch (err) {
             console.warn('GeoJSON 加载失败', err);
-            map.setView([50, 10], 4);
+            // 即使GeoJSON失败，地图依然显示欧洲底图
         }
     }
 
@@ -611,7 +614,7 @@
         drawHourly(year, selectedCountries, startDateTime, endDateTime);
         drawMonthly(year, selectedCountries);
         drawHourlyAvg(year, month, selectedCountries);
-        drawMap(year, month);          // 地图随年月动态填色
+        drawMap(year, month);          // 地图随年月动态填色，且不改变地图视野
         drawDiff(year, startDateTime, endDateTime);
     }
     
@@ -638,6 +641,7 @@
         hourlyAvgChart = echarts.init(document.getElementById('hourlyAvgChart'));
         diffChart = echarts.init(document.getElementById('diffChart'));
         
+        // 初始化地图，固定欧洲视角 (中心约北纬50°，东经10°，缩放级别4)
         map = L.map('europeMap').setView([50, 10], 4);
         L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> & CartoDB'

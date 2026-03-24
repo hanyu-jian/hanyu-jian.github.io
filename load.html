@@ -63,6 +63,8 @@
         .dual-panel { display: flex; gap: 20px; flex-wrap: wrap; }
         .dual-panel > div { flex: 1; min-width: 280px; position: relative; }
         .card-control { margin-bottom: 12px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+        .year-check-group { margin: 12px 0; display: flex; gap: 20px; align-items: center; flex-wrap: wrap; }
+        .year-check-group label { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; font-weight: normal; cursor: pointer; }
         .info { padding: 0 30px 20px 30px; font-size: 13px; color: #6c757d; text-align: center; border-top: 1px solid #e6e9ed; margin-top: 10px; }
         @media (max-width: 900px) { .chart-grid { grid-template-columns: 1fr; } .controls { flex-direction: column; align-items: stretch; } .control-group { width: 100%; } .dual-panel { flex-direction: column; } }
         .loading { text-align: center; padding: 20px; color: #666; }
@@ -77,7 +79,7 @@
             box-shadow: 0 2px 8px rgba(0,0,0,0.15);
             font-size: 12px;
             font-weight: 500;
-            border-left: 3px solid #cc0000;
+            border-left: 3px solid #ff8c00;
             z-index: 1000;
             pointer-events: none;
             backdrop-filter: blur(2px);
@@ -85,7 +87,7 @@
         .map-legend .gradient-bar {
             width: 160px;
             height: 14px;
-            background: linear-gradient(to right, #ffcccc, #cc0000);
+            background: linear-gradient(to right, #fff7e6, #ff8c00);
             border-radius: 20px;
             margin: 6px 0 4px;
         }
@@ -106,7 +108,7 @@
 <div class="container">
     <div class="header">
         <h1>⚡ European Electricity Load Dashboard</h1>
-        <p>Data source: Entsoe | Author: Hanyu Jian</p>
+        <p>Data source: ENTSO-E (load.csv) | Unit: MW | Author: Hanyu Jian</p>
         <div class="nav-links">
             <a href="price.html" class="nav-link">Price Analysis</a>
             <a href="load.html" class="nav-link active">Load Analysis</a>
@@ -164,7 +166,7 @@
         </div>
     </div>
 
-    <div id="loadingMsg" class="loading">Loading data...</div>
+    <div id="loadingMsg" class="loading">Loading load data from load.csv...</div>
     <div class="chart-grid" style="display: none;" id="chartGrid">
         <div class="chart-card">
             <h3>Hourly Load Trends (multiple countries)</h3>
@@ -194,18 +196,20 @@
                     <div id="europeMap"></div>
                 </div>
             </div>
-        </div>
-        <!-- 新增：7日滑动平均对比图 -->
-        <div class="chart-card full-width-card">
-            <h3>7-Day Moving Average of Daily Average Load (2025 vs 2026)</h3>
-            <div id="movingAvgChart" class="chart-container"></div>
-            <div style="font-size:12px; color:#666; margin-top:8px; text-align:center;">
-                ⚡ 基于所选国家平均负荷计算每日平均值，再进行7日滑动平均。2025年黑色曲线，2026年红色曲线。
+            <!-- 新增七日滑动平均对比图区域 -->
+            <div style="margin-top: 24px;">
+                <h3 style="font-size: 16px; margin-bottom: 8px;">7-Day Moving Average of Daily Load (Comparison)</h3>
+                <div class="year-check-group">
+                    <label><input type="checkbox" value="2024" checked> <span style="background:#ffaa00; display:inline-block; width:20px; height:12px; margin-right:4px;"></span> 2024 (Yellow)</label>
+                    <label><input type="checkbox" value="2025" checked> <span style="background:#000000; display:inline-block; width:20px; height:12px; margin-right:4px;"></span> 2025 (Black)</label>
+                    <label><input type="checkbox" value="2026" checked> <span style="background:#cc0000; display:inline-block; width:20px; height:12px; margin-right:4px;"></span> 2026 (Red)</label>
+                </div>
+                <div id="movingAvgChart" style="height: 400px; width: 100%;"></div>
             </div>
         </div>
     </div>
     <div class="info">
-        ⚡ 当前模块: Load | 单位: MW | 地图填色基于月度平均负荷，鼠标悬停显示具体数值。
+        ⚡ 当前模块: Load Analysis | 单位: MW | 地图填色基于月度平均负荷，鼠标悬停显示具体数值。七日滑动平均基于每日平均负荷计算。
     </div>
 </div>
 
@@ -215,54 +219,45 @@
     let map = null;
     let geojsonLayer = null;
 
-    // ---------- 手动解析 CSV，处理末尾逗号 ----------
+    // 解析 CSV（同 price 版本）
     function parseCSV(csvText) {
         const lines = csvText.trim().split(/\r?\n/);
         if (lines.length === 0) return [];
         let headers = lines[0].split(',').map(h => h.trim());
-        while (headers.length > 0 && headers[headers.length-1] === "") {
-            headers.pop();
-        }
+        while (headers.length > 0 && headers[headers.length-1] === "") headers.pop();
         const rows = [];
         for (let i = 1; i < lines.length; i++) {
             const line = lines[i];
             if (!line.trim()) continue;
             let values = line.split(',').map(v => v.trim());
-            while (values.length > headers.length && values[values.length-1] === "") {
-                values.pop();
-            }
+            while (values.length > headers.length && values[values.length-1] === "") values.pop();
             if (values.length > headers.length) values = values.slice(0, headers.length);
             while (values.length < headers.length) values.push("");
             const row = {};
-            for (let j = 0; j < headers.length; j++) {
-                row[headers[j]] = values[j];
-            }
+            for (let j = 0; j < headers.length; j++) row[headers[j]] = values[j];
             rows.push(row);
         }
         return rows;
     }
 
-    // ---------- 专门解析 "DD/MM/YY HH:MM" 格式日期 ----------
+    // 日期解析：支持 "2024/1/1 0:00" 格式
     function parseDateFromString(dateStr) {
         if (!dateStr) return null;
-        const match = dateStr.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2})\s+(\d{1,2}):(\d{2})$/);
+        const match = dateStr.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})\s+(\d{1,2}):(\d{2})$/);
         if (!match) return null;
-        const day = parseInt(match[1], 10);
+        const year = parseInt(match[1], 10);
         const month = parseInt(match[2], 10);
-        const yearShort = parseInt(match[3], 10);
+        const day = parseInt(match[3], 10);
         const hour = parseInt(match[4], 10);
         const minute = parseInt(match[5], 10);
-        const year = 2000 + yearShort;
         const isoStr = `${year}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')}T${String(hour).padStart(2,'0')}:${String(minute).padStart(2,'0')}:00.000Z`;
         return { year, month, day, hour, minute, isoStr };
     }
 
-    // ---------- 转换 rows 到 fullData ----------
     function transformCsvToData(rows) {
         const data = [];
         const countriesSet = new Set();
         const yearsSet = new Set();
-
         for (const row of rows) {
             const dtStr = row.Date || row.datetime;
             if (!dtStr) continue;
@@ -272,7 +267,6 @@
             const month = parsed.month;
             const hour = parsed.hour;
             yearsSet.add(year);
-
             const values = {};
             for (const [key, val] of Object.entries(row)) {
                 if (key === 'Date' || key === 'datetime') continue;
@@ -286,6 +280,7 @@
                 datetime: parsed.isoStr,
                 year: year,
                 month: month,
+                day: parsed.day,
                 hour: hour,
                 values: values
             });
@@ -295,25 +290,23 @@
         return { countries, years, data };
     }
 
-    // ---------- 加载 CSV ----------
     async function fetchData() {
         try {
             const response = await fetch('load.csv');
-            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            if (!response.ok) throw new Error(`HTTP ${response.status} - 请确保 load.csv 文件存在`);
             const csvText = await response.text();
             const rows = parseCSV(csvText);
             if (rows.length === 0) throw new Error('CSV 解析后无数据行');
             fullData = transformCsvToData(rows);
-            console.log(`负荷数据加载成功, 数据点: ${fullData.data.length}, 国家: ${fullData.countries.length}`);
+            console.log(`负荷数据加载成功, 数据点: ${fullData.data.length}, 国家: ${fullData.countries.join(', ')}`);
             return true;
         } catch (err) {
-            alert(`数据加载失败: ${err.message}\n请确保 load.csv 文件存在且格式正确。`);
+            alert(`数据加载失败: ${err.message}\n请确保 load.csv 文件与网页在同一目录，格式: Date,国家1,国家2,...`);
             console.error(err);
             return false;
         }
     }
 
-    // ---------- 界面控件 ----------
     function buildCountryCheckboxes() {
         const container = document.getElementById('countryCheckboxes');
         container.innerHTML = '';
@@ -339,14 +332,8 @@
         return selected;
     }
 
-    function selectAll() {
-        document.querySelectorAll('#countryCheckboxes input[type="checkbox"]').forEach(cb => cb.checked = true);
-        refresh();
-    }
-    function clearAll() {
-        document.querySelectorAll('#countryCheckboxes input[type="checkbox"]').forEach(cb => cb.checked = false);
-        refresh();
-    }
+    function selectAll() { document.querySelectorAll('#countryCheckboxes input').forEach(cb => cb.checked = true); refresh(); }
+    function clearAll() { document.querySelectorAll('#countryCheckboxes input').forEach(cb => cb.checked = false); refresh(); }
 
     function getDateTimeFromParts(dateStr, hour) {
         if (!dateStr || hour === undefined) return null;
@@ -366,8 +353,7 @@
     function initControls() {
         const yearSelect = document.getElementById('yearSelect');
         const monthSelect = document.getElementById('monthSelect');
-        yearSelect.innerHTML = '<option value="">-- Select year --</option>' +
-            fullData.years.map(y => `<option value="${y}">${y}</option>`).join('');
+        yearSelect.innerHTML = '<option value="">-- Select year --</option>' + fullData.years.map(y => `<option value="${y}">${y}</option>`).join('');
         yearSelect.disabled = false;
         monthSelect.disabled = false;
         document.getElementById('refreshBtn').disabled = false;
@@ -386,7 +372,7 @@
         document.getElementById('endHour').disabled = false;
     }
 
-    // -------------------- 绘图函数 --------------------
+    // 绘图函数（单位改为 MW）
     function drawHourly(year, countries, startDateTime, endDateTime) {
         if (!hourlyChart || !countries.length) return;
         let dataPoints = fullData.data.filter(d => d.year === year);
@@ -404,7 +390,7 @@
             series.push({ name: country, type: 'line', data: yData, connectNulls: false, lineStyle: { width: 1.5 }, showSymbol: false });
         }
         hourlyChart.setOption({
-            tooltip: { trigger: 'axis', valueFormatter: v => v !== null ? v.toFixed(2) + ' MW' : 'N/A' },
+            tooltip: { trigger: 'axis', valueFormatter: v => v !== null ? v.toFixed(0) + ' MW' : 'N/A' },
             xAxis: { type: 'category', data: xData, axisLabel: { rotate: 45, interval: 'auto' } },
             yAxis: { type: 'value', name: 'MW' },
             series: series,
@@ -425,21 +411,18 @@
                 if (val !== null && val !== undefined) {
                     if (monthlyAvg[c][m] === null) monthlyAvg[c][m] = 0;
                     monthlyAvg[c][m] += val;
-                    monthlyCount[m] = (monthlyCount[m] || 0) + 1;
+                    monthlyCount[m]++;
                 }
             }
         });
         const series = [];
         const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
         for (let c of countries) {
-            const yData = monthlyAvg[c].map((sum, idx) => {
-                if (sum !== null && monthlyCount[idx] > 0) return sum / monthlyCount[idx];
-                return null;
-            });
+            const yData = monthlyAvg[c].map((sum, idx) => (sum !== null && monthlyCount[idx] > 0) ? sum / monthlyCount[idx] : null);
             series.push({ name: c, type: 'line', data: yData, connectNulls: false, lineStyle: { width: 2 }, symbol: 'circle', symbolSize: 6 });
         }
         monthlyChart.setOption({
-            tooltip: { trigger: 'axis', valueFormatter: v => v !== null ? v.toFixed(2) + ' MW' : 'N/A' },
+            tooltip: { trigger: 'axis', valueFormatter: v => v !== null ? v.toFixed(0) + ' MW' : 'N/A' },
             xAxis: { type: 'category', data: months },
             yAxis: { type: 'value', name: 'MW' },
             series: series
@@ -470,136 +453,125 @@
         const series = [];
         const hours = Array.from({length: 24}, (_,i) => `${i}:00`);
         for (let c of selectedCountries) {
-            const yData = hourlyData[c].map((sum, idx) => {
-                if (sum !== null && hourlyData[`${c}_count`][idx] > 0) return sum / hourlyData[`${c}_count`][idx];
-                return null;
-            });
+            const yData = hourlyData[c].map((sum, idx) => (sum !== null && hourlyData[`${c}_count`][idx] > 0) ? sum / hourlyData[`${c}_count`][idx] : null);
             series.push({ name: c, type: 'line', data: yData, connectNulls: false, lineStyle: { width: 2 }, symbol: 'circle', symbolSize: 6 });
         }
         hourlyAvgChart.setOption({
-            tooltip: { trigger: 'axis', valueFormatter: v => v !== null ? v.toFixed(2) + ' MW' : 'N/A' },
+            tooltip: { trigger: 'axis', valueFormatter: v => v !== null ? v.toFixed(0) + ' MW' : 'N/A' },
             xAxis: { type: 'category', data: hours },
             yAxis: { type: 'value', name: 'MW' },
             series: series
         }, true);
     }
 
-    // ---------- 7日滑动平均对比图 (2025 vs 2026) ----------
+    // 七日滑动平均：基于每日平均负荷，计算7日滑动平均，按年份绘制
+    function computeDailyAverageLoad() {
+        // 按日期聚合所有国家的平均负荷（我们取所有选中国家的平均，还是单独？这里为了对比年份，我们将所有国家平均，或者只取第一个？为简化，对每个国家单独绘制会太乱。需求是“七日滑动平均”对比年份，可能是指某个代表性国家或全欧洲平均。这里采用所有选中国家的平均负荷作为代表（避免过多线条）。也可以让用户选择国家，但需求没明确。为简洁，我们取所有选中国家的平均负荷作为“系统负荷”展示。
+        // 但更合理：展示每个年份的滑动平均曲线，每条曲线代表该年份所有选中国家的平均负荷的日平均滑动平均。
+        // 我们将在 movingAvgChart 中为每个选中年份绘制一条线。
+        // 首先按日期聚合所有选中国家的平均负荷（每小时），然后计算每日平均。
+        // 为了性能，预先计算所有年份所有日期的每日平均负荷（基于所有国家，但刷新时传入 selectedCountries）。
+        // 在 drawMovingAvg 中动态计算。
+    }
+
     function drawMovingAvg(selectedCountries) {
         if (!movingAvgChart) return;
-        if (!selectedCountries.length) {
+        // 获取用户勾选的年份
+        const checkboxes = document.querySelectorAll('.year-check-group input[type="checkbox"]');
+        const selectedYears = [];
+        checkboxes.forEach(cb => { if (cb.checked) selectedYears.push(parseInt(cb.value)); });
+        if (selectedYears.length === 0) {
             movingAvgChart.setOption({ series: [] }, true);
             return;
         }
+        if (!selectedCountries.length) return;
 
-        // 提取2025和2026年数据
-        const data2025 = [];
-        const data2026 = [];
+        // 按日期聚合每个国家的每日平均负荷，再对选中国家平均（简单平均）
+        // 先按日期聚合：dateKey -> { 各国家总负荷, 小时数 }，再平均
+        const dailyData = {}; // key: "YYYY-MM-DD", value: { year, month, day, sumLoad: 总负荷(各国家求和), countHours }
         fullData.data.forEach(d => {
-            if (d.year === 2025 && d.values) data2025.push(d);
-            if (d.year === 2026 && d.values) data2026.push(d);
+            // 只考虑选中国家
+            let valid = false;
+            let sumForDay = 0;
+            let cnt = 0;
+            for (let c of selectedCountries) {
+                const val = d.values[c];
+                if (val !== null && val !== undefined && !isNaN(val)) {
+                    sumForDay += val;
+                    cnt++;
+                    valid = true;
+                }
+            }
+            if (!valid) return;
+            const dateKey = `${d.year}-${String(d.month).padStart(2,'0')}-${String(d.day).padStart(2,'0')}`;
+            if (!dailyData[dateKey]) {
+                dailyData[dateKey] = { year: d.year, month: d.month, day: d.day, totalLoad: 0, hoursCount: 0 };
+            }
+            dailyData[dateKey].totalLoad += sumForDay;
+            dailyData[dateKey].hoursCount += cnt;
         });
-
-        if (data2025.length === 0 && data2026.length === 0) {
-            movingAvgChart.setOption({
-                title: { show: true, text: '无2025或2026年数据', left: 'center', top: 'center' }
-            }, true);
-            return;
-        }
-
-        // 辅助函数：计算每日平均负荷（基于所选国家平均）
-        function computeDailyAvg(dataArray, countries) {
-            const dailyMap = new Map(); // key: "YYYY-MM-DD", value: { sum, count }
-            dataArray.forEach(record => {
-                const dateObj = new Date(record.datetime);
-                const dateKey = `${dateObj.getFullYear()}-${String(dateObj.getMonth()+1).padStart(2,'0')}-${String(dateObj.getDate()).padStart(2,'0')}`;
-                let daily = dailyMap.get(dateKey);
-                if (!daily) {
-                    daily = { sum: 0, count: 0 };
-                    dailyMap.set(dateKey, daily);
-                }
-                // 计算所有选中国家的平均负荷（如果某个国家无数据则跳过）
-                let countrySum = 0;
-                let countryCnt = 0;
-                for (let c of countries) {
-                    const val = record.values[c];
-                    if (val !== null && val !== undefined && !isNaN(val)) {
-                        countrySum += val;
-                        countryCnt++;
-                    }
-                }
-                if (countryCnt > 0) {
-                    const avg = countrySum / countryCnt;
-                    daily.sum += avg;
-                    daily.count++;
-                }
+        // 转换为日平均负荷（所有选中国家平均）
+        const dailyAvgList = [];
+        for (let dateKey in dailyData) {
+            const item = dailyData[dateKey];
+            const avgLoad = item.totalLoad / item.hoursCount; // 平均负荷 (MW)
+            dailyAvgList.push({
+                date: new Date(dateKey),
+                year: item.year,
+                load: avgLoad
             });
-            // 转为数组并按日期排序
-            const dailyAvgs = [];
-            for (let [dateKey, val] of dailyMap.entries()) {
-                if (val.count > 0) {
-                    dailyAvgs.push({ date: dateKey, avg: val.sum / val.count });
-                }
-            }
-            dailyAvgs.sort((a,b) => a.date.localeCompare(b.date));
-            return dailyAvgs;
         }
-
-        const daily2025 = computeDailyAvg(data2025, selectedCountries);
-        const daily2026 = computeDailyAvg(data2026, selectedCountries);
-
+        dailyAvgList.sort((a,b) => a.date - b.date);
         // 计算7日滑动平均
-        function movingAverage(dailyArray, windowSize = 7) {
-            const result = [];
-            const n = dailyArray.length;
-            for (let i = 0; i < n; i++) {
-                let sum = 0;
-                let count = 0;
-                for (let j = Math.max(0, i - Math.floor(windowSize/2)); j <= Math.min(n-1, i + Math.floor(windowSize/2)); j++) {
-                    sum += dailyArray[j].avg;
-                    count++;
-                }
-                result.push(count > 0 ? sum / count : null);
+        const window = 7;
+        const movingAvgByYear = {};
+        for (let i = 0; i < dailyAvgList.length; i++) {
+            const item = dailyAvgList[i];
+            const year = item.year;
+            if (!movingAvgByYear[year]) movingAvgByYear[year] = { dates: [], values: [] };
+            // 计算滑动平均
+            let sum = 0, count = 0;
+            for (let j = Math.max(0, i - window + 1); j <= i; j++) {
+                sum += dailyAvgList[j].load;
+                count++;
             }
-            return result;
+            const avg = sum / count;
+            movingAvgByYear[year].dates.push(item.date);
+            movingAvgByYear[year].values.push(avg);
         }
-
-        const ma2025 = movingAverage(daily2025);
-        const ma2026 = movingAverage(daily2026);
-
-        // 准备x轴（天数序号，从1开始）
-        const xAxis2025 = daily2025.map((_, idx) => idx + 1);
-        const xAxis2026 = daily2026.map((_, idx) => idx + 1);
-
-        movingAvgChart.setOption({
-            tooltip: { trigger: 'axis', valueFormatter: v => v !== null ? v.toFixed(2) + ' MW' : 'N/A' },
-            xAxis: { type: 'value', name: 'Day of Year', min: 1, max: 366 },
-            yAxis: { type: 'value', name: 'MW' },
-            series: [
-                {
-                    name: '2025 (7-day MA)',
+        // 绘制
+        const series = [];
+        const yearColor = { 2024: '#ffaa00', 2025: '#000000', 2026: '#cc0000' };
+        for (let year of selectedYears) {
+            if (movingAvgByYear[year]) {
+                const dates = movingAvgByYear[year].dates;
+                const values = movingAvgByYear[year].values;
+                // 格式化 xAxis 为 月/日
+                const xData = dates.map(d => `${d.getMonth()+1}/${d.getDate()}`);
+                series.push({
+                    name: `${year}`,
                     type: 'line',
-                    data: ma2025,
-                    xAxisIndex: 0,
-                    smooth: false,
-                    lineStyle: { color: '#000000', width: 2 },
-                    symbol: 'none'
-                },
-                {
-                    name: '2026 (7-day MA)',
-                    type: 'line',
-                    data: ma2026,
-                    xAxisIndex: 0,
-                    smooth: false,
-                    lineStyle: { color: '#cc0000', width: 2 },
-                    symbol: 'none'
-                }
-            ],
-            dataZoom: [{ type: 'inside', start: 0, end: 100 }, { type: 'slider', start: 0, end: 100 }]
-        }, true);
+                    data: values,
+                    lineStyle: { width: 2, color: yearColor[year] || '#999' },
+                    symbol: 'none',
+                    connectNulls: false
+                });
+                movingAvgChart.setOption({
+                    tooltip: { trigger: 'axis', valueFormatter: v => v !== null ? v.toFixed(0) + ' MW' : 'N/A' },
+                    xAxis: { type: 'category', data: xData, axisLabel: { rotate: 45, interval: 'auto' } },
+                    yAxis: { type: 'value', name: 'MW (7-day moving avg)' },
+                    series: series,
+                    dataZoom: [{ type: 'inside', start: 0, end: 100 }, { type: 'slider', start: 0, end: 100 }]
+                }, true);
+            } else {
+                // 没有数据时，移除该系列
+            }
+        }
+        if (series.length === 0) movingAvgChart.setOption({ series: [] }, true);
+        else movingAvgChart.setOption({ series: series }, true);
     }
 
-    // ---------- 地图部分 (与电价相同，仅单位改为MW) ----------
+    // 地图相关（与 price 类似，但颜色改为橙色渐变，单位 MW）
     const countryNameToCode = {
         "Germany": "DE", "France": "FR", "Italy": "IT", "Spain": "ES",
         "Greece": "GR", "Romania": "RO", "Hungary": "HU", "Austria": "AT",
@@ -611,12 +583,12 @@
     };
     
     function getColorForLoad(load, minLoad, maxLoad) {
-        if (load === null || load === undefined || isNaN(load)) return "#b0b0b0";
-        if (minLoad === maxLoad) return "#e67e22";
+        if (load === null || isNaN(load)) return "#b0b0b0";
+        if (minLoad === maxLoad) return "#ffaa66";
         let t = (load - minLoad) / (maxLoad - minLoad);
         t = Math.min(1, Math.max(0, t));
-        const startR = 255, startG = 204, startB = 204;
-        const endR = 204, endG = 0, endB = 0;
+        const startR = 255, startG = 247, startB = 230; // 浅橙色
+        const endR = 255, endG = 140, endB = 0;        // 深橙色
         const r = Math.round(startR + t * (endR - startR));
         const g = Math.round(startG + t * (endG - startG));
         const b = Math.round(startB + t * (endB - startB));
@@ -640,17 +612,17 @@
             mapContainer.style.position = 'relative';
             mapContainer.appendChild(legendDiv);
         }
-        if (minLoad === null || maxLoad === null || minLoad === maxLoad) {
+        if (minLoad === null || maxLoad === null) {
             legendDiv.innerHTML = `<h4>Monthly Avg Load (MW)</h4><div class="gradient-bar"></div><div class="labels"><span>N/A</span><span>N/A</span></div>`;
         } else {
-            legendDiv.innerHTML = `<h4>Monthly Avg Load (MW)</h4><div class="gradient-bar"></div><div class="labels"><span>${minLoad.toFixed(1)} MW</span><span>${maxLoad.toFixed(1)} MW</span></div>`;
+            legendDiv.innerHTML = `<h4>Monthly Avg Load (MW)</h4><div class="gradient-bar"></div><div class="labels"><span>${minLoad.toFixed(0)} MW</span><span>${maxLoad.toFixed(0)} MW</span></div>`;
         }
     }
     
-    async function drawMap(year, month) {
+    async function drawMap(year, month, selectedCountries) {
         if (!map) return;
         if (geojsonLayer) map.removeLayer(geojsonLayer);
-        
+        // 计算月度平均负荷
         const avgMap = {};
         for (let c of fullData.countries) {
             avgMap[c] = { sum: 0, count: 0 };
@@ -681,39 +653,34 @@
         try {
             const response = await fetch(geojsonUrl);
             const geoData = await response.json();
-            
             geojsonLayer = L.geoJSON(geoData, {
                 style: (feature) => {
                     const code = getCountryCodeFromFeature(feature);
                     let load = null;
                     if (code && countryLoads[code] !== undefined) load = countryLoads[code];
                     const fillColor = getColorForLoad(load, minLoad, maxLoad);
-                    return {
-                        color: '#2c3e50',
-                        weight: 1.2,
-                        fillColor: fillColor,
-                        fillOpacity: 0.75,
-                        opacity: 0.9
-                    };
+                    return { color: '#2c3e50', weight: 1.2, fillColor: fillColor, fillOpacity: 0.75, opacity: 0.9 };
                 },
                 onEachFeature: (feature, layer) => {
                     const code = getCountryCodeFromFeature(feature);
-                    let loadDisplay = 'N/A';
+                    let loadVal = null;
+                    let display = 'N/A';
                     if (code && countryLoads[code] !== undefined && countryLoads[code] !== null) {
-                        loadDisplay = countryLoads[code].toFixed(2) + ' MW';
+                        loadVal = countryLoads[code];
+                        display = loadVal.toFixed(0) + ' MW';
                     } else {
-                        loadDisplay = 'Data N/A';
+                        display = 'Data N/A';
                     }
                     const displayCode = code ? code : '?';
-                    layer.bindTooltip(`${displayCode}: ${loadDisplay}`, { sticky: true });
+                    layer.bindTooltip(`${displayCode}: ${display}`, { sticky: true });
                 }
             }).addTo(map);
         } catch (err) {
-            console.warn('GeoJSON 加载失败', err);
+            console.warn('GeoJSON加载失败', err);
         }
     }
 
-    // ---------- 全局刷新 ----------
+    // 刷新所有图表
     function refresh() {
         const year = parseInt(document.getElementById('yearSelect').value);
         const selectedCountries = getSelectedCountries();
@@ -729,8 +696,8 @@
         drawHourly(year, selectedCountries, startDateTime, endDateTime);
         drawMonthly(year, selectedCountries);
         drawHourlyAvg(year, month, selectedCountries);
-        drawMap(year, month);
-        drawMovingAvg(selectedCountries);   // 新增滑动平均图
+        drawMap(year, month, selectedCountries);
+        drawMovingAvg(selectedCountries);  // 新增七日滑动平均
     }
     
     function onYearChange() {
@@ -744,7 +711,6 @@
         refresh();
     }
     
-    // ---------- 初始化 ----------
     async function init() {
         const ok = await fetchData();
         if (!ok) return;
@@ -756,7 +722,6 @@
         hourlyAvgChart = echarts.init(document.getElementById('hourlyAvgChart'));
         movingAvgChart = echarts.init(document.getElementById('movingAvgChart'));
         
-        // 初始化地图，固定欧洲视角
         map = L.map('europeMap').setView([50, 10], 4);
         L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> & CartoDB'
@@ -780,6 +745,8 @@
         document.getElementById('endDate').addEventListener('change', refresh);
         document.getElementById('startHour').addEventListener('change', refresh);
         document.getElementById('endHour').addEventListener('change', refresh);
+        // 监听七日滑动平均年份复选框变化
+        document.querySelectorAll('.year-check-group input').forEach(cb => cb.addEventListener('change', () => refresh()));
     }
     
     init();

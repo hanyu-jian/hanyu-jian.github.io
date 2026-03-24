@@ -145,19 +145,27 @@
     let map = null;
     let geojsonLayer = null;
 
-    // ---------- 手动解析 CSV ----------
+    // ---------- CSV 解析 ----------
     function parseCSV(csvText) {
         const lines = csvText.trim().split(/\r?\n/);
         if (lines.length === 0) return [];
-        const headers = lines[0].split(',').map(h => h.trim());
+        // 处理表头：去掉可能的空列（因为每行末尾有逗号）
+        const headers = lines[0].split(',').map(h => h.trim()).filter(h => h !== "");
         const rows = [];
         for (let i = 1; i < lines.length; i++) {
             const line = lines[i];
             if (!line.trim()) continue;
-            const values = line.split(',').map(v => v.trim());
+            // 分割，保留空值（因为末尾逗号会产生空字符串）
+            let values = line.split(',').map(v => v.trim());
+            // 如果最后一个值是空字符串且多余列数，则去掉末尾多余的空值
+            while (values.length > headers.length && values[values.length-1] === "") {
+                values.pop();
+            }
+            // 确保 values 长度与 headers 一致
+            if (values.length > headers.length) values = values.slice(0, headers.length);
             const row = {};
             for (let j = 0; j < headers.length; j++) {
-                let val = values[j] !== undefined ? values[j] : '';
+                let val = values[j] !== undefined ? values[j] : "";
                 const num = parseFloat(val);
                 row[headers[j]] = isNaN(num) ? val : num;
             }
@@ -166,55 +174,93 @@
         return rows;
     }
 
+    // ---------- 日期解析：支持 YYYY/M/D H:MM 和 YYYY/MM/DD HH:MM ----------
     function parseCustomDate(dateStr) {
-        const [datePart, timePart] = dateStr.split(' ');
-        if (!datePart || !timePart) return new Date(NaN);
-        const [day, month, yearShort] = datePart.split('/');
-        const [hour, minute] = timePart.split(':');
-        const year = 2000 + parseInt(yearShort);
-        return new Date(year, parseInt(month) - 1, parseInt(day), parseInt(hour), parseInt(minute), 0);
-    }
-
-function transformCsvToData(rows) {
-    const data = [];
-    const countriesSet = new Set();
-    const yearsSet = new Set();
-
-    for (const row of rows) {
-        let dtStr = row.Date || row.datetime;
-        if (!dtStr) continue;
-        dtStr = dtStr.trim();  // 移除前后空格
-        // 直接使用自定义解析，避免浏览器默认解析的歧义
-        const dt = parseCustomDate(dtStr);
-        if (isNaN(dt)) continue;
-
-        const year = dt.getFullYear();
-        const month = dt.getMonth() + 1;
-        const hour = dt.getHours();
-        yearsSet.add(year);
-
-        const values = {};
-        for (const [key, val] of Object.entries(row)) {
-            if (key === 'Date' || key === 'datetime') continue;
-            if (typeof val === 'number' && !isNaN(val)) {
-                values[key] = val;
-                countriesSet.add(key);
-            }
+        if (!dateStr) return new Date(NaN);
+        dateStr = dateStr.trim();
+        // 分割日期和时间部分
+        let datePart, timePart;
+        if (dateStr.includes(' ')) {
+            [datePart, timePart] = dateStr.split(' ');
+        } else if (dateStr.includes('T')) {
+            [datePart, timePart] = dateStr.split('T');
+        } else {
+            return new Date(NaN);
         }
-        data.push({
-            datetime: dt.toISOString(),
-            year: year,
-            month: month,
-            hour: hour,
-            values: values
-        });
+        // 日期部分：支持 / 或 - 分隔
+        let year, month, day;
+        if (datePart.includes('/')) {
+            const parts = datePart.split('/');
+            if (parts.length === 3) {
+                year = parseInt(parts[0], 10);
+                month = parseInt(parts[1], 10);
+                day = parseInt(parts[2], 10);
+            } else {
+                return new Date(NaN);
+            }
+        } else if (datePart.includes('-')) {
+            const parts = datePart.split('-');
+            if (parts.length === 3) {
+                year = parseInt(parts[0], 10);
+                month = parseInt(parts[1], 10);
+                day = parseInt(parts[2], 10);
+            } else {
+                return new Date(NaN);
+            }
+        } else {
+            return new Date(NaN);
+        }
+        // 时间部分
+        let hour = 0, minute = 0;
+        if (timePart) {
+            const timeParts = timePart.split(':');
+            hour = parseInt(timeParts[0], 10);
+            minute = timeParts[1] ? parseInt(timeParts[1], 10) : 0;
+        }
+        // month 从0开始
+        return new Date(year, month - 1, day, hour, minute, 0);
     }
 
-    const countries = Array.from(countriesSet).sort();
-    const years = Array.from(yearsSet).sort();
-    return { countries, years, data };
-}
+    // ---------- 转换 rows 到 fullData ----------
+    function transformCsvToData(rows) {
+        const data = [];
+        const countriesSet = new Set();
+        const yearsSet = new Set();
 
+        for (const row of rows) {
+            let dtStr = row.Date || row.datetime;
+            if (!dtStr) continue;
+            const dt = parseCustomDate(dtStr);
+            if (isNaN(dt)) continue;
+
+            const year = dt.getFullYear();
+            const month = dt.getMonth() + 1;
+            const hour = dt.getHours();
+            yearsSet.add(year);
+
+            const values = {};
+            for (const [key, val] of Object.entries(row)) {
+                if (key === 'Date' || key === 'datetime') continue;
+                if (typeof val === 'number' && !isNaN(val)) {
+                    values[key] = val;
+                    countriesSet.add(key);
+                }
+            }
+            data.push({
+                datetime: dt.toISOString(),
+                year: year,
+                month: month,
+                hour: hour,
+                values: values
+            });
+        }
+
+        const countries = Array.from(countriesSet).sort();
+        const years = Array.from(yearsSet).sort();
+        return { countries, years, data };
+    }
+
+    // ---------- 加载 CSV ----------
     async function fetchData() {
         try {
             const response = await fetch('data.csv');
@@ -232,7 +278,7 @@ function transformCsvToData(rows) {
         }
     }
 
-    // ---------- 以下所有函数与原代码完全相同 ----------
+    // ---------- 国家复选框 ----------
     function buildCountryCheckboxes() {
         const container = document.getElementById('countryCheckboxes');
         container.innerHTML = '';

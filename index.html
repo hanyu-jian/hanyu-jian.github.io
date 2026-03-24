@@ -285,18 +285,38 @@
     let map = null;
     let geojsonLayer = null;
 
+    // ---------- 手动解析日期字符串 "DD/MM/YY HH:MM" ----------
+    function parseCustomDate(dateStr) {
+        // 格式: "01/01/24 00:00"
+        const [datePart, timePart] = dateStr.split(' ');
+        const [day, month, yearShort] = datePart.split('/');
+        const [hour, minute] = timePart.split(':');
+        // 将两位年份转为四位 (假设2000-2099)
+        const year = 2000 + parseInt(yearShort);
+        return new Date(year, parseInt(month) - 1, parseInt(day), parseInt(hour), parseInt(minute), 0);
+    }
+
     // ---------- 从宽格式 CSV 转换数据 ----------
     function transformCsvToData(rows) {
-        // rows 是 Papa Parse 返回的对象数组，每个对象代表一行
-        // 假设第一列是 datetime，其余列是各国价格
         const data = [];
         const countriesSet = new Set();
         const yearsSet = new Set();
 
         for (let row of rows) {
-            const dtStr = row.datetime;
+            // 兼容 "Date" 和 "datetime" 列名
+            let dtStr = row.Date || row.datetime;
             if (!dtStr) continue;
-            const dt = new Date(dtStr);
+
+            let dt;
+            try {
+                // 尝试标准解析，如果失败则用自定义解析
+                dt = new Date(dtStr);
+                if (isNaN(dt)) {
+                    dt = parseCustomDate(dtStr);
+                }
+            } catch (e) {
+                dt = parseCustomDate(dtStr);
+            }
             if (isNaN(dt)) continue;
 
             const year = dt.getFullYear();
@@ -306,8 +326,9 @@
 
             const values = {};
             for (let [key, val] of Object.entries(row)) {
-                if (key === 'datetime') continue;
-                // 确保价格是数字且非空
+                // 跳过日期列和空键（CSV末尾逗号可能产生空key）
+                if (key === 'Date' || key === 'datetime' || key === '') continue;
+                // 确保价格是数字
                 if (val !== null && val !== undefined && !isNaN(parseFloat(val))) {
                     const numVal = parseFloat(val);
                     values[key] = numVal;
@@ -348,6 +369,7 @@
             }
 
             fullData = transformCsvToData(result.data);
+            console.log('Loaded data:', fullData);  // 调试用，可删除
             return true;
         } catch (err) {
             alert(`Failed to load data: ${err.message}\nMake sure data.csv exists in the same folder.`);

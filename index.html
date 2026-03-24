@@ -145,23 +145,21 @@
     let map = null;
     let geojsonLayer = null;
 
-    // ---------- CSV 解析（保留所有字段为字符串，不自动转换数字）----------
+    // ---------- 手动解析 CSV（无任何外部库）----------
     function parseCSV(csvText) {
         const lines = csvText.trim().split(/\r?\n/);
         if (lines.length === 0) return [];
-        // 表头：过滤掉末尾空列（因为每行末尾有逗号）
+        // 表头：过滤空列（末尾逗号产生的空列）
         const headers = lines[0].split(',').map(h => h.trim()).filter(h => h !== "");
         const rows = [];
         for (let i = 1; i < lines.length; i++) {
             const line = lines[i];
             if (!line.trim()) continue;
-            // 分割并去掉两端空格
             let values = line.split(',').map(v => v.trim());
-            // 去掉末尾多余的空字段（与表头对齐）
+            // 去掉末尾多余的空字段（因为每行末尾有逗号）
             while (values.length > headers.length && values[values.length-1] === "") {
                 values.pop();
             }
-            // 确保 values 长度与 headers 一致
             if (values.length > headers.length) values = values.slice(0, headers.length);
             const row = {};
             for (let j = 0; j < headers.length; j++) {
@@ -172,82 +170,56 @@
         return rows;
     }
 
-    // ---------- 日期解析：支持 YYYY/M/D H:MM 和 YYYY/MM/DD HH:MM ----------
-    function parseCustomDate(dateStr) {
-        if (!dateStr || typeof dateStr !== 'string') return new Date(NaN);
-        dateStr = dateStr.trim();
+    // ---------- 直接从日期字符串中拆分年、月、日、小时 ----------
+    // 格式如 "2024/1/1 0:00" 或 "2024/01/01 00:00"
+    function parseDateFromString(dateStr) {
         // 分割日期和时间部分
-        let datePart, timePart;
-        if (dateStr.includes(' ')) {
-            [datePart, timePart] = dateStr.split(' ');
-        } else if (dateStr.includes('T')) {
-            [datePart, timePart] = dateStr.split('T');
-        } else {
-            return new Date(NaN);
-        }
-        // 日期部分：支持 / 或 - 分隔
-        let year, month, day;
-        if (datePart.includes('/')) {
-            const parts = datePart.split('/');
-            if (parts.length === 3) {
-                year = parseInt(parts[0], 10);
-                month = parseInt(parts[1], 10);
-                day = parseInt(parts[2], 10);
-            } else {
-                return new Date(NaN);
-            }
-        } else if (datePart.includes('-')) {
-            const parts = datePart.split('-');
-            if (parts.length === 3) {
-                year = parseInt(parts[0], 10);
-                month = parseInt(parts[1], 10);
-                day = parseInt(parts[2], 10);
-            } else {
-                return new Date(NaN);
-            }
-        } else {
-            return new Date(NaN);
-        }
-        // 时间部分
-        let hour = 0, minute = 0;
-        if (timePart) {
-            const timeParts = timePart.split(':');
-            hour = parseInt(timeParts[0], 10);
-            minute = timeParts[1] ? parseInt(timeParts[1], 10) : 0;
-        }
-        // month 从0开始
-        return new Date(year, month - 1, day, hour, minute, 0);
+        const [datePart, timePart] = dateStr.split(' ');
+        if (!datePart || !timePart) return null;
+        // 日期部分按 / 拆分
+        const dateSegments = datePart.split('/');
+        if (dateSegments.length !== 3) return null;
+        const year = parseInt(dateSegments[0], 10);
+        const month = parseInt(dateSegments[1], 10);
+        const day = parseInt(dateSegments[2], 10);
+        // 时间部分按 : 拆分
+        const timeSegments = timePart.split(':');
+        const hour = parseInt(timeSegments[0], 10);
+        const minute = timeSegments[1] ? parseInt(timeSegments[1], 10) : 0;
+        // 构造 ISO 字符串（UTC 时间，避免时区偏移）
+        const isoStr = `${year}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')}T${String(hour).padStart(2,'0')}:${String(minute).padStart(2,'0')}:00.000Z`;
+        return { year, month, day, hour, minute, isoStr };
     }
 
-    // ---------- 转换 rows 到 fullData（价格字段转为数字）----------
+    // ---------- 将解析后的 rows 转换为 fullData ----------
     function transformCsvToData(rows) {
         const data = [];
         const countriesSet = new Set();
         const yearsSet = new Set();
 
         for (const row of rows) {
-            let dtStr = row.Date || row.datetime;
+            const dtStr = row.Date || row.datetime;
             if (!dtStr) continue;
-            const dt = parseCustomDate(dtStr);
-            if (isNaN(dt)) continue;
+            const parsed = parseDateFromString(dtStr);
+            if (!parsed) continue;
 
-            const year = dt.getFullYear();
-            const month = dt.getMonth() + 1;
-            const hour = dt.getHours();
+            const year = parsed.year;
+            const month = parsed.month;
+            const hour = parsed.hour;
             yearsSet.add(year);
 
             const values = {};
             for (const [key, val] of Object.entries(row)) {
                 if (key === 'Date' || key === 'datetime') continue;
-                // 将字符串转为数字，如果转换失败则忽略该字段
                 const num = parseFloat(val);
                 if (!isNaN(num)) {
                     values[key] = num;
                     countriesSet.add(key);
                 }
             }
+
             data.push({
-                datetime: dt.toISOString(),
+                datetime: parsed.isoStr,
                 year: year,
                 month: month,
                 hour: hour,
@@ -260,7 +232,7 @@
         return { countries, years, data };
     }
 
-    // ---------- 加载 CSV ----------
+    // ---------- 加载 CSV 文件 ----------
     async function fetchData() {
         try {
             const response = await fetch('data.csv');
@@ -278,7 +250,7 @@
         }
     }
 
-    // ---------- 国家复选框 ----------
+    // ---------- 以下所有绘图函数与原始代码完全一致（保持不变）----------
     function buildCountryCheckboxes() {
         const container = document.getElementById('countryCheckboxes');
         container.innerHTML = '';

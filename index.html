@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>European Electricity Dashboard | Home</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f0f2f5;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            width: 100%;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 48px;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            color: #2c3e50;
+            margin-bottom: 12px;
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            color: #5a6e7c;
+        }
+
+        .cards {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 32px;
+            justify-content: center;
+        }
+
+        .card {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.08);
+            width: 320px;
+            padding: 32px 24px;
+            text-align: center;
+            transition: transform 0.2s, box-shadow 0.2s;
+            text-decoration: none;
+            color: inherit;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 16px 32px rgba(0,0,0,0.12);
+        }
+
+        .card-icon {
+            font-size: 64px;
+            margin-bottom: 24px;
+        }
+
+        .card h2 {
+            font-size: 1.8rem;
+            margin-bottom: 12px;
+            color: #2c3e50;
+        }
+
+        .card p {
+            font-size: 1rem;
+            color: #6c757d;
+            line-height: 1.5;
+            margin-bottom: 24px;
+        }
+
+        .card .btn {
+            background: #2c3e50;
+            color: white;
+            border: none;
+            padding: 10px 24px;
+            border-radius: 40px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+            display: inline-block;
+            text-decoration: none;
+        }
+
+        .card .btn:hover {
+            background: #1e2b38;
+        }
+
+        .footer {
+            text-align: center;
+            margin-top: 60px;
+            color: #6c757d;
+            font-size: 0.85rem;
+            border-top: 1px solid #e0e4e9;
+            padding-top: 24px;
+        }
+
+        @media (max-width: 700px) {
+            .header h1 { font-size: 1.8rem; }
+            .card { width: 280px; padding: 24px 20px; }
+            .card-icon { font-size: 48px; }
+            .card h2 { font-size: 1.5rem; }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <h1>⚡ European Electricity Dashboard</h1>
+        <p>Monitor day-ahead prices and electricity load across Europe</p>
+    </div>
+    <div class="cards">
+        <a href="price.html" class="card">
+            <div class="card-icon">📈</div>
+            <h2>Price Analysis</h2>
+            <p>Explore hourly and monthly electricity prices (€/MWh) across European countries. Interactive map and trend charts.</p>
+            <span class="btn">View Dashboard →</span>
+        </a>
+        <a href="load.html" class="card">
+            <div class="card-icon">⚡</div>
+            <h2>Load Analysis</h2>
+            <p>Analyze electricity load (MW) patterns with hourly trends, seasonal profiles, and 7‑day moving average comparisons.</p>
+            <span class="btn">View Dashboard →</span>
+        </a>
+    </div>
+    <div class="footer">
+        <p>Data source: ENTSO‑E | Author: Hanyu Jian</p>
+    </div>
+</div>
+</body>
+</html>

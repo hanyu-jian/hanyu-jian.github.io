@@ -8,7 +8,6 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
-        /* 样式代码与之前完全相同，省略以节省篇幅，请从上一版本复制 */
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f2f5; padding: 20px; }
         .container { max-width: 1600px; margin: 0 auto; background: white; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); overflow: hidden; }
@@ -50,7 +49,6 @@
         <p>Data source: CSV file (wide format)</p>
     </div>
     <div class="controls">
-        <!-- 控件区域与之前相同，省略... 请复制上一版本的完整控件代码 -->
         <div class="control-group">
             <label>📅 Year</label>
             <select id="yearSelect" disabled></select>
@@ -147,13 +145,13 @@
     let map = null;
     let geojsonLayer = null;
 
-    // ---------- 手动解析 CSV，返回行对象数组 ----------
+    // ---------- 手动解析 CSV，处理末尾逗号 ----------
     function parseCSV(csvText) {
         const lines = csvText.trim().split(/\r?\n/);
         if (lines.length === 0) return [];
-        // 表头：过滤空列名（末尾逗号产生的空字符串）
+        // 表头：去除末尾可能因逗号产生的空列
         let headers = lines[0].split(',').map(h => h.trim());
-        // 去掉末尾的空列名
+        // 删除末尾空字符串（例如 "Date,DE,FR,,," 产生多余空列）
         while (headers.length > 0 && headers[headers.length-1] === "") {
             headers.pop();
         }
@@ -166,7 +164,7 @@
             while (values.length > headers.length && values[values.length-1] === "") {
                 values.pop();
             }
-            // 如果 values 长度超过 headers，截断（防止意外）
+            // 如果 values 长度超过 headers，截断
             if (values.length > headers.length) values = values.slice(0, headers.length);
             // 如果 values 长度不足，补空字符串
             while (values.length < headers.length) values.push("");
@@ -179,34 +177,23 @@
         return rows;
     }
 
-    // ---------- 从日期字符串提取年、月、日、小时 ----------
-    // 支持 "2024/1/1 0:00" 和 "2024/01/01 00:00"
+    // ---------- 专门解析 "DD/MM/YY HH:MM" 格式日期 ----------
     function parseDateFromString(dateStr) {
-        // 先按空格分割
-        const parts = dateStr.split(' ');
-        if (parts.length < 2) return null;
-        const datePart = parts[0];
-        const timePart = parts[1];
-        // 日期部分按 / 分割
-        const dateSeg = datePart.split('/');
-        if (dateSeg.length !== 3) return null;
-        // 年份必须为四位数
-        let year = parseInt(dateSeg[0], 10);
-        let month = parseInt(dateSeg[1], 10);
-        let day = parseInt(dateSeg[2], 10);
-        if (isNaN(year) || isNaN(month) || isNaN(day)) return null;
-        // 时间部分按 : 分割
-        const timeSeg = timePart.split(':');
-        let hour = parseInt(timeSeg[0], 10);
-        let minute = 0;
-        if (timeSeg.length >= 2) minute = parseInt(timeSeg[1], 10);
-        if (isNaN(hour)) hour = 0;
-        // 构造 ISO 字符串（UTC 时间）
+        if (!dateStr) return null;
+        // 匹配类似 "01/01/24 00:00"
+        const match = dateStr.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2})\s+(\d{1,2}):(\d{2})$/);
+        if (!match) return null;
+        const day = parseInt(match[1], 10);
+        const month = parseInt(match[2], 10);
+        const yearShort = parseInt(match[3], 10);
+        const hour = parseInt(match[4], 10);
+        const minute = parseInt(match[5], 10);
+        const year = 2000 + yearShort;  // 假设年份在 2000-2099 之间
         const isoStr = `${year}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')}T${String(hour).padStart(2,'0')}:${String(minute).padStart(2,'0')}:00.000Z`;
         return { year, month, day, hour, minute, isoStr };
     }
 
-    // ---------- 转换 rows 到 fullData 结构 ----------
+    // ---------- 转换 rows 到 fullData ----------
     function transformCsvToData(rows) {
         const data = [];
         const countriesSet = new Set();
@@ -244,7 +231,6 @@
                 hour: hour,
                 values: values
             });
-            // 调试输出，可在控制台查看每行解析结果
             console.log(`Parsed row: ${dtStr} -> year=${year}, month=${month}, hour=${hour}`);
         }
 
@@ -255,7 +241,7 @@
         return { countries, years, data };
     }
 
-    // ---------- 加载 CSV 文件 ----------
+    // ---------- 加载 CSV ----------
     async function fetchData() {
         try {
             const response = await fetch('data.csv');
@@ -275,7 +261,7 @@
         }
     }
 
-    // ---------- 以下所有绘图函数与原始代码完全一致 ----------
+    // ---------- 以下绘图函数与原始代码完全一致 ----------
     function buildCountryCheckboxes() {
         const container = document.getElementById('countryCheckboxes');
         container.innerHTML = '';

@@ -2,6 +2,18 @@
 """
 Energy Charts API 数据更新脚本
 获取13个欧洲国家的电力数据并更新到CSV文件
+
+每国 API 调用（共2次）：
+  1. /price?bzn=XX          → price.csv
+  2. /public_power?country=xx → load / solar / wind / residual_load / generation
+
+输出文件：
+  price.csv         宽表 date × country  (EUR/MWh)
+  load.csv          宽表 date × country  (MW)
+  solar.csv         宽表 date × country  (MW)
+  wind.csv          宽表 date × country  (MW, offshore+onshore合并)
+  residual_load.csv 宽表 date × country  (MW)
+  generation.csv    长表 date, country, category, value
 """
 
 import time
@@ -33,7 +45,7 @@ COUNTRY_CONFIG = {
 
 COUNTRIES     = list(COUNTRY_CONFIG.keys())
 START_DATE    = "2024-01-01"
-END_DATE      = "2026-03-24"
+END_DATE      = "2026-03-25"      # ← 测试用，改为 None 则自动用明天
 REQUEST_DELAY = 1.5
 API_BASE      = "https://api.energy-charts.info"
 DATA_DIR      = Path("data")
@@ -70,6 +82,7 @@ def fetch_power(country: str, start: str, end: str) -> dict | None:
 # ─────────────────────────────────────────────────────────────
 
 def _make_index(unix_seconds: list, tz: str) -> pd.DatetimeIndex:
+    """UTC unix timestamps → 本地时区 → 去除时区信息"""
     return (pd.to_datetime(unix_seconds, unit="s", utc=True)
               .tz_convert(tz)
               .tz_localize(None))
@@ -83,11 +96,29 @@ def parse_price(data: dict, tz: str) -> pd.Series | None:
 
 
 def parse_power(data: dict, tz: str) -> dict:
+    """
+    解析 public_power，从 production_types 中提取：
+      load          → load.csv
+      solar         → solar.csv
+      wind          → wind.csv  (offshore + onshore 求和)
+      residual load → residual_load.csv
+      其余全部      → generation.csv（长表，wind合并后写入）
+
+    返回 dict:
+      {
+        "load":         pd.Series | None,
+        "solar":        pd.Series | None,
+        "wind":         pd.Series | None,
+        "residual":     pd.Series | None,
+        "generation":   pd.DataFrame,    # columns=category, index=datetime
+      }
+    """
     if not data or "unix_seconds" not in data:
         return {}
 
     idx = _make_index(data["unix_seconds"], tz)
 
+    # 把 production_types 整理成 {lower_name: (orig_name, data_list)}
     raw: dict[str, tuple[str, list]] = {}
     for pt in data.get("production_types", []):
         orig  = pt.get("name", "").strip()
@@ -104,6 +135,7 @@ def parse_power(data: dict, tz: str) -> dict:
                 return k
         return None
 
+    # ── 各指标的 key 查找 ────────────────────────────────────
     load_key      = find_key(["load"],            must_exclude=["residual"])
     solar_key     = find_key(["solar"],           must_exclude=["residual"])
     off_key       = find_key(["wind", "offshore"])
@@ -112,10 +144,13 @@ def parse_power(data: dict, tz: str) -> dict:
                     if not off_key and not on_key else None
     residual_key  = find_key(["residual", "load"])
 
-    load_s     = to_series(load_key)     if load_key     else None
-    solar_s    = to_series(solar_key)    if solar_key    else None
-    residual_s = to_series(residual_key) if residual_key else None
+    # ── Load ─────────────────────────────────────────────────
+    load_s = to_series(load_key) if load_key else None
 
+    # ── Solar ────────────────────────────────────────────────
+    solar_s = to_series(solar_key) if solar_key else None
+
+    # ── Wind（offshore + onshore 合并）───────────────────────
     if off_key and on_key:
         wind_s = to_series(off_key).add(to_series(on_key), fill_value=0)
     elif off_key:
@@ -127,6 +162,11 @@ def parse_power(data: dict, tz: str) -> dict:
     else:
         wind_s = None
 
+    # ── Residual Load ─────────────────────────────────────────
+    residual_s = to_series(residual_key) if residual_key else None
+
+    # ── Generation（长表）────────────────────────────────────
+    # 排除 residual load；将 offshore+onshore 合并为单列 "Wind"
     skip = {residual_key, off_key, on_key} - {None}
 
     gen_dict: dict[str, pd.Series] = {}
@@ -135,6 +175,7 @@ def parse_power(data: dict, tz: str) -> dict:
             continue
         gen_dict[orig] = to_series(lower)
 
+    # 用合并后的 Wind 替换（如果原来是分开的）
     if (off_key or on_key) and wind_s is not None:
         for k in [off_key, on_key]:
             if k:
@@ -154,21 +195,12 @@ def parse_power(data: dict, tz: str) -> dict:
 
 
 # ─────────────────────────────────────────────────────────────
-# 日期格式化（跨平台）
-# ─────────────────────────────────────────────────────────────
-
-def fmt_dt(dt) -> str:
-    """跨平台日期格式化，输出如 2024/1/1 0:00"""
-    return f"{dt.year}/{dt.month}/{dt.day} {dt.hour}:00"
-
-
-def fmt_index(index: pd.DatetimeIndex) -> list[str]:
-    return [fmt_dt(dt) for dt in index]
-
-
-# ─────────────────────────────────────────────────────────────
 # CSV 写入
 # ─────────────────────────────────────────────────────────────
+
+def fmt_index(index: pd.DatetimeIndex) -> list[str]:
+    return [dt.strftime("%Y/%-m/%-d %-H:00") for dt in index]
+
 
 def write_wide_csv(cols: dict[str, pd.Series], path: Path, label: str):
     if not cols:
@@ -192,6 +224,7 @@ def main():
 
     DATA_DIR.mkdir(exist_ok=True)
 
+    # END_DATE 为 None 时自动用明天，否则用配置值
     end_date = END_DATE if END_DATE else (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d")
 
     print(f"数据范围: {START_DATE} → {end_date}")
@@ -213,7 +246,7 @@ def main():
 
         print(f"[{col_name}]")
 
-        # ── 价格 ──────────────────────────────────────────────
+        # ── 请求1：价格 ───────────────────────────────────────
         print(f"  → /price?bzn={bzn}")
         price_data = fetch_price(bzn, START_DATE, end_date)
         time.sleep(REQUEST_DELAY)
@@ -225,7 +258,7 @@ def main():
         else:
             print(f"     [WARN] 无价格数据")
 
-        # ── 发电（含负荷）────────────────────────────────────
+        # ── 请求2：发电（含负荷）─────────────────────────────
         print(f"  → /public_power?country={cc}")
         power_data = fetch_power(cc, START_DATE, end_date)
         time.sleep(REQUEST_DELAY)
@@ -250,7 +283,7 @@ def main():
             for cat in gen_df.columns:
                 for dt, val in gen_df[cat].items():
                     gen_rows.append({
-                        "date":     fmt_dt(dt),    # ← 修复点
+                        "date":     dt.strftime("%Y/%-m/%-d %-H:00"),
                         "country":  col_name,
                         "category": cat,
                         "value":    val,

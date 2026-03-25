@@ -22,7 +22,7 @@ def fetch_power_data(country, start, end):
     """获取 public_power 数据"""
     url = "https://api.energy-charts.info/public_power"
     params = {
-        "country": country,
+        "country": country.lower(),  # ✅ 转小写
         "start": start,
         "end": end
     }

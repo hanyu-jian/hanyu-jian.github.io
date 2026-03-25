@@ -33,6 +33,23 @@ TIMEZONE_MAP = {
     "bg": "Europe/Sofia",
 }
 
+# Bidding Zone 映射（用于价格 API）
+BZN_MAP = {
+    "de": "DE-LU",
+    "fr": "FR",
+    "es": "ES",
+    "it": "IT",
+    "gr": "GR",
+    "ro": "RO",
+    "hu": "HU",
+    "at": "AT",
+    "pl": "PL",
+    "sk": "SK",
+    "rs": "RS",
+    "hr": "HR",
+    "bg": "BG",
+}
+
 # 发电类型映射
 GENERATION_MAP = {
     "nuclear": "Nuclear",
@@ -53,12 +70,22 @@ GENERATION_MAP = {
 
 def fetch_data(country, start_date, end_date, data_type="public_power"):
     """获取指定国家的数据，返回当地时间"""
-    base_url = f"https://api.energy-charts.info/{data_type}"
-    params = {
-        "country": country,
-        "start": start_date,
-        "end": end_date
-    }
+    if data_type == "price":
+        # 价格 API 使用 bzn 参数
+        bzn = BZN_MAP.get(country, country.upper())
+        base_url = "https://api.energy-charts.info/price"
+        params = {
+            "bzn": bzn,
+            "start": start_date,
+            "end": end_date
+        }
+    else:
+        base_url = f"https://api.energy-charts.info/{data_type}"
+        params = {
+            "country": country,
+            "start": start_date,
+            "end": end_date
+        }
     
     response = requests.get(base_url, params=params)
     response.raise_for_status()

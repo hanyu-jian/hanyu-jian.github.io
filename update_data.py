@@ -12,7 +12,7 @@ from pathlib import Path
 # 配置
 COUNTRIES = ["de", "fr", "es", "it", "gr", "ro", "hu", "at", "pl", "sk", "rs", "hr", "bg"]
 START_DATE = "2024-01-01"
-END_DATE = pd.Timestamp.now().strftime("%Y-%m-%d")
+END_DATE = "2024-01-03"
 SAVE_PATH = Path("data")
 REQUEST_DELAY = 1.5
 

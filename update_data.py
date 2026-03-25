@@ -1,23 +1,247 @@
-import requests
-import pandas as pd
-from datetime import datetime
-import time
 import os
+import time
+import pandas as pd
+import requests
+from datetime import datetime
 
-# ============ 配置 ============
+# ================================
+# 配置
+# ================================
+SAVE_PATH = "data"
 START_DATE = "2024-01-01"
 END_DATE = "2024-01-03"  # 测试用短日期
 
-COUNTRIES = ["DE", "FR", "ES", "IT", "GR", "RO", "HU", "AT", "PL", "SK", "RS", "HR", "BG"]
-DATA_DIR = "data"
+ORDER = ["DE", "FR", "ES", "IT", "GR", "RO", "HU", "AT", "PL", "SK", "RS", "HR", "BG"]
 
-os.makedirs(DATA_DIR, exist_ok=True)
+os.makedirs(SAVE_PATH, exist_ok=True)
 
 print("=" * 60)
 print(f"下载数据: {START_DATE} to {END_DATE}")
 print("=" * 60)
 
-# ============ Generation 类型映射 ============
+# ================================
+# 1. API 下载函数
+# ================================
+def download_from_api(country, start_date, end_date):
+    """从 Energy-Charts API 下载数据"""
+    url = "https://api.energy-charts.info/public_power"
+    params = {
+        "country": country.lower(),
+        "start": start_date,
+        "end": end_date
+    }
+    
+    response = requests.get(url, params=params, timeout=60)
+    if response.status_code != 200:
+        raise Exception(f"API error: {response.status_code}")
+    
+    data = response.json()
+    
+    if "unix_seconds" not in data:
+        raise Exception("No data returned")
+    
+    # 构建 DataFrame
+    timestamps = data["unix_seconds"]
+    df = pd.DataFrame({"unix_seconds": timestamps})
+    
+    for pt in data.get("production_types", []):
+        name = pt.get("name", "")
+        values = pt.get("data", [])
+        if name and values:
+            df[name] = values
+    
+    return df
+
+
+def download_price_from_api(country, start_date, end_date):
+    """从 Energy-Charts API 下载电价数据"""
+    url = "https://api.energy-charts.info/price"
+    params = {
+        "country": country.lower(),
+        "start": start_date,
+        "end": end_date
+    }
+    
+    response = requests.get(url, params=params, timeout=60)
+    if response.status_code != 200:
+        return None
+    
+    data = response.json()
+    
+    if "unix_seconds" not in data:
+        return None
+    
+    timestamps = data["unix_seconds"]
+    price = data.get("price", [])
+    
+    df = pd.DataFrame({
+        "unix_seconds": timestamps,
+        "price": price
+    })
+    
+    return df
+
+
+# ================================
+# 2. 15min to hourly (沿用原逻辑)
+# ================================
+def convert_to_hourly(df):
+    """15分钟数据转小时平均"""
+    # 转换时间戳
+    df["datetime"] = pd.to_datetime(df["unix_seconds"], unit="s", utc=True)
+    df = df.set_index("datetime")
+    df = df.drop(columns=["unix_seconds"], errors="ignore")
+    
+    # 转数值
+    df = df.apply(pd.to_numeric, errors="coerce")
+    
+    # 小时平均
+    df_hourly = df.resample("h").mean()
+    
+    return df_hourly
+
+
+# ================================
+# 3. 辅助函数：匹配列名
+# ================================
+def col_match(cols, keywords):
+    """匹配包含关键词的列"""
+    return [c for c in cols if any(k in c.lower() for k in keywords)]
+
+
+# ================================
+# 4. 下载所有国家数据
+# ================================
+print("\n下载所有国家数据...")
+
+dfs = {}        # 各国 hourly DataFrame
+price_dfs = {}  # 各国价格 DataFrame
+
+for country in ORDER:
+    print(f"\n{country}...", end=" ")
+    
+    try:
+        # 下载发电数据
+        df_raw = download_from_api(country, START_DATE, END_DATE)
+        df_hourly = convert_to_hourly(df_raw)
+        dfs[country] = df_hourly
+        print(f"{len(df_hourly)} 小时", end=" ")
+        
+        # 下载价格数据
+        df_price = download_price_from_api(country, START_DATE, END_DATE)
+        if df_price is not None:
+            df_price_hourly = convert_to_hourly(df_price)
+            price_dfs[country] = df_price_hourly
+            print(f"+ 价格", end="")
+        
+        print(" ✓")
+        
+    except Exception as e:
+        print(f"错误: {e}")
+    
+    time.sleep(1.5)  # API 限速
+
+
+# ================================
+# 5. 构建 Solar / Wind / Load / Residual Load
+# ================================
+print("\n" + "=" * 60)
+print("构建汇总表...")
+
+solar_df = pd.DataFrame()
+wind_df = pd.DataFrame()
+load_df = pd.DataFrame()
+residual_df = pd.DataFrame()
+da_df = pd.DataFrame()
+
+for country in ORDER:
+    if country not in dfs:
+        continue
+    
+    df = dfs[country]
+    
+    # -------- Solar -----------
+    solar_cols = col_match(df.columns, ["solar"])
+    if solar_cols:
+        series = df[solar_cols].sum(axis=1).rename(country)
+        solar_df = series.to_frame() if solar_df.empty else solar_df.join(series, how="outer")
+    
+    # -------- Wind -----------
+    wind_cols = col_match(df.columns, ["wind"])
+    if wind_cols:
+        series = df[wind_cols].sum(axis=1).rename(country)
+        wind_df = series.to_frame() if wind_df.empty else wind_df.join(series, how="outer")
+    
+    # -------- Load -----------
+    load_cols = col_match(df.columns, ["load"])
+    # 排除 residual load
+    load_cols = [c for c in load_cols if "residual" not in c.lower()]
+    if load_cols:
+        series = df[load_cols].sum(axis=1).rename(country)
+        load_df = series.to_frame() if load_df.empty else load_df.join(series, how="outer")
+    
+    # -------- Residual Load -----------
+    residual_cols = col_match(df.columns, ["residual"])
+    if residual_cols:
+        series = df[residual_cols].sum(axis=1).rename(country)
+        residual_df = series.to_frame() if residual_df.empty else residual_df.join(series, how="outer")
+    
+    # -------- DA Price -----------
+    if country in price_dfs:
+        price_series = price_dfs[country]["price"].rename(country)
+        da_df = price_series.to_frame() if da_df.empty else da_df.join(price_series, how="outer")
+
+
+# 补全缺失国家列
+for df_x in [solar_df, wind_df, load_df, residual_df, da_df]:
+    for c in ORDER:
+        if c not in df_x.columns:
+            df_x[c] = pd.NA
+
+# 按 ORDER 排列列
+if not solar_df.empty:
+    solar_df = solar_df[ORDER]
+if not wind_df.empty:
+    wind_df = wind_df[ORDER]
+if not load_df.empty:
+    load_df = load_df[ORDER]
+if not residual_df.empty:
+    residual_df = residual_df[ORDER]
+if not da_df.empty:
+    da_df = da_df[ORDER]
+
+
+# ================================
+# 6. 格式化日期列 (YYYY/M/D H:00)
+# ================================
+def format_index_to_date_col(df):
+    """将 datetime index 转为 Date 列"""
+    if df.empty:
+        return df
+    
+    df = df.copy()
+    df.index = df.index.tz_localize(None) if df.index.tz else df.index
+    
+    # 格式化为 YYYY/M/D H:00
+    dates = [f"{dt.year}/{dt.month}/{dt.day} {dt.hour}:00" for dt in df.index]
+    df.insert(0, "Date", dates)
+    df = df.reset_index(drop=True)
+    
+    return df
+
+
+solar_out = format_index_to_date_col(solar_df)
+wind_out = format_index_to_date_col(wind_df)
+load_out = format_index_to_date_col(load_df)
+residual_out = format_index_to_date_col(residual_df)
+da_out = format_index_to_date_col(da_df)
+
+
+# ================================
+# 7. Generation (长格式)
+# ================================
+print("\n构建 Generation (长格式)...")
+
 GENERATION_CATEGORIES = {
     "Nuclear": ["nuclear"],
     "Fossil Coal": ["lignite", "hard coal", "coal"],
@@ -25,181 +249,92 @@ GENERATION_CATEGORIES = {
     "Fossil Oil": ["fossil oil", "oil"],
     "Hydro": ["hydro"],
     "Biomass": ["biomass"],
+    "Other": ["geothermal", "waste", "other"],
 }
 
-# ============ 辅助函数 ============
-def process_timestamp(unix_ts):
-    """Unix时间戳转为 YYYY/M/D H:00 格式"""
-    dt = datetime.utcfromtimestamp(unix_ts)
-    return f"{dt.year}/{dt.month}/{dt.day} {dt.hour}:00"
+all_generation = []
 
-def aggregate_hourly_dict(values_15min, timestamps):
-    """15分钟数据聚合成小时平均，返回 {date_str: value} 字典"""
-    result = {}
-    n = len(values_15min)
-    hours = n // 4
+for country in ORDER:
+    if country not in dfs:
+        continue
     
-    for h in range(hours):
-        i = h * 4
-        chunk = values_15min[i:i+4]
-        valid = [v for v in chunk if v is not None]
-        
-        if valid:
-            avg = sum(valid) / len(valid)
-        else:
-            avg = 0.0
-        
-        # 用该小时第一个时间戳作为时间标识
-        date_str = process_timestamp(timestamps[i])
-        result[date_str] = avg
+    df = dfs[country]
     
-    return result
-
-# ============ 下载所有国家 ============
-print("\n下载所有国家数据...")
-
-url = "https://api.energy-charts.info/public_power"
-
-# 存储数据
-all_solar = {}      # {country: {date_str: value}}
-all_wind = {}       # {country: {date_str: value}}
-all_residual = {}   # {country: {date_str: value}}
-all_generation = [] # [{Date, country, category, value_MW}, ...]
-
-for country in COUNTRIES:
-    print(f"\n{country}...", end=" ")
-    
-    params = {"country": country.lower(), "start": START_DATE, "end": END_DATE}
-    
-    try:
-        response = requests.get(url, params=params, timeout=30)
-        if response.status_code != 200:
-            print(f"错误 {response.status_code}")
-            continue
+    for cat, keywords in GENERATION_CATEGORIES.items():
+        matched_cols = col_match(df.columns, keywords)
+        if matched_cols:
+            series = df[matched_cols].sum(axis=1)
             
-        data = response.json()
-        
-        if "unix_seconds" not in data:
-            print("无数据")
-            continue
-        
-        timestamps = data["unix_seconds"]
-        n = len(timestamps)
-        print(f"{n} 条原始数据", end=" ")
-        
-        # 提取各类型数据
-        production_types = {pt.get("name", ""): pt.get("data", []) for pt in data.get("production_types", [])}
-        
-        # Solar
-        solar_raw = production_types.get("Solar", [0.0] * n)
-        solar_raw = [v if v is not None else 0.0 for v in solar_raw]
-        all_solar[country] = aggregate_hourly_dict(solar_raw, timestamps)
-        
-        # Wind (onshore + offshore)
-        wind_on = production_types.get("Wind onshore", [0.0] * n)
-        wind_off = production_types.get("Wind offshore", [0.0] * n)
-        wind_raw = []
-        for i in range(n):
-            w = 0.0
-            if i < len(wind_on) and wind_on[i] is not None:
-                w += wind_on[i]
-            if i < len(wind_off) and wind_off[i] is not None:
-                w += wind_off[i]
-            wind_raw.append(w)
-        all_wind[country] = aggregate_hourly_dict(wind_raw, timestamps)
-        
-        # Residual Load
-        residual_raw = production_types.get("Residual load", [0.0] * n)
-        residual_raw = [v if v is not None else 0.0 for v in residual_raw]
-        all_residual[country] = aggregate_hourly_dict(residual_raw, timestamps)
-        
-        hours = len(all_solar[country])
-        print(f"-> {hours} 小时", end=" ")
-        
-        # Generation 数据 (长格式)
-        for pt_name, pt_data in production_types.items():
-            for cat, keywords in GENERATION_CATEGORIES.items():
-                if any(kw.lower() in pt_name.lower() for kw in keywords):
-                    # 聚合成小时
-                    hourly = aggregate_hourly_dict(pt_data, timestamps)
-                    for date_str, value in hourly.items():
-                        if value != 0.0:
-                            all_generation.append({
-                                "Date": date_str,
-                                "country": country,
-                                "category": cat,
-                                "value_MW": value
-                            })
-                    break
-        
-        print(f"Gen:{len([g for g in all_generation if g['country']==country])}")
-        
-    except Exception as e:
-        print(f"错误: {e}")
-    
-    time.sleep(1)
+            for dt, val in series.items():
+                if pd.notna(val) and val != 0:
+                    # 去除时区
+                    dt_naive = dt.tz_localize(None) if dt.tzinfo else dt
+                    date_str = f"{dt_naive.year}/{dt_naive.month}/{dt_naive.day} {dt_naive.hour}:00"
+                    
+                    all_generation.append({
+                        "Date": date_str,
+                        "country": country,
+                        "category": cat,
+                        "value_MW": val
+                    })
 
-# ============ 创建宽格式 DataFrame ============
-print("\n" + "=" * 60)
-print("创建 DataFrame...")
-
-def create_wide_df(data_dict, countries):
-    """从 {country: {date: value}} 创建宽格式 DataFrame"""
-    all_dates = set()
-    for d in data_dict.values():
-        all_dates.update(d.keys())
-    
-    if not all_dates:
-        return pd.DataFrame(columns=["Date"] + countries)
-    
-    all_dates = sorted(all_dates, key=lambda x: datetime.strptime(x, "%Y/%m/%d %H:%M"))
-    
-    df = pd.DataFrame({"Date": all_dates})
-    for c in countries:
-        df[c] = df["Date"].map(lambda x, c=c: data_dict.get(c, {}).get(x, 0.0))
-    
-    return df
-
-# Solar (宽格式)
-solar_df = create_wide_df(all_solar, COUNTRIES)
-print(f"\nSolar: {len(solar_df)} 行")
-print(solar_df.head())
-
-# Wind (宽格式)
-wind_df = create_wide_df(all_wind, COUNTRIES)
-print(f"\nWind: {len(wind_df)} 行")
-print(wind_df.head())
-
-# Residual Load (宽格式)
-residual_df = create_wide_df(all_residual, COUNTRIES)
-print(f"\nResidual Load: {len(residual_df)} 行")
-print(residual_df.head())
-
-# Generation (长格式)
 if all_generation:
     gen_df = pd.DataFrame(all_generation)
-    # 同一时间、国家、类别的数据合并
+    # 合并同一时间、国家、类别
     gen_df = gen_df.groupby(["Date", "country", "category"])["value_MW"].sum().reset_index()
-    print(f"\nGeneration: {len(gen_df)} 行")
-    print(gen_df.head(15))
 else:
     gen_df = pd.DataFrame(columns=["Date", "country", "category", "value_MW"])
 
-# ============ 保存 CSV ============
+
+# ================================
+# 8. 输出预览
+# ================================
+print("\n" + "=" * 60)
+print("数据预览:")
+
+print(f"\n=== Solar ({len(solar_out)} 行) ===")
+print(solar_out.head())
+
+print(f"\n=== Wind ({len(wind_out)} 行) ===")
+print(wind_out.head())
+
+print(f"\n=== Load ({len(load_out)} 行) ===")
+print(load_out.head())
+
+print(f"\n=== Residual Load ({len(residual_out)} 行) ===")
+print(residual_out.head())
+
+print(f"\n=== DA Price ({len(da_out)} 行) ===")
+print(da_out.head())
+
+print(f"\n=== Generation ({len(gen_df)} 行) ===")
+print(gen_df.head(15))
+
+
+# ================================
+# 9. 保存 CSV
+# ================================
 print("\n" + "=" * 60)
 print("保存 CSV 文件...")
 
-solar_df.to_csv(os.path.join(DATA_DIR, "solar.csv"), index=False)
+solar_out.to_csv(os.path.join(SAVE_PATH, "solar.csv"), index=False)
 print("  solar.csv")
 
-wind_df.to_csv(os.path.join(DATA_DIR, "wind.csv"), index=False)
+wind_out.to_csv(os.path.join(SAVE_PATH, "wind.csv"), index=False)
 print("  wind.csv")
 
-residual_df.to_csv(os.path.join(DATA_DIR, "residual_load.csv"), index=False)
+load_out.to_csv(os.path.join(SAVE_PATH, "load.csv"), index=False)
+print("  load.csv")
+
+residual_out.to_csv(os.path.join(SAVE_PATH, "residual_load.csv"), index=False)
 print("  residual_load.csv")
 
-gen_df.to_csv(os.path.join(DATA_DIR, "generation.csv"), index=False)
+da_out.to_csv(os.path.join(SAVE_PATH, "price.csv"), index=False)
+print("  price.csv")
+
+gen_df.to_csv(os.path.join(SAVE_PATH, "generation.csv"), index=False)
 print("  generation.csv")
 
-print("\n完成!")
+print("\n" + "=" * 60)
+print("✔ 完成!")
 print("=" * 60)

@@ -5,234 +5,189 @@ import time
 import os
 
 # ============ 配置 ============
-START_DATE = "2024-01-01"
-END_DATE = datetime.now().strftime("%Y-%m-%d")
+TEST_DATE = "2024-01-01"  # 测试一天
+TEST_END = "2024-01-02"
+
 COUNTRIES = ["DE", "FR", "ES", "IT", "GR", "RO", "HU", "AT", "PL", "SK", "RS", "HR", "BG"]
 DATA_DIR = "data"
-REQUEST_DELAY = 1.0
-MAX_RETRIES = 3
 
 os.makedirs(DATA_DIR, exist_ok=True)
 
-print(f"下载范围: {START_DATE} → {END_DATE}")
-print(f"国家: {COUNTRIES}")
+print("=" * 60)
+print(f"🧪 测试下载: {TEST_DATE} 一天数据")
 print("=" * 60)
 
-# ============ API 请求函数 ============
-def fetch_power_data(country, start, end):
-    """获取 public_power 数据，带重试机制"""
-    url = "https://api.energy-charts.info/public_power"
-    params = {
-        "country": country.lower(),
-        "start": start,
-        "end": end
-    }
-    
-    for attempt in range(MAX_RETRIES):
-        try:
-            response = requests.get(url, params=params, timeout=30)
-            
-            if response.status_code == 429:
-                wait_time = (attempt + 1) * 5
-                print(f"  ⏳ 429 限流，等待 {wait_time} 秒后重试...")
-                time.sleep(wait_time)
-                continue
-            
-            response.raise_for_status()
-            return response.json()
-            
-        except requests.exceptions.HTTPError as e:
-            if "429" in str(e) and attempt < MAX_RETRIES - 1:
-                wait_time = (attempt + 1) * 5
-                print(f"  ⏳ 429 限流，等待 {wait_time} 秒后重试...")
-                time.sleep(wait_time)
-                continue
-            print(f"  ❌ 请求失败: {e}")
-            return None
-        except Exception as e:
-            print(f"  ❌ 请求失败: {e}")
-            return None
-    
-    return None
-
-def generate_date_ranges(start_date, end_date, days=90):
-    """生成90天分批的日期范围"""
-    ranges = []
-    current = datetime.strptime(start_date, "%Y-%m-%d")
-    end = datetime.strptime(end_date, "%Y-%m-%d")
-    
-    while current < end:
-        batch_end = min(current + timedelta(days=days), end)
-        ranges.append((current.strftime("%Y-%m-%d"), batch_end.strftime("%Y-%m-%d")))
-        current = batch_end
-    
-    return ranges
-
+# ============ 辅助函数 ============
 def process_timestamp(unix_seconds):
-    """Unix 秒转换为 Europe/Berlin 时区，格式: YYYY/M/D H:MM"""
     dt = datetime.utcfromtimestamp(unix_seconds) + timedelta(hours=1)
-    # ✅ 格式改为 2024/1/1 0:00 (不补零)
     return f"{dt.year}/{dt.month}/{dt.day} {dt.hour}:{dt.minute:02d}"
 
-# ============ 下载数据 ============
+def format_date(dt):
+    return f"{dt.year}/{dt.month}/{dt.day} {dt.hour}:{dt.minute:02d}"
+
+# ============ 测试单个请求 ============
+print("\n📡 测试 API 响应结构 (DE)...")
+url = "https://api.energy-charts.info/public_power"
+params = {"country": "de", "start": TEST_DATE, "end": TEST_END}
+
+response = requests.get(url, params=params, timeout=30)
+print(f"状态码: {response.status_code}")
+
+data = response.json()
+print(f"\n所有字段:")
+for key in sorted(data.keys()):
+    if isinstance(data[key], list):
+        non_null = sum(1 for v in data[key] if v is not None)
+        print(f"  {key}: {len(data[key])} 条, {non_null} 非空")
+    else:
+        print(f"  {key}: {data[key]}")
+
+# ============ 下载所有国家 ============
+print("\n" + "=" * 60)
+print("下载所有国家...")
+print("=" * 60)
+
 all_solar = {}
 all_wind = {}
 all_residual = {}
 all_generation = []
 
-date_ranges = generate_date_ranges(START_DATE, END_DATE)
-print(f"分 {len(date_ranges)} 批下载")
-print(f"实际范围: {date_ranges[0][0]} → {date_ranges[-1][1]}\n")
-
 for country in COUNTRIES:
-    print(f"🌍 {country}")
+    print(f"\n🌍 {country}...", end=" ")
     
-    country_solar = {}
-    country_wind = {}
-    country_residual = {}
+    params = {"country": country.lower(), "start": TEST_DATE, "end": TEST_END}
     
-    for i, (start, end) in enumerate(date_ranges):
-        print(f"  📅 批次 {i+1}/{len(date_ranges)}: {start} → {end}")
+    try:
+        response = requests.get(url, params=params, timeout=30)
+        if response.status_code != 200:
+            print(f"❌ 状态码 {response.status_code}")
+            continue
+            
+        data = response.json()
         
-        data = fetch_power_data(country, start, end)
-        time.sleep(REQUEST_DELAY)
-        
-        if not data or "unix_seconds" not in data:
-            print(f"  ⚠️ 无数据")
+        if "unix_seconds" not in data:
+            print(f"❌ 无数据")
             continue
         
         timestamps = data["unix_seconds"]
+        print(f"✅ {len(timestamps)} 条时间戳")
+        
+        country_solar = {}
+        country_wind = {}
+        country_residual = {}
         
         for key, values in data.items():
-            if key in ["unix_seconds", "deprecated"]:
+            if key == "unix_seconds" or not isinstance(values, list):
                 continue
-            if not isinstance(values, list) or len(values) != len(timestamps):
+            if len(values) != len(timestamps):
                 continue
             
             key_lower = key.lower()
             
             for ts, val in zip(timestamps, values):
+                if val is None:
+                    continue
                 dt_str = process_timestamp(ts)
-                value = val if val is not None else 0
                 
+                # Solar
                 if "solar" in key_lower and "forecast" not in key_lower:
-                    if dt_str not in country_solar:
-                        country_solar[dt_str] = 0
-                    country_solar[dt_str] += value
+                    country_solar[dt_str] = country_solar.get(dt_str, 0) + val
                 
+                # Wind
+                if "wind" in key_lower and "forecast" not in key_lower:
+                    country_wind[dt_str] = country_wind.get(dt_str, 0) + val
+                
+                # Residual Load
+                if "residual" in key_lower:
+                    country_residual[dt_str] = val
+                
+                # Generation
+                if "nuclear" in key_lower:
+                    cat = "Nuclear"
+                elif "lignite" in key_lower or "hard_coal" in key_lower:
+                    cat = "Fossil Coal"
+                elif "gas" in key_lower:
+                    cat = "Fossil Gas"
+                elif "oil" in key_lower:
+                    cat = "Fossil Oil"
+                elif "solar" in key_lower and "forecast" not in key_lower:
+                    cat = "Solar"
                 elif "wind" in key_lower and "forecast" not in key_lower:
-                    if dt_str not in country_wind:
-                        country_wind[dt_str] = 0
-                    country_wind[dt_str] += value
+                    cat = "Wind"
+                elif "hydro" in key_lower:
+                    cat = "Hydro"
+                elif "biomass" in key_lower:
+                    cat = "Biomass"
+                else:
+                    continue  # 跳过其他
                 
-                elif "residual" in key_lower and "load" in key_lower:
-                    country_residual[dt_str] = value
-                
-                if "load" not in key_lower and "residual" not in key_lower and "forecast" not in key_lower:
-                    if "nuclear" in key_lower:
-                        category = "Nuclear"
-                    elif "lignite" in key_lower or "brown coal" in key_lower:
-                        category = "Fossil Coal"
-                    elif "hard coal" in key_lower:
-                        category = "Fossil Coal"
-                    elif "coal" in key_lower:
-                        category = "Fossil Coal"
-                    elif "gas" in key_lower:
-                        category = "Fossil Gas"
-                    elif "oil" in key_lower:
-                        category = "Fossil Oil"
-                    elif "solar" in key_lower:
-                        category = "Solar"
-                    elif "wind" in key_lower:
-                        category = "Wind"
-                    elif "hydro" in key_lower:
-                        category = "Hydro"
-                    elif "biomass" in key_lower:
-                        category = "Biomass"
-                    elif "geothermal" in key_lower or "waste" in key_lower or "other" in key_lower:
-                        category = "Other"
-                    else:
-                        category = "Other"
-                    
-                    all_generation.append({
-                        "Date": dt_str,  # ✅ 改为 Date
-                        "country": country,
-                        "category": category,
-                        "value_MW": value
-                    })
+                all_generation.append({
+                    "Date": dt_str, 
+                    "country": country, 
+                    "category": cat, 
+                    "value_MW": val
+                })
+        
+        all_solar[country] = country_solar
+        all_wind[country] = country_wind
+        all_residual[country] = country_residual
+        
+        print(f"    Solar: {len(country_solar)}, Wind: {len(country_wind)}, Residual: {len(country_residual)}")
+        
+    except Exception as e:
+        print(f"❌ 错误: {e}")
     
-    all_solar[country] = country_solar
-    all_wind[country] = country_wind
-    all_residual[country] = country_residual
-    print(f"  ✅ 完成\n")
-    
-    time.sleep(2)
+    time.sleep(1)
 
-# ============ 处理并保存数据 ============
+# ============ 创建 DataFrame ============
+print("\n" + "=" * 60)
+print("创建 DataFrame...")
 print("=" * 60)
-print("处理数据...\n")
-
-def format_date(dt):
-    """格式化为 YYYY/M/D H:MM"""
-    return f"{dt.year}/{dt.month}/{dt.day} {dt.hour}:{dt.minute:02d}"
 
 def create_wide_df(data_dict, countries):
-    """创建宽格式 DataFrame"""
     all_times = set()
-    for country_data in data_dict.values():
-        all_times.update(country_data.keys())
-    all_times = sorted(all_times)
+    for d in data_dict.values():
+        all_times.update(d.keys())
     
     if not all_times:
         return pd.DataFrame(columns=["Date"] + countries)
     
+    all_times = sorted(all_times)
     df = pd.DataFrame({"Date": all_times})
-    for country in countries:
-        df[country] = df["Date"].map(lambda x, c=country: data_dict.get(c, {}).get(x, 0))
     
-    # 重采样到小时
-    df["Date"] = pd.to_datetime(df["Date"], format="%Y/%m/%d %H:%M")
-    df = df.set_index("Date").resample("h").mean().reset_index()
-    
-    # ✅ 格式化为 2024/1/1 0:00
-    df["Date"] = df["Date"].apply(format_date)
+    for c in countries:
+        df[c] = df["Date"].map(lambda x, c=c: data_dict.get(c, {}).get(x, 0))
     
     return df
 
-# 1. Solar
-print("📊 solar.csv...")
+# Solar
 solar_df = create_wide_df(all_solar, COUNTRIES)
+print(f"\nSolar DataFrame: {len(solar_df)} 行")
+print(solar_df.head(10))
 solar_df.to_csv(os.path.join(DATA_DIR, "solar.csv"), index=False)
-print(f"  ✅ {len(solar_df)} 行")
 
-# 2. Wind
-print("📊 wind.csv...")
+# Wind
 wind_df = create_wide_df(all_wind, COUNTRIES)
+print(f"\nWind DataFrame: {len(wind_df)} 行")
+print(wind_df.head(10))
 wind_df.to_csv(os.path.join(DATA_DIR, "wind.csv"), index=False)
-print(f"  ✅ {len(wind_df)} 行")
 
-# 3. Residual Load
-print("📊 residual_load.csv...")
+# Residual Load
 residual_df = create_wide_df(all_residual, COUNTRIES)
+print(f"\nResidual Load DataFrame: {len(residual_df)} 行")
+print(residual_df.head(10))
 residual_df.to_csv(os.path.join(DATA_DIR, "residual_load.csv"), index=False)
-print(f"  ✅ {len(residual_df)} 行")
 
-# 4. Generation
-print("📊 generation.csv...")
+# Generation
 if all_generation:
     gen_df = pd.DataFrame(all_generation)
     gen_df = gen_df.groupby(["Date", "country", "category"])["value_MW"].sum().reset_index()
-    gen_df["Date"] = pd.to_datetime(gen_df["Date"], format="%Y/%m/%d %H:%M")
-    gen_df = gen_df.groupby([pd.Grouper(key="Date", freq="h"), "country", "category"])["value_MW"].mean().reset_index()
-    
-    # ✅ 格式化为 2024/1/1 0:00
-    gen_df["Date"] = gen_df["Date"].apply(format_date)
-    
+    print(f"\nGeneration DataFrame: {len(gen_df)} 行")
+    print(gen_df.head(20))
     gen_df.to_csv(os.path.join(DATA_DIR, "generation.csv"), index=False)
-    print(f"  ✅ {len(gen_df)} 行")
 else:
-    print("  ⚠️ 无数据")
+    print("\n⚠️ Generation 无数据")
 
 print("\n" + "=" * 60)
-print("🎉 全部完成!")
-print(f"文件: {DATA_DIR}/solar.csv, wind.csv, residual_load.csv, generation.csv")
+print("✅ 测试完成! 检查 data/ 文件夹")
+print("=" * 60)

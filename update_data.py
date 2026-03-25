@@ -45,7 +45,7 @@ COUNTRY_CONFIG = {
 
 COUNTRIES     = list(COUNTRY_CONFIG.keys())
 START_DATE    = "2024-01-01"
-END_DATE      = "2026-03-25"      # ← 测试用，改为 None 则自动用明天
+END_DATE      = "2025-01-01"      # ← 测试用，改为 None 则自动用明天
 REQUEST_DELAY = 1.5
 API_BASE      = "https://api.energy-charts.info"
 DATA_DIR      = Path("data")

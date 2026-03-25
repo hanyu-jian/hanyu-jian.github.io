@@ -38,7 +38,7 @@ BZN_MAP = {
     "de": "DE-LU",
     "fr": "FR",
     "es": "ES",
-    "it": "IT",
+    "it": "IT-North",
     "gr": "GR",
     "ro": "RO",
     "hu": "HU",

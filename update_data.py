@@ -102,7 +102,7 @@ def parse_power(data: dict, tz: str) -> dict:
       solar         → solar.csv
       wind          → wind.csv  (offshore + onshore 求和)
       residual load → residual_load.csv
-      其余全部      → generation.csv（长表，wind合并后写入）
+
 
     返回 dict:
       {
@@ -301,13 +301,17 @@ def main():
     write_wide_csv(residual_cols, DATA_DIR / "residual_load.csv", "residual_load")
 
     if gen_rows:
+        gen_dir = DATA_DIR / "generation"
+        gen_dir.mkdir(exist_ok=True)
         df_gen = pd.DataFrame(gen_rows, columns=["date", "country", "category", "value"])
-        df_gen.to_csv(DATA_DIR / "generation.csv", index=False)
-        print(f"  ✓ generation.csv: {len(df_gen)} 行")
-        print(f"     国家: {sorted(df_gen['country'].unique())}")
+        for country, group in df_gen.groupby("country"):
+            path = gen_dir / f"{country}.csv"
+            group.drop(columns="country").to_csv(path, index=False)
+            print(f"  ✓ generation/{country}.csv: {len(group)} 行")
         print(f"     类型: {sorted(df_gen['category'].unique())}")
     else:
-        print("  [SKIP] generation.csv: 无数据")
+        print("  [SKIP] generation: 无数据")
+
 
     print()
     print("=" * 62)

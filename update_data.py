@@ -1,312 +1,383 @@
-#!/usr/bin/env python3
-"""
-Energy Charts API 数据更新脚本
-获取13个欧洲国家的电力数据并更新到CSV文件
-输出：solar.csv, wind.csv, load.csv, residual_load.csv, price.csv, generation.csv
-"""
-
-import time
-from datetime import datetime, timedelta
-from pathlib import Path
-
-import pandas as pd
 import requests
+import pandas as pd
+import time
+import os
+from datetime import datetime, timedelta
 
-# === 配置 ===
-COUNTRIES = ["de", "fr", "es", "it", "gr", "ro", "hu", "at", "pl", "sk", "rs", "hr", "bg"]
-START_DATE = "2024-01-01"
-END_DATE = "2024-01-03"
-REQUEST_DELAY = 1.5  # API请求间隔（秒）
+# 尝试导入时区库
+try:
+    from zoneinfo import ZoneInfo
+except ImportError:
+    from backports.zoneinfo import ZoneInfo
 
-# Bidding Zone 映射（用于价格 API）
-BZN_MAP = {
-    "de": "DE-LU", "fr": "FR", "es": "ES", "it": "IT-North", "gr": "GR",
-    "ro": "RO", "hu": "HU", "at": "AT", "pl": "PL", "sk": "SK",
-    "rs": "RS", "hr": "HR", "bg": "BG",
+# ============================================================
+# 配置
+# ============================================================
+
+DATA_DIR = "data"
+LOAD_FILE = os.path.join(DATA_DIR, "load.csv")
+PRICE_FILE = os.path.join(DATA_DIR, "price.csv")
+
+# 数据源时区（欧洲能源数据以柏林时间为准）
+DATA_TIMEZONE = ZoneInfo("Europe/Berlin")
+
+# 国家列表（统一顺序）
+COLUMNS = ['DE', 'FR', 'ES', 'IT', 'GR', 'RO', 'HU', 'AT', 'PL', 'SK', 'RS', 'HR', 'BG']
+
+# 负荷数据：国家代码映射
+LOAD_COUNTRY_MAP = {
+    'DE': 'de',
+    'FR': 'fr',
+    'ES': 'es',
+    'IT': 'it',
+    'GR': 'gr',
+    'RO': 'ro',
+    'HU': 'hu',
+    'AT': 'at',
+    'PL': 'pl',
+    'SK': 'sk',
+    'RS': 'rs',
+    'HR': 'hr',
+    'BG': 'bg',
 }
 
-# 时区映射
-TIMEZONE_MAP = {
-    "de": "Europe/Berlin", "fr": "Europe/Paris", "es": "Europe/Madrid",
-    "it": "Europe/Rome", "gr": "Europe/Athens", "ro": "Europe/Bucharest",
-    "hu": "Europe/Budapest", "at": "Europe/Vienna", "pl": "Europe/Warsaw",
-    "sk": "Europe/Bratislava", "rs": "Europe/Belgrade", "hr": "Europe/Zagreb", "bg": "Europe/Sofia",
+# 价格数据：竞价区映射
+PRICE_BZN_MAP = {
+    'DE': 'DE-LU',
+    'FR': 'FR',
+    'ES': 'ES',
+    'IT': 'IT-North',
+    'GR': 'GR',
+    'RO': 'RO',
+    'HU': 'HU',
+    'AT': 'AT',
+    'PL': 'PL',
+    'SK': 'SK',
+    'RS': 'RS',
+    'HR': 'HR',
+    'BG': 'BG',
 }
 
-# API 端点
-API_BASE = "https://api.energy-charts.info"
-DATA_DIR = Path("data")
+# 请求配置
+CHUNK_DAYS = 90
+REQUEST_DELAY = 0.5
+START_DATE_DEFAULT = "2024-01-01"
+
+# ============================================================
+# 工具函数
+# ============================================================
+
+def get_current_berlin_time():
+    """获取当前柏林时间（无时区信息的 datetime）"""
+    now_utc = datetime.now(ZoneInfo("UTC"))
+    now_berlin = now_utc.astimezone(DATA_TIMEZONE)
+    return now_berlin.replace(tzinfo=None)
 
 
-def fetch_power_data(country: str, start: str, end: str) -> dict | None:
-    """获取发电和负荷数据"""
-    url = f"{API_BASE}/public_power"
-    params = {"country": country, "start": start, "end": end}
-    try:
-        resp = requests.get(url, params=params, timeout=30)
-        resp.raise_for_status()
-        return resp.json()
-    except requests.RequestException as e:
-        print(f"  [ERROR] Power data for {country}: {e}")
-        return None
+def format_timestamp(dt):
+    """datetime → 'YYYY/M/D H:MM' 格式（无前导零）"""
+    return f"{dt.year}/{dt.month}/{dt.day} {dt.hour}:{dt.minute:02d}"
 
 
-def fetch_price_data(bzn: str, start: str, end: str) -> dict | None:
-    """获取日前价格数据"""
-    url = f"{API_BASE}/price"
-    params = {"bzn": bzn, "start": start, "end": end}
-    try:
-        resp = requests.get(url, params=params, timeout=30)
-        resp.raise_for_status()
-        return resp.json()
-    except requests.RequestException as e:
-        print(f"  [ERROR] Price data for {bzn}: {e}")
-        return None
+def load_existing_csv(filepath):
+    """读取已有 CSV，返回 DataFrame，索引为 datetime"""
+    if os.path.exists(filepath):
+        df = pd.read_csv(filepath, index_col=0)
+        df.index = pd.to_datetime(df.index, format='%Y/%m/%d %H:%M')
+        print(f"  已加载 {filepath}，共 {len(df)} 行")
+        return df
+    print(f"  文件不存在：{filepath}，将创建新文件")
+    return pd.DataFrame()
 
 
-def process_power_data(data: dict, country: str) -> pd.DataFrame:
+def save_csv(df, filepath):
+    """保存 DataFrame 为 CSV，时间戳用指定格式"""
+    df = df.sort_index()
+    df.index = df.index.map(format_timestamp)
+    df.to_csv(filepath, index=True, index_label='Date')
+    print(f"  已保存 {filepath}，共 {len(df)} 行")
+
+
+def get_date_chunks(start_date, end_date, chunk_days=90):
+    """将日期范围拆分为若干块"""
+    chunks = []
+    current = start_date
+    while current < end_date:
+        chunk_end = min(current + timedelta(days=chunk_days), end_date)
+        chunks.append((current, chunk_end))
+        current = chunk_end
+    return chunks
+
+
+def get_start_date(existing_df):
+    """根据已有数据确定起始日期"""
+    if existing_df.empty:
+        return datetime.strptime(START_DATE_DEFAULT, "%Y-%m-%d")
+    last_date = existing_df.index.max()
+    # 从最后一天的 00:00 重新拉取，确保数据完整
+    return last_date.replace(hour=0, minute=0, second=0, microsecond=0)
+
+
+def resample_to_hourly(series):
+    """将 15 分钟数据重采样为小时平均"""
+    if series.empty:
+        return series
+    series = series.dropna()
+    series = series.resample('h').mean()
+    return series
+
+# ============================================================
+# 负荷数据获取
+# ============================================================
+
+def fetch_load_one_country(country_code, start_dt, end_dt):
     """
-    处理发电/负荷数据，返回包含所有生产类型及负荷的宽表DataFrame。
-    同时将 offshore 和 onshore 合并为 wind 列（如果两者都存在）。
+    获取单个国家的负荷数据
+    返回 Series（小时级均值，整数 MW）
     """
-    if not data or "unix_seconds" not in data:
-        return pd.DataFrame()
-
-    tz = TIMEZONE_MAP[country]
-    timestamps = pd.to_datetime(data["unix_seconds"], unit="s", utc=True)
-    timestamps = timestamps.tz_convert(tz).tz_localize(None)
-
-    df = pd.DataFrame({"datetime": timestamps})
-
-    # 提取所有生产类型
-    production_types = data.get("production_types", [])
-    for pt in production_types:
-        name = pt.get("name", "")
-        values = pt.get("data", [])
-        if name and values:
-            df[name] = values
-
-    # 如果同时有 wind offshore 和 wind onshore，合并为 wind
-    if "wind offshore" in df.columns and "wind onshore" in df.columns:
-        df["wind"] = df["wind offshore"].fillna(0) + df["wind onshore"].fillna(0)
-        # 可选：删除原始列以保持整洁（不删除也可，但 generation 计算时需注意）
-        # 我们保留原始列，因为 generation 处理时会自动匹配关键词
-    elif "wind onshore" in df.columns:
-        df["wind"] = df["wind onshore"]
-    elif "wind offshore" in df.columns:
-        df["wind"] = df["wind offshore"]
-
-    # 重采样为小时均值
-    df.set_index("datetime", inplace=True)
-    df = df.resample("h").mean()
-    return df
-
-
-def process_price_data(data: dict, country: str) -> pd.DataFrame:
-    """处理价格数据，返回小时均值的价格DataFrame"""
-    if not data or "unix_seconds" not in data:
-        return pd.DataFrame()
-
-    tz = TIMEZONE_MAP[country]
-    timestamps = pd.to_datetime(data["unix_seconds"], unit="s", utc=True)
-    timestamps = timestamps.tz_convert(tz).tz_localize(None)
-
-    prices = data.get("price", [])
-    df = pd.DataFrame({"datetime": timestamps, "price": prices})
-    df.set_index("datetime", inplace=True)
-    df = df.resample("h").mean()
-    return df
-
-
-def col_match(columns: list, keywords: list) -> list:
-    """匹配包含任意关键词的列名"""
-    matched = []
-    for col in columns:
-        col_lower = col.lower()
-        if any(kw.lower() in col_lower for kw in keywords):
-            matched.append(col)
-    return matched
-
-
-def process_generation_data(power_df: pd.DataFrame, price_df: pd.DataFrame, country: str) -> pd.DataFrame:
-    """
-    从功率宽表和价格表中生成发电结构长表。
-    power_df: 包含所有生产类型及负荷的宽表，索引为小时时间戳
-    price_df: 价格表，索引为小时时间戳
-    """
-    if power_df.empty:
-        return pd.DataFrame()
-
-    cols = power_df.columns.tolist()
-
-    # 计算各分类
-    nuclear = power_df[col_match(cols, ["nuclear"])].sum(axis=1)
-    hydro = power_df[col_match(cols, ["hydro"])].sum(axis=1)
-    thermal = power_df[col_match(cols, ["fossil", "others"])].sum(axis=1)
-    wind = power_df[col_match(cols, ["wind"])].sum(axis=1)
-    solar = power_df[col_match(cols, ["solar"])].sum(axis=1)
-    xborder = power_df[col_match(cols, ["cross border", "x-border"])].sum(axis=1)
-    load = power_df[col_match(cols, ["load"])].sum(axis=1)
-
-    # Other = 剩余发电（不在上述分类中的列）
-    used_cols = set(col_match(cols, [
-        "nuclear", "hydro", "fossil", "others", "wind", "solar",
-        "cross border", "x-border", "load"
-    ]))
-    other_cols = [c for c in cols if c not in used_cols]
-    other = power_df[other_cols].sum(axis=1) if other_cols else pd.Series(0, index=power_df.index)
-
-    # DA Price（与功率表对齐）
-    if not price_df.empty:
-        da_price = price_df["price"].reindex(power_df.index)
-    else:
-        da_price = pd.Series(index=power_df.index, dtype=float)
-
-    # 构建长格式 DataFrame
-    country_upper = country.upper()
-    categories = {
-        "Nuclear": nuclear,
-        "Hydro": hydro,
-        "Thermal": thermal,
-        "Wind": wind,
-        "Solar": solar,
-        "Other": other,
-        "X-Border": xborder,
-        "Load": load,
-        "DA Price": da_price,
+    url = "https://api.energy-charts.info/public_power"
+    params = {
+        "country": country_code,
+        "start": start_dt.strftime("%Y-%m-%d"),
+        "end": end_dt.strftime("%Y-%m-%d"),
     }
+    
+    try:
+        resp = requests.get(url, params=params, timeout=30)
+        resp.raise_for_status()
+        data = resp.json()
 
-    rows = []
-    for cat_name, cat_series in categories.items():
-        for dt, val in cat_series.items():
-            rows.append({
-                "Date": dt,
-                "Country": country_upper,
-                "Category": cat_name,
-                "Value": val
-            })
+        # 找到 Load 类别
+        production_types = data.get("production_types", [])
+        load_data = None
+        for pt in production_types:
+            if pt.get("name") == "Load":
+                load_data = pt.get("data", [])
+                break
 
-    return pd.DataFrame(rows)
+        if load_data is None:
+            print(f"未找到 Load")
+            return pd.Series(dtype=float)
+
+        unix_seconds = data.get("unix_seconds", [])
+        if not unix_seconds or not load_data:
+            print(f"空数据")
+            return pd.Series(dtype=float)
+
+        # 构建 Series，转换时区
+        idx = pd.to_datetime(unix_seconds, unit='s', utc=True)
+        idx = idx.tz_convert('Europe/Berlin').tz_localize(None)
+        s = pd.Series(load_data, index=idx, dtype=float)
+
+        # 重采样为小时均值
+        s = resample_to_hourly(s)
+        
+        # 取整
+        s = s.round(0).astype('Int64')
+
+        return s
+
+    except requests.exceptions.RequestException as e:
+        print(f"请求失败: {e}")
+        return pd.Series(dtype=float)
+    except Exception as e:
+        print(f"处理失败: {e}")
+        return pd.Series(dtype=float)
 
 
-def format_date_index(df: pd.DataFrame) -> pd.DataFrame:
-    """格式化日期索引为 YYYY/M/D H:00"""
-    df = df.copy()
-    df.index = df.index.strftime("%-Y/%-m/%-d %-H:00").str.replace("^0", "", regex=True)
-    df.index.name = "Date"
-    return df
+def fetch_load_all(start_dt, end_dt):
+    """获取所有国家的负荷数据，返回 DataFrame"""
+    print(f"\n获取负荷数据：{start_dt.date()} → {end_dt.date()}")
+    chunks = get_date_chunks(start_dt, end_dt, CHUNK_DAYS)
+    all_data = []
+
+    for chunk_start, chunk_end in chunks:
+        print(f"\n  区块：{chunk_start.date()} → {chunk_end.date()}")
+        chunk_dict = {}
+
+        for col, code in LOAD_COUNTRY_MAP.items():
+            print(f"    {col} ({code})... ", end="", flush=True)
+            s = fetch_load_one_country(code, chunk_start, chunk_end)
+            chunk_dict[col] = s
+            print(f"✓ {len(s)} 条")
+            time.sleep(REQUEST_DELAY)
+
+        chunk_df = pd.DataFrame(chunk_dict)
+        all_data.append(chunk_df)
+
+    if not all_data:
+        return pd.DataFrame()
+
+    result = pd.concat(all_data)
+    return result
+
+# ============================================================
+# 价格数据获取
+# ============================================================
+
+def fetch_price_one_bzn(bzn_code, start_dt, end_dt):
+    """
+    获取单个竞价区的价格数据
+    返回 Series（小时级均值，保留 2 位小数，EUR/MWh）
+    """
+    url = "https://api.energy-charts.info/price"
+    params = {
+        "bzn": bzn_code,
+        "start": start_dt.strftime("%Y-%m-%d"),
+        "end": end_dt.strftime("%Y-%m-%d"),
+    }
+    
+    try:
+        resp = requests.get(url, params=params, timeout=30)
+        resp.raise_for_status()
+        data = resp.json()
+
+        unix_seconds = data.get("unix_seconds", [])
+        prices = data.get("price", [])
+
+        if not unix_seconds or not prices:
+            print(f"空数据")
+            return pd.Series(dtype=float)
+
+        # 构建 Series，转换时区
+        idx = pd.to_datetime(unix_seconds, unit='s', utc=True)
+        idx = idx.tz_convert('Europe/Berlin').tz_localize(None)
+        s = pd.Series(prices, index=idx, dtype=float)
+
+        # 重采样为小时均值
+        s = resample_to_hourly(s)
+        
+        # 保留 2 位小数
+        s = s.round(2)
+
+        return s
+
+    except requests.exceptions.RequestException as e:
+        print(f"请求失败: {e}")
+        return pd.Series(dtype=float)
+    except Exception as e:
+        print(f"处理失败: {e}")
+        return pd.Series(dtype=float)
 
 
-def format_date_column(df: pd.DataFrame, col: str = "Date") -> pd.DataFrame:
-    """格式化 Date 列为 YYYY/M/D H:00"""
-    df = df.copy()
-    df[col] = pd.to_datetime(df[col]).dt.strftime("%-Y/%-m/%-d %-H:00").str.replace("^0", "", regex=True)
-    return df
+def fetch_price_all(start_dt, end_dt):
+    """获取所有国家的价格数据，返回 DataFrame"""
+    print(f"\n获取价格数据：{start_dt.date()} → {end_dt.date()}")
+    chunks = get_date_chunks(start_dt, end_dt, CHUNK_DAYS)
+    all_data = []
 
+    for chunk_start, chunk_end in chunks:
+        print(f"\n  区块：{chunk_start.date()} → {chunk_end.date()}")
+        chunk_dict = {}
+
+        for col, bzn in PRICE_BZN_MAP.items():
+            print(f"    {col} ({bzn})... ", end="", flush=True)
+            s = fetch_price_one_bzn(bzn, chunk_start, chunk_end)
+            chunk_dict[col] = s
+            print(f"✓ {len(s)} 条")
+            time.sleep(REQUEST_DELAY)
+
+        chunk_df = pd.DataFrame(chunk_dict)
+        all_data.append(chunk_df)
+
+    if not all_data:
+        return pd.DataFrame()
+
+    result = pd.concat(all_data)
+    return result
+
+# ============================================================
+# 合并与保存
+# ============================================================
+
+def merge_and_save(existing_df, new_df, filepath):
+    """合并新旧数据，去重，保存"""
+    if new_df.empty:
+        print(f"  无新数据，跳过保存")
+        return existing_df
+
+    # 确保列顺序一致
+    new_df = new_df.reindex(columns=COLUMNS)
+
+    if not existing_df.empty:
+        existing_df = existing_df.reindex(columns=COLUMNS)
+        combined = pd.concat([existing_df, new_df])
+    else:
+        combined = new_df
+
+    # 去重：保留最新的数据（后出现的覆盖先出现的）
+    combined = combined[~combined.index.duplicated(keep='last')]
+    
+    # 排序
+    combined = combined.sort_index()
+
+    save_csv(combined, filepath)
+    return combined
+
+# ============================================================
+# 主函数
+# ============================================================
 
 def main():
-    """主函数"""
+    # 创建数据目录
+    os.makedirs(DATA_DIR, exist_ok=True)
+
+    # 获取当前柏林时间作为结束日期
+    end_dt = get_current_berlin_time()
+
     print("=" * 60)
-    print("Energy Charts 数据更新")
+    print("欧洲能源数据更新工具")
     print("=" * 60)
+    print(f"柏林时间：{end_dt.strftime('%Y-%m-%d %H:%M')}")
+    print(f"本地时间：{datetime.now().strftime('%Y-%m-%d %H:%M')}")
+    print(f"数据目录：{os.path.abspath(DATA_DIR)}")
 
-    DATA_DIR.mkdir(exist_ok=True)
-    end_date = (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d")
-    print(f"数据范围: {START_DATE} 至 {end_date}")
-    print(f"国家列表: {', '.join(COUNTRIES)}\n")
-
-    # 存储各国数据
-    all_solar = {}
-    all_wind = {}
-    all_load = {}
-    all_price = {}
-    all_generation = []
-
-    for country in COUNTRIES:
-        print(f"[{country.upper()}] 获取数据...")
-
-        # 获取功率数据（宽表）
-        power_data = fetch_power_data(country, START_DATE, end_date)
-        time.sleep(REQUEST_DELAY)
-
-        # 获取价格数据
-        bzn = BZN_MAP[country]
-        price_data = fetch_price_data(bzn, START_DATE, end_date)
-        time.sleep(REQUEST_DELAY)
-
-        if power_data is not None:
-            power_df = process_power_data(power_data, country)
-
-            if not power_df.empty:
-                # 提取 solar, wind, load 列（如果存在）
-                if "solar" in power_df.columns:
-                    all_solar[country.upper()] = power_df["solar"]
-                if "wind" in power_df.columns:
-                    all_wind[country.upper()] = power_df["wind"]
-                if "load" in power_df.columns:
-                    all_load[country.upper()] = power_df["load"]
-
-                # 处理价格数据（用于 generation）
-                price_df = process_price_data(price_data, country) if price_data else pd.DataFrame()
-                df_gen = process_generation_data(power_df, price_df, country)
-                if not df_gen.empty:
-                    all_generation.append(df_gen)
-
-        if price_data is not None:
-            price_df = process_price_data(price_data, country)
-            if not price_df.empty and "price" in price_df.columns:
-                all_price[country.upper()] = price_df["price"]
-
-    print("\n处理数据...")
-
-    # 创建宽格式 DataFrame
-    df_solar = pd.DataFrame(all_solar)
-    df_wind = pd.DataFrame(all_wind)
-    df_load = pd.DataFrame(all_load)
-    df_price = pd.DataFrame(all_price)
-
-    # 合并 generation 数据
-    if all_generation:
-        df_generation = pd.concat(all_generation, ignore_index=True)
-    else:
-        df_generation = pd.DataFrame()
-
-    # 计算 Residual Load = Load - Solar - Wind
-    df_residual = pd.DataFrame(index=df_load.index)
-    for country in df_load.columns:
-        load_val = df_load[country] if country in df_load.columns else 0
-        solar_val = df_solar[country] if country in df_solar.columns else 0
-        wind_val = df_wind[country] if country in df_wind.columns else 0
-        df_residual[country] = load_val - solar_val - wind_val
-
-    # 格式化索引和日期列
-    df_solar = format_date_index(df_solar)
-    df_wind = format_date_index(df_wind)
-    df_load = format_date_index(df_load)
-    df_residual = format_date_index(df_residual)
-    df_price = format_date_index(df_price)
-    if not df_generation.empty:
-        df_generation = format_date_column(df_generation)
-
-    # 保存 CSV
-    print("保存 CSV 文件...")
-    df_solar.to_csv(DATA_DIR / "solar.csv")
-    df_wind.to_csv(DATA_DIR / "wind.csv")
-    df_load.to_csv(DATA_DIR / "load.csv")
-    df_residual.to_csv(DATA_DIR / "residual_load.csv")
-    df_price.to_csv(DATA_DIR / "price.csv")
-    if not df_generation.empty:
-        df_generation.to_csv(DATA_DIR / "generation.csv", index=False)
-        print(f"  - generation.csv: {len(df_generation)} 行")
-    print(f"  - solar.csv: {len(df_solar)} 行")
-    print(f"  - wind.csv: {len(df_wind)} 行")
-    print(f"  - load.csv: {len(df_load)} 行")
-    print(f"  - residual_load.csv: {len(df_residual)} 行")
-    print(f"  - price.csv: {len(df_price)} 行")
-
+    # ==================== 负荷数据 ====================
     print("\n" + "=" * 60)
-    print("完成!")
+    print("【负荷数据更新】")
     print("=" * 60)
+    
+    existing_load = load_existing_csv(LOAD_FILE)
+    start_dt_load = get_start_date(existing_load)
+
+    print(f"  起始日期：{start_dt_load.date()}")
+    print(f"  结束日期：{end_dt.date()}")
+
+    if start_dt_load.date() >= end_dt.date():
+        print("  ⏭ 数据已是最新，无需更新")
+    else:
+        new_load = fetch_load_all(start_dt_load, end_dt)
+        merge_and_save(existing_load, new_load, LOAD_FILE)
+
+    # ==================== 价格数据 ====================
+    print("\n" + "=" * 60)
+    print("【价格数据更新】")
+    print("=" * 60)
+    
+    existing_price = load_existing_csv(PRICE_FILE)
+    start_dt_price = get_start_date(existing_price)
+
+    print(f"  起始日期：{start_dt_price.date()}")
+    print(f"  结束日期：{end_dt.date()}")
+
+    if start_dt_price.date() >= end_dt.date():
+        print("  ⏭ 数据已是最新，无需更新")
+    else:
+        new_price = fetch_price_all(start_dt_price, end_dt)
+        merge_and_save(existing_price, new_price, PRICE_FILE)
+
+    # ==================== 完成 ====================
+    print("\n" + "=" * 60)
+    print("✅ 数据更新完成！")
+    print("=" * 60)
+    
+    # 显示数据统计
+    if os.path.exists(LOAD_FILE):
+        df_load = pd.read_csv(LOAD_FILE)
+        print(f"  负荷数据：{len(df_load)} 行 × {len(df_load.columns)-1} 国家")
+    if os.path.exists(PRICE_FILE):
+        df_price = pd.read_csv(PRICE_FILE)
+        print(f"  价格数据：{len(df_price)} 行 × {len(df_price.columns)-1} 国家")
 
 
 if __name__ == "__main__":

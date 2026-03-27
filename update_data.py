@@ -1,21 +1,14 @@
 #!/usr/bin/env python3
 """
-Energy Charts API 数据更新脚本
-获取13个欧洲国家的电力数据并更新到CSV文件
-
-每国 API 调用（共2次）：
-  1. /price?bzn=XX          → price.csv
-  2. /public_power?country=xx → load / solar / wind / residual_load / generation
-
-输出文件：
-  price.csv         宽表 date × country  (EUR/MWh)
-  load.csv          宽表 date × country  (MW)
-  solar.csv         宽表 date × country  (MW)
-  wind.csv          宽表 date × country  (MW, offshore+onshore合并)
-  residual_load.csv 宽表 date × country  (MW)
-  generation.csv    长表 date, country, category, value
+Energy Charts API 数据更新脚本（增量更新版）
+- 每次获取最近 LOOKBACK_DAYS 天数据（默认7天）
+- 与现有 CSV 合并，重叠部分以新数据覆盖（处理数据回溯纠错）
+- 支持两种模式：
+    --mode incremental  仅更新最近7天（默认，用于每日自动更新）
+    --mode full         全量拉取 FULL_START_DATE → 今天（用于初始化/修复）
 """
 
+import argparse
 import time
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -43,12 +36,12 @@ COUNTRY_CONFIG = {
     "bg": {"tz": "Europe/Sofia",      "bzn": "BG"},
 }
 
-COUNTRIES     = list(COUNTRY_CONFIG.keys())
-START_DATE    = "2024-01-01"
-END_DATE      = "2026-03-25"      # ← 测试用，改为 None 则自动用明天
-REQUEST_DELAY = 1.5
-API_BASE      = "https://api.energy-charts.info"
-DATA_DIR      = Path("data")
+COUNTRIES      = list(COUNTRY_CONFIG.keys())
+FULL_START_DATE = "2024-01-01"   # 全量模式起始日
+LOOKBACK_DAYS  = 7               # 增量模式回溯天数
+REQUEST_DELAY  = 1.5
+API_BASE       = "https://api.energy-charts.info"
+DATA_DIR       = Path("data")
 
 
 # ─────────────────────────────────────────────────────────────
@@ -82,7 +75,6 @@ def fetch_power(country: str, start: str, end: str) -> dict | None:
 # ─────────────────────────────────────────────────────────────
 
 def _make_index(unix_seconds: list, tz: str) -> pd.DatetimeIndex:
-    """UTC unix timestamps → 本地时区 → 去除时区信息"""
     return (pd.to_datetime(unix_seconds, unit="s", utc=True)
               .tz_convert(tz)
               .tz_localize(None))
@@ -96,29 +88,11 @@ def parse_price(data: dict, tz: str) -> pd.Series | None:
 
 
 def parse_power(data: dict, tz: str) -> dict:
-    """
-    解析 public_power，从 production_types 中提取：
-      load          → load.csv
-      solar         → solar.csv
-      wind          → wind.csv  (offshore + onshore 求和)
-      residual load → residual_load.csv
-
-
-    返回 dict:
-      {
-        "load":         pd.Series | None,
-        "solar":        pd.Series | None,
-        "wind":         pd.Series | None,
-        "residual":     pd.Series | None,
-        "generation":   pd.DataFrame,    # columns=category, index=datetime
-      }
-    """
     if not data or "unix_seconds" not in data:
         return {}
 
     idx = _make_index(data["unix_seconds"], tz)
 
-    # 把 production_types 整理成 {lower_name: (orig_name, data_list)}
     raw: dict[str, tuple[str, list]] = {}
     for pt in data.get("production_types", []):
         orig  = pt.get("name", "").strip()
@@ -135,22 +109,18 @@ def parse_power(data: dict, tz: str) -> dict:
                 return k
         return None
 
-    # ── 各指标的 key 查找 ────────────────────────────────────
-    load_key      = find_key(["load"],            must_exclude=["residual"])
-    solar_key     = find_key(["solar"],           must_exclude=["residual"])
+    load_key      = find_key(["load"],  must_exclude=["residual"])
+    solar_key     = find_key(["solar"], must_exclude=["residual"])
     off_key       = find_key(["wind", "offshore"])
     on_key        = find_key(["wind", "onshore"])
-    bare_wind_key = find_key(["wind"],            must_exclude=["offshore", "onshore", "residual"]) \
+    bare_wind_key = find_key(["wind"],  must_exclude=["offshore", "onshore", "residual"]) \
                     if not off_key and not on_key else None
     residual_key  = find_key(["residual", "load"])
 
-    # ── Load ─────────────────────────────────────────────────
-    load_s = to_series(load_key) if load_key else None
+    load_s     = to_series(load_key)     if load_key     else None
+    solar_s    = to_series(solar_key)    if solar_key    else None
+    residual_s = to_series(residual_key) if residual_key else None
 
-    # ── Solar ────────────────────────────────────────────────
-    solar_s = to_series(solar_key) if solar_key else None
-
-    # ── Wind（offshore + onshore 合并）───────────────────────
     if off_key and on_key:
         wind_s = to_series(off_key).add(to_series(on_key), fill_value=0)
     elif off_key:
@@ -162,25 +132,17 @@ def parse_power(data: dict, tz: str) -> dict:
     else:
         wind_s = None
 
-    # ── Residual Load ─────────────────────────────────────────
-    residual_s = to_series(residual_key) if residual_key else None
-
-    # ── Generation（长表）────────────────────────────────────
-    # 排除 residual load；将 offshore+onshore 合并为单列 "Wind"
     skip = {residual_key, off_key, on_key} - {None}
-
     gen_dict: dict[str, pd.Series] = {}
     for lower, (orig, _) in raw.items():
         if lower in skip:
             continue
         gen_dict[orig] = to_series(lower)
 
-    # 用合并后的 Wind 替换（如果原来是分开的）
     if (off_key or on_key) and wind_s is not None:
         for k in [off_key, on_key]:
             if k:
-                orig_name = raw[k][0]
-                gen_dict.pop(orig_name, None)
+                gen_dict.pop(raw[k][0], None)
         gen_dict["Wind"] = wind_s
 
     gen_df = pd.DataFrame(gen_dict) if gen_dict else pd.DataFrame()
@@ -195,22 +157,83 @@ def parse_power(data: dict, tz: str) -> dict:
 
 
 # ─────────────────────────────────────────────────────────────
-# CSV 写入
+# CSV 合并写入（核心：新数据覆盖旧数据）
 # ─────────────────────────────────────────────────────────────
 
 def fmt_index(index: pd.DatetimeIndex) -> list[str]:
     return [dt.strftime("%Y/%-m/%-d %-H:00") for dt in index]
 
 
-def write_wide_csv(cols: dict[str, pd.Series], path: Path, label: str):
-    if not cols:
-        print(f"  [SKIP] {label}: 无数据")
+def merge_and_save_wide(new_cols: dict[str, pd.Series], path: Path, label: str):
+    """
+    宽表合并逻辑：
+      1. 读取已有 CSV（若存在）
+      2. 用新数据的行覆盖旧数据的对应行（combine_first 反向：新优先）
+      3. 保存
+    """
+    if not new_cols:
+        print(f"  [SKIP] {label}: 无新数据")
         return
-    df = pd.DataFrame(cols)
-    df.index = fmt_index(df.index)
-    df.index.name = "Date"
-    df.to_csv(path)
-    print(f"  ✓ {path.name}: {len(df)} 行 × {len(df.columns)} 国")
+
+    # 新数据 DataFrame（datetime index）
+    new_df = pd.DataFrame(new_cols)
+
+    if path.exists():
+        old_df = pd.read_csv(path, index_col=0)
+
+        # 将新 df 的 index 格式化为字符串，与旧 df 对齐
+        new_df.index = fmt_index(new_df.index)
+
+        # 用新数据更新旧数据：先 update（覆盖已有行），再 combine_first（补充新行）
+        # 确保列对齐
+        all_cols = old_df.columns.union(new_df.columns)
+        old_df   = old_df.reindex(columns=all_cols)
+        new_df   = new_df.reindex(columns=all_cols)
+
+        old_df.update(new_df)                          # 覆盖重叠行
+        merged = old_df.combine_first(new_df)          # 追加新行
+        merged.index.name = "Date"
+        merged.sort_index(inplace=True)                # 按时间排序
+        merged.to_csv(path)
+        print(f"  ✓ {path.name}: 合并后 {len(merged)} 行 × {len(merged.columns)} 国")
+    else:
+        # 首次写入
+        new_df.index = fmt_index(new_df.index)
+        new_df.index.name = "Date"
+        new_df.sort_index(inplace=True)
+        new_df.to_csv(path)
+        print(f"  ✓ {path.name}: 新建 {len(new_df)} 行 × {len(new_df.columns)} 国")
+
+
+def merge_and_save_generation(new_rows: list[dict], gen_dir: Path):
+    """
+    长表合并：按 country 分文件，date+category 为联合主键，新值覆盖旧值
+    """
+    if not new_rows:
+        print("  [SKIP] generation: 无新数据")
+        return
+
+    gen_dir.mkdir(exist_ok=True)
+    df_new = pd.DataFrame(new_rows, columns=["date", "country", "category", "value"])
+
+    for country, grp_new in df_new.groupby("country"):
+        path = gen_dir / f"{country}.csv"
+        grp_new = grp_new.drop(columns="country").reset_index(drop=True)
+
+        if path.exists():
+            grp_old = pd.read_csv(path)
+            # 合并：以 date+category 为主键，新值优先
+            merged = (
+                pd.concat([grp_old, grp_new])
+                  .drop_duplicates(subset=["date", "category"], keep="last")
+                  .sort_values(["date", "category"])
+                  .reset_index(drop=True)
+            )
+            merged.to_csv(path, index=False)
+            print(f"  ✓ generation/{country}.csv: 合并后 {len(merged)} 行")
+        else:
+            grp_new.sort_values(["date", "category"]).to_csv(path, index=False)
+            print(f"  ✓ generation/{country}.csv: 新建 {len(grp_new)} 行")
 
 
 # ─────────────────────────────────────────────────────────────
@@ -218,18 +241,31 @@ def write_wide_csv(cols: dict[str, pd.Series], path: Path, label: str):
 # ─────────────────────────────────────────────────────────────
 
 def main():
+    parser = argparse.ArgumentParser(description="Energy Charts 数据更新")
+    parser.add_argument(
+        "--mode", choices=["incremental", "full"], default="incremental",
+        help="incremental=仅最近7天(默认), full=全量拉取"
+    )
+    args = parser.parse_args()
+
+    today    = datetime.now()
+    tomorrow = (today + timedelta(days=1)).strftime("%Y-%m-%d")
+
+    if args.mode == "full":
+        start_date = FULL_START_DATE
+        mode_label = "全量模式"
+    else:
+        start_date = (today - timedelta(days=LOOKBACK_DAYS)).strftime("%Y-%m-%d")
+        mode_label = f"增量模式（最近 {LOOKBACK_DAYS} 天）"
+
     print("=" * 62)
-    print("Energy Charts 数据更新")
+    print(f"Energy Charts 数据更新  [{mode_label}]")
     print("=" * 62)
-
-    DATA_DIR.mkdir(exist_ok=True)
-
-    # END_DATE 为 None 时自动用明天，否则用配置值
-    end_date = END_DATE if END_DATE else (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d")
-
-    print(f"数据范围: {START_DATE} → {end_date}")
+    print(f"数据范围: {start_date} → {tomorrow}")
     print(f"国家数量: {len(COUNTRIES)}")
     print()
+
+    DATA_DIR.mkdir(exist_ok=True)
 
     price_cols:    dict[str, pd.Series] = {}
     load_cols:     dict[str, pd.Series] = {}
@@ -246,9 +282,9 @@ def main():
 
         print(f"[{col_name}]")
 
-        # ── 请求1：价格 ───────────────────────────────────────
+        # ── 价格 ──────────────────────────────────────────────
         print(f"  → /price?bzn={bzn}")
-        price_data = fetch_price(bzn, START_DATE, end_date)
+        price_data = fetch_price(bzn, start_date, tomorrow)
         time.sleep(REQUEST_DELAY)
 
         s = parse_price(price_data, tz)
@@ -258,14 +294,14 @@ def main():
         else:
             print(f"     [WARN] 无价格数据")
 
-        # ── 请求2：发电（含负荷）─────────────────────────────
+        # ── 发电 / 负荷 ───────────────────────────────────────
         print(f"  → /public_power?country={cc}")
-        power_data = fetch_power(cc, START_DATE, end_date)
+        power_data = fetch_power(cc, start_date, tomorrow)
         time.sleep(REQUEST_DELAY)
 
         result = parse_power(power_data, tz) if power_data else {}
 
-        for field, target_dict, label in [
+        for field, target_dict, lbl in [
             ("load",     load_cols,     "load"),
             ("solar",    solar_cols,    "solar"),
             ("wind",     wind_cols,     "wind"),
@@ -274,9 +310,9 @@ def main():
             s = result.get(field)
             if s is not None:
                 target_dict[col_name] = s
-                print(f"     {label:<14} {s.notna().sum()} 有效值")
+                print(f"     {lbl:<14} {s.notna().sum()} 有效值")
             else:
-                print(f"     {label:<14} [WARN] 无数据")
+                print(f"     {lbl:<14} [WARN] 无数据")
 
         gen_df: pd.DataFrame = result.get("generation", pd.DataFrame())
         if not gen_df.empty:
@@ -292,30 +328,18 @@ def main():
 
         print()
 
-    # ── 写文件 ────────────────────────────────────────────────
-    print("保存文件...")
-    write_wide_csv(price_cols,    DATA_DIR / "price.csv",         "price")
-    write_wide_csv(load_cols,     DATA_DIR / "load.csv",          "load")
-    write_wide_csv(solar_cols,    DATA_DIR / "solar.csv",         "solar")
-    write_wide_csv(wind_cols,     DATA_DIR / "wind.csv",          "wind")
-    write_wide_csv(residual_cols, DATA_DIR / "residual_load.csv", "residual_load")
-
-    if gen_rows:
-        gen_dir = DATA_DIR / "generation"
-        gen_dir.mkdir(exist_ok=True)
-        df_gen = pd.DataFrame(gen_rows, columns=["date", "country", "category", "value"])
-        for country, group in df_gen.groupby("country"):
-            path = gen_dir / f"{country}.csv"
-            group.drop(columns="country").to_csv(path, index=False)
-            print(f"  ✓ generation/{country}.csv: {len(group)} 行")
-        print(f"     类型: {sorted(df_gen['category'].unique())}")
-    else:
-        print("  [SKIP] generation: 无数据")
-
+    # ── 写文件（合并模式）────────────────────────────────────
+    print("保存/合并文件...")
+    merge_and_save_wide(price_cols,    DATA_DIR / "price.csv",         "price")
+    merge_and_save_wide(load_cols,     DATA_DIR / "load.csv",          "load")
+    merge_and_save_wide(solar_cols,    DATA_DIR / "solar.csv",         "solar")
+    merge_and_save_wide(wind_cols,     DATA_DIR / "wind.csv",          "wind")
+    merge_and_save_wide(residual_cols, DATA_DIR / "residual_load.csv", "residual_load")
+    merge_and_save_generation(gen_rows, DATA_DIR / "generation")
 
     print()
     print("=" * 62)
-    print("完成!")
+    print(f"完成！{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print("=" * 62)
 
 

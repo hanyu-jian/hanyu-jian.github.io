@@ -2,155 +2,1141 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Capture Prices – European Electricity Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
     <style>
+        /* ═══════════════════════════════════════
+           BASE
+        ═══════════════════════════════════════ */
         * { margin: 0; padding: 0; box-sizing: border-box; }
+
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: #f0f2f5;
-            padding: 20px;
+            background: #0e1117;
+            color: #e0e0e0;
+            font-family: 'Segoe UI', sans-serif;
+            min-height: 100vh;
         }
-        .container {
-            max-width: 1600px;
+
+        /* ═══════════════════════════════════════
+           HEADER
+        ═══════════════════════════════════════ */
+        .header {
+            background: #1a1f2e;
+            border-bottom: 1px solid #2a3040;
+            padding: 0 24px;
+            display: flex;
+            align-items: center;
+            height: 56px;
+            gap: 32px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .logo {
+            font-size: 16px;
+            font-weight: 700;
+            color: #4fc3f7;
+            white-space: nowrap;
+        }
+
+        .nav { display: flex; gap: 4px; }
+
+        .nav-link {
+            padding: 6px 16px;
+            border-radius: 6px;
+            color: #9aa0b0;
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all .2s;
+        }
+
+        .nav-link:hover { background: #2a3040; color: #e0e0e0; }
+        .nav-link.active { background: #2a3a5c; color: #4fc3f7; }
+
+        /* ═══════════════════════════════════════
+           SUB-NAV
+        ═══════════════════════════════════════ */
+        .sub-nav {
+            background: #141820;
+            border-bottom: 1px solid #232838;
+            padding: 0 24px;
+            display: flex;
+            gap: 4px;
+            height: 42px;
+            align-items: center;
+        }
+
+        .sub-nav-link {
+            padding: 5px 14px;
+            border-radius: 5px;
+            color: #7a8090;
+            text-decoration: none;
+            font-size: 13px;
+            font-weight: 500;
+            transition: all .2s;
+            cursor: pointer;
+        }
+
+        .sub-nav-link:hover { background: #232838; color: #c0c8d8; }
+        .sub-nav-link.active { background: #1e3a5f; color: #4fc3f7; }
+
+        /* ═══════════════════════════════════════
+           PAGE LAYOUT
+        ═══════════════════════════════════════ */
+        .page-content {
+            max-width: 1400px;
             margin: 0 auto;
-            background: white;
+            padding: 24px 24px 48px;
+            display: flex;
+            flex-direction: column;
+            gap: 28px;
+        }
+
+        .page-title {
+            font-size: 22px;
+            font-weight: 700;
+            color: #e8eaf0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .page-title::before {
+            content: '';
+            display: block;
+            width: 4px;
+            height: 22px;
+            background: linear-gradient(180deg, #4fc3f7, #1976d2);
+            border-radius: 2px;
+        }
+
+        /* ═══════════════════════════════════════
+           COUNTRY SELECTOR
+        ═══════════════════════════════════════ */
+        .country-bar {
+            background: #141820;
+            border: 1px solid #232838;
+            border-radius: 10px;
+            padding: 14px 18px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .country-bar label {
+            font-size: 13px;
+            color: #7a8090;
+            font-weight: 500;
+            white-space: nowrap;
+        }
+
+        .country-pills {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .country-pill {
+            padding: 5px 14px;
+            border-radius: 20px;
+            border: 1px solid #2a3040;
+            background: #1a1f2e;
+            color: #9aa0b0;
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all .2s;
+            user-select: none;
+        }
+
+        .country-pill:hover { border-color: #4fc3f7; color: #4fc3f7; }
+
+        .country-pill.active {
+            background: #1e3a5f;
+            border-color: #4fc3f7;
+            color: #4fc3f7;
+        }
+
+        /* ═══════════════════════════════════════
+           CARD
+        ═══════════════════════════════════════ */
+        .card {
+            background: #141820;
+            border: 1px solid #232838;
             border-radius: 12px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
             overflow: hidden;
         }
 
-        /* ── Top header ── */
-        .header {
-            background: #2c3e50;
-            color: white;
-            padding: 20px 30px;
-            position: relative;
-        }
-        .header h1 { font-size: 24px; font-weight: 500; }
-        .header p  { font-size: 14px; opacity: 0.9; margin-top: 6px; }
-        .nav-links {
-            position: absolute; top: 20px; right: 30px;
-            display: flex; gap: 16px;
-        }
-        .nav-link {
-            color: white; text-decoration: none;
-            padding: 6px 12px; border-radius: 20px;
-            background: rgba(255,255,255,0.2);
-            transition: 0.2s; font-size: 14px; font-weight: 500;
-        }
-        .nav-link:hover, .nav-link.active { background: rgba(255,255,255,0.4); }
-
-        /* ── Sub-nav ── */
-        .sub-nav {
-            background: #f8f9fa;
-            border-bottom: 2px solid #e6e9ed;
-            padding: 0 30px;
+        .card-header {
+            padding: 16px 20px 12px;
+            border-bottom: 1px solid #1e2535;
             display: flex;
-        }
-        .sub-nav-link {
-            display: inline-block;
-            padding: 14px 22px;
-            font-size: 14px; font-weight: 600;
-            color: #6c757d;
-            text-decoration: none;
-            border-bottom: 3px solid transparent;
-            margin-bottom: -2px;
-            transition: color 0.2s, border-color 0.2s;
-        }
-        .sub-nav-link:hover { color: #2c3e50; }
-        .sub-nav-link.active {
-            color: #2c3e50;
-            border-bottom-color: #2c3e50;
-        }
-
-        /* ── Placeholder content ── */
-        .placeholder {
-            display: flex;
-            flex-direction: column;
             align-items: center;
-            justify-content: center;
-            padding: 80px 30px;
-            gap: 16px;
-            color: #6c757d;
-            text-align: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 10px;
         }
-        .placeholder-icon {
-            font-size: 56px;
-            line-height: 1;
-        }
-        .placeholder h2 {
-            font-size: 22px;
-            font-weight: 600;
-            color: #2c3e50;
-        }
-        .placeholder p {
+
+        .card-title {
             font-size: 15px;
-            max-width: 480px;
-            line-height: 1.6;
+            font-weight: 600;
+            color: #c8d0e0;
         }
-        .placeholder .badge {
-            display: inline-block;
-            padding: 6px 16px;
-            background: #e9ecef;
-            border-radius: 20px;
+
+        .card-subtitle {
+            font-size: 12px;
+            color: #5a6070;
+            margin-top: 2px;
+        }
+
+        .card-body { padding: 16px 20px; }
+
+        /* ═══════════════════════════════════════
+           TOGGLE BUTTONS (pill group)
+        ═══════════════════════════════════════ */
+        .btn-group {
+            display: flex;
+            background: #0e1117;
+            border: 1px solid #2a3040;
+            border-radius: 7px;
+            overflow: hidden;
+        }
+
+        .btn-group button {
+            padding: 5px 14px;
+            background: transparent;
+            border: none;
+            color: #7a8090;
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all .2s;
+            border-right: 1px solid #2a3040;
+        }
+
+        .btn-group button:last-child { border-right: none; }
+        .btn-group button:hover { background: #1a1f2e; color: #c0c8d8; }
+        .btn-group button.active { background: #1e3a5f; color: #4fc3f7; }
+
+        /* ═══════════════════════════════════════
+           SOURCE TOGGLE (Solar / Wind)
+        ═══════════════════════════════════════ */
+        .source-toggle {
+            display: flex;
+            gap: 0;
+            border-radius: 8px;
+            overflow: hidden;
+            border: 1px solid #2a3040;
+        }
+
+        .source-btn {
+            padding: 6px 20px;
+            background: #0e1117;
+            border: none;
+            color: #7a8090;
             font-size: 13px;
             font-weight: 600;
-            color: #495057;
-            border: 1px dashed #adb5bd;
+            cursor: pointer;
+            transition: all .2s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
         }
 
-        /* ── Footer ── */
-        .info {
-            padding: 12px 30px 20px;
-            font-size: 13px; color: #6c757d;
-            text-align: center;
-            border-top: 1px solid #e6e9ed;
-            margin-top: 10px;
+        .source-btn.solar.active { background: #2a2000; color: #ffc107; }
+        .source-btn.wind.active  { background: #002a3a; color: #4fc3f7; }
+        .source-btn:hover        { background: #1a1f2e; }
+
+        /* ═══════════════════════════════════════
+           YEAR SELECTOR
+        ═══════════════════════════════════════ */
+        .year-select {
+            background: #0e1117;
+            border: 1px solid #2a3040;
+            border-radius: 6px;
+            color: #c0c8d8;
+            font-size: 13px;
+            padding: 5px 10px;
+            cursor: pointer;
+            outline: none;
         }
 
-        @media (max-width: 700px) {
-            .nav-links { position: static; margin-top: 10px; justify-content: center; }
-            .header { text-align: center; }
-            .sub-nav { padding: 0 16px; }
+        .year-select:focus { border-color: #4fc3f7; }
+
+        /* ═══════════════════════════════════════
+           CHART CONTAINERS
+        ═══════════════════════════════════════ */
+        .chart-wrap { width: 100%; }
+
+        /* Chart 1 */
+        #chart1 { width: 100%; height: 380px; }
+
+        /* Chart 2 – combined (line + bar share canvas via grid) */
+        #chart2-daily  { width: 100%; height: 480px; }
+        #chart2-monthly { width: 100%; height: 320px; }
+
+        /* ═══════════════════════════════════════
+           LOADING / EMPTY
+        ═══════════════════════════════════════ */
+        .loading-mask {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 200px;
+            color: #5a6070;
+            font-size: 14px;
+            gap: 8px;
+        }
+
+        .spinner {
+            width: 18px; height: 18px;
+            border: 2px solid #2a3040;
+            border-top-color: #4fc3f7;
+            border-radius: 50%;
+            animation: spin .8s linear infinite;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* ═══════════════════════════════════════
+           DIVIDER
+        ═══════════════════════════════════════ */
+        .section-divider {
+            border: none;
+            border-top: 1px solid #1e2535;
+            margin: 4px 0;
+        }
+
+        /* ═══════════════════════════════════════
+           CONTROLS ROW
+        ═══════════════════════════════════════ */
+        .controls-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
         }
     </style>
 </head>
 <body>
-<div class="container">
 
-    <!-- ══ Top header ══ -->
-    <div class="header">
-        <h1>📈 European Electricity Day-Ahead Prices</h1>
-        <p>Data source: ENTSO-E | Author: Hanyu Jian</p>
-        <div class="nav-links">
-            <a href="price.html" class="nav-link active">Price Analysis</a>
-            <a href="load.html"  class="nav-link">Load Analysis</a>
+<!-- ══ Header ══ -->
+<header class="header">
+    <div class="logo">⚡ EU Electricity Dashboard</div>
+    <nav class="nav">
+        <a class="nav-link active" href="price.html">Price Analysis</a>
+        <a class="nav-link" href="load.html">Load Analysis</a>
+    </nav>
+</header>
+
+<!-- ══ Sub-nav ══ -->
+<div class="sub-nav">
+    <a class="sub-nav-link" href="price.html">Price Overview</a>
+    <a class="sub-nav-link active">Capture Prices</a>
+    <a class="sub-nav-link" href="price-spread.html">Price Spread</a>
+</div>
+
+<!-- ══ Page Content ══ -->
+<div class="page-content">
+
+    <div class="page-title">Capture Prices</div>
+
+    <!-- ── Country Selector ── -->
+    <div class="country-bar">
+        <label>Country</label>
+        <div class="country-pills" id="countryPills"></div>
+    </div>
+
+    <!-- ════════════════════════════════════════
+         CARD 1 – Overview (Baseload + Wind CP + Solar CP)
+    ════════════════════════════════════════ -->
+    <div class="card">
+        <div class="card-header">
+            <div>
+                <div class="card-title" id="card1Title">Capture Prices – EUR/MWh – Hungary</div>
+                <div class="card-subtitle">Baseload · Solar capture price (post-curtailment) · Wind capture price (post-curtailment)</div>
+            </div>
+            <div class="btn-group" id="freqGroup1">
+                <button class="active" data-freq="daily">Daily</button>
+                <button data-freq="weekly">Weekly</button>
+                <button data-freq="monthly">Monthly</button>
+                <button data-freq="quarterly">Quarterly</button>
+                <button data-freq="yearly">Yearly</button>
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="chart-wrap">
+                <div id="chart1"></div>
+            </div>
         </div>
     </div>
 
-    <!-- ══ Sub-navigation ══ -->
-    <div class="sub-nav">
-        <a class="sub-nav-link" href="price.html">Price Overview</a>
-        <a class="sub-nav-link active">Capture Prices</a>
-        <a class="sub-nav-link" href="price-spread.html">Price Spread</a>
+    <!-- ════════════════════════════════════════
+         CARD 2 – Deep Dive (Solar / Wind toggle)
+    ════════════════════════════════════════ -->
+    <div class="card">
+        <div class="card-header">
+            <div>
+                <div class="card-title" id="card2Title">Solar Capture Price Detail – Hungary</div>
+                <div class="card-subtitle">Baseload · Capture Price pre/post curtailment · Non-positive hours</div>
+            </div>
+            <div class="controls-row">
+                <!-- Solar / Wind toggle -->
+                <div class="source-toggle">
+                    <button class="source-btn solar active" id="btnSolar">☀ Solar</button>
+                    <button class="source-btn wind"  id="btnWind">💨 Wind</button>
+                </div>
+                <!-- Year selector -->
+                <select class="year-select" id="yearSelect">
+                    <option value="2024">2024</option>
+                    <option value="2025" selected>2025</option>
+                    <option value="2026">2026</option>
+                </select>
+            </div>
+        </div>
+        <div class="card-body" style="display:flex; flex-direction:column; gap:20px;">
+            <!-- Daily combined chart (line + bar) -->
+            <div class="chart-wrap">
+                <div id="chart2-daily"></div>
+            </div>
+            <hr class="section-divider">
+            <!-- Monthly chart -->
+            <div style="font-size:13px; color:#7a8090; font-weight:500; margin-bottom:4px;">Monthly View</div>
+            <div class="chart-wrap">
+                <div id="chart2-monthly"></div>
+            </div>
+        </div>
     </div>
 
-    <!-- ══ Placeholder ══ -->
-    <div class="placeholder">
-        <div class="placeholder-icon">⚡</div>
-        <h2>Capture Prices</h2>
-        <p>
-            This section is under construction.<br>
-            Analysis content will be added here.
-        </p>
-        <span class="badge">🚧 Coming Soon</span>
-    </div>
+</div><!-- /page-content -->
 
-    <div class="info">
-        📈 Capture Prices | Unit: €/MWh
-    </div>
+<script>
+/* ═══════════════════════════════════════════════════════════
+   CONFIG
+═══════════════════════════════════════════════════════════ */
+const COUNTRIES = [
+    { code: 'HU', name: 'Hungary' },
+    { code: 'DE', name: 'Germany' },
+    { code: 'FR', name: 'France' },
+    { code: 'AT', name: 'Austria' },
+    { code: 'CZ', name: 'Czech Republic' },
+    { code: 'SK', name: 'Slovakia' },
+    { code: 'RO', name: 'Romania' },
+    { code: 'PL', name: 'Poland' },
+    { code: 'HR', name: 'Croatia' },
+    { code: 'SI', name: 'Slovenia' },
+    { code: 'RS', name: 'Serbia' },
+    { code: 'IT', name: 'Italy' },
+    { code: 'ES', name: 'Spain' }
+];
 
-</div>
+const COLOR = {
+    baseload : '#a0aec0',
+    solar    : '#ffc107',
+    wind     : '#4fc3f7',
+    pre      : '#f48fb1',
+    post     : '#e53935',
+    bar      : '#e57373'
+};
+
+/* ═══════════════════════════════════════════════════════════
+   STATE
+═══════════════════════════════════════════════════════════ */
+let state = {
+    country   : 'HU',
+    freq1     : 'daily',
+    source2   : 'solar',   // 'solar' | 'wind'
+    year2     : '2025',
+};
+
+/* raw hourly data keyed by country code */
+let rawPrice  = {};   // { HU: [{date,hour,price}, ...], ... }
+let rawSolar  = {};
+let rawWind   = {};
+
+/* ═══════════════════════════════════════════════════════════
+   CSV PARSER
+═══════════════════════════════════════════════════════════ */
+function parseCSV(text) {
+    const lines = text.trim().split('\n');
+    const headers = lines[0].split(',').map(h => h.trim());
+    return lines.slice(1).map(line => {
+        const vals = line.split(',');
+        const obj = {};
+        headers.forEach((h, i) => obj[h] = vals[i]?.trim() ?? '');
+        return obj;
+    });
+}
+
+/* ═══════════════════════════════════════════════════════════
+   DATA LOADING
+   Expected CSV columns:
+     price.csv  → datetime (YYYY-MM-DD HH:mm), HU, DE, FR, ...
+     solar.csv  → datetime (YYYY-MM-DD HH:mm), HU, DE, FR, ...
+     wind.csv   → datetime (YYYY-MM-DD HH:mm), HU, DE, FR, ...
+═══════════════════════════════════════════════════════════ */
+async function loadAllData() {
+    try {
+        const [priceText, solarText, windText] = await Promise.all([
+            fetch('data/price.csv').then(r => r.text()),
+            fetch('data/solar.csv').then(r => r.text()),
+            fetch('data/wind.csv').then(r => r.text()),
+        ]);
+
+        const priceRows = parseCSV(priceText);
+        const solarRows = parseCSV(solarText);
+        const windRows  = parseCSV(windText);
+
+        COUNTRIES.forEach(c => {
+            rawPrice[c.code] = priceRows.map(r => ({
+                dt    : r.datetime || r.Datetime || r.DateTime || r.date || r.Date,
+                value : parseFloat(r[c.code]) || 0
+            }));
+            rawSolar[c.code] = solarRows.map(r => ({
+                dt    : r.datetime || r.Datetime || r.DateTime || r.date || r.Date,
+                value : parseFloat(r[c.code]) || 0
+            }));
+            rawWind[c.code] = windRows.map(r => ({
+                dt    : r.datetime || r.Datetime || r.DateTime || r.date || r.Date,
+                value : parseFloat(r[c.code]) || 0
+            }));
+        });
+
+        return true;
+    } catch(e) {
+        console.error('Data load failed:', e);
+        return false;
+    }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   COMPUTE DAILY METRICS
+   Returns array of daily objects:
+   { date, baseload, capPost, capPre, negHours, zeroHours, nonPosHours,
+     curtailedPct, captureRatioPost, captureRatioPre }
+═══════════════════════════════════════════════════════════ */
+function computeDaily(country, source) {
+    const prices  = rawPrice[country]  || [];
+    const genArr  = (source === 'solar' ? rawSolar : rawWind)[country] || [];
+
+    if (!prices.length || !genArr.length) return [];
+
+    /* Group by date (YYYY-MM-DD = first 10 chars of dt) */
+    const byDate = {};
+
+    prices.forEach((p, i) => {
+        const date = p.dt.slice(0, 10);
+        const pr   = p.value;
+        const gen  = genArr[i]?.value ?? 0;
+
+        if (!byDate[date]) byDate[date] = {
+            prices: [], gens: [], revenues: [], genPost: []
+        };
+
+        const d     = byDate[date];
+        const pPost = gen * (pr > 0 ? 1 : 0);
+        const rev   = pPost * pr;
+
+        d.prices.push(pr);
+        d.gens.push(gen);
+        d.genPost.push(pPost);
+        d.revenues.push(rev);
+    });
+
+    return Object.entries(byDate).sort((a,b) => a[0] < b[0] ? -1 : 1).map(([date, d]) => {
+        const baseload     = d.prices.reduce((s,v)=>s+v,0) / d.prices.length;
+        const sumGen       = d.gens.reduce((s,v)=>s+v,0);
+        const sumGenPost   = d.genPost.reduce((s,v)=>s+v,0);
+        const sumRev       = d.revenues.reduce((s,v)=>s+v,0);
+
+        const capPost = sumGenPost > 0 ? sumRev / sumGenPost : null;
+        const capPre  = sumGen     > 0 ? sumRev / sumGen     : null;
+
+        const negHours    = d.prices.filter(v => v  < 0).length;
+        const zeroHours   = d.prices.filter(v => v === 0).length;
+        const nonPosHours = d.prices.filter(v => v <= 0).length;
+
+        const curtailedPct      = sumGen > 0 ? (sumGenPost / sumGen) * 100 : null;
+        const captureRatioPost  = (capPost != null && baseload !== 0) ? (capPost / baseload) * 100 : null;
+        const captureRatioPre   = (capPre  != null && baseload !== 0) ? (capPre  / baseload) * 100 : null;
+
+        return {
+            date, baseload, capPost, capPre,
+            negHours, zeroHours, nonPosHours,
+            curtailedPct, captureRatioPost, captureRatioPre
+        };
+    });
+}
+
+/* ═══════════════════════════════════════════════════════════
+   AGGREGATE  daily → weekly / monthly / quarterly / yearly
+═══════════════════════════════════════════════════════════ */
+function getISOWeek(dateStr) {
+    const d = new Date(dateStr);
+    d.setHours(0,0,0,0);
+    d.setDate(d.getDate() + 3 - (d.getDay()+6)%7);
+    const week1 = new Date(d.getFullYear(), 0, 4);
+    const wk = 1 + Math.round(((d-week1)/86400000 - 3 + (week1.getDay()+6)%7)/7);
+    return `${d.getFullYear()}-W${String(wk).padStart(2,'0')}`;
+}
+
+function groupKey(date, freq) {
+    if (freq === 'daily')     return date;
+    if (freq === 'weekly')    return getISOWeek(date);
+    if (freq === 'monthly')   return date.slice(0,7);
+    if (freq === 'quarterly') {
+        const m = parseInt(date.slice(5,7));
+        return `${date.slice(0,4)}-Q${Math.ceil(m/3)}`;
+    }
+    if (freq === 'yearly')    return date.slice(0,4);
+}
+
+function aggregate(daily, freq) {
+    if (freq === 'daily') return daily;
+
+    const groups = {};
+    daily.forEach(d => {
+        const key = groupKey(d.date, freq);
+        if (!groups[key]) groups[key] = [];
+        groups[key].push(d);
+    });
+
+    return Object.entries(groups).sort((a,b) => a[0]<b[0]?-1:1).map(([key, arr]) => {
+        const avg = field => {
+            const vals = arr.map(d=>d[field]).filter(v => v != null);
+            return vals.length ? vals.reduce((s,v)=>s+v,0)/vals.length : null;
+        };
+        const sum = field => arr.reduce((s,d)=>s+(d[field]??0),0);
+
+        return {
+            date              : key,
+            baseload          : avg('baseload'),
+            capPost           : avg('capPost'),
+            capPre            : avg('capPre'),
+            negHours          : avg('negHours'),
+            zeroHours         : avg('zeroHours'),
+            nonPosHours       : avg('nonPosHours'),
+            curtailedPct      : avg('curtailedPct'),
+            captureRatioPost  : avg('captureRatioPost'),
+            captureRatioPre   : avg('captureRatioPre')
+        };
+    });
+}
+
+/* ═══════════════════════════════════════════════════════════
+   ECHARTS INSTANCES
+═══════════════════════════════════════════════════════════ */
+let ec1, ec2daily, ec2monthly;
+
+function initCharts() {
+    ec1        = echarts.init(document.getElementById('chart1'),        'dark');
+    ec2daily   = echarts.init(document.getElementById('chart2-daily'),  'dark');
+    ec2monthly = echarts.init(document.getElementById('chart2-monthly'),'dark');
+    window.addEventListener('resize', () => {
+        ec1.resize(); ec2daily.resize(); ec2monthly.resize();
+    });
+}
+
+/* ── Tooltip formatter helper ── */
+const fmt2 = v => (v == null ? 'N/A' : v.toFixed(2));
+const fmt1 = v => (v == null ? 'N/A' : v.toFixed(1));
+
+/* ═══════════════════════════════════════════════════════════
+   CHART 1  –  Overview (Baseload + Solar CP + Wind CP)
+═══════════════════════════════════════════════════════════ */
+function renderChart1() {
+    const country = state.country;
+    const freq    = state.freq1;
+
+    const dailySolar = computeDaily(country, 'solar');
+    const dailyWind  = computeDaily(country, 'wind');
+
+    const aggSolar = aggregate(dailySolar, freq);
+    const aggWind  = aggregate(dailyWind,  freq);
+
+    /* align on common dates */
+    const solarMap = Object.fromEntries(aggSolar.map(d=>[d.date, d]));
+    const windMap  = Object.fromEntries(aggWind.map(d=>[d.date, d]));
+    const allDates = [...new Set([...aggSolar.map(d=>d.date), ...aggWind.map(d=>d.date)])].sort();
+
+    const xData     = allDates;
+    const baseVals  = allDates.map(d => solarMap[d]?.baseload ?? windMap[d]?.baseload ?? null);
+    const solarVals = allDates.map(d => solarMap[d]?.capPost  ?? null);
+    const windVals  = allDates.map(d => windMap[d]?.capPost   ?? null);
+
+    const option = {
+        backgroundColor : 'transparent',
+        animation       : true,
+        tooltip: {
+            trigger    : 'axis',
+            axisPointer: { type: 'cross', lineStyle:{ color:'#4fc3f755' } },
+            backgroundColor: '#1a1f2e',
+            borderColor    : '#2a3040',
+            textStyle      : { color:'#c0c8d8', fontSize:12 },
+            formatter(params) {
+                let html = `<div style="font-weight:600;margin-bottom:6px">${params[0]?.axisValue}</div>`;
+                params.forEach(p => {
+                    if (p.value == null) return;
+                    html += `<div style="display:flex;align-items:center;gap:6px;margin:2px 0">
+                        <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${p.color}"></span>
+                        <span style="flex:1">${p.seriesName}</span>
+                        <span style="font-weight:600">${fmt2(p.value)} €/MWh</span>
+                    </div>`;
+                });
+                return html;
+            }
+        },
+        legend: {
+            top      : 8,
+            right    : 12,
+            textStyle: { color:'#9aa0b0', fontSize:12 },
+            itemWidth: 16,
+            data     : ['Baseload', 'Solar CP (post)', 'Wind CP (post)']
+        },
+        grid: { left:60, right:20, top:48, bottom:48, containLabel:false },
+        xAxis: {
+            type     : 'category',
+            data     : xData,
+            axisLabel: { color:'#5a6070', fontSize:11, rotate: xData.length > 60 ? 30 : 0 },
+            axisLine : { lineStyle:{ color:'#2a3040' } },
+            splitLine: { show:false }
+        },
+        yAxis: {
+            type     : 'value',
+            name     : 'EUR/MWh',
+            nameTextStyle: { color:'#5a6070', fontSize:11 },
+            axisLabel: { color:'#5a6070', fontSize:11 },
+            splitLine: { lineStyle:{ color:'#1e2535' } }
+        },
+        series: [
+            {
+                name     : 'Baseload',
+                type     : 'line',
+                data     : baseVals,
+                smooth   : true,
+                symbol   : 'none',
+                lineStyle: { color: COLOR.baseload, width:2 },
+                itemStyle: { color: COLOR.baseload }
+            },
+            {
+                name     : 'Solar CP (post)',
+                type     : 'line',
+                data     : solarVals,
+                smooth   : true,
+                symbol   : 'none',
+                lineStyle: { color: COLOR.solar, width:2 },
+                itemStyle: { color: COLOR.solar }
+            },
+            {
+                name     : 'Wind CP (post)',
+                type     : 'line',
+                data     : windVals,
+                smooth   : true,
+                symbol   : 'none',
+                lineStyle: { color: COLOR.wind, width:2 },
+                itemStyle: { color: COLOR.wind }
+            }
+        ]
+    };
+
+    ec1.setOption(option, true);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   CHART 2-DAILY  –  Combined line + bar (shared x-axis via grid)
+═══════════════════════════════════════════════════════════ */
+function renderChart2Daily() {
+    const country = state.country;
+    const source  = state.source2;
+    const year    = state.year2;
+
+    const daily = computeDaily(country, source).filter(d => d.date.startsWith(year));
+
+    const xData    = daily.map(d => d.date);
+    const baseVals = daily.map(d => d.baseload);
+    const postVals = daily.map(d => d.capPost);
+    const preVals  = daily.map(d => d.capPre);
+    const nonPosH  = daily.map(d => d.nonPosHours);
+
+    const lineColor = source === 'solar' ? COLOR.solar : COLOR.wind;
+
+    const option = {
+        backgroundColor: 'transparent',
+        animation      : true,
+        tooltip: {
+            trigger    : 'axis',
+            axisPointer: { type:'cross', lineStyle:{ color:'#4fc3f755' } },
+            backgroundColor: '#1a1f2e',
+            borderColor    : '#2a3040',
+            textStyle      : { color:'#c0c8d8', fontSize:12 },
+            formatter(params) {
+                let html = `<div style="font-weight:600;margin-bottom:6px">${params[0]?.axisValue}</div>`;
+                params.forEach(p => {
+                    if (p.value == null) return;
+                    const unit = p.seriesName.includes('Hours') ? 'h' : '€/MWh';
+                    html += `<div style="display:flex;align-items:center;gap:6px;margin:2px 0">
+                        <span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${p.color}"></span>
+                        <span style="flex:1">${p.seriesName}</span>
+                        <span style="font-weight:600">${fmt2(p.value)} ${unit}</span>
+                    </div>`;
+                });
+                return html;
+            }
+        },
+        legend: {
+            top      : 6,
+            right    : 12,
+            textStyle: { color:'#9aa0b0', fontSize:12 },
+            itemWidth: 16,
+            data: ['Baseload', 'Capture Price (post)', 'Capture Price (pre)', 'Non-positive Hours']
+        },
+        axisPointer: { link: [{ xAxisIndex: 'all' }] },
+        grid: [
+            { left:60, right:20, top:50,  bottom:'42%', containLabel:false },  // line chart
+            { left:60, right:20, top:'62%', bottom:40, containLabel:false }    // bar chart
+        ],
+        xAxis: [
+            {
+                type     : 'category',
+                data     : xData,
+                gridIndex: 0,
+                axisLabel: { show: false },
+                axisLine : { lineStyle:{ color:'#2a3040' } },
+                splitLine: { show:false }
+            },
+            {
+                type     : 'category',
+                data     : xData,
+                gridIndex: 1,
+                axisLabel: { color:'#5a6070', fontSize:10, rotate: xData.length > 60 ? 30 : 0 },
+                axisLine : { lineStyle:{ color:'#2a3040' } },
+                splitLine: { show:false }
+            }
+        ],
+        yAxis: [
+            {
+                type     : 'value',
+                name     : 'EUR/MWh',
+                gridIndex: 0,
+                nameTextStyle: { color:'#5a6070', fontSize:11 },
+                axisLabel: { color:'#5a6070', fontSize:11 },
+                splitLine: { lineStyle:{ color:'#1e2535' } }
+            },
+            {
+                type     : 'value',
+                name     : 'Hours',
+                gridIndex: 1,
+                min      : 0,
+                max      : 24,
+                interval : 6,
+                nameTextStyle: { color:'#5a6070', fontSize:11 },
+                axisLabel: { color:'#5a6070', fontSize:11 },
+                splitLine: { lineStyle:{ color:'#1e2535' } }
+            }
+        ],
+        series: [
+            {
+                name        : 'Baseload',
+                type        : 'line',
+                data        : baseVals,
+                smooth      : false,
+                symbol      : 'none',
+                lineStyle   : { color: COLOR.baseload, width:2 },
+                itemStyle   : { color: COLOR.baseload },
+                xAxisIndex  : 0,
+                yAxisIndex  : 0
+            },
+            {
+                name        : 'Capture Price (post)',
+                type        : 'line',
+                data        : postVals,
+                smooth      : false,
+                symbol      : 'none',
+                lineStyle   : { color: lineColor, width:2 },
+                itemStyle   : { color: lineColor },
+                xAxisIndex  : 0,
+                yAxisIndex  : 0
+            },
+            {
+                name        : 'Capture Price (pre)',
+                type        : 'line',
+                data        : preVals,
+                smooth      : false,
+                symbol      : 'none',
+                lineStyle   : { color: lineColor, width:1.5, type:'dashed', opacity:0.6 },
+                itemStyle   : { color: lineColor, opacity:0.6 },
+                xAxisIndex  : 0,
+                yAxisIndex  : 0
+            },
+            {
+                name        : 'Non-positive Hours',
+                type        : 'bar',
+                data        : nonPosH,
+                itemStyle   : { color: COLOR.bar, opacity:0.85 },
+                barMaxWidth : 12,
+                xAxisIndex  : 1,
+                yAxisIndex  : 1
+            }
+        ]
+    };
+
+    ec2daily.setOption(option, true);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   CHART 2-MONTHLY
+═══════════════════════════════════════════════════════════ */
+function renderChart2Monthly() {
+    const country = state.country;
+    const source  = state.source2;
+    const year    = state.year2;
+
+    const daily   = computeDaily(country, source).filter(d => d.date.startsWith(year));
+    const monthly = aggregate(daily, 'monthly');
+
+    const xData    = monthly.map(d => d.date);
+    const baseVals = monthly.map(d => d.baseload);
+    const postVals = monthly.map(d => d.capPost);
+    const preVals  = monthly.map(d => d.capPre);
+    const nonPosH  = monthly.map(d => d.nonPosHours);
+
+    const lineColor = source === 'solar' ? COLOR.solar : COLOR.wind;
+
+    const option = {
+        backgroundColor: 'transparent',
+        animation      : true,
+        tooltip: {
+            trigger    : 'axis',
+            axisPointer: { type:'shadow' },
+            backgroundColor: '#1a1f2e',
+            borderColor    : '#2a3040',
+            textStyle      : { color:'#c0c8d8', fontSize:12 },
+            formatter(params) {
+                let html = `<div style="font-weight:600;margin-bottom:6px">${params[0]?.axisValue}</div>`;
+                params.forEach(p => {
+                    if (p.value == null) return;
+                    const unit = p.seriesName.includes('Hours') ? 'h/day' : '€/MWh';
+                    html += `<div style="display:flex;align-items:center;gap:6px;margin:2px 0">
+                        <span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${p.color}"></span>
+                        <span style="flex:1">${p.seriesName}</span>
+                        <span style="font-weight:600">${fmt2(p.value)} ${unit}</span>
+                    </div>`;
+                });
+                return html;
+            }
+        },
+        legend: {
+            top      : 6,
+            right    : 12,
+            textStyle: { color:'#9aa0b0', fontSize:12 },
+            itemWidth: 16,
+            data: ['Baseload', 'Capture Price (post)', 'Capture Price (pre)', 'Avg Non-positive Hours']
+        },
+        grid: [
+            { left:60, right:20, top:44, bottom:'38%', containLabel:false },
+            { left:60, right:20, top:'66%', bottom:40, containLabel:false }
+        ],
+        axisPointer: { link:[{ xAxisIndex:'all' }] },
+        xAxis: [
+            {
+                type     : 'category',
+                data     : xData,
+                gridIndex: 0,
+                axisLabel: { show:false },
+                axisLine : { lineStyle:{ color:'#2a3040' } },
+                splitLine: { show:false }
+            },
+            {
+                type     : 'category',
+                data     : xData,
+                gridIndex: 1,
+                axisLabel: { color:'#5a6070', fontSize:11 },
+                axisLine : { lineStyle:{ color:'#2a3040' } },
+                splitLine: { show:false }
+            }
+        ],
+        yAxis: [
+            {
+                type     : 'value',
+                name     : 'EUR/MWh',
+                gridIndex: 0,
+                nameTextStyle: { color:'#5a6070', fontSize:11 },
+                axisLabel: { color:'#5a6070', fontSize:11 },
+                splitLine: { lineStyle:{ color:'#1e2535' } }
+            },
+            {
+                type     : 'value',
+                name     : 'h/day',
+                gridIndex: 1,
+                nameTextStyle: { color:'#5a6070', fontSize:11 },
+                axisLabel: { color:'#5a6070', fontSize:11 },
+                splitLine: { lineStyle:{ color:'#1e2535' } }
+            }
+        ],
+        series: [
+            {
+                name      : 'Baseload',
+                type      : 'line',
+                data      : baseVals,
+                smooth    : true,
+                symbol    : 'circle', symbolSize:5,
+                lineStyle : { color: COLOR.baseload, width:2 },
+                itemStyle : { color: COLOR.baseload },
+                xAxisIndex: 0, yAxisIndex: 0
+            },
+            {
+                name      : 'Capture Price (post)',
+                type      : 'line',
+                data      : postVals,
+                smooth    : true,
+                symbol    : 'circle', symbolSize:5,
+                lineStyle : { color: lineColor, width:2 },
+                itemStyle : { color: lineColor },
+                xAxisIndex: 0, yAxisIndex: 0
+            },
+            {
+                name      : 'Capture Price (pre)',
+                type      : 'line',
+                data      : preVals,
+                smooth    : true,
+                symbol    : 'circle', symbolSize:5,
+                lineStyle : { color: lineColor, width:1.5, type:'dashed', opacity:0.6 },
+                itemStyle : { color: lineColor, opacity:0.6 },
+                xAxisIndex: 0, yAxisIndex: 0
+            },
+            {
+                name      : 'Avg Non-positive Hours',
+                type      : 'bar',
+                data      : nonPosH,
+                itemStyle : { color: COLOR.bar, opacity:0.85 },
+                barMaxWidth: 30,
+                xAxisIndex: 1, yAxisIndex: 1
+            }
+        ]
+    };
+
+    ec2monthly.setOption(option, true);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   RENDER ALL
+═══════════════════════════════════════════════════════════ */
+function renderAll() {
+    const countryName = COUNTRIES.find(c=>c.code===state.country)?.name ?? state.country;
+    const sourceLabel = state.source2 === 'solar' ? 'Solar' : 'Wind';
+
+    document.getElementById('card1Title').textContent =
+        `Capture Prices – EUR/MWh – ${countryName}`;
+    document.getElementById('card2Title').textContent =
+        `${sourceLabel} Capture Price Detail – ${countryName} – ${state.year2}`;
+
+    renderChart1();
+    renderChart2Daily();
+    renderChart2Monthly();
+}
+
+/* ═══════════════════════════════════════════════════════════
+   UI INIT
+═══════════════════════════════════════════════════════════ */
+function buildCountryPills() {
+    const container = document.getElementById('countryPills');
+    COUNTRIES.forEach(c => {
+        const pill = document.createElement('div');
+        pill.className = 'country-pill' + (c.code === state.country ? ' active' : '');
+        pill.textContent = c.name;
+        pill.addEventListener('click', () => {
+            state.country = c.code;
+            container.querySelectorAll('.country-pill').forEach(p => p.classList.remove('active'));
+            pill.classList.add('active');
+            renderAll();
+        });
+        container.appendChild(pill);
+    });
+}
+
+function bindFreqGroup1() {
+    document.querySelectorAll('#freqGroup1 button').forEach(btn => {
+        btn.addEventListener('click', () => {
+            state.freq1 = btn.dataset.freq;
+            document.querySelectorAll('#freqGroup1 button').forEach(b=>b.classList.remove('active'));
+            btn.classList.add('active');
+            renderChart1();
+        });
+    });
+}
+
+function bindSourceToggle() {
+    const btnSolar = document.getElementById('btnSolar');
+    const btnWind  = document.getElementById('btnWind');
+
+    btnSolar.addEventListener('click', () => {
+        state.source2 = 'solar';
+        btnSolar.classList.add('active');
+        btnWind.classList.remove('active');
+        renderChart2Daily();
+        renderChart2Monthly();
+        const countryName = COUNTRIES.find(c=>c.code===state.country)?.name ?? state.country;
+        document.getElementById('card2Title').textContent =
+            `Solar Capture Price Detail – ${countryName} – ${state.year2}`;
+    });
+
+    btnWind.addEventListener('click', () => {
+        state.source2 = 'wind';
+        btnWind.classList.add('active');
+        btnSolar.classList.remove('active');
+        renderChart2Daily();
+        renderChart2Monthly();
+        const countryName = COUNTRIES.find(c=>c.code===state.country)?.name ?? state.country;
+        document.getElementById('card2Title').textContent =
+            `Wind Capture Price Detail – ${countryName} – ${state.year2}`;
+    });
+}
+
+function bindYearSelect() {
+    document.getElementById('yearSelect').addEventListener('change', e => {
+        state.year2 = e.target.value;
+        renderChart2Daily();
+        renderChart2Monthly();
+        const countryName = COUNTRIES.find(c=>c.code===state.country)?.name ?? state.country;
+        const sourceLabel = state.source2 === 'solar' ? 'Solar' : 'Wind';
+        document.getElementById('card2Title').textContent =
+            `${sourceLabel} Capture Price Detail – ${countryName} – ${state.year2}`;
+    });
+}
+
+/* ═══════════════════════════════════════════════════════════
+   BOOTSTRAP
+═══════════════════════════════════════════════════════════ */
+async function main() {
+    buildCountryPills();
+    initCharts();
+    bindFreqGroup1();
+    bindSourceToggle();
+    bindYearSelect();
+
+    const ok = await loadAllData();
+    if (ok) {
+        renderAll();
+    } else {
+        /* show placeholder if data not available */
+        [ec1, ec2daily, ec2monthly].forEach(chart => {
+            chart.setOption({
+                backgroundColor: 'transparent',
+                graphic: [{
+                    type: 'text',
+                    left: 'center', top: 'middle',
+                    style: { text:'⚠ Data unavailable', fill:'#5a6070', fontSize:14 }
+                }]
+            });
+        });
+    }
+}
+
+main();
+</script>
 </body>
 </html>

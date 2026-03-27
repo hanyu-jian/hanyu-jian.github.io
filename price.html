@@ -22,6 +22,8 @@
             box-shadow: 0 4px 12px rgba(0,0,0,0.1);
             overflow: hidden;
         }
+
+        /* ── Top header ── */
         .header {
             background: #2c3e50;
             color: white;
@@ -29,7 +31,7 @@
             position: relative;
         }
         .header h1 { font-size: 24px; font-weight: 500; }
-        .header p { font-size: 14px; opacity: 0.9; margin-top: 6px; }
+        .header p  { font-size: 14px; opacity: 0.9; margin-top: 6px; }
 
         .nav-links {
             position: absolute; top: 20px; right: 30px;
@@ -42,12 +44,38 @@
             transition: 0.2s; font-size: 14px; font-weight: 500;
         }
         .nav-link:hover, .nav-link.active { background: rgba(255,255,255,0.4); }
-        @media (max-width: 700px) {
-            .nav-links { position: static; margin-top: 10px; justify-content: center; }
-            .header { text-align: center; }
+
+        /* ── Sub-nav (Price Overview / Capture Prices) ── */
+        .sub-nav {
+            background: #f8f9fa;
+            border-bottom: 2px solid #e6e9ed;
+            padding: 0 30px;
+            display: flex;
+            gap: 0;
+        }
+        .sub-nav-link {
+            display: inline-block;
+            padding: 14px 22px;
+            font-size: 14px;
+            font-weight: 600;
+            color: #6c757d;
+            text-decoration: none;
+            border-bottom: 3px solid transparent;
+            margin-bottom: -2px;
+            transition: color 0.2s, border-color 0.2s;
+            cursor: pointer;
+        }
+        .sub-nav-link:hover { color: #2c3e50; }
+        .sub-nav-link.active {
+            color: #2c3e50;
+            border-bottom-color: #2c3e50;
         }
 
-        /* Controls bar */
+        /* ── Tab panels ── */
+        .tab-panel { display: none; }
+        .tab-panel.active { display: block; }
+
+        /* ── Controls bar ── */
         .controls {
             padding: 20px 30px;
             display: flex; flex-wrap: wrap; gap: 24px;
@@ -60,7 +88,6 @@
             font-size: 13px; font-weight: 600; color: #2c3e50; white-space: nowrap;
         }
 
-        /* Year select */
         #yearSelect {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             height: 36px; padding: 0 12px;
@@ -68,7 +95,7 @@
             font-size: 14px; width: 160px; cursor: pointer;
         }
 
-        /* Country dropdown — matches load.html exactly */
+        /* ── Country dropdown ── */
         .country-select-wrapper { position: relative; display: inline-block; }
         .country-select-btn {
             min-width: 160px; height: 36px; padding: 0 12px;
@@ -115,10 +142,9 @@
         .country-item span {
             font-size: 13px;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            display: inline-block;
         }
 
-        /* Refresh button */
+        /* ── Buttons ── */
         .btn-primary {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             height: 36px; padding: 0 20px;
@@ -126,10 +152,10 @@
             border: none; border-radius: 6px;
             font-size: 14px; cursor: pointer; transition: background 0.2s;
         }
-        .btn-primary:hover { background: #1e2b38; }
+        .btn-primary:hover    { background: #1e2b38; }
         .btn-primary:disabled { opacity: 0.5; cursor: default; }
 
-        /* Charts */
+        /* ── Chart grid ── */
         .chart-grid {
             display: grid; grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
             gap: 24px; padding: 24px 30px;
@@ -139,12 +165,11 @@
             border: 1px solid #e6e9ed; padding: 16px;
         }
         .chart-card h3 {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             font-size: 18px; margin-bottom: 12px; font-weight: 500;
             color: #2c3e50; border-left: 4px solid #2c3e50; padding-left: 12px;
         }
         .chart-container { width: 100%; height: 400px; }
-        .full-width-card { grid-column: 1 / -1; }
+        .full-width-card  { grid-column: 1 / -1; }
         .dual-panel { display: flex; gap: 20px; flex-wrap: wrap; }
         .dual-panel > div { flex: 1; min-width: 280px; position: relative; }
         .card-control {
@@ -152,7 +177,6 @@
             align-items: center; gap: 12px; flex-wrap: wrap;
         }
         .card-control label {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             font-size: 13px; font-weight: 600; color: #2c3e50; white-space: nowrap;
         }
         .card-control select {
@@ -161,33 +185,12 @@
             border: 1px solid #ccc; border-radius: 6px; font-size: 14px; cursor: pointer;
         }
 
-        .info {
-            padding: 12px 30px 20px 30px;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            font-size: 13px; color: #6c757d;
-            text-align: center; border-top: 1px solid #e6e9ed; margin-top: 10px;
-        }
-
-        @media (max-width: 900px) {
-            .chart-grid { grid-template-columns: 1fr; }
-            .controls { flex-direction: column; align-items: stretch; }
-            #yearSelect { width: 100%; }
-            .country-select-btn { width: 100%; }
-            .country-dropdown { min-width: 100%; }
-            .dual-panel { flex-direction: column; }
-        }
-
-        .loading {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            text-align: center; padding: 40px 20px; color: #666; font-size: 15px;
-        }
-
+        /* ── Map ── */
         #europeMap { height: 400px; background: #eef2f5; border-radius: 8px; }
         .map-legend {
             position: absolute; bottom: 20px; right: 20px;
             background: rgba(255,255,255,0.92); padding: 8px 12px;
             border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             font-size: 12px; font-weight: 500;
             border-left: 3px solid #cc0000;
             z-index: 1000; pointer-events: none; backdrop-filter: blur(2px);
@@ -199,106 +202,140 @@
         }
         .map-legend .labels { display: flex; justify-content: space-between; font-size: 11px; color: #2c3e50; }
         .map-legend h4 { margin: 0 0 4px; font-size: 12px; font-weight: 600; }
+
+        /* ── Misc ── */
+        .loading {
+            text-align: center; padding: 40px 20px; color: #666; font-size: 15px;
+        }
+        .info {
+            padding: 12px 30px 20px;
+            font-size: 13px; color: #6c757d;
+            text-align: center; border-top: 1px solid #e6e9ed; margin-top: 10px;
+        }
+
+        /* ── Responsive ── */
+        @media (max-width: 700px) {
+            .nav-links { position: static; margin-top: 10px; justify-content: center; }
+            .header { text-align: center; }
+        }
+        @media (max-width: 900px) {
+            .chart-grid { grid-template-columns: 1fr; }
+            .controls { flex-direction: column; align-items: stretch; }
+            #yearSelect { width: 100%; }
+            .country-select-btn { width: 100%; }
+            .country-dropdown { min-width: 100%; }
+            .dual-panel { flex-direction: column; }
+            .sub-nav { padding: 0 16px; }
+        }
     </style>
 </head>
 <body>
 <div class="container">
+
+    <!-- ══ Top header ══ -->
     <div class="header">
         <h1>📈 European Electricity Day-Ahead Prices</h1>
         <p>Data source: ENTSO-E | Author: Hanyu Jian</p>
         <div class="nav-links">
-            <a href="price.html" class="nav-link active">Price Analysis</a>
-            <a href="load.html" class="nav-link">Load Analysis</a>
+            <a href="price.html"  class="nav-link active">Price Analysis</a>
+            <a href="load.html"   class="nav-link">Load Analysis</a>
         </div>
     </div>
 
-    <div class="controls">
-        <!-- Year -->
-        <div class="control-group">
-            <label>📅 Year</label>
-            <select id="yearSelect" disabled></select>
-        </div>
+    <!-- ══ Sub-navigation ══ -->
+    <div class="sub-nav">
+        <a class="sub-nav-link active" data-tab="overview">Price Overview</a>
+        <a class="sub-nav-link"        data-tab="capture"  href="capture-price.html">Capture Prices</a>
+    </div>
 
-        <!-- Countries — dropdown style matching load.html -->
-        <div class="control-group">
-            <label>🌍 Countries</label>
-            <div class="country-select-wrapper">
-                <div class="country-select-btn" id="countrySelectBtn">
-                    <span id="countrySelectText">Select...</span>
-                </div>
-                <div class="country-dropdown" id="countryDropdown">
-                    <div class="country-dropdown-header">
-                        <button id="selectAllBtn" class="btn-small" disabled>Select All</button>
-                        <button id="clearAllBtn" class="btn-small" disabled>Clear All</button>
+    <!-- ══ TAB: Price Overview ══ -->
+    <div class="tab-panel active" id="tab-overview">
+
+        <!-- Controls -->
+        <div class="controls">
+            <div class="control-group">
+                <label>📅 Year</label>
+                <select id="yearSelect" disabled></select>
+            </div>
+            <div class="control-group">
+                <label>🌍 Countries</label>
+                <div class="country-select-wrapper">
+                    <div class="country-select-btn" id="countrySelectBtn">
+                        <span id="countrySelectText">Select...</span>
                     </div>
-                    <div id="countryCheckboxes" class="country-list"></div>
+                    <div class="country-dropdown" id="countryDropdown">
+                        <div class="country-dropdown-header">
+                            <button id="selectAllBtn" class="btn-small" disabled>Select All</button>
+                            <button id="clearAllBtn"  class="btn-small" disabled>Clear All</button>
+                        </div>
+                        <div id="countryCheckboxes" class="country-list"></div>
+                    </div>
                 </div>
+            </div>
+            <div class="control-group">
+                <label>&nbsp;</label>
+                <button id="refreshBtn" class="btn-primary" disabled>Refresh</button>
             </div>
         </div>
 
-        <!-- Refresh -->
-        <div class="control-group">
-            <label>&nbsp;</label>
-            <button id="refreshBtn" class="btn-primary" disabled>Refresh</button>
-        </div>
-    </div>
+        <div id="loadingMsg" class="loading">Loading price data...</div>
 
-    <div id="loadingMsg" class="loading">Loading price data...</div>
-
-    <div class="chart-grid" style="display:none;" id="chartGrid">
-        <div class="chart-card">
-            <h3>Hourly Price Trends (multiple countries)</h3>
-            <div id="hourlyChart" class="chart-container"></div>
-        </div>
-        <div class="chart-card">
-            <h3>Monthly Average Price (multiple countries)</h3>
-            <div id="monthlyChart" class="chart-container"></div>
-        </div>
-        <div class="chart-card full-width-card">
-            <h3>Hourly Average Price (selected month) &amp; European Map</h3>
-            <div class="dual-panel">
-                <div>
-                    <div class="card-control">
-                        <label>📆 Month for left chart:</label>
-                        <select id="monthSelect" disabled>
-                            <option value="">-- Select month --</option>
-                            <option value="1">January</option>
-                            <option value="2">February</option>
-                            <option value="3">March</option>
-                            <option value="4">April</option>
-                            <option value="5">May</option>
-                            <option value="6">June</option>
-                            <option value="7">July</option>
-                            <option value="8">August</option>
-                            <option value="9">September</option>
-                            <option value="10">October</option>
-                            <option value="11">November</option>
-                            <option value="12">December</option>
-                        </select>
+        <!-- Charts -->
+        <div class="chart-grid" style="display:none;" id="chartGrid">
+            <div class="chart-card">
+                <h3>Hourly Price Trends (multiple countries)</h3>
+                <div id="hourlyChart" class="chart-container"></div>
+            </div>
+            <div class="chart-card">
+                <h3>Monthly Average Price (multiple countries)</h3>
+                <div id="monthlyChart" class="chart-container"></div>
+            </div>
+            <div class="chart-card full-width-card">
+                <h3>Hourly Average Price (selected month) &amp; European Map</h3>
+                <div class="dual-panel">
+                    <div>
+                        <div class="card-control">
+                            <label>📆 Month:</label>
+                            <select id="monthSelect" disabled>
+                                <option value="">-- Select month --</option>
+                                <option value="1">January</option>
+                                <option value="2">February</option>
+                                <option value="3">March</option>
+                                <option value="4">April</option>
+                                <option value="5">May</option>
+                                <option value="6">June</option>
+                                <option value="7">July</option>
+                                <option value="8">August</option>
+                                <option value="9">September</option>
+                                <option value="10">October</option>
+                                <option value="11">November</option>
+                                <option value="12">December</option>
+                            </select>
+                        </div>
+                        <div id="hourlyAvgChart" style="height:400px;"></div>
                     </div>
-                    <div id="hourlyAvgChart" style="height:400px;"></div>
-                </div>
-                <div style="position:relative;">
-                    <div id="europeMap"></div>
+                    <div style="position:relative;">
+                        <div id="europeMap"></div>
+                    </div>
                 </div>
             </div>
+            <div class="chart-card">
+                <h3>Price Difference (HU - DE)</h3>
+                <div id="diffChart" class="chart-container"></div>
+            </div>
         </div>
-        <div class="chart-card">
-            <h3>Price Difference (HU - DE)</h3>
-            <div id="diffChart" class="chart-container"></div>
-        </div>
-    </div>
 
-    <div class="info">
-        📈 Price Analysis | Unit: €/MWh | Map color reflects monthly average price.
-    </div>
-</div>
+        <div class="info">
+            📈 Price Overview | Unit: €/MWh | Map color reflects monthly average price.
+        </div>
+    </div><!-- /tab-overview -->
+
+</div><!-- /container -->
 
 <script>
     let fullData = null;
     let hourlyChart, monthlyChart, hourlyAvgChart, diffChart = null;
-    let map = null;
-    let geojsonLayer = null;
+    let map = null, geojsonLayer = null;
 
     /* ── CSV parsing ── */
     function parseCSV(csvText) {
@@ -321,32 +358,32 @@
         return rows;
     }
 
-    function parseDateFromString(dateStr) {
-        if (!dateStr) return null;
-        const match = dateStr.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})\s+(\d{1,2}):(\d{2})$/);
-        if (!match) return null;
-        const [, y, mo, d, h, mi] = match.map(Number);
+    function parseDateFromString(s) {
+        if (!s) return null;
+        const m = s.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})\s+(\d{1,2}):(\d{2})$/);
+        if (!m) return null;
+        const [, y, mo, d, h, mi] = m.map(Number);
         const isoStr = `${y}-${String(mo).padStart(2,'0')}-${String(d).padStart(2,'0')}T${String(h).padStart(2,'0')}:${String(mi).padStart(2,'0')}:00.000Z`;
-        return { year: y, month: mo, day: d, hour: h, minute: mi, isoStr };
+        return { year: y, month: mo, day: d, hour: h, isoStr };
     }
 
     function transformCsvToData(rows) {
-        const data = [], countriesSet = new Set(), yearsSet = new Set();
+        const data = [], cSet = new Set(), ySet = new Set();
         for (const row of rows) {
             const dtStr = row.Date || row.datetime;
             if (!dtStr) continue;
-            const parsed = parseDateFromString(dtStr);
-            if (!parsed) { console.warn('Cannot parse date:', dtStr); continue; }
-            yearsSet.add(parsed.year);
+            const p = parseDateFromString(dtStr);
+            if (!p) { console.warn('Bad date:', dtStr); continue; }
+            ySet.add(p.year);
             const values = {};
-            for (const [key, val] of Object.entries(row)) {
-                if (key === 'Date' || key === 'datetime') continue;
-                const num = parseFloat(val);
-                if (!isNaN(num)) { values[key] = num; countriesSet.add(key); }
+            for (const [k, v] of Object.entries(row)) {
+                if (k === 'Date' || k === 'datetime') continue;
+                const n = parseFloat(v);
+                if (!isNaN(n)) { values[k] = n; cSet.add(k); }
             }
-            data.push({ datetime: parsed.isoStr, year: parsed.year, month: parsed.month, hour: parsed.hour, values });
+            data.push({ datetime: p.isoStr, year: p.year, month: p.month, hour: p.hour, values });
         }
-        return { countries: [...countriesSet].sort(), years: [...yearsSet].sort(), data };
+        return { countries: [...cSet].sort(), years: [...ySet].sort(), data };
     }
 
     async function fetchData() {
@@ -355,13 +392,12 @@
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
             const text = await res.text();
             const rows = parseCSV(text);
-            if (!rows.length) throw new Error('No data rows in price.csv');
+            if (!rows.length) throw new Error('Empty price.csv');
             fullData = transformCsvToData(rows);
-            console.log(`Loaded ${fullData.data.length} rows, countries: ${fullData.countries.join(', ')}`);
             return true;
-        } catch (err) {
-            alert(`Failed to load data: ${err.message}`);
-            console.error(err);
+        } catch (e) {
+            alert(`Failed to load data: ${e.message}`);
+            console.error(e);
             return false;
         }
     }
@@ -373,40 +409,31 @@
         fullData.countries.forEach(country => {
             const item = document.createElement('div');
             item.className = 'country-item';
-
             const cb = document.createElement('input');
-            cb.type = 'checkbox';
-            cb.value = country;
-            cb.id = `cb_${country}`;
-            cb.checked = true;
+            cb.type = 'checkbox'; cb.value = country;
+            cb.id = `cb_${country}`; cb.checked = true;
             cb.addEventListener('change', () => { updateCountryLabel(); refresh(); });
-
             const span = document.createElement('span');
             span.textContent = country;
-
-            // clicking the row also toggles checkbox
             item.addEventListener('click', e => {
                 if (e.target !== cb) { cb.checked = !cb.checked; cb.dispatchEvent(new Event('change')); }
             });
-
-            item.appendChild(cb);
-            item.appendChild(span);
+            item.appendChild(cb); item.appendChild(span);
             container.appendChild(item);
         });
-
         document.getElementById('selectAllBtn').disabled = false;
-        document.getElementById('clearAllBtn').disabled = false;
+        document.getElementById('clearAllBtn').disabled  = false;
         updateCountryLabel();
     }
 
     function updateCountryLabel() {
-        const all = document.querySelectorAll('#countryCheckboxes input[type="checkbox"]');
-        const checked = [...all].filter(cb => cb.checked);
-        const text = document.getElementById('countrySelectText');
-        if (checked.length === 0) text.textContent = 'None selected';
+        const all     = [...document.querySelectorAll('#countryCheckboxes input[type="checkbox"]')];
+        const checked = all.filter(cb => cb.checked);
+        const text    = document.getElementById('countrySelectText');
+        if (!checked.length)            text.textContent = 'None selected';
         else if (checked.length === all.length) text.textContent = `All (${all.length})`;
-        else if (checked.length <= 3) text.textContent = checked.map(cb => cb.value).join(', ');
-        else text.textContent = `${checked.length} selected`;
+        else if (checked.length <= 3)   text.textContent = checked.map(cb => cb.value).join(', ');
+        else                            text.textContent = `${checked.length} selected`;
     }
 
     function getSelectedCountries() {
@@ -423,7 +450,6 @@
         updateCountryLabel(); refresh();
     }
 
-    /* toggle dropdown open/close */
     function initDropdown() {
         const btn  = document.getElementById('countrySelectBtn');
         const drop = document.getElementById('countryDropdown');
@@ -433,7 +459,7 @@
         });
     }
 
-    /* ── Controls init ── */
+    /* ── Controls ── */
     function formatDateTime(date) {
         const y  = date.getUTCFullYear();
         const mo = String(date.getUTCMonth() + 1).padStart(2, '0');
@@ -460,11 +486,11 @@
         let pts = fullData.data.filter(d => d.year === year);
         if (!pts.length) { hourlyChart.setOption({ series: [] }, true); return; }
         pts.sort((a, b) => new Date(a.datetime) - new Date(b.datetime));
-        const xData = pts.map(d => formatDateTime(new Date(d.datetime)));
         hourlyChart.setOption({
-            tooltip: { trigger: 'axis', valueFormatter: v => v !== null ? v.toFixed(2) + ' €/MWh' : 'N/A' },
+            tooltip: { trigger: 'axis', valueFormatter: v => v != null ? v.toFixed(2) + ' €/MWh' : 'N/A' },
             legend: { type: 'scroll', bottom: 0 },
-            xAxis: { type: 'category', data: xData, axisLabel: { rotate: 45, interval: 'auto', fontFamily: 'Segoe UI, Tahoma, Geneva, Verdana, sans-serif' } },
+            xAxis: { type: 'category', data: pts.map(d => formatDateTime(new Date(d.datetime))),
+                     axisLabel: { rotate: 45, interval: 'auto' } },
             yAxis: { type: 'value', name: '€/MWh' },
             series: countries.map(c => ({
                 name: c, type: 'line', showSymbol: false,
@@ -490,7 +516,7 @@
         });
         const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
         monthlyChart.setOption({
-            tooltip: { trigger: 'axis', valueFormatter: v => v !== null ? v.toFixed(2) + ' €/MWh' : 'N/A' },
+            tooltip: { trigger: 'axis', valueFormatter: v => v != null ? v.toFixed(2) + ' €/MWh' : 'N/A' },
             legend: { type: 'scroll', bottom: 0 },
             xAxis: { type: 'category', data: months },
             yAxis: { type: 'value', name: '€/MWh' },
@@ -516,7 +542,7 @@
         });
         const hours = Array.from({ length: 24 }, (_, i) => `${i}:00`);
         hourlyAvgChart.setOption({
-            tooltip: { trigger: 'axis', valueFormatter: v => v !== null ? v.toFixed(2) + ' €/MWh' : 'N/A' },
+            tooltip: { trigger: 'axis', valueFormatter: v => v != null ? v.toFixed(2) + ' €/MWh' : 'N/A' },
             legend: { type: 'scroll', bottom: 0 },
             xAxis: { type: 'category', data: hours },
             yAxis: { type: 'value', name: '€/MWh' },
@@ -537,8 +563,9 @@
         if (!pts.length) { diffChart.setOption({ series: [] }, true); return; }
         pts.sort((a, b) => new Date(a.datetime) - new Date(b.datetime));
         diffChart.setOption({
-            tooltip: { trigger: 'axis', valueFormatter: v => v !== null ? v.toFixed(2) + ' €/MWh' : 'N/A' },
-            xAxis: { type: 'category', data: pts.map(d => formatDateTime(new Date(d.datetime))), axisLabel: { rotate: 45, interval: 'auto' } },
+            tooltip: { trigger: 'axis', valueFormatter: v => v != null ? v.toFixed(2) + ' €/MWh' : 'N/A' },
+            xAxis: { type: 'category', data: pts.map(d => formatDateTime(new Date(d.datetime))),
+                     axisLabel: { rotate: 45, interval: 'auto' } },
             yAxis: { type: 'value', name: '€/MWh' },
             series: [{ name: 'HU - DE', type: 'line', showSymbol: false,
                 data: pts.map(d => d.values['HU'] - d.values['DE']),
@@ -589,7 +616,6 @@
     async function drawMap(year, month) {
         if (!map) return;
         if (geojsonLayer) { map.removeLayer(geojsonLayer); geojsonLayer = null; }
-
         const acc = {};
         for (const c of fullData.countries) acc[c] = { sum: 0, count: 0 };
         fullData.data.forEach(d => {
@@ -608,18 +634,15 @@
         const minP = vals.length ? Math.min(...vals) : null;
         const maxP = vals.length ? Math.max(...vals) : null;
         updateLegend(minP, maxP);
-
         try {
             const res = await fetch('https://raw.githubusercontent.com/datasets/geo-countries/master/data/countries.geojson');
             const geo = await res.json();
             geojsonLayer = L.geoJSON(geo, {
                 style: f => {
                     const code = getCountryCode(f);
-                    return {
-                        color: '#2c3e50', weight: 1.2, opacity: 0.9,
+                    return { color: '#2c3e50', weight: 1.2, opacity: 0.9,
                         fillColor: getColorForPrice(code ? prices[code] : null, minP, maxP),
-                        fillOpacity: 0.75
-                    };
+                        fillOpacity: 0.75 };
                 },
                 onEachFeature: (f, layer) => {
                     const code = getCountryCode(f);
@@ -632,8 +655,8 @@
 
     /* ── Refresh ── */
     function refresh() {
-        const year  = parseInt(document.getElementById('yearSelect').value);
-        const month = parseInt(document.getElementById('monthSelect').value);
+        const year     = parseInt(document.getElementById('yearSelect').value);
+        const month    = parseInt(document.getElementById('monthSelect').value);
         const countries = getSelectedCountries();
         if (!year) return;
         drawHourly(year, countries);
@@ -647,8 +670,8 @@
     async function init() {
         const ok = await fetchData();
         if (!ok) return;
-        document.getElementById('loadingMsg').style.display = 'none';
-        document.getElementById('chartGrid').style.display = 'grid';
+        document.getElementById('loadingMsg').style.display  = 'none';
+        document.getElementById('chartGrid').style.display   = 'grid';
 
         hourlyChart    = echarts.init(document.getElementById('hourlyChart'));
         monthlyChart   = echarts.init(document.getElementById('monthlyChart'));
@@ -672,10 +695,10 @@
         refresh();
 
         document.getElementById('selectAllBtn').addEventListener('click', selectAll);
-        document.getElementById('clearAllBtn').addEventListener('click', clearAll);
-        document.getElementById('yearSelect').addEventListener('change', refresh);
+        document.getElementById('clearAllBtn').addEventListener('click',  clearAll);
+        document.getElementById('yearSelect').addEventListener('change',  refresh);
         document.getElementById('monthSelect').addEventListener('change', refresh);
-        document.getElementById('refreshBtn').addEventListener('click', refresh);
+        document.getElementById('refreshBtn').addEventListener('click',   refresh);
     }
 
     init();

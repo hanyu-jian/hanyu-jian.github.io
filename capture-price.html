@@ -186,15 +186,6 @@
             font-size: 13px; font-weight: 600; color: #2c3e50; white-space: nowrap;
         }
 
-        /* ── Combined chart container ── */
-        .combined-chart-wrap {
-            display: flex; flex-direction: column; gap: 0;
-        }
-        .chart-label {
-            font-size: 12px; font-weight: 600; color: #6c757d;
-            padding: 4px 0 4px 4px; margin-bottom: -4px;
-        }
-
         /* ── Section divider inside card ── */
         .card-divider {
             border: none; border-top: 1px solid #e6e9ed; margin: 18px 0 16px;
@@ -264,7 +255,7 @@
                 <label>🌍 Country</label>
                 <div class="country-select-wrapper">
                     <div class="country-select-btn" id="countrySelectBtn">
-                        <span id="countrySelectText">Hungary</span>
+                        <span id="countrySelectText">HU</span>
                     </div>
                     <div class="country-dropdown" id="countryDropdown">
                         <div id="countryRadioList" class="country-list"></div>
@@ -280,8 +271,8 @@
             <div class="chart-card">
                 <div class="chart-card-header">
                     <div>
-                        <h3 id="card1Title">Capture Prices Overview – Hungary</h3>
-                        <div class="subtitle">Baseload · Solar capture price (post-curtailment) · Wind capture price (post-curtailment)</div>
+                        <h3 id="card1Title">Capture Prices Overview – HU</h3>
+                        <div class="subtitle">Baseload (bar) · Solar capture price · Wind capture price (post-curtailment)</div>
                     </div>
                     <div class="chart-card-controls">
                         <label>Frequency</label>
@@ -294,14 +285,15 @@
                         </div>
                     </div>
                 </div>
-                <div id="chart1" style="width:100%; height:380px;"></div>
+                <!-- ← height increased slightly to accommodate dataZoom slider -->
+                <div id="chart1" style="width:100%; height:420px;"></div>
             </div>
 
             <!-- ── Card 2: Deep Dive ── -->
             <div class="chart-card">
                 <div class="chart-card-header">
                     <div>
-                        <h3 id="card2Title">Solar Capture Price Detail – Hungary – 2025</h3>
+                        <h3 id="card2Title">Solar Capture Price Detail – HU – 2025</h3>
                         <div class="subtitle">Daily &amp; monthly breakdown with non-positive price hours</div>
                     </div>
                     <div class="chart-card-controls">
@@ -332,7 +324,7 @@
         </div><!-- /chart-grid -->
 
         <div class="info">
-            📊 Capture Prices | Unit: €/MWh | Source: ENTSO-E price.csv · solar.csv · wind.csv
+            📊 Capture Prices | Unit: €/MWh | Source: ENTSO-E 
         </div>
     </div><!-- /mainContent -->
 
@@ -359,7 +351,7 @@ const COUNTRIES = [
 ];
 
 const COLORS = {
-    baseload : '#2c3e50',
+    baseload : '#d0d4d8',   
     solar    : '#f39c12',
     wind     : '#2980b9',
     pre      : '#e74c3c',
@@ -401,27 +393,22 @@ function parseCSV(text) {
     }).filter(Boolean);
 }
 
-/* Detect datetime column name */
 function getDTCol(row) {
     for (const k of ['datetime','Datetime','DateTime','date','Date','timestamp']) {
         if (row[k] !== undefined) return k;
     }
-    return Object.keys(row)[0]; // fallback: first column
+    return Object.keys(row)[0];
 }
 
-/* Extract YYYY-MM-DD from various datetime formats */
 function extractDate(dtStr) {
     if (!dtStr) return null;
-    // Handle "YYYY/MM/DD HH:mm" format
     const m1 = dtStr.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})/);
     if (m1) return `${m1[1]}-${m1[2].padStart(2,'0')}-${m1[3].padStart(2,'0')}`;
-    // Handle "YYYY-MM-DD HH:mm" format
     const m2 = dtStr.match(/^(\d{4}-\d{2}-\d{2})/);
     if (m2) return m2[1];
     return null;
 }
 
-/* Parse all three CSVs and organise by country → [{dt, value}] */
 function buildStore(rows, store) {
     if (!rows.length) return;
     const dtCol = getDTCol(rows[0]);
@@ -451,7 +438,7 @@ async function loadAllData() {
 }
 
 /* ═══════════════════════════════════════════════════════════
-   COMPUTE HOURLY METRICS 
+   COMPUTE HOURLY METRICS
 ═══════════════════════════════════════════════════════════ */
 function computeHourly(country, source) {
     const prices = rawPrice[country] || [];
@@ -471,19 +458,19 @@ function computeHourly(country, source) {
             date,
             pr,
             gen,
-            genPost : gen * (isPos ? 1 : 0),   // post-curtailment generation
-            rev     : gen * (isPos ? 1 : 0) * pr, // revenue (post)
-            revPre  : gen * pr,                  // revenue (pre-curtailment)
-            isNeg   : pr < 0  ? 1 : 0,
-            isZero  : pr === 0 ? 1 : 0,
-            isNonPos: pr <= 0 ? 1 : 0
+            genPost  : gen * (isPos ? 1 : 0),
+            rev      : gen * (isPos ? 1 : 0) * pr,
+            revPre   : gen * pr,
+            isNeg    : pr < 0   ? 1 : 0,
+            isZero   : pr === 0 ? 1 : 0,
+            isNonPos : pr <= 0  ? 1 : 0
         });
     }
     return hours;
 }
 
 /* ═══════════════════════════════════════════════════════════
-   AGGREGATE FROM HOURLY 
+   AGGREGATE FROM HOURLY
 ═══════════════════════════════════════════════════════════ */
 function getISOWeek(dateStr) {
     const d = new Date(dateStr + 'T00:00:00Z');
@@ -503,9 +490,8 @@ function groupKey(date, freq) {
         const m = parseInt(date.slice(5, 7));
         return `${date.slice(0, 4)}-Q${Math.ceil(m / 3)}`;
     }
-    return date.slice(0, 4); // yearly
+    return date.slice(0, 4);
 }
-
 
 function aggregateFromHourly(hours, freq) {
     if (!hours.length) return [];
@@ -516,16 +502,16 @@ function aggregateFromHourly(hours, freq) {
         const key = groupKey(h.date, freq);
         if (!groups[key]) {
             groups[key] = {
-                sumPr      : 0,   // for baseload (arithmetic avg of price)
+                sumPr      : 0,
                 cntPr      : 0,
-                sumGen     : 0,   // pre-curtailment Σgen
-                sumGenPost : 0,   // post-curtailment Σgen
-                sumRev     : 0,   // post-curtailment Σrev = Σ(gen_post × price)
-                sumRevPre  : 0,   // pre-curtailment  Σrev = Σ(gen × price)
+                sumGen     : 0,
+                sumGenPost : 0,
+                sumRev     : 0,
+                sumRevPre  : 0,
                 sumNeg     : 0,
                 sumZero    : 0,
                 sumNonPos  : 0,
-                cntDays    : new Set()  // 
+                cntDays    : new Set()
             };
         }
         const g = groups[key];
@@ -547,24 +533,18 @@ function aggregateFromHourly(hours, freq) {
             const numDays = g.cntDays.size;
             return {
                 date        : key,
-                // baseload = avg
-                baseload    : g.cntPr > 0 ? g.sumPr / g.cntPr : null,
-                // post-curtailment capture price: Σ(gen_post×price) / Σgen_post
-                capPost     : g.sumGenPost > 0 ? g.sumRev    / g.sumGenPost : null,
-                // pre-curtailment  capture price: Σ(gen×price)      / Σgen
-                capPre      : g.sumGen     > 0 ? g.sumRevPre / g.sumGen     : null,
-                // 
+                baseload    : g.cntPr > 0     ? g.sumPr    / g.cntPr      : null,
+                capPost     : g.sumGenPost > 0 ? g.sumRev   / g.sumGenPost : null,
+                capPre      : g.sumGen     > 0 ? g.sumRevPre/ g.sumGen     : null,
                 negHours    : g.sumNeg,
                 zeroHours   : g.sumZero,
                 nonPosHours : g.sumNonPos,
-                // 
                 negHoursPerDay    : numDays > 0 ? g.sumNeg    / numDays : 0,
                 zeroHoursPerDay   : numDays > 0 ? g.sumZero   / numDays : 0,
                 nonPosHoursPerDay : numDays > 0 ? g.sumNonPos / numDays : 0
             };
         });
 }
-
 
 /* ═══════════════════════════════════════════════════════════
    ECHART INSTANCES
@@ -611,7 +591,6 @@ function renderChart1() {
     const freq = state.freq1;
     const c    = state.country;
 
-    // 
     const aggS = aggregateFromHourly(computeHourly(c, 'solar'), freq);
     const aggW = aggregateFromHourly(computeHourly(c, 'wind'),  freq);
 
@@ -625,12 +604,39 @@ function renderChart1() {
             axisPointer: { type: 'cross', lineStyle: { color: '#bbb' } },
             formatter: p => tooltipFmt(p, false)
         },
+
+        /* ── Legend: top-right ── */
         legend: {
-            bottom: 0, type: 'scroll',
+            top: 4, right: 8,
+            type: 'scroll',
             textStyle: { color: '#2c3e50', fontSize: 12 },
             itemWidth: 14
         },
-        grid: { left: 60, right: 20, top: 16, bottom: 50 },
+
+        /* ── DataZoom: slider + inside ── */
+        dataZoom: [
+            {
+                type: 'slider',
+                xAxisIndex: 0,
+                bottom: 10,
+                height: 22,
+                borderColor: '#e6e9ed',
+                fillerColor: 'rgba(44,62,80,0.08)',
+                handleStyle: { color: '#2c3e50' },
+                textStyle: { color: '#6c757d', fontSize: 10 },
+                brushSelect: false
+            },
+            {
+                type: 'inside',
+                xAxisIndex: 0,
+                zoomOnMouseWheel: true,
+                moveOnMouseMove: true
+            }
+        ],
+
+        /* ── Grid: leave room for legend (top) and dataZoom (bottom) ── */
+        grid: { left: 60, right: 20, top: 36, bottom: 70 },
+
         xAxis: {
             type: 'category', data: dates,
             ...axisStyle,
@@ -645,34 +651,50 @@ function renderChart1() {
             nameTextStyle: { color: '#6c757d', fontSize: 11 },
             ...axisStyle
         },
+
         series: [
+            /* Baseload → light-grey bar, no border */
             {
-                name: 'Baseload', type: 'line', symbol: 'none',
+                name: 'Baseload',
+                type: 'bar',
                 data: dates.map(d => sMap[d]?.baseload ?? wMap[d]?.baseload ?? null),
-                lineStyle: { color: COLORS.baseload, width: 2 },
-                itemStyle: { color: COLORS.baseload }, smooth: true
+                barMaxWidth: 12,
+                itemStyle: {
+                    color: COLORS.baseload,   /* #d0d4d8 */
+                    borderWidth: 0            /* no border */
+                },
+                z: 1                          /* render behind lines */
             },
+            /* Solar CP (post) – no smooth */
             {
-                name: 'Solar CP (post)', type: 'line', symbol: 'none',
+                name: 'Solar CP (post)',
+                type: 'line',
+                symbol: 'none',
+                smooth: false,
                 data: dates.map(d => sMap[d]?.capPost ?? null),
                 lineStyle: { color: COLORS.solar, width: 2 },
-                itemStyle: { color: COLORS.solar }, smooth: true
+                itemStyle: { color: COLORS.solar },
+                z: 3
             },
+            /* Wind CP (post) – no smooth */
             {
-                name: 'Wind CP (post)', type: 'line', symbol: 'none',
+                name: 'Wind CP (post)',
+                type: 'line',
+                symbol: 'none',
+                smooth: false,
                 data: dates.map(d => wMap[d]?.capPost ?? null),
                 lineStyle: { color: COLORS.wind, width: 2 },
-                itemStyle: { color: COLORS.wind }, smooth: true
+                itemStyle: { color: COLORS.wind },
+                z: 3
             }
         ]
     }, true);
 }
 
 /* ═══════════════════════════════════════════════════════════
-   CHART 2-DAILY  –  Combined (line top + bar bottom, shared x)
+   CHART 2-DAILY
 ═══════════════════════════════════════════════════════════ */
 function renderChart2Daily() {
-    // daily 
     const daily = aggregateFromHourly(
         computeHourly(state.country, state.source2).filter(h => h.date.startsWith(state.year2)),
         'daily'
@@ -682,7 +704,7 @@ function renderChart2Daily() {
     const baseVals = daily.map(d => d.baseload);
     const postVals = daily.map(d => d.capPost);
     const preVals  = daily.map(d => d.capPre);
-    const barVals  = daily.map(d => d.nonPosHours);   // 0-24 小时
+    const barVals  = daily.map(d => d.nonPosHours);
 
     const lineColor = state.source2 === 'solar' ? COLORS.solar : COLORS.wind;
     const preColor  = state.source2 === 'solar' ? COLORS.post_s : COLORS.post_w;
@@ -761,6 +783,7 @@ function renderChart2Daily() {
         ]
     }, true);
 }
+
 /* ═══════════════════════════════════════════════════════════
    CHART 2-MONTHLY
 ═══════════════════════════════════════════════════════════ */
@@ -774,7 +797,7 @@ function renderChart2Monthly() {
     const baseVals = monthly.map(d => d.baseload);
     const postVals = monthly.map(d => d.capPost);
     const preVals  = monthly.map(d => d.capPre);
-    const barVals  = monthly.map(d => d.nonPosHours);   
+    const barVals  = monthly.map(d => d.nonPosHours);
 
     const lineColor = state.source2 === 'solar' ? COLORS.solar : COLORS.wind;
     const preColor  = state.source2 === 'solar' ? COLORS.post_s : COLORS.post_w;
@@ -787,7 +810,6 @@ function renderChart2Monthly() {
                 let html = `<div style="font-weight:600;margin-bottom:5px;color:#2c3e50">${params[0]?.axisValue}</div>`;
                 params.forEach(p => {
                     if (p.value == null) return;
-                    // ✅ bar series 单位改为 h（累计），折线保持 €/MWh
                     const unit = p.seriesName.includes('Hours') ? 'h' : '€/MWh';
                     html += `<div style="display:flex;align-items:center;gap:8px;margin:2px 0;font-size:12px">
                         <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${p.color}"></span>
@@ -827,15 +849,14 @@ function renderChart2Monthly() {
                 nameTextStyle: { color: '#6c757d', fontSize: 11 }, ...axisStyle
             },
             {
-                type: 'value', name: 'Hours',   // ✅ 从 h/day 改为 Hours
-                gridIndex: 1,
+                type: 'value', name: 'Hours', gridIndex: 1,
                 nameTextStyle: { color: '#6c757d', fontSize: 11 }, ...axisStyle
             }
         ],
         series: [
             {
                 name: 'Baseload', type: 'line',
-                data: baseVals, smooth: true,
+                data: baseVals, smooth: false,
                 symbol: 'circle', symbolSize: 6,
                 lineStyle: { color: COLORS.baseload, width: 2 },
                 itemStyle: { color: COLORS.baseload },
@@ -843,7 +864,7 @@ function renderChart2Monthly() {
             },
             {
                 name: 'Capture Price (post)', type: 'line',
-                data: postVals, smooth: true,
+                data: postVals, smooth: false,
                 symbol: 'circle', symbolSize: 6,
                 lineStyle: { color: lineColor, width: 2 },
                 itemStyle: { color: lineColor },
@@ -851,7 +872,7 @@ function renderChart2Monthly() {
             },
             {
                 name: 'Capture Price (pre)', type: 'line',
-                data: preVals, smooth: true,
+                data: preVals, smooth: false,
                 symbol: 'circle', symbolSize: 6,
                 lineStyle: { color: preColor, width: 1.5, type: 'dashed' },
                 itemStyle: { color: preColor },
@@ -871,7 +892,7 @@ function renderChart2Monthly() {
    RENDER ALL
 ═══════════════════════════════════════════════════════════ */
 function updateTitles() {
-    const cName = COUNTRIES.find(c=>c.code===state.country)?.name ?? state.country;
+    const cName = COUNTRIES.find(c => c.code === state.country)?.name ?? state.country;
     const sName = state.source2 === 'solar' ? 'Solar' : 'Wind';
     document.getElementById('card1Title').textContent =
         `Capture Prices Overview – ${cName}`;
@@ -935,7 +956,7 @@ function bindFreqGroup1() {
     document.querySelectorAll('#freqGroup1 button').forEach(btn => {
         btn.addEventListener('click', () => {
             state.freq1 = btn.dataset.freq;
-            document.querySelectorAll('#freqGroup1 button').forEach(b=>b.classList.remove('active'));
+            document.querySelectorAll('#freqGroup1 button').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
             renderChart1();
         });

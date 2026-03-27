@@ -343,19 +343,19 @@
    CONSTANTS
 ═══════════════════════════════════════════════════════════ */
 const COUNTRIES = [
-    { code: 'HU', name: 'Hungary' },
-    { code: 'DE', name: 'Germany' },
-    { code: 'FR', name: 'France' },
-    { code: 'AT', name: 'Austria' },
-    { code: 'CZ', name: 'Czech Republic' },
-    { code: 'SK', name: 'Slovakia' },
-    { code: 'RO', name: 'Romania' },
-    { code: 'PL', name: 'Poland' },
-    { code: 'HR', name: 'Croatia' },
-    { code: 'SI', name: 'Slovenia' },
-    { code: 'RS', name: 'Serbia' },
-    { code: 'IT', name: 'Italy' },
-    { code: 'ES', name: 'Spain' }
+    { code: 'HU', name: 'HU' },
+    { code: 'DE', name: 'DE' },
+    { code: 'FR', name: 'FR' },
+    { code: 'AT', name: 'AT' },
+    { code: 'CZ', name: 'CZ' },
+    { code: 'SK', name: 'SK' },
+    { code: 'RO', name: 'RO' },
+    { code: 'PL', name: 'PL' },
+    { code: 'HR', name: 'HR' },
+    { code: 'SI', name: 'SI' },
+    { code: 'RS', name: 'RS' },
+    { code: 'IT', name: 'IT' },
+    { code: 'ES', name: 'ES' }
 ];
 
 const COLORS = {
@@ -375,7 +375,7 @@ const state = {
     country : 'HU',
     freq1   : 'daily',
     source2 : 'solar',
-    year2   : '2025'
+    year2   : '2026'
 };
 
 /* ═══════════════════════════════════════════════════════════
@@ -611,7 +611,7 @@ function renderChart1() {
     const freq = state.freq1;
     const c    = state.country;
 
-    // ✅ 直接从小时数据聚合，保证加权平均正确
+    // 
     const aggS = aggregateFromHourly(computeHourly(c, 'solar'), freq);
     const aggW = aggregateFromHourly(computeHourly(c, 'wind'),  freq);
 
@@ -774,7 +774,7 @@ function renderChart2Monthly() {
     const baseVals = monthly.map(d => d.baseload);
     const postVals = monthly.map(d => d.capPost);
     const preVals  = monthly.map(d => d.capPre);
-    const barVals  = monthly.map(d => d.nonPosHours);   // ✅ 当月累计小时数
+    const barVals  = monthly.map(d => d.nonPosHours);   
 
     const lineColor = state.source2 === 'solar' ? COLORS.solar : COLORS.wind;
     const preColor  = state.source2 === 'solar' ? COLORS.post_s : COLORS.post_w;

@@ -466,80 +466,95 @@ function computeDaily(country, source) {
         const pr   = prices[i].value;
         const gen  = gens[i].value;
 
-        if (!byDate[date]) byDate[date] = { sumPr:0, cnt:0, sumGen:0, sumGenPost:0, sumRev:0 };
+        if (!byDate[date]) byDate[date] = {
+            sumPr      : 0,
+            cnt        : 0,
+            sumGen     : 0,   // solar generation
+            sumGenPost : 0,   // generation post-curtailment
+            sumRev     : 0,   // actual revenue
+            negHours   : 0,
+            zeroHours  : 0
+        };
         const d = byDate[date];
 
-        const pPost = gen * (pr > 0 ? 1 : 0);
-        d.sumPr     += pr;
-        d.cnt       += 1;
-        d.sumGen    += gen;
-        d.sumGenPost+= pPost;
-        d.sumRev    += pPost * pr;
+        d.sumPr  += pr;
+        d.cnt    += 1;
+        d.sumGen += gen;
+
+        if (pr > 0) {
+            d.sumGenPost += gen;
+            d.sumRev     += gen * pr;
+        } else if (pr === 0) {
+            d.zeroHours  += 1;
+        } else {
+            d.negHours   += 1;
+        }
     }
 
     return Object.entries(byDate)
         .sort((a,b) => a[0] < b[0] ? -1 : 1)
-        .map(([date, d]) => {
-            const baseload = d.cnt > 0 ? d.sumPr / d.cnt : null;
-            const capPost  = d.sumGenPost > 0 ? d.sumRev / d.sumGenPost : null;
-            const capPre   = d.sumGen     > 0 ? d.sumRev / d.sumGen     : null;
-
-            // Count non-positive hours by re-scanning prices for this date
-            const pricesForDate = prices.filter(p => p.date === date).map(p => p.value);
-            const negHours    = pricesForDate.filter(v => v  < 0).length;
-            const zeroHours   = pricesForDate.filter(v => v === 0).length;
-            const nonPosHours = negHours + zeroHours;
-
-            return { date, baseload, capPost, capPre, negHours, zeroHours, nonPosHours };
-        });
+        .map(([date, d]) => ({
+            date,
+            // ── daily ──
+            baseload    : d.cnt > 0        ? d.sumPr      / d.cnt        : null,
+            capPre      : d.sumGen > 0     ? d.sumRev     / d.sumGen     : null,
+            capPost     : d.sumGenPost > 0 ? d.sumRev     / d.sumGenPost : null,
+            negHours    : d.negHours,
+            zeroHours   : d.zeroHours,
+            nonPosHours : d.negHours + d.zeroHours,
+            // ────
+            _sumPr      : d.sumPr,
+            _cnt        : d.cnt,
+            _sumGen     : d.sumGen,
+            _sumGenPost : d.sumGenPost,
+            _sumRev     : d.sumRev
+        }));
 }
 
 /* ═══════════════════════════════════════════════════════════
    AGGREGATION
 ═══════════════════════════════════════════════════════════ */
-function getISOWeek(dateStr) {
-    const d = new Date(dateStr + 'T00:00:00Z');
-    d.setUTCDate(d.getUTCDate() + 3 - (d.getUTCDay() + 6) % 7);
-    const week1 = new Date(Date.UTC(d.getUTCFullYear(), 0, 4));
-    const wk = 1 + Math.round(((d - week1) / 86400000 - 3 + (week1.getUTCDay() + 6) % 7) / 7);
-    return `${d.getUTCFullYear()}-W${String(wk).padStart(2,'0')}`;
-}
-
-function groupKey(date, freq) {
-    if (freq === 'daily')     return date;
-    if (freq === 'weekly')    return getISOWeek(date);
-    if (freq === 'monthly')   return date.slice(0,7);
-    if (freq === 'quarterly') {
-        const m = parseInt(date.slice(5,7));
-        return `${date.slice(0,4)}-Q${Math.ceil(m/3)}`;
-    }
-    return date.slice(0,4); // yearly
-}
-
 function aggregate(daily, freq) {
     if (freq === 'daily') return daily;
+
     const groups = {};
     daily.forEach(d => {
         const k = groupKey(d.date, freq);
         if (!groups[k]) groups[k] = [];
         groups[k].push(d);
     });
-    const avgField = (arr, f) => {
-        const vals = arr.map(d => d[f]).filter(v => v != null);
-        return vals.length ? vals.reduce((s,v)=>s+v,0)/vals.length : null;
-    };
+
     return Object.entries(groups)
-        .sort((a,b) => a[0]<b[0]?-1:1)
-        .map(([key, arr]) => ({
-            date        : key,
-            baseload    : avgField(arr,'baseload'),
-            capPost     : avgField(arr,'capPost'),
-            capPre      : avgField(arr,'capPre'),
-            negHours    : avgField(arr,'negHours'),
-            zeroHours   : avgField(arr,'zeroHours'),
-            nonPosHours : avgField(arr,'nonPosHours')
-        }));
+        .sort((a,b) => a[0] < b[0] ? -1 : 1)
+        .map(([key, arr]) => {
+            // ────────────────────────────────────
+            const sumPr      = arr.reduce((s,d) => s + d._sumPr,      0);
+            const cnt        = arr.reduce((s,d) => s + d._cnt,         0);
+            const sumGen     = arr.reduce((s,d) => s + d._sumGen,      0);
+            const sumGenPost = arr.reduce((s,d) => s + d._sumGenPost,  0);
+            const sumRev     = arr.reduce((s,d) => s + d._sumRev,      0);
+            const negHours   = arr.reduce((s,d) => s + d.negHours,     0);
+            const zeroHours  = arr.reduce((s,d) => s + d.zeroHours,    0);
+
+            // ───────────────────────────
+            return {
+                date        : key,
+                baseload    : cnt > 0        ? sumPr      / cnt        : null,
+                capPre      : sumGen > 0     ? sumRev     / sumGen     : null,
+                capPost     : sumGenPost > 0 ? sumRev     / sumGenPost : null,
+                negHours    : negHours,
+                zeroHours   : zeroHours,
+                nonPosHours : negHours + zeroHours,
+                // 
+                _sumPr      : sumPr,
+                _cnt        : cnt,
+                _sumGen     : sumGen,
+                _sumGenPost : sumGenPost,
+                _sumRev     : sumRev
+            };
+        });
 }
+
 
 /* ═══════════════════════════════════════════════════════════
    ECHART INSTANCES

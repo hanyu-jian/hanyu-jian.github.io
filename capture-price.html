@@ -20,8 +20,6 @@
             box-shadow: 0 4px 12px rgba(0,0,0,0.1);
             overflow: hidden;
         }
-
-        /* ── Header ── */
         .header {
             background: #2c3e50;
             color: white;
@@ -41,13 +39,11 @@
             transition: 0.2s; font-size: 14px; font-weight: 500;
         }
         .nav-link:hover, .nav-link.active { background: rgba(255,255,255,0.4); }
-
-        /* ── Sub-nav ── */
         .sub-nav {
             background: #f8f9fa;
             border-bottom: 2px solid #e6e9ed;
             padding: 0 30px;
-            display: flex; gap: 0;
+            display: flex;
         }
         .sub-nav-link {
             display: inline-block;
@@ -62,8 +58,6 @@
         }
         .sub-nav-link:hover { color: #2c3e50; }
         .sub-nav-link.active { color: #2c3e50; border-bottom-color: #2c3e50; }
-
-        /* ── Controls bar ── */
         .controls {
             padding: 20px 30px;
             display: flex; flex-wrap: wrap; gap: 24px;
@@ -75,13 +69,11 @@
         .control-group label {
             font-size: 13px; font-weight: 600; color: #2c3e50; white-space: nowrap;
         }
-
-        /* ── Country dropdown ── */
         .country-select-wrapper { position: relative; display: inline-block; }
         .country-select-btn {
             min-width: 180px; height: 36px; padding: 0 12px;
             border: 1px solid #ccc; border-radius: 6px;
-            font-size: 14px; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-size: 14px; font-family: inherit;
             background: white; cursor: pointer;
             display: flex; align-items: center; justify-content: space-between; gap: 8px;
             white-space: nowrap;
@@ -111,21 +103,18 @@
             flex-shrink: 0; cursor: pointer; accent-color: #2c3e50;
         }
         .country-item span { font-size: 13px; }
-
-        /* ── Inline selects / buttons ── */
         .ctrl-select {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: inherit;
             height: 36px; padding: 0 12px;
             border: 1px solid #ccc; border-radius: 6px;
             font-size: 14px; cursor: pointer; background: white;
         }
         .ctrl-select:focus { outline: none; border-color: #2c3e50; }
-
         .btn-group-inline {
             display: flex; border: 1px solid #ccc; border-radius: 6px; overflow: hidden;
         }
         .btn-group-inline button {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: inherit;
             height: 36px; padding: 0 14px;
             background: white; border: none;
             border-right: 1px solid #ccc;
@@ -134,16 +123,12 @@
         }
         .btn-group-inline button:last-child { border-right: none; }
         .btn-group-inline button:hover { background: #f0f2f5; color: #2c3e50; }
-        .btn-group-inline button.active {
-            background: #2c3e50; color: white;
-        }
-
-        /* ── Source toggle (Solar/Wind) ── */
+        .btn-group-inline button.active { background: #2c3e50; color: white; }
         .source-toggle {
             display: flex; border: 1px solid #ccc; border-radius: 6px; overflow: hidden;
         }
         .source-btn {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: inherit;
             height: 36px; padding: 0 18px;
             background: white; border: none;
             border-right: 1px solid #ccc;
@@ -155,8 +140,6 @@
         .source-btn:hover { background: #f0f2f5; }
         .source-btn.solar.active { background: #fff8e1; color: #e65100; border-color: #e65100; }
         .source-btn.wind.active  { background: #e3f2fd; color: #0277bd; border-color: #0277bd; }
-
-        /* ── Chart grid ── */
         .chart-grid {
             display: flex; flex-direction: column;
             gap: 24px; padding: 24px 30px;
@@ -171,10 +154,8 @@
             margin-bottom: 14px;
         }
         .chart-card-header h3 {
-            font-size: 18px; font-weight: 500;
-            color: #2c3e50;
-            border-left: 4px solid #2c3e50; padding-left: 12px;
-            margin: 0;
+            font-size: 18px; font-weight: 500; color: #2c3e50;
+            border-left: 4px solid #2c3e50; padding-left: 12px; margin: 0;
         }
         .chart-card-header .subtitle {
             font-size: 12px; color: #6c757d; padding-left: 16px; margin-top: 3px;
@@ -185,8 +166,6 @@
         .chart-card-controls label {
             font-size: 13px; font-weight: 600; color: #2c3e50; white-space: nowrap;
         }
-
-        /* ── Section divider inside card ── */
         .card-divider {
             border: none; border-top: 1px solid #e6e9ed; margin: 18px 0 16px;
         }
@@ -198,20 +177,14 @@
             content: ''; display: block; width: 3px; height: 14px;
             background: #2c3e50; border-radius: 2px;
         }
-
-        /* ── Info footer ── */
         .info {
             padding: 12px 30px 20px;
             font-size: 13px; color: #6c757d;
             text-align: center; border-top: 1px solid #e6e9ed; margin-top: 10px;
         }
-
-        /* ── Loading ── */
         .loading {
             text-align: center; padding: 40px 20px; color: #666; font-size: 15px;
         }
-
-        /* ── Responsive ── */
         @media (max-width: 700px) {
             .nav-links { position: static; margin-top: 10px; justify-content: center; }
             .header { text-align: center; }
@@ -226,7 +199,6 @@
 <body>
 <div class="container">
 
-    <!-- ══ Header ══ -->
     <div class="header">
         <h1>📈 European Electricity Day-Ahead Prices</h1>
         <p>Data source: ENTSO-E | Author: Hanyu Jian</p>
@@ -236,20 +208,16 @@
         </div>
     </div>
 
-    <!-- ══ Sub-nav ══ -->
     <div class="sub-nav">
         <a class="sub-nav-link" href="price.html">Price Overview</a>
         <a class="sub-nav-link active">Capture Prices</a>
         <a class="sub-nav-link" href="price-spread.html">Price Spread</a>
     </div>
 
-    <!-- ══ Loading ══ -->
     <div id="loadingMsg" class="loading">⏳ Loading data...</div>
 
-    <!-- ══ Main content (hidden until data ready) ══ -->
     <div id="mainContent" style="display:none;">
 
-        <!-- ── Global controls: Country selector ── -->
         <div class="controls">
             <div class="control-group">
                 <label>🌍 Country</label>
@@ -264,10 +232,9 @@
             </div>
         </div>
 
-        <!-- ══ Chart Grid ══ -->
         <div class="chart-grid">
 
-            <!-- ── Card 1: Overview ── -->
+            <!-- Card 1: Overview -->
             <div class="chart-card">
                 <div class="chart-card-header">
                     <div>
@@ -285,23 +252,22 @@
                         </div>
                     </div>
                 </div>
-                <!-- ← height increased slightly to accommodate dataZoom slider -->
                 <div id="chart1" style="width:100%; height:420px;"></div>
             </div>
 
-            <!-- ── Card 2: Deep Dive ── -->
+            <!-- Card 2: Deep Dive -->
             <div class="chart-card">
                 <div class="chart-card-header">
                     <div>
-                        <h3 id="card2Title">Solar Capture Price Detail – HU – 2025</h3>
-                        <div class="subtitle">Daily &amp; monthly breakdown with non-positive price hours</div>
+                        <h3 id="card2Title">Solar Capture Price Detail – HU</h3>
+                        <div class="subtitle">Daily &amp; multi-frequency breakdown with non-positive price hours</div>
                     </div>
                     <div class="chart-card-controls">
                         <div class="source-toggle">
                             <button class="source-btn solar active" id="btnSolar">☀ Solar</button>
                             <button class="source-btn wind"         id="btnWind">💨 Wind</button>
                         </div>
-                        <label>Year</label>
+                        <label>Year (Daily only)</label>
                         <select class="ctrl-select" id="yearSelect">
                             <option value="2024">2024</option>
                             <option value="2025" selected>2025</option>
@@ -310,21 +276,59 @@
                     </div>
                 </div>
 
-                <!-- Daily combined -->
-                <div class="card-section-title">Daily View</div>
+                <!-- Daily: full width -->
+                <div class="card-section-title">
+                    Daily View
+                    <span style="font-weight:400;color:#aaa;font-size:11px;">— selected year only</span>
+                </div>
                 <div id="chart2Daily" style="width:100%; height:480px;"></div>
 
                 <hr class="card-divider">
 
-                <!-- Monthly combined -->
-                <div class="card-section-title">Monthly View</div>
-                <div id="chart2Monthly" style="width:100%; height:320px;"></div>
-            </div>
+                <!-- Weekly (left) + Monthly (right) -->
+                <div style="display:flex; gap:16px; align-items:flex-start;">
+                    <div style="flex:1; min-width:0;">
+                        <div class="card-section-title">
+                            Weekly View
+                            <span style="font-weight:400;color:#aaa;font-size:11px;">— 2024 to present</span>
+                        </div>
+                        <div id="chart2Weekly" style="width:100%; height:340px;"></div>
+                    </div>
+                    <div style="flex:1; min-width:0;">
+                        <div class="card-section-title">
+                            Monthly View
+                            <span style="font-weight:400;color:#aaa;font-size:11px;">— 2024 to present</span>
+                        </div>
+                        <div id="chart2Monthly" style="width:100%; height:340px;"></div>
+                    </div>
+                </div>
+
+                <hr class="card-divider">
+
+                <!-- Quarterly (left) + Yearly (right) -->
+                <div style="display:flex; gap:16px; align-items:flex-start;">
+                    <div style="flex:1; min-width:0;">
+                        <div class="card-section-title">
+                            Quarterly View
+                            <span style="font-weight:400;color:#aaa;font-size:11px;">— 2024 to present</span>
+                        </div>
+                        <div id="chart2Quarterly" style="width:100%; height:300px;"></div>
+                    </div>
+                    <div style="flex:1; min-width:0;">
+                        <div class="card-section-title">
+                            Yearly View
+                            <span style="font-weight:400;color:#aaa;font-size:11px;">— 2024 to present</span>
+                        </div>
+                        <div id="chart2Yearly" style="width:100%; height:300px;"></div>
+                    </div>
+                </div>
+
+            </div><!-- /card 2 -->
 
         </div><!-- /chart-grid -->
 
         <div class="info">
-            📊 Capture Prices | Unit: €/MWh | Source: ENTSO-E 
+            📊 Capture Prices | Unit: €/MWh | Source: ENTSO-E price.csv · solar.csv · wind.csv
         </div>
     </div><!-- /mainContent -->
 
@@ -335,23 +339,17 @@
    CONSTANTS
 ═══════════════════════════════════════════════════════════ */
 const COUNTRIES = [
-    { code: 'HU', name: 'HU' },
-    { code: 'DE', name: 'DE' },
-    { code: 'FR', name: 'FR' },
-    { code: 'AT', name: 'AT' },
-    { code: 'CZ', name: 'CZ' },
-    { code: 'SK', name: 'SK' },
-    { code: 'RO', name: 'RO' },
-    { code: 'PL', name: 'PL' },
-    { code: 'HR', name: 'HR' },
-    { code: 'SI', name: 'SI' },
-    { code: 'RS', name: 'RS' },
-    { code: 'IT', name: 'IT' },
+    { code: 'HU', name: 'HU' }, { code: 'DE', name: 'DE' },
+    { code: 'FR', name: 'FR' }, { code: 'AT', name: 'AT' },
+    { code: 'CZ', name: 'CZ' }, { code: 'SK', name: 'SK' },
+    { code: 'RO', name: 'RO' }, { code: 'PL', name: 'PL' },
+    { code: 'HR', name: 'HR' }, { code: 'SI', name: 'SI' },
+    { code: 'RS', name: 'RS' }, { code: 'IT', name: 'IT' },
     { code: 'ES', name: 'ES' }
 ];
 
 const COLORS = {
-    baseload : '#d0d4d8',   
+    baseload : '#d0d4d8',
     solar    : '#f39c12',
     wind     : '#2980b9',
     pre      : '#e74c3c',
@@ -502,28 +500,23 @@ function aggregateFromHourly(hours, freq) {
         const key = groupKey(h.date, freq);
         if (!groups[key]) {
             groups[key] = {
-                sumPr      : 0,
-                cntPr      : 0,
-                sumGen     : 0,
-                sumGenPost : 0,
-                sumRev     : 0,
-                sumRevPre  : 0,
-                sumNeg     : 0,
-                sumZero    : 0,
-                sumNonPos  : 0,
-                cntDays    : new Set()
+                sumPr: 0, cntPr: 0,
+                sumGen: 0, sumGenPost: 0,
+                sumRev: 0, sumRevPre: 0,
+                sumNeg: 0, sumZero: 0, sumNonPos: 0,
+                cntDays: new Set()
             };
         }
         const g = groups[key];
-        g.sumPr       += h.pr;
-        g.cntPr       += 1;
-        g.sumGen      += h.gen;
-        g.sumGenPost  += h.genPost;
-        g.sumRev      += h.rev;
-        g.sumRevPre   += h.revPre;
-        g.sumNeg      += h.isNeg;
-        g.sumZero     += h.isZero;
-        g.sumNonPos   += h.isNonPos;
+        g.sumPr      += h.pr;
+        g.cntPr      += 1;
+        g.sumGen     += h.gen;
+        g.sumGenPost += h.genPost;
+        g.sumRev     += h.rev;
+        g.sumRevPre  += h.revPre;
+        g.sumNeg     += h.isNeg;
+        g.sumZero    += h.isZero;
+        g.sumNonPos  += h.isNonPos;
         g.cntDays.add(h.date);
     });
 
@@ -533,15 +526,15 @@ function aggregateFromHourly(hours, freq) {
             const numDays = g.cntDays.size;
             return {
                 date        : key,
-                baseload    : g.cntPr > 0     ? g.sumPr    / g.cntPr      : null,
-                capPost     : g.sumGenPost > 0 ? g.sumRev   / g.sumGenPost : null,
-                capPre      : g.sumGen     > 0 ? g.sumRevPre/ g.sumGen     : null,
-                negHours    : g.sumNeg,
-                zeroHours   : g.sumZero,
-                nonPosHours : g.sumNonPos,
-                negHoursPerDay    : numDays > 0 ? g.sumNeg    / numDays : 0,
-                zeroHoursPerDay   : numDays > 0 ? g.sumZero   / numDays : 0,
-                nonPosHoursPerDay : numDays > 0 ? g.sumNonPos / numDays : 0
+                baseload    : g.cntPr > 0     ? g.sumPr     / g.cntPr      : null,
+                capPost     : g.sumGenPost > 0 ? g.sumRev    / g.sumGenPost : null,
+                capPre      : g.sumGen     > 0 ? g.sumRevPre / g.sumGen     : null,
+                negHours         : g.sumNeg,
+                zeroHours        : g.sumZero,
+                nonPosHours      : g.sumNonPos,
+                negHoursPerDay   : numDays > 0 ? g.sumNeg    / numDays : 0,
+                zeroHoursPerDay  : numDays > 0 ? g.sumZero   / numDays : 0,
+                nonPosHoursPerDay: numDays > 0 ? g.sumNonPos / numDays : 0
             };
         });
 }
@@ -549,35 +542,40 @@ function aggregateFromHourly(hours, freq) {
 /* ═══════════════════════════════════════════════════════════
    ECHART INSTANCES
 ═══════════════════════════════════════════════════════════ */
-let ec1, ec2d, ec2m;
+let ec1, ec2d, ec2w, ec2m, ec2q, ec2y;
 
 function initCharts() {
     ec1  = echarts.init(document.getElementById('chart1'));
     ec2d = echarts.init(document.getElementById('chart2Daily'));
+    ec2w = echarts.init(document.getElementById('chart2Weekly'));
     ec2m = echarts.init(document.getElementById('chart2Monthly'));
-    window.addEventListener('resize', () => { ec1.resize(); ec2d.resize(); ec2m.resize(); });
+    ec2q = echarts.init(document.getElementById('chart2Quarterly'));
+    ec2y = echarts.init(document.getElementById('chart2Yearly'));
+    window.addEventListener('resize', () => {
+        ec1.resize(); ec2d.resize(); ec2w.resize();
+        ec2m.resize(); ec2q.resize(); ec2y.resize();
+    });
 }
 
-/* ── Shared tooltip formatter ── */
-function tooltipFmt(params, unitOverride) {
+/* ═══════════════════════════════════════════════════════════
+   SHARED TOOLTIP + AXIS STYLE
+═══════════════════════════════════════════════════════════ */
+function tooltipFmt(params) {
     let html = `<div style="font-weight:600;margin-bottom:5px;color:#2c3e50">${params[0]?.axisValue}</div>`;
     params.forEach(p => {
-        if (p.value == null || p.value === undefined) return;
-        const unit = unitOverride
-            ? (p.seriesName.includes('Hours') ? 'h' : '€/MWh')
-            : '€/MWh';
+        if (p.value == null) return;
+        const isHours = p.seriesName.includes('Hours');
+        const unit    = isHours ? 'h' : '€/MWh';
+        const dec     = isHours ? 0 : 2;
         html += `<div style="display:flex;align-items:center;gap:8px;margin:2px 0;font-size:12px">
             <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${p.color}"></span>
             <span style="flex:1;color:#555">${p.seriesName}</span>
-            <span style="font-weight:600;color:#2c3e50">${
-                typeof p.value === 'number' ? p.value.toFixed(2) : p.value
-            } ${unit}</span>
+            <span style="font-weight:600;color:#2c3e50">${Number(p.value).toFixed(dec)} ${unit}</span>
         </div>`;
     });
     return html;
 }
 
-/* ── Common axis/grid style ── */
 const axisStyle = {
     axisLine  : { lineStyle: { color: '#ccc' } },
     axisLabel : { color: '#6c757d', fontSize: 11 },
@@ -585,7 +583,7 @@ const axisStyle = {
 };
 
 /* ═══════════════════════════════════════════════════════════
-   CHART 1  –  Overview
+   CHART 1 – Overview
 ═══════════════════════════════════════════════════════════ */
 function renderChart1() {
     const freq = state.freq1;
@@ -602,41 +600,26 @@ function renderChart1() {
         tooltip: {
             trigger: 'axis',
             axisPointer: { type: 'cross', lineStyle: { color: '#bbb' } },
-            formatter: p => tooltipFmt(p, false)
+            formatter: tooltipFmt
         },
-
-        /* ── Legend: top-right ── */
         legend: {
-            top: 4, right: 8,
-            type: 'scroll',
+            top: 4, right: 8, type: 'scroll',
             textStyle: { color: '#2c3e50', fontSize: 12 },
             itemWidth: 14
         },
-
-        /* ── DataZoom: slider + inside ── */
         dataZoom: [
             {
-                type: 'slider',
-                xAxisIndex: 0,
-                bottom: 10,
-                height: 22,
+                type: 'slider', xAxisIndex: 0,
+                bottom: 10, height: 22,
                 borderColor: '#e6e9ed',
                 fillerColor: 'rgba(44,62,80,0.08)',
                 handleStyle: { color: '#2c3e50' },
                 textStyle: { color: '#6c757d', fontSize: 10 },
                 brushSelect: false
             },
-            {
-                type: 'inside',
-                xAxisIndex: 0,
-                zoomOnMouseWheel: true,
-                moveOnMouseMove: true
-            }
+            { type: 'inside', xAxisIndex: 0, zoomOnMouseWheel: true, moveOnMouseMove: true }
         ],
-
-        /* ── Grid: leave room for legend (top) and dataZoom (bottom) ── */
         grid: { left: 60, right: 20, top: 36, bottom: 70 },
-
         xAxis: {
             type: 'category', data: dates,
             ...axisStyle,
@@ -651,241 +634,221 @@ function renderChart1() {
             nameTextStyle: { color: '#6c757d', fontSize: 11 },
             ...axisStyle
         },
-
         series: [
-            /* Baseload → light-grey bar, no border */
             {
-                name: 'Baseload',
-                type: 'bar',
+                name: 'Baseload', type: 'bar',
                 data: dates.map(d => sMap[d]?.baseload ?? wMap[d]?.baseload ?? null),
                 barMaxWidth: 12,
-                itemStyle: {
-                    color: COLORS.baseload,   /* #d0d4d8 */
-                    borderWidth: 0            /* no border */
-                },
-                z: 1                          /* render behind lines */
+                itemStyle: { color: COLORS.baseload, borderWidth: 0 },
+                z: 1
             },
-            /* Solar CP (post) – no smooth */
             {
-                name: 'Solar CP (post)',
-                type: 'line',
-                symbol: 'none',
-                smooth: false,
+                name: 'Solar CP (post)', type: 'line', symbol: 'none', smooth: false,
                 data: dates.map(d => sMap[d]?.capPost ?? null),
                 lineStyle: { color: COLORS.solar, width: 2 },
-                itemStyle: { color: COLORS.solar },
-                z: 3
+                itemStyle: { color: COLORS.solar }, z: 3
             },
-            /* Wind CP (post) – no smooth */
             {
-                name: 'Wind CP (post)',
-                type: 'line',
-                symbol: 'none',
-                smooth: false,
+                name: 'Wind CP (post)', type: 'line', symbol: 'none', smooth: false,
                 data: dates.map(d => wMap[d]?.capPost ?? null),
                 lineStyle: { color: COLORS.wind, width: 2 },
-                itemStyle: { color: COLORS.wind },
-                z: 3
+                itemStyle: { color: COLORS.wind }, z: 3
             }
         ]
     }, true);
 }
 
 /* ═══════════════════════════════════════════════════════════
-   CHART 2-DAILY
+   SHARED CHART-2 PANEL BUILDER
 ═══════════════════════════════════════════════════════════ */
-function renderChart2Daily() {
-    const daily = aggregateFromHourly(
-        computeHourly(state.country, state.source2).filter(h => h.date.startsWith(state.year2)),
-        'daily'
-    );
+function buildChart2Option({
+    xData, baseVals, postVals, preVals, barVals,
+    lineColor, preColor,
+    showDots     = false,
+    barMaxWidth  = 16,
+    topGridBottom = '42%',
+    botGridTop    = '62%',
+    xRotate      = 0,
+    xFontSize    = 11,
+    barYMax      = null,
+    barYInterval = null
+}) {
+    const sym     = showDots ? 'circle' : 'none';
+    const symSize = showDots ? 6 : 4;
 
-    const xData    = daily.map(d => d.date);
-    const baseVals = daily.map(d => d.baseload);
-    const postVals = daily.map(d => d.capPost);
-    const preVals  = daily.map(d => d.capPre);
-    const barVals  = daily.map(d => d.nonPosHours);
+    const yAxisBar = {
+        type: 'value', name: 'Hours', gridIndex: 1,
+        nameTextStyle: { color: '#6c757d', fontSize: 11 },
+        ...axisStyle
+    };
+    if (barYMax      !== null) { yAxisBar.min = 0; yAxisBar.max = barYMax; }
+    if (barYInterval !== null) { yAxisBar.interval = barYInterval; }
 
-    const lineColor = state.source2 === 'solar' ? COLORS.solar : COLORS.wind;
-    const preColor  = state.source2 === 'solar' ? COLORS.post_s : COLORS.post_w;
-
-    ec2d.setOption({
+    return {
         tooltip: {
             trigger: 'axis',
             axisPointer: { type: 'cross', lineStyle: { color: '#bbb' } },
-            formatter: p => tooltipFmt(p, true)
+            formatter: tooltipFmt
         },
         legend: {
-            top: 4, right: 8, type: 'scroll',
-            textStyle: { color: '#2c3e50', fontSize: 12 },
-            itemWidth: 14,
+            top: 2, right: 8, type: 'scroll',
+            textStyle: { color: '#2c3e50', fontSize: 11 },
+            itemWidth: 12,
             data: ['Baseload', 'Capture Price (post)', 'Capture Price (pre)', 'Non-positive Hours']
         },
         axisPointer: { link: [{ xAxisIndex: 'all' }] },
         grid: [
-            { left: 64, right: 20, top: 40,    bottom: '38%' },
-            { left: 64, right: 20, top: '65%', bottom: 40    }
+            { left: 60, right: 16, top: 32, bottom: topGridBottom },
+            { left: 60, right: 16, top: botGridTop, bottom: 36 }
         ],
         xAxis: [
             {
                 type: 'category', data: xData, gridIndex: 0,
                 axisLabel: { show: false },
-                axisLine: { lineStyle: { color: '#ccc' } }, splitLine: { show: false }
+                axisLine: { lineStyle: { color: '#ccc' } },
+                splitLine: { show: false }
             },
             {
                 type: 'category', data: xData, gridIndex: 1,
-                axisLabel: {
-                    color: '#6c757d', fontSize: 10,
-                    rotate: xData.length > 60 ? 30 : 0, interval: 'auto'
-                },
-                axisLine: { lineStyle: { color: '#ccc' } }, splitLine: { show: false }
+                axisLabel: { color: '#6c757d', fontSize: xFontSize, rotate: xRotate, interval: 'auto' },
+                axisLine: { lineStyle: { color: '#ccc' } },
+                splitLine: { show: false }
             }
         ],
         yAxis: [
             {
                 type: 'value', name: '€/MWh', gridIndex: 0,
-                nameTextStyle: { color: '#6c757d', fontSize: 11 }, ...axisStyle
+                nameTextStyle: { color: '#6c757d', fontSize: 11 },
+                ...axisStyle
             },
-            {
-                type: 'value', name: 'Hours', gridIndex: 1,
-                min: 0, max: 24, interval: 6,
-                nameTextStyle: { color: '#6c757d', fontSize: 11 }, ...axisStyle
-            }
-        ],
-        series: [
-            {
-                name: 'Baseload', type: 'line', symbol: 'none',
-                data: baseVals, smooth: false,
-                lineStyle: { color: COLORS.baseload, width: 2 },
-                itemStyle: { color: COLORS.baseload },
-                xAxisIndex: 0, yAxisIndex: 0
-            },
-            {
-                name: 'Capture Price (post)', type: 'line', symbol: 'none',
-                data: postVals, smooth: false,
-                lineStyle: { color: lineColor, width: 2 },
-                itemStyle: { color: lineColor },
-                xAxisIndex: 0, yAxisIndex: 0
-            },
-            {
-                name: 'Capture Price (pre)', type: 'line', symbol: 'none',
-                data: preVals, smooth: false,
-                lineStyle: { color: preColor, width: 1.5, type: 'dashed' },
-                itemStyle: { color: preColor },
-                xAxisIndex: 0, yAxisIndex: 0
-            },
-            {
-                name: 'Non-positive Hours', type: 'bar',
-                data: barVals, barMaxWidth: 10,
-                itemStyle: { color: COLORS.bar, opacity: 0.8 },
-                xAxisIndex: 1, yAxisIndex: 1
-            }
-        ]
-    }, true);
-}
-
-/* ═══════════════════════════════════════════════════════════
-   CHART 2-MONTHLY
-═══════════════════════════════════════════════════════════ */
-function renderChart2Monthly() {
-    const monthly = aggregateFromHourly(
-        computeHourly(state.country, state.source2).filter(h => h.date.startsWith(state.year2)),
-        'monthly'
-    );
-
-    const xData    = monthly.map(d => d.date);
-    const baseVals = monthly.map(d => d.baseload);
-    const postVals = monthly.map(d => d.capPost);
-    const preVals  = monthly.map(d => d.capPre);
-    const barVals  = monthly.map(d => d.nonPosHours);
-
-    const lineColor = state.source2 === 'solar' ? COLORS.solar : COLORS.wind;
-    const preColor  = state.source2 === 'solar' ? COLORS.post_s : COLORS.post_w;
-
-    ec2m.setOption({
-        tooltip: {
-            trigger: 'axis',
-            axisPointer: { type: 'cross', lineStyle: { color: '#bbb' } },
-            formatter(params) {
-                let html = `<div style="font-weight:600;margin-bottom:5px;color:#2c3e50">${params[0]?.axisValue}</div>`;
-                params.forEach(p => {
-                    if (p.value == null) return;
-                    const unit = p.seriesName.includes('Hours') ? 'h' : '€/MWh';
-                    html += `<div style="display:flex;align-items:center;gap:8px;margin:2px 0;font-size:12px">
-                        <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${p.color}"></span>
-                        <span style="flex:1;color:#555">${p.seriesName}</span>
-                        <span style="font-weight:600;color:#2c3e50">${p.value.toFixed(p.seriesName.includes('Hours') ? 0 : 2)} ${unit}</span>
-                    </div>`;
-                });
-                return html;
-            }
-        },
-        legend: {
-            top: 4, right: 8, type: 'scroll',
-            textStyle: { color: '#2c3e50', fontSize: 12 },
-            itemWidth: 14,
-            data: ['Baseload', 'Capture Price (post)', 'Capture Price (pre)', 'Non-positive Hours']
-        },
-        axisPointer: { link: [{ xAxisIndex: 'all' }] },
-        grid: [
-            { left: 64, right: 20, top: 36,    bottom: '38%' },
-            { left: 64, right: 20, top: '65%', bottom: 36    }
-        ],
-        xAxis: [
-            {
-                type: 'category', data: xData, gridIndex: 0,
-                axisLabel: { show: false },
-                axisLine: { lineStyle: { color: '#ccc' } }, splitLine: { show: false }
-            },
-            {
-                type: 'category', data: xData, gridIndex: 1,
-                axisLabel: { color: '#6c757d', fontSize: 11 },
-                axisLine: { lineStyle: { color: '#ccc' } }, splitLine: { show: false }
-            }
-        ],
-        yAxis: [
-            {
-                type: 'value', name: '€/MWh', gridIndex: 0,
-                nameTextStyle: { color: '#6c757d', fontSize: 11 }, ...axisStyle
-            },
-            {
-                type: 'value', name: 'Hours', gridIndex: 1,
-                nameTextStyle: { color: '#6c757d', fontSize: 11 }, ...axisStyle
-            }
+            yAxisBar
         ],
         series: [
             {
                 name: 'Baseload', type: 'line',
+                symbol: sym, symbolSize: symSize,
                 data: baseVals, smooth: false,
-                symbol: 'circle', symbolSize: 6,
                 lineStyle: { color: COLORS.baseload, width: 2 },
                 itemStyle: { color: COLORS.baseload },
                 xAxisIndex: 0, yAxisIndex: 0
             },
             {
                 name: 'Capture Price (post)', type: 'line',
+                symbol: sym, symbolSize: symSize,
                 data: postVals, smooth: false,
-                symbol: 'circle', symbolSize: 6,
                 lineStyle: { color: lineColor, width: 2 },
                 itemStyle: { color: lineColor },
                 xAxisIndex: 0, yAxisIndex: 0
             },
             {
                 name: 'Capture Price (pre)', type: 'line',
+                symbol: sym, symbolSize: symSize,
                 data: preVals, smooth: false,
-                symbol: 'circle', symbolSize: 6,
                 lineStyle: { color: preColor, width: 1.5, type: 'dashed' },
                 itemStyle: { color: preColor },
                 xAxisIndex: 0, yAxisIndex: 0
             },
             {
                 name: 'Non-positive Hours', type: 'bar',
-                data: barVals, barMaxWidth: 24,
+                data: barVals, barMaxWidth,
                 itemStyle: { color: COLORS.bar, opacity: 0.8 },
                 xAxisIndex: 1, yAxisIndex: 1
             }
         ]
-    }, true);
+    };
+}
+
+/* ═══════════════════════════════════════════════════════════
+   DATA HELPERS
+═══════════════════════════════════════════════════════════ */
+function getFullHourly(source) {
+    return computeHourly(state.country, source);
+}
+function getYearHourly(source) {
+    return computeHourly(state.country, source).filter(h => h.date.startsWith(state.year2));
+}
+function sourceColors() {
+    return {
+        lineColor : state.source2 === 'solar' ? COLORS.solar  : COLORS.wind,
+        preColor  : state.source2 === 'solar' ? COLORS.post_s : COLORS.post_w
+    };
+}
+function toArrays(agg) {
+    return {
+        xData    : agg.map(d => d.date),
+        baseVals : agg.map(d => d.baseload),
+        postVals : agg.map(d => d.capPost),
+        preVals  : agg.map(d => d.capPre),
+        barVals  : agg.map(d => d.nonPosHours)
+    };
+}
+
+/* ═══════════════════════════════════════════════════════════
+   CHART 2 RENDER FUNCTIONS
+═══════════════════════════════════════════════════════════ */
+function renderChart2Daily() {
+    const { lineColor, preColor } = sourceColors();
+    const { xData, baseVals, postVals, preVals, barVals } =
+        toArrays(aggregateFromHourly(getYearHourly(state.source2), 'daily'));
+    ec2d.setOption(buildChart2Option({
+        xData, baseVals, postVals, preVals, barVals, lineColor, preColor,
+        showDots: false, barMaxWidth: 10,
+        topGridBottom: '42%', botGridTop: '62%',
+        xRotate: xData.length > 60 ? 30 : 0, xFontSize: 10,
+        barYMax: 24, barYInterval: 6
+    }), true);
+}
+
+function renderChart2Weekly() {
+    const { lineColor, preColor } = sourceColors();
+    const { xData, baseVals, postVals, preVals, barVals } =
+        toArrays(aggregateFromHourly(getFullHourly(state.source2), 'weekly'));
+    ec2w.setOption(buildChart2Option({
+        xData, baseVals, postVals, preVals, barVals, lineColor, preColor,
+        showDots: false, barMaxWidth: 10,
+        topGridBottom: '42%', botGridTop: '62%',
+        xRotate: 30, xFontSize: 9,
+        barYMax: null, barYInterval: null
+    }), true);
+}
+
+function renderChart2Monthly() {
+    const { lineColor, preColor } = sourceColors();
+    const { xData, baseVals, postVals, preVals, barVals } =
+        toArrays(aggregateFromHourly(getFullHourly(state.source2), 'monthly'));
+    ec2m.setOption(buildChart2Option({
+        xData, baseVals, postVals, preVals, barVals, lineColor, preColor,
+        showDots: true, barMaxWidth: 20,
+        topGridBottom: '42%', botGridTop: '62%',
+        xRotate: 0, xFontSize: 11,
+        barYMax: null, barYInterval: null
+    }), true);
+}
+
+function renderChart2Quarterly() {
+    const { lineColor, preColor } = sourceColors();
+    const { xData, baseVals, postVals, preVals, barVals } =
+        toArrays(aggregateFromHourly(getFullHourly(state.source2), 'quarterly'));
+    ec2q.setOption(buildChart2Option({
+        xData, baseVals, postVals, preVals, barVals, lineColor, preColor,
+        showDots: true, barMaxWidth: 32,
+        topGridBottom: '44%', botGridTop: '64%',
+        xRotate: 0, xFontSize: 11,
+        barYMax: null, barYInterval: null
+    }), true);
+}
+
+function renderChart2Yearly() {
+    const { lineColor, preColor } = sourceColors();
+    const { xData, baseVals, postVals, preVals, barVals } =
+        toArrays(aggregateFromHourly(getFullHourly(state.source2), 'yearly'));
+    ec2y.setOption(buildChart2Option({
+        xData, baseVals, postVals, preVals, barVals, lineColor, preColor,
+        showDots: true, barMaxWidth: 48,
+        topGridBottom: '44%', botGridTop: '64%',
+        xRotate: 0, xFontSize: 12,
+        barYMax: null, barYInterval: null
+    }), true);
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -897,14 +860,21 @@ function updateTitles() {
     document.getElementById('card1Title').textContent =
         `Capture Prices Overview – ${cName}`;
     document.getElementById('card2Title').textContent =
-        `${sName} Capture Price Detail – ${cName} – ${state.year2}`;
+        `${sName} Capture Price Detail – ${cName}`;
+}
+
+function renderAllChart2() {
+    renderChart2Daily();
+    renderChart2Weekly();
+    renderChart2Monthly();
+    renderChart2Quarterly();
+    renderChart2Yearly();
 }
 
 function renderAll() {
     updateTitles();
     renderChart1();
-    renderChart2Daily();
-    renderChart2Monthly();
+    renderAllChart2();
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -913,19 +883,14 @@ function renderAll() {
 function buildCountryRadios() {
     const list = document.getElementById('countryRadioList');
     COUNTRIES.forEach(c => {
-        const item = document.createElement('div');
+        const item  = document.createElement('div');
         item.className = 'country-item';
-
         const radio = document.createElement('input');
-        radio.type    = 'radio';
-        radio.name    = 'countryRadio';
-        radio.value   = c.code;
-        radio.id      = `cr_${c.code}`;
+        radio.type = 'radio'; radio.name = 'countryRadio';
+        radio.value = c.code; radio.id = `cr_${c.code}`;
         radio.checked = (c.code === state.country);
-
         const span = document.createElement('span');
         span.textContent = c.name;
-
         const selectCountry = () => {
             state.country = c.code;
             radio.checked = true;
@@ -933,10 +898,8 @@ function buildCountryRadios() {
             document.getElementById('countryDropdown').classList.remove('show');
             renderAll();
         };
-
         radio.addEventListener('change', selectCountry);
         item.addEventListener('click', e => { if (e.target !== radio) selectCountry(); });
-
         item.appendChild(radio);
         item.appendChild(span);
         list.appendChild(item);
@@ -956,7 +919,8 @@ function bindFreqGroup1() {
     document.querySelectorAll('#freqGroup1 button').forEach(btn => {
         btn.addEventListener('click', () => {
             state.freq1 = btn.dataset.freq;
-            document.querySelectorAll('#freqGroup1 button').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('#freqGroup1 button')
+                    .forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
             renderChart1();
         });
@@ -969,16 +933,14 @@ function bindSourceToggle() {
         document.getElementById('btnSolar').classList.add('active');
         document.getElementById('btnWind').classList.remove('active');
         updateTitles();
-        renderChart2Daily();
-        renderChart2Monthly();
+        renderAllChart2();
     });
     document.getElementById('btnWind').addEventListener('click', () => {
         state.source2 = 'wind';
         document.getElementById('btnWind').classList.add('active');
         document.getElementById('btnSolar').classList.remove('active');
         updateTitles();
-        renderChart2Daily();
-        renderChart2Monthly();
+        renderAllChart2();
     });
 }
 
@@ -986,8 +948,7 @@ function bindYearSelect() {
     document.getElementById('yearSelect').addEventListener('change', e => {
         state.year2 = e.target.value;
         updateTitles();
-        renderChart2Daily();
-        renderChart2Monthly();
+        renderChart2Daily();   // only daily is year-scoped
     });
 }
 
@@ -1003,7 +964,6 @@ async function main() {
         console.error(e);
         return;
     }
-
     document.getElementById('loadingMsg').style.display = 'none';
     document.getElementById('mainContent').style.display = 'block';
 
@@ -1013,7 +973,6 @@ async function main() {
     bindSourceToggle();
     bindYearSelect();
     initCharts();
-
     renderAll();
 }
 

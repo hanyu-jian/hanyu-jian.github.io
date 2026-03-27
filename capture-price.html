@@ -339,23 +339,24 @@
 </div><!-- /container -->
 
 <script>
-/* ═══════════════════════════════════════════════════════════
+
+    /* ═══════════════════════════════════════════════════════════
    CONSTANTS
 ═══════════════════════════════════════════════════════════ */
 const COUNTRIES = [
-    { code: 'HU', name: 'Hungary' },
-    { code: 'DE', name: 'Germany' },
-    { code: 'FR', name: 'France' },
-    { code: 'AT', name: 'Austria' },
-    { code: 'CZ', name: 'Czech Republic' },
-    { code: 'SK', name: 'Slovakia' },
-    { code: 'RO', name: 'Romania' },
-    { code: 'PL', name: 'Poland' },
-    { code: 'HR', name: 'Croatia' },
-    { code: 'SI', name: 'Slovenia' },
-    { code: 'RS', name: 'Serbia' },
-    { code: 'IT', name: 'Italy' },
-    { code: 'ES', name: 'Spain' }
+    { code: 'HU', name: 'Hungary'        },
+    { code: 'DE', name: 'Germany'         },
+    { code: 'FR', name: 'France'          },
+    { code: 'AT', name: 'Austria'         },
+    { code: 'CZ', name: 'Czech Republic'  },
+    { code: 'SK', name: 'Slovakia'        },
+    { code: 'RO', name: 'Romania'         },
+    { code: 'PL', name: 'Poland'          },
+    { code: 'HR', name: 'Croatia'         },
+    { code: 'SI', name: 'Slovenia'        },
+    { code: 'RS', name: 'Serbia'          },
+    { code: 'IT', name: 'Italy'           },
+    { code: 'ES', name: 'Spain'           }
 ];
 
 const COLORS = {
@@ -395,33 +396,28 @@ function parseCSV(text) {
     return lines.slice(1).map(line => {
         if (!line.trim()) return null;
         const vals = line.split(',').map(v => v.trim());
-        const obj = {};
+        const obj  = {};
         headers.forEach((h, i) => obj[h] = vals[i] ?? '');
         return obj;
     }).filter(Boolean);
 }
 
-/* Detect datetime column name */
 function getDTCol(row) {
     for (const k of ['datetime','Datetime','DateTime','date','Date','timestamp']) {
         if (row[k] !== undefined) return k;
     }
-    return Object.keys(row)[0]; // fallback: first column
+    return Object.keys(row)[0];
 }
 
-/* Extract YYYY-MM-DD from various datetime formats */
 function extractDate(dtStr) {
     if (!dtStr) return null;
-    // Handle "YYYY/MM/DD HH:mm" format
     const m1 = dtStr.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})/);
     if (m1) return `${m1[1]}-${m1[2].padStart(2,'0')}-${m1[3].padStart(2,'0')}`;
-    // Handle "YYYY-MM-DD HH:mm" format
     const m2 = dtStr.match(/^(\d{4}-\d{2}-\d{2})/);
     if (m2) return m2[1];
     return null;
 }
 
-/* Parse all three CSVs and organise by country → [{dt, value}] */
 function buildStore(rows, store) {
     if (!rows.length) return;
     const dtCol = getDTCol(rows[0]);
@@ -467,13 +463,9 @@ function computeDaily(country, source) {
         const gen  = gens[i].value;
 
         if (!byDate[date]) byDate[date] = {
-            sumPr      : 0,
-            cnt        : 0,
-            sumGen     : 0,   // solar generation
-            sumGenPost : 0,   // generation post-curtailment
-            sumRev     : 0,   // actual revenue
-            negHours   : 0,
-            zeroHours  : 0
+            sumPr: 0, cnt: 0,
+            sumGen: 0, sumGenPost: 0, sumRev: 0,
+            negHours: 0, zeroHours: 0
         };
         const d = byDate[date];
 
@@ -485,30 +477,53 @@ function computeDaily(country, source) {
             d.sumGenPost += gen;
             d.sumRev     += gen * pr;
         } else if (pr === 0) {
-            d.zeroHours  += 1;
+            d.zeroHours += 1;
         } else {
-            d.negHours   += 1;
+            d.negHours  += 1;
         }
     }
 
     return Object.entries(byDate)
-        .sort((a,b) => a[0] < b[0] ? -1 : 1)
+        .sort((a, b) => a[0] < b[0] ? -1 : 1)
         .map(([date, d]) => ({
             date,
-            // ── daily ──
-            baseload    : d.cnt > 0        ? d.sumPr      / d.cnt        : null,
-            capPre      : d.sumGen > 0     ? d.sumRev     / d.sumGen     : null,
-            capPost     : d.sumGenPost > 0 ? d.sumRev     / d.sumGenPost : null,
+            baseload    : d.cnt > 0        ? d.sumPr  / d.cnt        : null,
+            capPre      : d.sumGen > 0     ? d.sumRev / d.sumGen     : null,
+            capPost     : d.sumGenPost > 0 ? d.sumRev / d.sumGenPost : null,
             negHours    : d.negHours,
             zeroHours   : d.zeroHours,
             nonPosHours : d.negHours + d.zeroHours,
-            // ────
+            // ── 中间量（聚合用）──
             _sumPr      : d.sumPr,
             _cnt        : d.cnt,
             _sumGen     : d.sumGen,
             _sumGenPost : d.sumGenPost,
             _sumRev     : d.sumRev
         }));
+}
+
+/* ═══════════════════════════════════════════════════════════
+   ISO WEEK & GROUP KEY
+═══════════════════════════════════════════════════════════ */
+function getISOWeek(dateStr) {
+    const d = new Date(dateStr + 'T00:00:00Z');
+    d.setUTCDate(d.getUTCDate() + 3 - (d.getUTCDay() + 6) % 7);
+    const week1 = new Date(Date.UTC(d.getUTCFullYear(), 0, 4));
+    const wk = 1 + Math.round(
+        ((d - week1) / 86400000 - 3 + (week1.getUTCDay() + 6) % 7) / 7
+    );
+    return `${d.getUTCFullYear()}-W${String(wk).padStart(2, '0')}`;
+}
+
+function groupKey(date, freq) {
+    if (freq === 'daily')     return date;
+    if (freq === 'weekly')    return getISOWeek(date);
+    if (freq === 'monthly')   return date.slice(0, 7);
+    if (freq === 'quarterly') {
+        const m = parseInt(date.slice(5, 7));
+        return `${date.slice(0, 4)}-Q${Math.ceil(m / 3)}`;
+    }
+    return date.slice(0, 4); // yearly
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -525,27 +540,24 @@ function aggregate(daily, freq) {
     });
 
     return Object.entries(groups)
-        .sort((a,b) => a[0] < b[0] ? -1 : 1)
+        .sort((a, b) => a[0] < b[0] ? -1 : 1)
         .map(([key, arr]) => {
-            // ────────────────────────────────────
-            const sumPr      = arr.reduce((s,d) => s + d._sumPr,      0);
-            const cnt        = arr.reduce((s,d) => s + d._cnt,         0);
-            const sumGen     = arr.reduce((s,d) => s + d._sumGen,      0);
-            const sumGenPost = arr.reduce((s,d) => s + d._sumGenPost,  0);
-            const sumRev     = arr.reduce((s,d) => s + d._sumRev,      0);
-            const negHours   = arr.reduce((s,d) => s + d.negHours,     0);
-            const zeroHours  = arr.reduce((s,d) => s + d.zeroHours,    0);
+            const sumPr      = arr.reduce((s, d) => s + (d._sumPr      || 0), 0);
+            const cnt        = arr.reduce((s, d) => s + (d._cnt        || 0), 0);
+            const sumGen     = arr.reduce((s, d) => s + (d._sumGen     || 0), 0);
+            const sumGenPost = arr.reduce((s, d) => s + (d._sumGenPost || 0), 0);
+            const sumRev     = arr.reduce((s, d) => s + (d._sumRev     || 0), 0);
+            const negHours   = arr.reduce((s, d) => s + (d.negHours   || 0), 0);
+            const zeroHours  = arr.reduce((s, d) => s + (d.zeroHours  || 0), 0);
 
-            // ───────────────────────────
             return {
                 date        : key,
-                baseload    : cnt > 0        ? sumPr      / cnt        : null,
-                capPre      : sumGen > 0     ? sumRev     / sumGen     : null,
-                capPost     : sumGenPost > 0 ? sumRev     / sumGenPost : null,
-                negHours    : negHours,
-                zeroHours   : zeroHours,
+                baseload    : cnt > 0        ? sumPr  / cnt        : null,
+                capPre      : sumGen > 0     ? sumRev / sumGen     : null,
+                capPost     : sumGenPost > 0 ? sumRev / sumGenPost : null,
+                negHours,
+                zeroHours,
                 nonPosHours : negHours + zeroHours,
-                // 
                 _sumPr      : sumPr,
                 _cnt        : cnt,
                 _sumGen     : sumGen,
@@ -554,7 +566,6 @@ function aggregate(daily, freq) {
             };
         });
 }
-
 
 /* ═══════════════════════════════════════════════════════════
    ECHART INSTANCES
@@ -565,29 +576,35 @@ function initCharts() {
     ec1  = echarts.init(document.getElementById('chart1'));
     ec2d = echarts.init(document.getElementById('chart2Daily'));
     ec2m = echarts.init(document.getElementById('chart2Monthly'));
-    window.addEventListener('resize', () => { ec1.resize(); ec2d.resize(); ec2m.resize(); });
+    window.addEventListener('resize', () => {
+        ec1.resize(); ec2d.resize(); ec2m.resize();
+    });
 }
 
 /* ── Shared tooltip formatter ── */
-function tooltipFmt(params, unitOverride) {
-    let html = `<div style="font-weight:600;margin-bottom:5px;color:#2c3e50">${params[0]?.axisValue}</div>`;
+function tooltipFmt(params, mixedUnits) {
+    let html = `<div style="font-weight:600;margin-bottom:5px;color:#2c3e50">
+                    ${params[0]?.axisValue}
+                </div>`;
     params.forEach(p => {
-        if (p.value == null || p.value === undefined) return;
-        const unit = unitOverride
+        if (p.value == null) return;
+        const unit = mixedUnits
             ? (p.seriesName.includes('Hours') ? 'h' : '€/MWh')
             : '€/MWh';
-        html += `<div style="display:flex;align-items:center;gap:8px;margin:2px 0;font-size:12px">
-            <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${p.color}"></span>
+        html += `<div style="display:flex;align-items:center;gap:8px;
+                             margin:2px 0;font-size:12px">
+            <span style="display:inline-block;width:10px;height:10px;
+                         border-radius:50%;background:${p.color}"></span>
             <span style="flex:1;color:#555">${p.seriesName}</span>
-            <span style="font-weight:600;color:#2c3e50">${
-                typeof p.value === 'number' ? p.value.toFixed(2) : p.value
-            } ${unit}</span>
+            <span style="font-weight:600;color:#2c3e50">
+                ${typeof p.value === 'number' ? p.value.toFixed(2) : p.value} ${unit}
+            </span>
         </div>`;
     });
     return html;
 }
 
-/* ── Common axis/grid style ── */
+/* ── Common axis style ── */
 const axisStyle = {
     axisLine  : { lineStyle: { color: '#ccc' } },
     axisLabel : { color: '#6c757d', fontSize: 11 },
@@ -595,62 +612,73 @@ const axisStyle = {
 };
 
 /* ═══════════════════════════════════════════════════════════
-   CHART 1  –  Overview
+   CHART 1 – Overview
 ═══════════════════════════════════════════════════════════ */
 function renderChart1() {
     const freq = state.freq1;
     const c    = state.country;
 
-    const aggS = aggregate(computeDaily(c,'solar'), freq);
-    const aggW = aggregate(computeDaily(c,'wind'),  freq);
+    const aggS = aggregate(computeDaily(c, 'solar'), freq);
+    const aggW = aggregate(computeDaily(c, 'wind'),  freq);
 
-    const sMap = Object.fromEntries(aggS.map(d=>[d.date,d]));
-    const wMap = Object.fromEntries(aggW.map(d=>[d.date,d]));
-    const dates = [...new Set([...aggS.map(d=>d.date),...aggW.map(d=>d.date)])].sort();
+    const sMap  = Object.fromEntries(aggS.map(d => [d.date, d]));
+    const wMap  = Object.fromEntries(aggW.map(d => [d.date, d]));
+    const dates = [...new Set([
+        ...aggS.map(d => d.date),
+        ...aggW.map(d => d.date)
+    ])].sort();
 
     ec1.setOption({
         tooltip: {
-            trigger:'axis',
-            axisPointer:{ type:'cross', lineStyle:{color:'#bbb'} },
+            trigger: 'axis',
+            axisPointer: { type: 'cross', lineStyle: { color: '#bbb' } },
             formatter: p => tooltipFmt(p, false)
         },
         legend: {
-            bottom:0, type:'scroll',
-            textStyle:{ color:'#2c3e50', fontSize:12 },
-            itemWidth:14
+            bottom: 0, type: 'scroll',
+            textStyle: { color: '#2c3e50', fontSize: 12 },
+            itemWidth: 14
         },
-        grid: { left:60, right:20, top:16, bottom:50 },
+        grid: { left: 60, right: 20, top: 16, bottom: 50 },
         xAxis: {
-            type:'category', data:dates,
+            type: 'category', data: dates,
             ...axisStyle,
-            axisLabel:{ ...axisStyle.axisLabel, rotate: dates.length > 60 ? 30 : 0, interval:'auto' }
+            axisLabel: {
+                ...axisStyle.axisLabel,
+                rotate  : dates.length > 60 ? 30 : 0,
+                interval: 'auto'
+            }
         },
-        yAxis: { type:'value', name:'€/MWh', nameTextStyle:{color:'#6c757d',fontSize:11}, ...axisStyle },
+        yAxis: {
+            type: 'value', name: '€/MWh',
+            nameTextStyle: { color: '#6c757d', fontSize: 11 },
+            ...axisStyle
+        },
         series: [
             {
-                name:'Baseload', type:'line', symbol:'none',
+                name: 'Baseload', type: 'line', symbol: 'none', smooth: true,
                 data: dates.map(d => sMap[d]?.baseload ?? wMap[d]?.baseload ?? null),
-                lineStyle:{ color:COLORS.baseload, width:2 },
-                itemStyle:{ color:COLORS.baseload }, smooth:true
+                lineStyle: { color: COLORS.baseload, width: 2 },
+                itemStyle: { color: COLORS.baseload }
             },
             {
-                name:'Solar CP (post)', type:'line', symbol:'none',
+                name: 'Solar CP (post)', type: 'line', symbol: 'none', smooth: true,
                 data: dates.map(d => sMap[d]?.capPost ?? null),
-                lineStyle:{ color:COLORS.solar, width:2 },
-                itemStyle:{ color:COLORS.solar }, smooth:true
+                lineStyle: { color: COLORS.solar, width: 2 },
+                itemStyle: { color: COLORS.solar }
             },
             {
-                name:'Wind CP (post)', type:'line', symbol:'none',
+                name: 'Wind CP (post)', type: 'line', symbol: 'none', smooth: true,
                 data: dates.map(d => wMap[d]?.capPost ?? null),
-                lineStyle:{ color:COLORS.wind, width:2 },
-                itemStyle:{ color:COLORS.wind }, smooth:true
+                lineStyle: { color: COLORS.wind, width: 2 },
+                itemStyle: { color: COLORS.wind }
             }
         ]
     }, true);
 }
 
 /* ═══════════════════════════════════════════════════════════
-   CHART 2-DAILY  –  Combined (line top + bar bottom, shared x)
+   CHART 2-DAILY
 ═══════════════════════════════════════════════════════════ */
 function renderChart2Daily() {
     const daily = computeDaily(state.country, state.source2)
@@ -662,64 +690,85 @@ function renderChart2Daily() {
     const preVals  = daily.map(d => d.capPre);
     const barVals  = daily.map(d => d.nonPosHours);
 
-    const lineColor = state.source2 === 'solar' ? COLORS.solar : COLORS.wind;
-    const preColor  = state.source2 === 'solar' ? COLORS.post_s : COLORS.post_w;
+    const lineColor = state.source2 === 'solar' ? COLORS.solar   : COLORS.wind;
+    const preColor  = state.source2 === 'solar' ? COLORS.post_s  : COLORS.post_w;
 
     ec2d.setOption({
         tooltip: {
-            trigger:'axis',
-            axisPointer:{ type:'cross', lineStyle:{color:'#bbb'} },
+            trigger: 'axis',
+            axisPointer: { type: 'cross', lineStyle: { color: '#bbb' } },
             formatter: p => tooltipFmt(p, true)
         },
         legend: {
-            top:4, right:8, type:'scroll',
-            textStyle:{ color:'#2c3e50', fontSize:12 },
-            itemWidth:14,
-            data:['Baseload','Capture Price (post)','Capture Price (pre)','Non-positive Hours']
+            top: 4, right: 8, type: 'scroll',
+            textStyle: { color: '#2c3e50', fontSize: 12 },
+            itemWidth: 14,
+            data: ['Baseload','Capture Price (post)',
+                   'Capture Price (pre)','Non-positive Hours']
         },
-        axisPointer: { link:[{ xAxisIndex:'all' }] },
+        axisPointer: { link: [{ xAxisIndex: 'all' }] },
         grid: [
-            { left:64, right:20, top:40,   bottom:'38%' },
-            { left:64, right:20, top:'65%', bottom:40   }
+            { left: 64, right: 20, top: 40,    bottom: '38%' },
+            { left: 64, right: 20, top: '65%', bottom: 40    }
         ],
         xAxis: [
-            { type:'category', data:xData, gridIndex:0, axisLabel:{show:false}, axisLine:{lineStyle:{color:'#ccc'}}, splitLine:{show:false} },
-            { type:'category', data:xData, gridIndex:1,
-              axisLabel:{ color:'#6c757d', fontSize:10, rotate: xData.length > 60 ? 30 : 0, interval:'auto' },
-              axisLine:{lineStyle:{color:'#ccc'}}, splitLine:{show:false} }
+            {
+                type: 'category', data: xData, gridIndex: 0,
+                axisLabel: { show: false },
+                axisLine: { lineStyle: { color: '#ccc' } },
+                splitLine: { show: false }
+            },
+            {
+                type: 'category', data: xData, gridIndex: 1,
+                axisLabel: {
+                    color: '#6c757d', fontSize: 10,
+                    rotate  : xData.length > 60 ? 30 : 0,
+                    interval: 'auto'
+                },
+                axisLine: { lineStyle: { color: '#ccc' } },
+                splitLine: { show: false }
+            }
         ],
         yAxis: [
-            { type:'value', name:'€/MWh', gridIndex:0, nameTextStyle:{color:'#6c757d',fontSize:11}, ...axisStyle },
-            { type:'value', name:'Hours',  gridIndex:1, min:0, max:24, interval:6,
-              nameTextStyle:{color:'#6c757d',fontSize:11}, ...axisStyle }
+            {
+                type: 'value', name: '€/MWh', gridIndex: 0,
+                nameTextStyle: { color: '#6c757d', fontSize: 11 },
+                ...axisStyle
+            },
+            {
+                type: 'value', name: 'Hours', gridIndex: 1,
+                min: 0, max: 24, interval: 6,
+                nameTextStyle: { color: '#6c757d', fontSize: 11 },
+                ...axisStyle
+            }
         ],
         series: [
             {
-                name:'Baseload', type:'line', symbol:'none',
-                data:baseVals, smooth:false,
-                lineStyle:{color:COLORS.baseload, width:2},
-                itemStyle:{color:COLORS.baseload},
-                xAxisIndex:0, yAxisIndex:0
+                name: 'Baseload', type: 'line', symbol: 'none',
+                data: baseVals,
+                lineStyle: { color: COLORS.baseload, width: 2 },
+                itemStyle: { color: COLORS.baseload },
+                xAxisIndex: 0, yAxisIndex: 0
             },
             {
-                name:'Capture Price (post)', type:'line', symbol:'none',
-                data:postVals, smooth:false,
-                lineStyle:{color:lineColor, width:2},
-                itemStyle:{color:lineColor},
-                xAxisIndex:0, yAxisIndex:0
+                name: 'Capture Price (post)', type: 'line', symbol: 'none',
+                data: postVals,
+                lineStyle: { color: lineColor, width: 2 },
+                itemStyle: { color: lineColor },
+                xAxisIndex: 0, yAxisIndex: 0
             },
             {
-                name:'Capture Price (pre)', type:'line', symbol:'none',
-                data:preVals, smooth:false,
-                lineStyle:{color:preColor, width:1.5, type:'dashed'},
-                itemStyle:{color:preColor},
-                xAxisIndex:0, yAxisIndex:0
+                name: 'Capture Price (pre)', type: 'line', symbol: 'none',
+                data: preVals,
+                lineStyle: { color: preColor, width: 1.5, type: 'dashed' },
+                itemStyle: { color: preColor },
+                xAxisIndex: 0, yAxisIndex: 0
             },
             {
-                name:'Non-positive Hours', type:'bar',
-                data:barVals, barMaxWidth:10,
-                itemStyle:{color:COLORS.bar, opacity:0.8},
-                xAxisIndex:1, yAxisIndex:1
+                name: 'Non-positive Hours', type: 'bar',
+                data: barVals, barMaxWidth: 10,
+                itemStyle: { color: COLORS.bar, opacity: 0.8 },
+                xAxisIndex: 1, yAxisIndex: 1
             }
         ]
     }, true);
@@ -737,91 +786,120 @@ function renderChart2Monthly() {
     const baseVals = monthly.map(d => d.baseload);
     const postVals = monthly.map(d => d.capPost);
     const preVals  = monthly.map(d => d.capPre);
-    const barVals  = monthly.map(d => d.nonPosHours);
 
-    const lineColor = state.source2 === 'solar' ? COLORS.solar : COLORS.wind;
+    // ✅ 日均非正小时数（总小时数 ÷ 该月天数）
+    const barVals = monthly.map(d => {
+        const days = daily.filter(dd => dd.date.startsWith(d.date)).length;
+        return days > 0 ? d.nonPosHours / days : null;
+    });
+
+    const lineColor = state.source2 === 'solar' ? COLORS.solar  : COLORS.wind;
     const preColor  = state.source2 === 'solar' ? COLORS.post_s : COLORS.post_w;
 
     ec2m.setOption({
         tooltip: {
-            trigger:'axis',
-            axisPointer:{ type:'cross', lineStyle:{color:'#bbb'} },
+            trigger: 'axis',
+            axisPointer: { type: 'cross', lineStyle: { color: '#bbb' } },
             formatter(params) {
-                let html = `<div style="font-weight:600;margin-bottom:5px;color:#2c3e50">${params[0]?.axisValue}</div>`;
+                let html = `<div style="font-weight:600;margin-bottom:5px;
+                                        color:#2c3e50">
+                                ${params[0]?.axisValue}
+                            </div>`;
                 params.forEach(p => {
                     if (p.value == null) return;
-                    const unit = p.seriesName.includes('Hours') ? 'h/day avg' : '€/MWh';
-                    html += `<div style="display:flex;align-items:center;gap:8px;margin:2px 0;font-size:12px">
-                        <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${p.color}"></span>
+                    const unit = p.seriesName.includes('Hours')
+                        ? 'h/day' : '€/MWh';
+                    html += `<div style="display:flex;align-items:center;
+                                         gap:8px;margin:2px 0;font-size:12px">
+                        <span style="display:inline-block;width:10px;height:10px;
+                                     border-radius:50%;background:${p.color}"></span>
                         <span style="flex:1;color:#555">${p.seriesName}</span>
-                        <span style="font-weight:600;color:#2c3e50">${p.value.toFixed(2)} ${unit}</span>
+                        <span style="font-weight:600;color:#2c3e50">
+                            ${p.value.toFixed(2)} ${unit}
+                        </span>
                     </div>`;
                 });
                 return html;
             }
         },
         legend: {
-            top:4, right:8, type:'scroll',
-            textStyle:{ color:'#2c3e50', fontSize:12 },
-            itemWidth:14,
-            data:['Baseload','Capture Price (post)','Capture Price (pre)','Avg Non-pos Hours']
+            top: 4, right: 8, type: 'scroll',
+            textStyle: { color: '#2c3e50', fontSize: 12 },
+            itemWidth: 14,
+            data: ['Baseload','Capture Price (post)',
+                   'Capture Price (pre)','Avg Non-pos Hours']
         },
-        axisPointer: { link:[{ xAxisIndex:'all' }] },
+        axisPointer: { link: [{ xAxisIndex: 'all' }] },
         grid: [
-            { left:64, right:20, top:36,   bottom:'38%' },
-            { left:64, right:20, top:'65%', bottom:36   }
+            { left: 64, right: 20, top: 36,    bottom: '38%' },
+            { left: 64, right: 20, top: '65%', bottom: 36    }
         ],
         xAxis: [
-            { type:'category', data:xData, gridIndex:0, axisLabel:{show:false}, axisLine:{lineStyle:{color:'#ccc'}}, splitLine:{show:false} },
-            { type:'category', data:xData, gridIndex:1,
-              axisLabel:{ color:'#6c757d', fontSize:11 },
-              axisLine:{lineStyle:{color:'#ccc'}}, splitLine:{show:false} }
+            {
+                type: 'category', data: xData, gridIndex: 0,
+                axisLabel: { show: false },
+                axisLine: { lineStyle: { color: '#ccc' } },
+                splitLine: { show: false }
+            },
+            {
+                type: 'category', data: xData, gridIndex: 1,
+                axisLabel: { color: '#6c757d', fontSize: 11 },
+                axisLine: { lineStyle: { color: '#ccc' } },
+                splitLine: { show: false }
+            }
         ],
         yAxis: [
-            { type:'value', name:'€/MWh', gridIndex:0, nameTextStyle:{color:'#6c757d',fontSize:11}, ...axisStyle },
-            { type:'value', name:'h/day',  gridIndex:1,
-              nameTextStyle:{color:'#6c757d',fontSize:11}, ...axisStyle }
+            {
+                type: 'value', name: '€/MWh', gridIndex: 0,
+                nameTextStyle: { color: '#6c757d', fontSize: 11 },
+                ...axisStyle
+            },
+            {
+                type: 'value', name: 'h/day', gridIndex: 1,
+                nameTextStyle: { color: '#6c757d', fontSize: 11 },
+                ...axisStyle
+            }
         ],
         series: [
             {
-                name:'Baseload', type:'line',
-                data:baseVals, smooth:true,
-                symbol:'circle', symbolSize:6,
-                lineStyle:{color:COLORS.baseload, width:2},
-                itemStyle:{color:COLORS.baseload},
-                xAxisIndex:0, yAxisIndex:0
+                name: 'Baseload', type: 'line', smooth: true,
+                symbol: 'circle', symbolSize: 6,
+                data: baseVals,
+                lineStyle: { color: COLORS.baseload, width: 2 },
+                itemStyle: { color: COLORS.baseload },
+                xAxisIndex: 0, yAxisIndex: 0
             },
             {
-                name:'Capture Price (post)', type:'line',
-                data:postVals, smooth:true,
-                symbol:'circle', symbolSize:6,
-                lineStyle:{color:lineColor, width:2},
-                itemStyle:{color:lineColor},
-                xAxisIndex:0, yAxisIndex:0
+                name: 'Capture Price (post)', type: 'line', smooth: true,
+                symbol: 'circle', symbolSize: 6,
+                data: postVals,
+                lineStyle: { color: lineColor, width: 2 },
+                itemStyle: { color: lineColor },
+                xAxisIndex: 0, yAxisIndex: 0
             },
             {
-                name:'Capture Price (pre)', type:'line',
-                data:preVals, smooth:true,
-                symbol:'circle', symbolSize:6,
-                lineStyle:{color:preColor, width:1.5, type:'dashed'},
-                itemStyle:{color:preColor},
-                xAxisIndex:0, yAxisIndex:0
+                name: 'Capture Price (pre)', type: 'line', smooth: true,
+                symbol: 'circle', symbolSize: 6,
+                data: preVals,
+                lineStyle: { color: preColor, width: 1.5, type: 'dashed' },
+                itemStyle: { color: preColor },
+                xAxisIndex: 0, yAxisIndex: 0
             },
             {
-                name:'Avg Non-pos Hours', type:'bar',
-                data:barVals, barMaxWidth:24,
-                itemStyle:{color:COLORS.bar, opacity:0.8},
-                xAxisIndex:1, yAxisIndex:1
+                name: 'Avg Non-pos Hours', type: 'bar',
+                data: barVals, barMaxWidth: 24,
+                itemStyle: { color: COLORS.bar, opacity: 0.8 },
+                xAxisIndex: 1, yAxisIndex: 1
             }
         ]
     }, true);
 }
 
 /* ═══════════════════════════════════════════════════════════
-   RENDER ALL
+   TITLES
 ═══════════════════════════════════════════════════════════ */
 function updateTitles() {
-    const cName = COUNTRIES.find(c=>c.code===state.country)?.name ?? state.country;
+    const cName = COUNTRIES.find(c => c.code === state.country)?.name ?? state.country;
     const sName = state.source2 === 'solar' ? 'Solar' : 'Wind';
     document.getElementById('card1Title').textContent =
         `Capture Prices Overview – ${cName}`;
@@ -842,7 +920,7 @@ function renderAll() {
 function buildCountryRadios() {
     const list = document.getElementById('countryRadioList');
     COUNTRIES.forEach(c => {
-        const item = document.createElement('div');
+        const item  = document.createElement('div');
         item.className = 'country-item';
 
         const radio = document.createElement('input');
@@ -864,7 +942,9 @@ function buildCountryRadios() {
         };
 
         radio.addEventListener('change', selectCountry);
-        item.addEventListener('click', e => { if (e.target !== radio) selectCountry(); });
+        item.addEventListener('click', e => {
+            if (e.target !== radio) selectCountry();
+        });
 
         item.appendChild(radio);
         item.appendChild(span);
@@ -875,9 +955,13 @@ function buildCountryRadios() {
 function initDropdown() {
     const btn  = document.getElementById('countrySelectBtn');
     const drop = document.getElementById('countryDropdown');
-    btn.addEventListener('click', e => { e.stopPropagation(); drop.classList.toggle('show'); });
+    btn.addEventListener('click', e => {
+        e.stopPropagation();
+        drop.classList.toggle('show');
+    });
     document.addEventListener('click', e => {
-        if (!drop.contains(e.target) && e.target !== btn) drop.classList.remove('show');
+        if (!drop.contains(e.target) && e.target !== btn)
+            drop.classList.remove('show');
     });
 }
 
@@ -885,7 +969,8 @@ function bindFreqGroup1() {
     document.querySelectorAll('#freqGroup1 button').forEach(btn => {
         btn.addEventListener('click', () => {
             state.freq1 = btn.dataset.freq;
-            document.querySelectorAll('#freqGroup1 button').forEach(b=>b.classList.remove('active'));
+            document.querySelectorAll('#freqGroup1 button')
+                .forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
             renderChart1();
         });
@@ -926,9 +1011,9 @@ function bindYearSelect() {
 async function main() {
     try {
         await loadAllData();
-    } catch(e) {
+    } catch (e) {
         document.getElementById('loadingMsg').textContent =
-            '⚠ Failed to load data. Please check that price.csv, solar.csv, wind.csv exist in /data/.';
+            '⚠ Failed to load data. Please serve via HTTP and check /data/ folder.';
         console.error(e);
         return;
     }
@@ -942,11 +1027,7 @@ async function main() {
     bindSourceToggle();
     bindYearSelect();
     initCharts();
-
     renderAll();
 }
 
 main();
-</script>
-</body>
-</html>

@@ -2,421 +2,345 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>Capture Prices – European Electricity Dashboard</title>
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
     <style>
-        /* ═══════════════════════════════════════
-           BASE
-        ═══════════════════════════════════════ */
         * { margin: 0; padding: 0; box-sizing: border-box; }
-
         body {
-            background: #0e1117;
-            color: #e0e0e0;
-            font-family: 'Segoe UI', sans-serif;
-            min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f0f2f5;
+            padding: 20px;
         }
-
-        /* ═══════════════════════════════════════
-           HEADER
-        ═══════════════════════════════════════ */
-        .header {
-            background: #1a1f2e;
-            border-bottom: 1px solid #2a3040;
-            padding: 0 24px;
-            display: flex;
-            align-items: center;
-            height: 56px;
-            gap: 32px;
-            position: sticky;
-            top: 0;
-            z-index: 100;
-        }
-
-        .logo {
-            font-size: 16px;
-            font-weight: 700;
-            color: #4fc3f7;
-            white-space: nowrap;
-        }
-
-        .nav { display: flex; gap: 4px; }
-
-        .nav-link {
-            padding: 6px 16px;
-            border-radius: 6px;
-            color: #9aa0b0;
-            text-decoration: none;
-            font-size: 14px;
-            font-weight: 500;
-            transition: all .2s;
-        }
-
-        .nav-link:hover { background: #2a3040; color: #e0e0e0; }
-        .nav-link.active { background: #2a3a5c; color: #4fc3f7; }
-
-        /* ═══════════════════════════════════════
-           SUB-NAV
-        ═══════════════════════════════════════ */
-        .sub-nav {
-            background: #141820;
-            border-bottom: 1px solid #232838;
-            padding: 0 24px;
-            display: flex;
-            gap: 4px;
-            height: 42px;
-            align-items: center;
-        }
-
-        .sub-nav-link {
-            padding: 5px 14px;
-            border-radius: 5px;
-            color: #7a8090;
-            text-decoration: none;
-            font-size: 13px;
-            font-weight: 500;
-            transition: all .2s;
-            cursor: pointer;
-        }
-
-        .sub-nav-link:hover { background: #232838; color: #c0c8d8; }
-        .sub-nav-link.active { background: #1e3a5f; color: #4fc3f7; }
-
-        /* ═══════════════════════════════════════
-           PAGE LAYOUT
-        ═══════════════════════════════════════ */
-        .page-content {
-            max-width: 1400px;
+        .container {
+            max-width: 1600px;
             margin: 0 auto;
-            padding: 24px 24px 48px;
-            display: flex;
-            flex-direction: column;
-            gap: 28px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            overflow: hidden;
         }
 
-        .page-title {
-            font-size: 22px;
-            font-weight: 700;
-            color: #e8eaf0;
-            display: flex;
-            align-items: center;
-            gap: 10px;
+        /* ── Header ── */
+        .header {
+            background: #2c3e50;
+            color: white;
+            padding: 20px 30px;
+            position: relative;
+        }
+        .header h1 { font-size: 24px; font-weight: 500; }
+        .header p  { font-size: 14px; opacity: 0.9; margin-top: 6px; }
+        .nav-links {
+            position: absolute; top: 20px; right: 30px;
+            display: flex; gap: 16px;
+        }
+        .nav-link {
+            color: white; text-decoration: none;
+            padding: 6px 12px; border-radius: 20px;
+            background: rgba(255,255,255,0.2);
+            transition: 0.2s; font-size: 14px; font-weight: 500;
+        }
+        .nav-link:hover, .nav-link.active { background: rgba(255,255,255,0.4); }
+
+        /* ── Sub-nav ── */
+        .sub-nav {
+            background: #f8f9fa;
+            border-bottom: 2px solid #e6e9ed;
+            padding: 0 30px;
+            display: flex; gap: 0;
+        }
+        .sub-nav-link {
+            display: inline-block;
+            padding: 14px 22px;
+            font-size: 14px; font-weight: 600;
+            color: #6c757d;
+            text-decoration: none;
+            border-bottom: 3px solid transparent;
+            margin-bottom: -2px;
+            transition: color 0.2s, border-color 0.2s;
+            cursor: pointer;
+        }
+        .sub-nav-link:hover { color: #2c3e50; }
+        .sub-nav-link.active { color: #2c3e50; border-bottom-color: #2c3e50; }
+
+        /* ── Controls bar ── */
+        .controls {
+            padding: 20px 30px;
+            display: flex; flex-wrap: wrap; gap: 24px;
+            align-items: flex-end;
+            background: #fff;
+            border-bottom: 1px solid #e6e9ed;
+        }
+        .control-group { display: flex; flex-direction: column; gap: 6px; }
+        .control-group label {
+            font-size: 13px; font-weight: 600; color: #2c3e50; white-space: nowrap;
         }
 
-        .page-title::before {
-            content: '';
-            display: block;
-            width: 4px;
-            height: 22px;
-            background: linear-gradient(180deg, #4fc3f7, #1976d2);
-            border-radius: 2px;
-        }
-
-        /* ═══════════════════════════════════════
-           COUNTRY SELECTOR
-        ═══════════════════════════════════════ */
-        .country-bar {
-            background: #141820;
-            border: 1px solid #232838;
-            border-radius: 10px;
-            padding: 14px 18px;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            flex-wrap: wrap;
-        }
-
-        .country-bar label {
-            font-size: 13px;
-            color: #7a8090;
-            font-weight: 500;
+        /* ── Country dropdown ── */
+        .country-select-wrapper { position: relative; display: inline-block; }
+        .country-select-btn {
+            min-width: 180px; height: 36px; padding: 0 12px;
+            border: 1px solid #ccc; border-radius: 6px;
+            font-size: 14px; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: white; cursor: pointer;
+            display: flex; align-items: center; justify-content: space-between; gap: 8px;
             white-space: nowrap;
         }
+        .country-select-btn:hover { border-color: #999; }
+        .country-select-btn::after { content: '▼'; font-size: 10px; color: #666; flex-shrink: 0; }
+        .country-dropdown {
+            position: absolute; top: calc(100% + 4px); left: 0;
+            min-width: 260px; max-height: 340px; overflow-y: auto;
+            background: white; border: 1px solid #ccc; border-radius: 6px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            z-index: 9999; display: none; padding: 8px 0;
+        }
+        .country-dropdown.show { display: block; }
+        .country-list {
+            display: grid; grid-template-columns: repeat(2, 1fr);
+            gap: 2px 0; padding: 0 8px;
+        }
+        .country-item {
+            display: flex; align-items: center; gap: 6px;
+            padding: 6px 8px; border-radius: 4px; cursor: pointer;
+            transition: background 0.15s;
+        }
+        .country-item:hover { background: #f5f5f5; }
+        .country-item input[type="radio"] {
+            width: 14px; height: 14px; margin: 0;
+            flex-shrink: 0; cursor: pointer; accent-color: #2c3e50;
+        }
+        .country-item span { font-size: 13px; }
 
-        .country-pills {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
+        /* ── Inline selects / buttons ── */
+        .ctrl-select {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            height: 36px; padding: 0 12px;
+            border: 1px solid #ccc; border-radius: 6px;
+            font-size: 14px; cursor: pointer; background: white;
+        }
+        .ctrl-select:focus { outline: none; border-color: #2c3e50; }
+
+        .btn-group-inline {
+            display: flex; border: 1px solid #ccc; border-radius: 6px; overflow: hidden;
+        }
+        .btn-group-inline button {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            height: 36px; padding: 0 14px;
+            background: white; border: none;
+            border-right: 1px solid #ccc;
+            font-size: 13px; font-weight: 500;
+            color: #6c757d; cursor: pointer; transition: all 0.15s;
+        }
+        .btn-group-inline button:last-child { border-right: none; }
+        .btn-group-inline button:hover { background: #f0f2f5; color: #2c3e50; }
+        .btn-group-inline button.active {
+            background: #2c3e50; color: white;
         }
 
-        .country-pill {
-            padding: 5px 14px;
-            border-radius: 20px;
-            border: 1px solid #2a3040;
-            background: #1a1f2e;
-            color: #9aa0b0;
-            font-size: 12px;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all .2s;
-            user-select: none;
-        }
-
-        .country-pill:hover { border-color: #4fc3f7; color: #4fc3f7; }
-
-        .country-pill.active {
-            background: #1e3a5f;
-            border-color: #4fc3f7;
-            color: #4fc3f7;
-        }
-
-        /* ═══════════════════════════════════════
-           CARD
-        ═══════════════════════════════════════ */
-        .card {
-            background: #141820;
-            border: 1px solid #232838;
-            border-radius: 12px;
-            overflow: hidden;
-        }
-
-        .card-header {
-            padding: 16px 20px 12px;
-            border-bottom: 1px solid #1e2535;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            flex-wrap: wrap;
-            gap: 10px;
-        }
-
-        .card-title {
-            font-size: 15px;
-            font-weight: 600;
-            color: #c8d0e0;
-        }
-
-        .card-subtitle {
-            font-size: 12px;
-            color: #5a6070;
-            margin-top: 2px;
-        }
-
-        .card-body { padding: 16px 20px; }
-
-        /* ═══════════════════════════════════════
-           TOGGLE BUTTONS (pill group)
-        ═══════════════════════════════════════ */
-        .btn-group {
-            display: flex;
-            background: #0e1117;
-            border: 1px solid #2a3040;
-            border-radius: 7px;
-            overflow: hidden;
-        }
-
-        .btn-group button {
-            padding: 5px 14px;
-            background: transparent;
-            border: none;
-            color: #7a8090;
-            font-size: 12px;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all .2s;
-            border-right: 1px solid #2a3040;
-        }
-
-        .btn-group button:last-child { border-right: none; }
-        .btn-group button:hover { background: #1a1f2e; color: #c0c8d8; }
-        .btn-group button.active { background: #1e3a5f; color: #4fc3f7; }
-
-        /* ═══════════════════════════════════════
-           SOURCE TOGGLE (Solar / Wind)
-        ═══════════════════════════════════════ */
+        /* ── Source toggle (Solar/Wind) ── */
         .source-toggle {
-            display: flex;
-            gap: 0;
-            border-radius: 8px;
-            overflow: hidden;
-            border: 1px solid #2a3040;
+            display: flex; border: 1px solid #ccc; border-radius: 6px; overflow: hidden;
         }
-
         .source-btn {
-            padding: 6px 20px;
-            background: #0e1117;
-            border: none;
-            color: #7a8090;
-            font-size: 13px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all .2s;
-            display: flex;
-            align-items: center;
-            gap: 6px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            height: 36px; padding: 0 18px;
+            background: white; border: none;
+            border-right: 1px solid #ccc;
+            font-size: 13px; font-weight: 600;
+            cursor: pointer; transition: all 0.15s;
+            display: flex; align-items: center; gap: 5px;
+        }
+        .source-btn:last-child { border-right: none; }
+        .source-btn:hover { background: #f0f2f5; }
+        .source-btn.solar.active { background: #fff8e1; color: #e65100; border-color: #e65100; }
+        .source-btn.wind.active  { background: #e3f2fd; color: #0277bd; border-color: #0277bd; }
+
+        /* ── Chart grid ── */
+        .chart-grid {
+            display: flex; flex-direction: column;
+            gap: 24px; padding: 24px 30px;
+        }
+        .chart-card {
+            background: #fff; border-radius: 8px;
+            border: 1px solid #e6e9ed; padding: 16px;
+        }
+        .chart-card-header {
+            display: flex; align-items: flex-start;
+            justify-content: space-between; flex-wrap: wrap; gap: 10px;
+            margin-bottom: 14px;
+        }
+        .chart-card-header h3 {
+            font-size: 18px; font-weight: 500;
+            color: #2c3e50;
+            border-left: 4px solid #2c3e50; padding-left: 12px;
+            margin: 0;
+        }
+        .chart-card-header .subtitle {
+            font-size: 12px; color: #6c757d; padding-left: 16px; margin-top: 3px;
+        }
+        .chart-card-controls {
+            display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+        }
+        .chart-card-controls label {
+            font-size: 13px; font-weight: 600; color: #2c3e50; white-space: nowrap;
         }
 
-        .source-btn.solar.active { background: #2a2000; color: #ffc107; }
-        .source-btn.wind.active  { background: #002a3a; color: #4fc3f7; }
-        .source-btn:hover        { background: #1a1f2e; }
-
-        /* ═══════════════════════════════════════
-           YEAR SELECTOR
-        ═══════════════════════════════════════ */
-        .year-select {
-            background: #0e1117;
-            border: 1px solid #2a3040;
-            border-radius: 6px;
-            color: #c0c8d8;
-            font-size: 13px;
-            padding: 5px 10px;
-            cursor: pointer;
-            outline: none;
+        /* ── Combined chart container ── */
+        .combined-chart-wrap {
+            display: flex; flex-direction: column; gap: 0;
+        }
+        .chart-label {
+            font-size: 12px; font-weight: 600; color: #6c757d;
+            padding: 4px 0 4px 4px; margin-bottom: -4px;
         }
 
-        .year-select:focus { border-color: #4fc3f7; }
-
-        /* ═══════════════════════════════════════
-           CHART CONTAINERS
-        ═══════════════════════════════════════ */
-        .chart-wrap { width: 100%; }
-
-        /* Chart 1 */
-        #chart1 { width: 100%; height: 380px; }
-
-        /* Chart 2 – combined (line + bar share canvas via grid) */
-        #chart2-daily  { width: 100%; height: 480px; }
-        #chart2-monthly { width: 100%; height: 320px; }
-
-        /* ═══════════════════════════════════════
-           LOADING / EMPTY
-        ═══════════════════════════════════════ */
-        .loading-mask {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            height: 200px;
-            color: #5a6070;
-            font-size: 14px;
-            gap: 8px;
+        /* ── Section divider inside card ── */
+        .card-divider {
+            border: none; border-top: 1px solid #e6e9ed; margin: 18px 0 16px;
+        }
+        .card-section-title {
+            font-size: 13px; font-weight: 600; color: #6c757d;
+            margin-bottom: 10px; display: flex; align-items: center; gap: 6px;
+        }
+        .card-section-title::before {
+            content: ''; display: block; width: 3px; height: 14px;
+            background: #2c3e50; border-radius: 2px;
         }
 
-        .spinner {
-            width: 18px; height: 18px;
-            border: 2px solid #2a3040;
-            border-top-color: #4fc3f7;
-            border-radius: 50%;
-            animation: spin .8s linear infinite;
+        /* ── Info footer ── */
+        .info {
+            padding: 12px 30px 20px;
+            font-size: 13px; color: #6c757d;
+            text-align: center; border-top: 1px solid #e6e9ed; margin-top: 10px;
         }
 
-        @keyframes spin { to { transform: rotate(360deg); } }
-
-        /* ═══════════════════════════════════════
-           DIVIDER
-        ═══════════════════════════════════════ */
-        .section-divider {
-            border: none;
-            border-top: 1px solid #1e2535;
-            margin: 4px 0;
+        /* ── Loading ── */
+        .loading {
+            text-align: center; padding: 40px 20px; color: #666; font-size: 15px;
         }
 
-        /* ═══════════════════════════════════════
-           CONTROLS ROW
-        ═══════════════════════════════════════ */
-        .controls-row {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            flex-wrap: wrap;
+        /* ── Responsive ── */
+        @media (max-width: 700px) {
+            .nav-links { position: static; margin-top: 10px; justify-content: center; }
+            .header { text-align: center; }
+        }
+        @media (max-width: 900px) {
+            .controls { flex-direction: column; align-items: stretch; }
+            .sub-nav { padding: 0 16px; }
+            .chart-grid { padding: 16px; }
         }
     </style>
 </head>
 <body>
+<div class="container">
 
-<!-- ══ Header ══ -->
-<header class="header">
-    <div class="logo">⚡ EU Electricity Dashboard</div>
-    <nav class="nav">
-        <a class="nav-link active" href="price.html">Price Analysis</a>
-        <a class="nav-link" href="load.html">Load Analysis</a>
-    </nav>
-</header>
-
-<!-- ══ Sub-nav ══ -->
-<div class="sub-nav">
-    <a class="sub-nav-link" href="price.html">Price Overview</a>
-    <a class="sub-nav-link active">Capture Prices</a>
-    <a class="sub-nav-link" href="price-spread.html">Price Spread</a>
-</div>
-
-<!-- ══ Page Content ══ -->
-<div class="page-content">
-
-    <div class="page-title">Capture Prices</div>
-
-    <!-- ── Country Selector ── -->
-    <div class="country-bar">
-        <label>Country</label>
-        <div class="country-pills" id="countryPills"></div>
-    </div>
-
-    <!-- ════════════════════════════════════════
-         CARD 1 – Overview (Baseload + Wind CP + Solar CP)
-    ════════════════════════════════════════ -->
-    <div class="card">
-        <div class="card-header">
-            <div>
-                <div class="card-title" id="card1Title">Capture Prices – EUR/MWh – Hungary</div>
-                <div class="card-subtitle">Baseload · Solar capture price (post-curtailment) · Wind capture price (post-curtailment)</div>
-            </div>
-            <div class="btn-group" id="freqGroup1">
-                <button class="active" data-freq="daily">Daily</button>
-                <button data-freq="weekly">Weekly</button>
-                <button data-freq="monthly">Monthly</button>
-                <button data-freq="quarterly">Quarterly</button>
-                <button data-freq="yearly">Yearly</button>
-            </div>
-        </div>
-        <div class="card-body">
-            <div class="chart-wrap">
-                <div id="chart1"></div>
-            </div>
+    <!-- ══ Header ══ -->
+    <div class="header">
+        <h1>📈 European Electricity Day-Ahead Prices</h1>
+        <p>Data source: ENTSO-E | Author: Hanyu Jian</p>
+        <div class="nav-links">
+            <a href="price.html" class="nav-link active">Price Analysis</a>
+            <a href="load.html"  class="nav-link">Load Analysis</a>
         </div>
     </div>
 
-    <!-- ════════════════════════════════════════
-         CARD 2 – Deep Dive (Solar / Wind toggle)
-    ════════════════════════════════════════ -->
-    <div class="card">
-        <div class="card-header">
-            <div>
-                <div class="card-title" id="card2Title">Solar Capture Price Detail – Hungary</div>
-                <div class="card-subtitle">Baseload · Capture Price pre/post curtailment · Non-positive hours</div>
-            </div>
-            <div class="controls-row">
-                <!-- Solar / Wind toggle -->
-                <div class="source-toggle">
-                    <button class="source-btn solar active" id="btnSolar">☀ Solar</button>
-                    <button class="source-btn wind"  id="btnWind">💨 Wind</button>
+    <!-- ══ Sub-nav ══ -->
+    <div class="sub-nav">
+        <a class="sub-nav-link" href="price.html">Price Overview</a>
+        <a class="sub-nav-link active">Capture Prices</a>
+        <a class="sub-nav-link" href="price-spread.html">Price Spread</a>
+    </div>
+
+    <!-- ══ Loading ══ -->
+    <div id="loadingMsg" class="loading">⏳ Loading data...</div>
+
+    <!-- ══ Main content (hidden until data ready) ══ -->
+    <div id="mainContent" style="display:none;">
+
+        <!-- ── Global controls: Country selector ── -->
+        <div class="controls">
+            <div class="control-group">
+                <label>🌍 Country</label>
+                <div class="country-select-wrapper">
+                    <div class="country-select-btn" id="countrySelectBtn">
+                        <span id="countrySelectText">Hungary</span>
+                    </div>
+                    <div class="country-dropdown" id="countryDropdown">
+                        <div id="countryRadioList" class="country-list"></div>
+                    </div>
                 </div>
-                <!-- Year selector -->
-                <select class="year-select" id="yearSelect">
-                    <option value="2024">2024</option>
-                    <option value="2025" selected>2025</option>
-                    <option value="2026">2026</option>
-                </select>
             </div>
         </div>
-        <div class="card-body" style="display:flex; flex-direction:column; gap:20px;">
-            <!-- Daily combined chart (line + bar) -->
-            <div class="chart-wrap">
-                <div id="chart2-daily"></div>
-            </div>
-            <hr class="section-divider">
-            <!-- Monthly chart -->
-            <div style="font-size:13px; color:#7a8090; font-weight:500; margin-bottom:4px;">Monthly View</div>
-            <div class="chart-wrap">
-                <div id="chart2-monthly"></div>
-            </div>
-        </div>
-    </div>
 
-</div><!-- /page-content -->
+        <!-- ══ Chart Grid ══ -->
+        <div class="chart-grid">
+
+            <!-- ── Card 1: Overview ── -->
+            <div class="chart-card">
+                <div class="chart-card-header">
+                    <div>
+                        <h3 id="card1Title">Capture Prices Overview – Hungary</h3>
+                        <div class="subtitle">Baseload · Solar capture price (post-curtailment) · Wind capture price (post-curtailment)</div>
+                    </div>
+                    <div class="chart-card-controls">
+                        <label>Frequency</label>
+                        <div class="btn-group-inline" id="freqGroup1">
+                            <button class="active" data-freq="daily">Daily</button>
+                            <button data-freq="weekly">Weekly</button>
+                            <button data-freq="monthly">Monthly</button>
+                            <button data-freq="quarterly">Quarterly</button>
+                            <button data-freq="yearly">Yearly</button>
+                        </div>
+                    </div>
+                </div>
+                <div id="chart1" style="width:100%; height:380px;"></div>
+            </div>
+
+            <!-- ── Card 2: Deep Dive ── -->
+            <div class="chart-card">
+                <div class="chart-card-header">
+                    <div>
+                        <h3 id="card2Title">Solar Capture Price Detail – Hungary – 2025</h3>
+                        <div class="subtitle">Daily &amp; monthly breakdown with non-positive price hours</div>
+                    </div>
+                    <div class="chart-card-controls">
+                        <div class="source-toggle">
+                            <button class="source-btn solar active" id="btnSolar">☀ Solar</button>
+                            <button class="source-btn wind"         id="btnWind">💨 Wind</button>
+                        </div>
+                        <label>Year</label>
+                        <select class="ctrl-select" id="yearSelect">
+                            <option value="2024">2024</option>
+                            <option value="2025" selected>2025</option>
+                            <option value="2026">2026</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Daily combined -->
+                <div class="card-section-title">Daily View</div>
+                <div id="chart2Daily" style="width:100%; height:480px;"></div>
+
+                <hr class="card-divider">
+
+                <!-- Monthly combined -->
+                <div class="card-section-title">Monthly View</div>
+                <div id="chart2Monthly" style="width:100%; height:320px;"></div>
+            </div>
+
+        </div><!-- /chart-grid -->
+
+        <div class="info">
+            📊 Capture Prices | Unit: €/MWh | Source: ENTSO-E price.csv · solar.csv · wind.csv
+        </div>
+    </div><!-- /mainContent -->
+
+</div><!-- /container -->
 
 <script>
 /* ═══════════════════════════════════════════════════════════
-   CONFIG
+   CONSTANTS
 ═══════════════════════════════════════════════════════════ */
 const COUNTRIES = [
     { code: 'HU', name: 'Hungary' },
@@ -434,154 +358,151 @@ const COUNTRIES = [
     { code: 'ES', name: 'Spain' }
 ];
 
-const COLOR = {
-    baseload : '#a0aec0',
-    solar    : '#ffc107',
-    wind     : '#4fc3f7',
-    pre      : '#f48fb1',
-    post     : '#e53935',
-    bar      : '#e57373'
+const COLORS = {
+    baseload : '#2c3e50',
+    solar    : '#f39c12',
+    wind     : '#2980b9',
+    pre      : '#e74c3c',
+    post_s   : '#e67e22',
+    post_w   : '#3498db',
+    bar      : '#e74c3c'
 };
 
 /* ═══════════════════════════════════════════════════════════
    STATE
 ═══════════════════════════════════════════════════════════ */
-let state = {
-    country   : 'HU',
-    freq1     : 'daily',
-    source2   : 'solar',   // 'solar' | 'wind'
-    year2     : '2025',
+const state = {
+    country : 'HU',
+    freq1   : 'daily',
+    source2 : 'solar',
+    year2   : '2025'
 };
 
-/* raw hourly data keyed by country code */
-let rawPrice  = {};   // { HU: [{date,hour,price}, ...], ... }
-let rawSolar  = {};
-let rawWind   = {};
+/* ═══════════════════════════════════════════════════════════
+   RAW DATA STORE
+═══════════════════════════════════════════════════════════ */
+let rawPrice = {};
+let rawSolar = {};
+let rawWind  = {};
 
 /* ═══════════════════════════════════════════════════════════
    CSV PARSER
 ═══════════════════════════════════════════════════════════ */
 function parseCSV(text) {
-    const lines = text.trim().split('\n');
+    const lines = text.trim().split(/\r?\n/);
+    if (lines.length < 2) return [];
     const headers = lines[0].split(',').map(h => h.trim());
     return lines.slice(1).map(line => {
-        const vals = line.split(',');
+        if (!line.trim()) return null;
+        const vals = line.split(',').map(v => v.trim());
         const obj = {};
-        headers.forEach((h, i) => obj[h] = vals[i]?.trim() ?? '');
+        headers.forEach((h, i) => obj[h] = vals[i] ?? '');
         return obj;
+    }).filter(Boolean);
+}
+
+/* Detect datetime column name */
+function getDTCol(row) {
+    for (const k of ['datetime','Datetime','DateTime','date','Date','timestamp']) {
+        if (row[k] !== undefined) return k;
+    }
+    return Object.keys(row)[0]; // fallback: first column
+}
+
+/* Extract YYYY-MM-DD from various datetime formats */
+function extractDate(dtStr) {
+    if (!dtStr) return null;
+    // Handle "YYYY/MM/DD HH:mm" format
+    const m1 = dtStr.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})/);
+    if (m1) return `${m1[1]}-${m1[2].padStart(2,'0')}-${m1[3].padStart(2,'0')}`;
+    // Handle "YYYY-MM-DD HH:mm" format
+    const m2 = dtStr.match(/^(\d{4}-\d{2}-\d{2})/);
+    if (m2) return m2[1];
+    return null;
+}
+
+/* Parse all three CSVs and organise by country → [{dt, value}] */
+function buildStore(rows, store) {
+    if (!rows.length) return;
+    const dtCol = getDTCol(rows[0]);
+    COUNTRIES.forEach(c => { store[c.code] = []; });
+    rows.forEach(row => {
+        const date = extractDate(row[dtCol]);
+        if (!date) return;
+        COUNTRIES.forEach(c => {
+            const v = parseFloat(row[c.code]);
+            store[c.code].push({ date, value: isNaN(v) ? 0 : v });
+        });
     });
 }
 
 /* ═══════════════════════════════════════════════════════════
-   DATA LOADING
-   Expected CSV columns:
-     price.csv  → datetime (YYYY-MM-DD HH:mm), HU, DE, FR, ...
-     solar.csv  → datetime (YYYY-MM-DD HH:mm), HU, DE, FR, ...
-     wind.csv   → datetime (YYYY-MM-DD HH:mm), HU, DE, FR, ...
+   FETCH DATA
 ═══════════════════════════════════════════════════════════ */
 async function loadAllData() {
-    try {
-        const [priceText, solarText, windText] = await Promise.all([
-            fetch('data/price.csv').then(r => r.text()),
-            fetch('data/solar.csv').then(r => r.text()),
-            fetch('data/wind.csv').then(r => r.text()),
-        ]);
-
-        const priceRows = parseCSV(priceText);
-        const solarRows = parseCSV(solarText);
-        const windRows  = parseCSV(windText);
-
-        COUNTRIES.forEach(c => {
-            rawPrice[c.code] = priceRows.map(r => ({
-                dt    : r.datetime || r.Datetime || r.DateTime || r.date || r.Date,
-                value : parseFloat(r[c.code]) || 0
-            }));
-            rawSolar[c.code] = solarRows.map(r => ({
-                dt    : r.datetime || r.Datetime || r.DateTime || r.date || r.Date,
-                value : parseFloat(r[c.code]) || 0
-            }));
-            rawWind[c.code] = windRows.map(r => ({
-                dt    : r.datetime || r.Datetime || r.DateTime || r.date || r.Date,
-                value : parseFloat(r[c.code]) || 0
-            }));
-        });
-
-        return true;
-    } catch(e) {
-        console.error('Data load failed:', e);
-        return false;
-    }
+    const [priceText, solarText, windText] = await Promise.all([
+        fetch('data/price.csv').then(r => r.text()),
+        fetch('data/solar.csv').then(r => r.text()),
+        fetch('data/wind.csv').then(r => r.text())
+    ]);
+    buildStore(parseCSV(priceText), rawPrice);
+    buildStore(parseCSV(solarText), rawSolar);
+    buildStore(parseCSV(windText),  rawWind);
 }
 
 /* ═══════════════════════════════════════════════════════════
    COMPUTE DAILY METRICS
-   Returns array of daily objects:
-   { date, baseload, capPost, capPre, negHours, zeroHours, nonPosHours,
-     curtailedPct, captureRatioPost, captureRatioPre }
 ═══════════════════════════════════════════════════════════ */
 function computeDaily(country, source) {
-    const prices  = rawPrice[country]  || [];
-    const genArr  = (source === 'solar' ? rawSolar : rawWind)[country] || [];
+    const prices = rawPrice[country] || [];
+    const gens   = (source === 'solar' ? rawSolar : rawWind)[country] || [];
+    if (!prices.length || !gens.length) return [];
 
-    if (!prices.length || !genArr.length) return [];
-
-    /* Group by date (YYYY-MM-DD = first 10 chars of dt) */
     const byDate = {};
+    const n = Math.min(prices.length, gens.length);
 
-    prices.forEach((p, i) => {
-        const date = p.dt.slice(0, 10);
-        const pr   = p.value;
-        const gen  = genArr[i]?.value ?? 0;
+    for (let i = 0; i < n; i++) {
+        const date = prices[i].date;
+        const pr   = prices[i].value;
+        const gen  = gens[i].value;
 
-        if (!byDate[date]) byDate[date] = {
-            prices: [], gens: [], revenues: [], genPost: []
-        };
+        if (!byDate[date]) byDate[date] = { sumPr:0, cnt:0, sumGen:0, sumGenPost:0, sumRev:0 };
+        const d = byDate[date];
 
-        const d     = byDate[date];
         const pPost = gen * (pr > 0 ? 1 : 0);
-        const rev   = pPost * pr;
+        d.sumPr     += pr;
+        d.cnt       += 1;
+        d.sumGen    += gen;
+        d.sumGenPost+= pPost;
+        d.sumRev    += pPost * pr;
+    }
 
-        d.prices.push(pr);
-        d.gens.push(gen);
-        d.genPost.push(pPost);
-        d.revenues.push(rev);
-    });
+    return Object.entries(byDate)
+        .sort((a,b) => a[0] < b[0] ? -1 : 1)
+        .map(([date, d]) => {
+            const baseload = d.cnt > 0 ? d.sumPr / d.cnt : null;
+            const capPost  = d.sumGenPost > 0 ? d.sumRev / d.sumGenPost : null;
+            const capPre   = d.sumGen     > 0 ? d.sumRev / d.sumGen     : null;
 
-    return Object.entries(byDate).sort((a,b) => a[0] < b[0] ? -1 : 1).map(([date, d]) => {
-        const baseload     = d.prices.reduce((s,v)=>s+v,0) / d.prices.length;
-        const sumGen       = d.gens.reduce((s,v)=>s+v,0);
-        const sumGenPost   = d.genPost.reduce((s,v)=>s+v,0);
-        const sumRev       = d.revenues.reduce((s,v)=>s+v,0);
+            // Count non-positive hours by re-scanning prices for this date
+            const pricesForDate = prices.filter(p => p.date === date).map(p => p.value);
+            const negHours    = pricesForDate.filter(v => v  < 0).length;
+            const zeroHours   = pricesForDate.filter(v => v === 0).length;
+            const nonPosHours = negHours + zeroHours;
 
-        const capPost = sumGenPost > 0 ? sumRev / sumGenPost : null;
-        const capPre  = sumGen     > 0 ? sumRev / sumGen     : null;
-
-        const negHours    = d.prices.filter(v => v  < 0).length;
-        const zeroHours   = d.prices.filter(v => v === 0).length;
-        const nonPosHours = d.prices.filter(v => v <= 0).length;
-
-        const curtailedPct      = sumGen > 0 ? (sumGenPost / sumGen) * 100 : null;
-        const captureRatioPost  = (capPost != null && baseload !== 0) ? (capPost / baseload) * 100 : null;
-        const captureRatioPre   = (capPre  != null && baseload !== 0) ? (capPre  / baseload) * 100 : null;
-
-        return {
-            date, baseload, capPost, capPre,
-            negHours, zeroHours, nonPosHours,
-            curtailedPct, captureRatioPost, captureRatioPre
-        };
-    });
+            return { date, baseload, capPost, capPre, negHours, zeroHours, nonPosHours };
+        });
 }
 
 /* ═══════════════════════════════════════════════════════════
-   AGGREGATE  daily → weekly / monthly / quarterly / yearly
+   AGGREGATION
 ═══════════════════════════════════════════════════════════ */
 function getISOWeek(dateStr) {
-    const d = new Date(dateStr);
-    d.setHours(0,0,0,0);
-    d.setDate(d.getDate() + 3 - (d.getDay()+6)%7);
-    const week1 = new Date(d.getFullYear(), 0, 4);
-    const wk = 1 + Math.round(((d-week1)/86400000 - 3 + (week1.getDay()+6)%7)/7);
-    return `${d.getFullYear()}-W${String(wk).padStart(2,'0')}`;
+    const d = new Date(dateStr + 'T00:00:00Z');
+    d.setUTCDate(d.getUTCDate() + 3 - (d.getUTCDay() + 6) % 7);
+    const week1 = new Date(Date.UTC(d.getUTCFullYear(), 0, 4));
+    const wk = 1 + Math.round(((d - week1) / 86400000 - 3 + (week1.getUTCDay() + 6) % 7) / 7);
+    return `${d.getUTCFullYear()}-W${String(wk).padStart(2,'0')}`;
 }
 
 function groupKey(date, freq) {
@@ -592,469 +513,356 @@ function groupKey(date, freq) {
         const m = parseInt(date.slice(5,7));
         return `${date.slice(0,4)}-Q${Math.ceil(m/3)}`;
     }
-    if (freq === 'yearly')    return date.slice(0,4);
+    return date.slice(0,4); // yearly
 }
 
 function aggregate(daily, freq) {
     if (freq === 'daily') return daily;
-
     const groups = {};
     daily.forEach(d => {
-        const key = groupKey(d.date, freq);
-        if (!groups[key]) groups[key] = [];
-        groups[key].push(d);
+        const k = groupKey(d.date, freq);
+        if (!groups[k]) groups[k] = [];
+        groups[k].push(d);
     });
-
-    return Object.entries(groups).sort((a,b) => a[0]<b[0]?-1:1).map(([key, arr]) => {
-        const avg = field => {
-            const vals = arr.map(d=>d[field]).filter(v => v != null);
-            return vals.length ? vals.reduce((s,v)=>s+v,0)/vals.length : null;
-        };
-        const sum = field => arr.reduce((s,d)=>s+(d[field]??0),0);
-
-        return {
-            date              : key,
-            baseload          : avg('baseload'),
-            capPost           : avg('capPost'),
-            capPre            : avg('capPre'),
-            negHours          : avg('negHours'),
-            zeroHours         : avg('zeroHours'),
-            nonPosHours       : avg('nonPosHours'),
-            curtailedPct      : avg('curtailedPct'),
-            captureRatioPost  : avg('captureRatioPost'),
-            captureRatioPre   : avg('captureRatioPre')
-        };
-    });
+    const avgField = (arr, f) => {
+        const vals = arr.map(d => d[f]).filter(v => v != null);
+        return vals.length ? vals.reduce((s,v)=>s+v,0)/vals.length : null;
+    };
+    return Object.entries(groups)
+        .sort((a,b) => a[0]<b[0]?-1:1)
+        .map(([key, arr]) => ({
+            date        : key,
+            baseload    : avgField(arr,'baseload'),
+            capPost     : avgField(arr,'capPost'),
+            capPre      : avgField(arr,'capPre'),
+            negHours    : avgField(arr,'negHours'),
+            zeroHours   : avgField(arr,'zeroHours'),
+            nonPosHours : avgField(arr,'nonPosHours')
+        }));
 }
 
 /* ═══════════════════════════════════════════════════════════
-   ECHARTS INSTANCES
+   ECHART INSTANCES
 ═══════════════════════════════════════════════════════════ */
-let ec1, ec2daily, ec2monthly;
+let ec1, ec2d, ec2m;
 
 function initCharts() {
-    ec1        = echarts.init(document.getElementById('chart1'),        'dark');
-    ec2daily   = echarts.init(document.getElementById('chart2-daily'),  'dark');
-    ec2monthly = echarts.init(document.getElementById('chart2-monthly'),'dark');
-    window.addEventListener('resize', () => {
-        ec1.resize(); ec2daily.resize(); ec2monthly.resize();
-    });
+    ec1  = echarts.init(document.getElementById('chart1'));
+    ec2d = echarts.init(document.getElementById('chart2Daily'));
+    ec2m = echarts.init(document.getElementById('chart2Monthly'));
+    window.addEventListener('resize', () => { ec1.resize(); ec2d.resize(); ec2m.resize(); });
 }
 
-/* ── Tooltip formatter helper ── */
-const fmt2 = v => (v == null ? 'N/A' : v.toFixed(2));
-const fmt1 = v => (v == null ? 'N/A' : v.toFixed(1));
+/* ── Shared tooltip formatter ── */
+function tooltipFmt(params, unitOverride) {
+    let html = `<div style="font-weight:600;margin-bottom:5px;color:#2c3e50">${params[0]?.axisValue}</div>`;
+    params.forEach(p => {
+        if (p.value == null || p.value === undefined) return;
+        const unit = unitOverride
+            ? (p.seriesName.includes('Hours') ? 'h' : '€/MWh')
+            : '€/MWh';
+        html += `<div style="display:flex;align-items:center;gap:8px;margin:2px 0;font-size:12px">
+            <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${p.color}"></span>
+            <span style="flex:1;color:#555">${p.seriesName}</span>
+            <span style="font-weight:600;color:#2c3e50">${
+                typeof p.value === 'number' ? p.value.toFixed(2) : p.value
+            } ${unit}</span>
+        </div>`;
+    });
+    return html;
+}
+
+/* ── Common axis/grid style ── */
+const axisStyle = {
+    axisLine  : { lineStyle: { color: '#ccc' } },
+    axisLabel : { color: '#6c757d', fontSize: 11 },
+    splitLine : { lineStyle: { color: '#f0f2f5' } }
+};
 
 /* ═══════════════════════════════════════════════════════════
-   CHART 1  –  Overview (Baseload + Solar CP + Wind CP)
+   CHART 1  –  Overview
 ═══════════════════════════════════════════════════════════ */
 function renderChart1() {
-    const country = state.country;
-    const freq    = state.freq1;
+    const freq = state.freq1;
+    const c    = state.country;
 
-    const dailySolar = computeDaily(country, 'solar');
-    const dailyWind  = computeDaily(country, 'wind');
+    const aggS = aggregate(computeDaily(c,'solar'), freq);
+    const aggW = aggregate(computeDaily(c,'wind'),  freq);
 
-    const aggSolar = aggregate(dailySolar, freq);
-    const aggWind  = aggregate(dailyWind,  freq);
+    const sMap = Object.fromEntries(aggS.map(d=>[d.date,d]));
+    const wMap = Object.fromEntries(aggW.map(d=>[d.date,d]));
+    const dates = [...new Set([...aggS.map(d=>d.date),...aggW.map(d=>d.date)])].sort();
 
-    /* align on common dates */
-    const solarMap = Object.fromEntries(aggSolar.map(d=>[d.date, d]));
-    const windMap  = Object.fromEntries(aggWind.map(d=>[d.date, d]));
-    const allDates = [...new Set([...aggSolar.map(d=>d.date), ...aggWind.map(d=>d.date)])].sort();
-
-    const xData     = allDates;
-    const baseVals  = allDates.map(d => solarMap[d]?.baseload ?? windMap[d]?.baseload ?? null);
-    const solarVals = allDates.map(d => solarMap[d]?.capPost  ?? null);
-    const windVals  = allDates.map(d => windMap[d]?.capPost   ?? null);
-
-    const option = {
-        backgroundColor : 'transparent',
-        animation       : true,
+    ec1.setOption({
         tooltip: {
-            trigger    : 'axis',
-            axisPointer: { type: 'cross', lineStyle:{ color:'#4fc3f755' } },
-            backgroundColor: '#1a1f2e',
-            borderColor    : '#2a3040',
-            textStyle      : { color:'#c0c8d8', fontSize:12 },
-            formatter(params) {
-                let html = `<div style="font-weight:600;margin-bottom:6px">${params[0]?.axisValue}</div>`;
-                params.forEach(p => {
-                    if (p.value == null) return;
-                    html += `<div style="display:flex;align-items:center;gap:6px;margin:2px 0">
-                        <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${p.color}"></span>
-                        <span style="flex:1">${p.seriesName}</span>
-                        <span style="font-weight:600">${fmt2(p.value)} €/MWh</span>
-                    </div>`;
-                });
-                return html;
-            }
+            trigger:'axis',
+            axisPointer:{ type:'cross', lineStyle:{color:'#bbb'} },
+            formatter: p => tooltipFmt(p, false)
         },
         legend: {
-            top      : 8,
-            right    : 12,
-            textStyle: { color:'#9aa0b0', fontSize:12 },
-            itemWidth: 16,
-            data     : ['Baseload', 'Solar CP (post)', 'Wind CP (post)']
+            bottom:0, type:'scroll',
+            textStyle:{ color:'#2c3e50', fontSize:12 },
+            itemWidth:14
         },
-        grid: { left:60, right:20, top:48, bottom:48, containLabel:false },
+        grid: { left:60, right:20, top:16, bottom:50 },
         xAxis: {
-            type     : 'category',
-            data     : xData,
-            axisLabel: { color:'#5a6070', fontSize:11, rotate: xData.length > 60 ? 30 : 0 },
-            axisLine : { lineStyle:{ color:'#2a3040' } },
-            splitLine: { show:false }
+            type:'category', data:dates,
+            ...axisStyle,
+            axisLabel:{ ...axisStyle.axisLabel, rotate: dates.length > 60 ? 30 : 0, interval:'auto' }
         },
-        yAxis: {
-            type     : 'value',
-            name     : 'EUR/MWh',
-            nameTextStyle: { color:'#5a6070', fontSize:11 },
-            axisLabel: { color:'#5a6070', fontSize:11 },
-            splitLine: { lineStyle:{ color:'#1e2535' } }
-        },
+        yAxis: { type:'value', name:'€/MWh', nameTextStyle:{color:'#6c757d',fontSize:11}, ...axisStyle },
         series: [
             {
-                name     : 'Baseload',
-                type     : 'line',
-                data     : baseVals,
-                smooth   : true,
-                symbol   : 'none',
-                lineStyle: { color: COLOR.baseload, width:2 },
-                itemStyle: { color: COLOR.baseload }
+                name:'Baseload', type:'line', symbol:'none',
+                data: dates.map(d => sMap[d]?.baseload ?? wMap[d]?.baseload ?? null),
+                lineStyle:{ color:COLORS.baseload, width:2 },
+                itemStyle:{ color:COLORS.baseload }, smooth:true
             },
             {
-                name     : 'Solar CP (post)',
-                type     : 'line',
-                data     : solarVals,
-                smooth   : true,
-                symbol   : 'none',
-                lineStyle: { color: COLOR.solar, width:2 },
-                itemStyle: { color: COLOR.solar }
+                name:'Solar CP (post)', type:'line', symbol:'none',
+                data: dates.map(d => sMap[d]?.capPost ?? null),
+                lineStyle:{ color:COLORS.solar, width:2 },
+                itemStyle:{ color:COLORS.solar }, smooth:true
             },
             {
-                name     : 'Wind CP (post)',
-                type     : 'line',
-                data     : windVals,
-                smooth   : true,
-                symbol   : 'none',
-                lineStyle: { color: COLOR.wind, width:2 },
-                itemStyle: { color: COLOR.wind }
+                name:'Wind CP (post)', type:'line', symbol:'none',
+                data: dates.map(d => wMap[d]?.capPost ?? null),
+                lineStyle:{ color:COLORS.wind, width:2 },
+                itemStyle:{ color:COLORS.wind }, smooth:true
             }
         ]
-    };
-
-    ec1.setOption(option, true);
+    }, true);
 }
 
 /* ═══════════════════════════════════════════════════════════
-   CHART 2-DAILY  –  Combined line + bar (shared x-axis via grid)
+   CHART 2-DAILY  –  Combined (line top + bar bottom, shared x)
 ═══════════════════════════════════════════════════════════ */
 function renderChart2Daily() {
-    const country = state.country;
-    const source  = state.source2;
-    const year    = state.year2;
-
-    const daily = computeDaily(country, source).filter(d => d.date.startsWith(year));
+    const daily = computeDaily(state.country, state.source2)
+        .filter(d => d.date.startsWith(state.year2));
 
     const xData    = daily.map(d => d.date);
     const baseVals = daily.map(d => d.baseload);
     const postVals = daily.map(d => d.capPost);
     const preVals  = daily.map(d => d.capPre);
-    const nonPosH  = daily.map(d => d.nonPosHours);
+    const barVals  = daily.map(d => d.nonPosHours);
 
-    const lineColor = source === 'solar' ? COLOR.solar : COLOR.wind;
+    const lineColor = state.source2 === 'solar' ? COLORS.solar : COLORS.wind;
+    const preColor  = state.source2 === 'solar' ? COLORS.post_s : COLORS.post_w;
 
-    const option = {
-        backgroundColor: 'transparent',
-        animation      : true,
+    ec2d.setOption({
         tooltip: {
-            trigger    : 'axis',
-            axisPointer: { type:'cross', lineStyle:{ color:'#4fc3f755' } },
-            backgroundColor: '#1a1f2e',
-            borderColor    : '#2a3040',
-            textStyle      : { color:'#c0c8d8', fontSize:12 },
-            formatter(params) {
-                let html = `<div style="font-weight:600;margin-bottom:6px">${params[0]?.axisValue}</div>`;
-                params.forEach(p => {
-                    if (p.value == null) return;
-                    const unit = p.seriesName.includes('Hours') ? 'h' : '€/MWh';
-                    html += `<div style="display:flex;align-items:center;gap:6px;margin:2px 0">
-                        <span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${p.color}"></span>
-                        <span style="flex:1">${p.seriesName}</span>
-                        <span style="font-weight:600">${fmt2(p.value)} ${unit}</span>
-                    </div>`;
-                });
-                return html;
-            }
+            trigger:'axis',
+            axisPointer:{ type:'cross', lineStyle:{color:'#bbb'} },
+            formatter: p => tooltipFmt(p, true)
         },
         legend: {
-            top      : 6,
-            right    : 12,
-            textStyle: { color:'#9aa0b0', fontSize:12 },
-            itemWidth: 16,
-            data: ['Baseload', 'Capture Price (post)', 'Capture Price (pre)', 'Non-positive Hours']
+            top:4, right:8, type:'scroll',
+            textStyle:{ color:'#2c3e50', fontSize:12 },
+            itemWidth:14,
+            data:['Baseload','Capture Price (post)','Capture Price (pre)','Non-positive Hours']
         },
-        axisPointer: { link: [{ xAxisIndex: 'all' }] },
+        axisPointer: { link:[{ xAxisIndex:'all' }] },
         grid: [
-            { left:60, right:20, top:50,  bottom:'42%', containLabel:false },  // line chart
-            { left:60, right:20, top:'62%', bottom:40, containLabel:false }    // bar chart
+            { left:64, right:20, top:40,   bottom:'38%' },
+            { left:64, right:20, top:'65%', bottom:40   }
         ],
         xAxis: [
-            {
-                type     : 'category',
-                data     : xData,
-                gridIndex: 0,
-                axisLabel: { show: false },
-                axisLine : { lineStyle:{ color:'#2a3040' } },
-                splitLine: { show:false }
-            },
-            {
-                type     : 'category',
-                data     : xData,
-                gridIndex: 1,
-                axisLabel: { color:'#5a6070', fontSize:10, rotate: xData.length > 60 ? 30 : 0 },
-                axisLine : { lineStyle:{ color:'#2a3040' } },
-                splitLine: { show:false }
-            }
+            { type:'category', data:xData, gridIndex:0, axisLabel:{show:false}, axisLine:{lineStyle:{color:'#ccc'}}, splitLine:{show:false} },
+            { type:'category', data:xData, gridIndex:1,
+              axisLabel:{ color:'#6c757d', fontSize:10, rotate: xData.length > 60 ? 30 : 0, interval:'auto' },
+              axisLine:{lineStyle:{color:'#ccc'}}, splitLine:{show:false} }
         ],
         yAxis: [
-            {
-                type     : 'value',
-                name     : 'EUR/MWh',
-                gridIndex: 0,
-                nameTextStyle: { color:'#5a6070', fontSize:11 },
-                axisLabel: { color:'#5a6070', fontSize:11 },
-                splitLine: { lineStyle:{ color:'#1e2535' } }
-            },
-            {
-                type     : 'value',
-                name     : 'Hours',
-                gridIndex: 1,
-                min      : 0,
-                max      : 24,
-                interval : 6,
-                nameTextStyle: { color:'#5a6070', fontSize:11 },
-                axisLabel: { color:'#5a6070', fontSize:11 },
-                splitLine: { lineStyle:{ color:'#1e2535' } }
-            }
+            { type:'value', name:'€/MWh', gridIndex:0, nameTextStyle:{color:'#6c757d',fontSize:11}, ...axisStyle },
+            { type:'value', name:'Hours',  gridIndex:1, min:0, max:24, interval:6,
+              nameTextStyle:{color:'#6c757d',fontSize:11}, ...axisStyle }
         ],
         series: [
             {
-                name        : 'Baseload',
-                type        : 'line',
-                data        : baseVals,
-                smooth      : false,
-                symbol      : 'none',
-                lineStyle   : { color: COLOR.baseload, width:2 },
-                itemStyle   : { color: COLOR.baseload },
-                xAxisIndex  : 0,
-                yAxisIndex  : 0
+                name:'Baseload', type:'line', symbol:'none',
+                data:baseVals, smooth:false,
+                lineStyle:{color:COLORS.baseload, width:2},
+                itemStyle:{color:COLORS.baseload},
+                xAxisIndex:0, yAxisIndex:0
             },
             {
-                name        : 'Capture Price (post)',
-                type        : 'line',
-                data        : postVals,
-                smooth      : false,
-                symbol      : 'none',
-                lineStyle   : { color: lineColor, width:2 },
-                itemStyle   : { color: lineColor },
-                xAxisIndex  : 0,
-                yAxisIndex  : 0
+                name:'Capture Price (post)', type:'line', symbol:'none',
+                data:postVals, smooth:false,
+                lineStyle:{color:lineColor, width:2},
+                itemStyle:{color:lineColor},
+                xAxisIndex:0, yAxisIndex:0
             },
             {
-                name        : 'Capture Price (pre)',
-                type        : 'line',
-                data        : preVals,
-                smooth      : false,
-                symbol      : 'none',
-                lineStyle   : { color: lineColor, width:1.5, type:'dashed', opacity:0.6 },
-                itemStyle   : { color: lineColor, opacity:0.6 },
-                xAxisIndex  : 0,
-                yAxisIndex  : 0
+                name:'Capture Price (pre)', type:'line', symbol:'none',
+                data:preVals, smooth:false,
+                lineStyle:{color:preColor, width:1.5, type:'dashed'},
+                itemStyle:{color:preColor},
+                xAxisIndex:0, yAxisIndex:0
             },
             {
-                name        : 'Non-positive Hours',
-                type        : 'bar',
-                data        : nonPosH,
-                itemStyle   : { color: COLOR.bar, opacity:0.85 },
-                barMaxWidth : 12,
-                xAxisIndex  : 1,
-                yAxisIndex  : 1
+                name:'Non-positive Hours', type:'bar',
+                data:barVals, barMaxWidth:10,
+                itemStyle:{color:COLORS.bar, opacity:0.8},
+                xAxisIndex:1, yAxisIndex:1
             }
         ]
-    };
-
-    ec2daily.setOption(option, true);
+    }, true);
 }
 
 /* ═══════════════════════════════════════════════════════════
    CHART 2-MONTHLY
 ═══════════════════════════════════════════════════════════ */
 function renderChart2Monthly() {
-    const country = state.country;
-    const source  = state.source2;
-    const year    = state.year2;
-
-    const daily   = computeDaily(country, source).filter(d => d.date.startsWith(year));
+    const daily = computeDaily(state.country, state.source2)
+        .filter(d => d.date.startsWith(state.year2));
     const monthly = aggregate(daily, 'monthly');
 
     const xData    = monthly.map(d => d.date);
     const baseVals = monthly.map(d => d.baseload);
     const postVals = monthly.map(d => d.capPost);
     const preVals  = monthly.map(d => d.capPre);
-    const nonPosH  = monthly.map(d => d.nonPosHours);
+    const barVals  = monthly.map(d => d.nonPosHours);
 
-    const lineColor = source === 'solar' ? COLOR.solar : COLOR.wind;
+    const lineColor = state.source2 === 'solar' ? COLORS.solar : COLORS.wind;
+    const preColor  = state.source2 === 'solar' ? COLORS.post_s : COLORS.post_w;
 
-    const option = {
-        backgroundColor: 'transparent',
-        animation      : true,
+    ec2m.setOption({
         tooltip: {
-            trigger    : 'axis',
-            axisPointer: { type:'shadow' },
-            backgroundColor: '#1a1f2e',
-            borderColor    : '#2a3040',
-            textStyle      : { color:'#c0c8d8', fontSize:12 },
+            trigger:'axis',
+            axisPointer:{ type:'cross', lineStyle:{color:'#bbb'} },
             formatter(params) {
-                let html = `<div style="font-weight:600;margin-bottom:6px">${params[0]?.axisValue}</div>`;
+                let html = `<div style="font-weight:600;margin-bottom:5px;color:#2c3e50">${params[0]?.axisValue}</div>`;
                 params.forEach(p => {
                     if (p.value == null) return;
-                    const unit = p.seriesName.includes('Hours') ? 'h/day' : '€/MWh';
-                    html += `<div style="display:flex;align-items:center;gap:6px;margin:2px 0">
-                        <span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${p.color}"></span>
-                        <span style="flex:1">${p.seriesName}</span>
-                        <span style="font-weight:600">${fmt2(p.value)} ${unit}</span>
+                    const unit = p.seriesName.includes('Hours') ? 'h/day avg' : '€/MWh';
+                    html += `<div style="display:flex;align-items:center;gap:8px;margin:2px 0;font-size:12px">
+                        <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${p.color}"></span>
+                        <span style="flex:1;color:#555">${p.seriesName}</span>
+                        <span style="font-weight:600;color:#2c3e50">${p.value.toFixed(2)} ${unit}</span>
                     </div>`;
                 });
                 return html;
             }
         },
         legend: {
-            top      : 6,
-            right    : 12,
-            textStyle: { color:'#9aa0b0', fontSize:12 },
-            itemWidth: 16,
-            data: ['Baseload', 'Capture Price (post)', 'Capture Price (pre)', 'Avg Non-positive Hours']
+            top:4, right:8, type:'scroll',
+            textStyle:{ color:'#2c3e50', fontSize:12 },
+            itemWidth:14,
+            data:['Baseload','Capture Price (post)','Capture Price (pre)','Avg Non-pos Hours']
         },
-        grid: [
-            { left:60, right:20, top:44, bottom:'38%', containLabel:false },
-            { left:60, right:20, top:'66%', bottom:40, containLabel:false }
-        ],
         axisPointer: { link:[{ xAxisIndex:'all' }] },
+        grid: [
+            { left:64, right:20, top:36,   bottom:'38%' },
+            { left:64, right:20, top:'65%', bottom:36   }
+        ],
         xAxis: [
-            {
-                type     : 'category',
-                data     : xData,
-                gridIndex: 0,
-                axisLabel: { show:false },
-                axisLine : { lineStyle:{ color:'#2a3040' } },
-                splitLine: { show:false }
-            },
-            {
-                type     : 'category',
-                data     : xData,
-                gridIndex: 1,
-                axisLabel: { color:'#5a6070', fontSize:11 },
-                axisLine : { lineStyle:{ color:'#2a3040' } },
-                splitLine: { show:false }
-            }
+            { type:'category', data:xData, gridIndex:0, axisLabel:{show:false}, axisLine:{lineStyle:{color:'#ccc'}}, splitLine:{show:false} },
+            { type:'category', data:xData, gridIndex:1,
+              axisLabel:{ color:'#6c757d', fontSize:11 },
+              axisLine:{lineStyle:{color:'#ccc'}}, splitLine:{show:false} }
         ],
         yAxis: [
-            {
-                type     : 'value',
-                name     : 'EUR/MWh',
-                gridIndex: 0,
-                nameTextStyle: { color:'#5a6070', fontSize:11 },
-                axisLabel: { color:'#5a6070', fontSize:11 },
-                splitLine: { lineStyle:{ color:'#1e2535' } }
-            },
-            {
-                type     : 'value',
-                name     : 'h/day',
-                gridIndex: 1,
-                nameTextStyle: { color:'#5a6070', fontSize:11 },
-                axisLabel: { color:'#5a6070', fontSize:11 },
-                splitLine: { lineStyle:{ color:'#1e2535' } }
-            }
+            { type:'value', name:'€/MWh', gridIndex:0, nameTextStyle:{color:'#6c757d',fontSize:11}, ...axisStyle },
+            { type:'value', name:'h/day',  gridIndex:1,
+              nameTextStyle:{color:'#6c757d',fontSize:11}, ...axisStyle }
         ],
         series: [
             {
-                name      : 'Baseload',
-                type      : 'line',
-                data      : baseVals,
-                smooth    : true,
-                symbol    : 'circle', symbolSize:5,
-                lineStyle : { color: COLOR.baseload, width:2 },
-                itemStyle : { color: COLOR.baseload },
-                xAxisIndex: 0, yAxisIndex: 0
+                name:'Baseload', type:'line',
+                data:baseVals, smooth:true,
+                symbol:'circle', symbolSize:6,
+                lineStyle:{color:COLORS.baseload, width:2},
+                itemStyle:{color:COLORS.baseload},
+                xAxisIndex:0, yAxisIndex:0
             },
             {
-                name      : 'Capture Price (post)',
-                type      : 'line',
-                data      : postVals,
-                smooth    : true,
-                symbol    : 'circle', symbolSize:5,
-                lineStyle : { color: lineColor, width:2 },
-                itemStyle : { color: lineColor },
-                xAxisIndex: 0, yAxisIndex: 0
+                name:'Capture Price (post)', type:'line',
+                data:postVals, smooth:true,
+                symbol:'circle', symbolSize:6,
+                lineStyle:{color:lineColor, width:2},
+                itemStyle:{color:lineColor},
+                xAxisIndex:0, yAxisIndex:0
             },
             {
-                name      : 'Capture Price (pre)',
-                type      : 'line',
-                data      : preVals,
-                smooth    : true,
-                symbol    : 'circle', symbolSize:5,
-                lineStyle : { color: lineColor, width:1.5, type:'dashed', opacity:0.6 },
-                itemStyle : { color: lineColor, opacity:0.6 },
-                xAxisIndex: 0, yAxisIndex: 0
+                name:'Capture Price (pre)', type:'line',
+                data:preVals, smooth:true,
+                symbol:'circle', symbolSize:6,
+                lineStyle:{color:preColor, width:1.5, type:'dashed'},
+                itemStyle:{color:preColor},
+                xAxisIndex:0, yAxisIndex:0
             },
             {
-                name      : 'Avg Non-positive Hours',
-                type      : 'bar',
-                data      : nonPosH,
-                itemStyle : { color: COLOR.bar, opacity:0.85 },
-                barMaxWidth: 30,
-                xAxisIndex: 1, yAxisIndex: 1
+                name:'Avg Non-pos Hours', type:'bar',
+                data:barVals, barMaxWidth:24,
+                itemStyle:{color:COLORS.bar, opacity:0.8},
+                xAxisIndex:1, yAxisIndex:1
             }
         ]
-    };
-
-    ec2monthly.setOption(option, true);
+    }, true);
 }
 
 /* ═══════════════════════════════════════════════════════════
    RENDER ALL
 ═══════════════════════════════════════════════════════════ */
-function renderAll() {
-    const countryName = COUNTRIES.find(c=>c.code===state.country)?.name ?? state.country;
-    const sourceLabel = state.source2 === 'solar' ? 'Solar' : 'Wind';
-
+function updateTitles() {
+    const cName = COUNTRIES.find(c=>c.code===state.country)?.name ?? state.country;
+    const sName = state.source2 === 'solar' ? 'Solar' : 'Wind';
     document.getElementById('card1Title').textContent =
-        `Capture Prices – EUR/MWh – ${countryName}`;
+        `Capture Prices Overview – ${cName}`;
     document.getElementById('card2Title').textContent =
-        `${sourceLabel} Capture Price Detail – ${countryName} – ${state.year2}`;
+        `${sName} Capture Price Detail – ${cName} – ${state.year2}`;
+}
 
+function renderAll() {
+    updateTitles();
     renderChart1();
     renderChart2Daily();
     renderChart2Monthly();
 }
 
 /* ═══════════════════════════════════════════════════════════
-   UI INIT
+   UI SETUP
 ═══════════════════════════════════════════════════════════ */
-function buildCountryPills() {
-    const container = document.getElementById('countryPills');
+function buildCountryRadios() {
+    const list = document.getElementById('countryRadioList');
     COUNTRIES.forEach(c => {
-        const pill = document.createElement('div');
-        pill.className = 'country-pill' + (c.code === state.country ? ' active' : '');
-        pill.textContent = c.name;
-        pill.addEventListener('click', () => {
+        const item = document.createElement('div');
+        item.className = 'country-item';
+
+        const radio = document.createElement('input');
+        radio.type    = 'radio';
+        radio.name    = 'countryRadio';
+        radio.value   = c.code;
+        radio.id      = `cr_${c.code}`;
+        radio.checked = (c.code === state.country);
+
+        const span = document.createElement('span');
+        span.textContent = c.name;
+
+        const selectCountry = () => {
             state.country = c.code;
-            container.querySelectorAll('.country-pill').forEach(p => p.classList.remove('active'));
-            pill.classList.add('active');
+            radio.checked = true;
+            document.getElementById('countrySelectText').textContent = c.name;
+            document.getElementById('countryDropdown').classList.remove('show');
             renderAll();
-        });
-        container.appendChild(pill);
+        };
+
+        radio.addEventListener('change', selectCountry);
+        item.addEventListener('click', e => { if (e.target !== radio) selectCountry(); });
+
+        item.appendChild(radio);
+        item.appendChild(span);
+        list.appendChild(item);
+    });
+}
+
+function initDropdown() {
+    const btn  = document.getElementById('countrySelectBtn');
+    const drop = document.getElementById('countryDropdown');
+    btn.addEventListener('click', e => { e.stopPropagation(); drop.classList.toggle('show'); });
+    document.addEventListener('click', e => {
+        if (!drop.contains(e.target) && e.target !== btn) drop.classList.remove('show');
     });
 }
 
@@ -1070,41 +878,30 @@ function bindFreqGroup1() {
 }
 
 function bindSourceToggle() {
-    const btnSolar = document.getElementById('btnSolar');
-    const btnWind  = document.getElementById('btnWind');
-
-    btnSolar.addEventListener('click', () => {
+    document.getElementById('btnSolar').addEventListener('click', () => {
         state.source2 = 'solar';
-        btnSolar.classList.add('active');
-        btnWind.classList.remove('active');
+        document.getElementById('btnSolar').classList.add('active');
+        document.getElementById('btnWind').classList.remove('active');
+        updateTitles();
         renderChart2Daily();
         renderChart2Monthly();
-        const countryName = COUNTRIES.find(c=>c.code===state.country)?.name ?? state.country;
-        document.getElementById('card2Title').textContent =
-            `Solar Capture Price Detail – ${countryName} – ${state.year2}`;
     });
-
-    btnWind.addEventListener('click', () => {
+    document.getElementById('btnWind').addEventListener('click', () => {
         state.source2 = 'wind';
-        btnWind.classList.add('active');
-        btnSolar.classList.remove('active');
+        document.getElementById('btnWind').classList.add('active');
+        document.getElementById('btnSolar').classList.remove('active');
+        updateTitles();
         renderChart2Daily();
         renderChart2Monthly();
-        const countryName = COUNTRIES.find(c=>c.code===state.country)?.name ?? state.country;
-        document.getElementById('card2Title').textContent =
-            `Wind Capture Price Detail – ${countryName} – ${state.year2}`;
     });
 }
 
 function bindYearSelect() {
     document.getElementById('yearSelect').addEventListener('change', e => {
         state.year2 = e.target.value;
+        updateTitles();
         renderChart2Daily();
         renderChart2Monthly();
-        const countryName = COUNTRIES.find(c=>c.code===state.country)?.name ?? state.country;
-        const sourceLabel = state.source2 === 'solar' ? 'Solar' : 'Wind';
-        document.getElementById('card2Title').textContent =
-            `${sourceLabel} Capture Price Detail – ${countryName} – ${state.year2}`;
     });
 }
 
@@ -1112,28 +909,26 @@ function bindYearSelect() {
    BOOTSTRAP
 ═══════════════════════════════════════════════════════════ */
 async function main() {
-    buildCountryPills();
-    initCharts();
+    try {
+        await loadAllData();
+    } catch(e) {
+        document.getElementById('loadingMsg').textContent =
+            '⚠ Failed to load data. Please check that price.csv, solar.csv, wind.csv exist in /data/.';
+        console.error(e);
+        return;
+    }
+
+    document.getElementById('loadingMsg').style.display = 'none';
+    document.getElementById('mainContent').style.display = 'block';
+
+    buildCountryRadios();
+    initDropdown();
     bindFreqGroup1();
     bindSourceToggle();
     bindYearSelect();
+    initCharts();
 
-    const ok = await loadAllData();
-    if (ok) {
-        renderAll();
-    } else {
-        /* show placeholder if data not available */
-        [ec1, ec2daily, ec2monthly].forEach(chart => {
-            chart.setOption({
-                backgroundColor: 'transparent',
-                graphic: [{
-                    type: 'text',
-                    left: 'center', top: 'middle',
-                    style: { text:'⚠ Data unavailable', fill:'#5a6070', fontSize:14 }
-                }]
-            });
-        });
-    }
+    renderAll();
 }
 
 main();

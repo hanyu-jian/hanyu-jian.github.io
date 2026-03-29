@@ -24,22 +24,50 @@
         .header {
             background: #2c3e50;
             color: white;
-            padding: 20px 30px;
+            padding: 16px 30px 0 30px;
+        }
+        .header-top {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding-bottom: 14px;
+        }
+        .header-top h1 {
+            font-size: 20px;
+            font-weight: 700;
+            letter-spacing: 0.3px;
+            white-space: nowrap;
+        }
+
+        /* ── Main nav (inside header) ── */
+        .main-nav {
+            display: flex;
+            gap: 4px;
+            margin-top: 2px;
+        }
+        .main-nav-item {
             position: relative;
         }
-        .header h1 { font-size: 24px; font-weight: 500; }
-        .header p  { font-size: 14px; opacity: 0.9; margin-top: 6px; }
-        .nav-links {
-            position: absolute; top: 20px; right: 30px;
-            display: flex; gap: 16px;
+        .main-nav-link {
+            display: inline-block;
+            padding: 10px 22px;
+            font-size: 14px;
+            font-weight: 600;
+            color: rgba(255,255,255,0.75);
+            text-decoration: none;
+            border-radius: 8px 8px 0 0;
+            background: transparent;
+            transition: background 0.2s, color 0.2s;
+            white-space: nowrap;
         }
-        .nav-link {
-            color: white; text-decoration: none;
-            padding: 6px 12px; border-radius: 20px;
-            background: rgba(255,255,255,0.2);
-            transition: 0.2s; font-size: 14px; font-weight: 500;
+        .main-nav-link:hover {
+            color: white;
+            background: rgba(255,255,255,0.12);
         }
-        .nav-link:hover, .nav-link.active { background: rgba(255,255,255,0.4); }
+        .main-nav-link.active {
+            color: #2c3e50;
+            background: #f8f9fa;
+        }
 
         /* ── Sub-nav ── */
         .sub-nav {
@@ -51,12 +79,14 @@
         .sub-nav-link {
             display: inline-block;
             padding: 14px 22px;
-            font-size: 14px; font-weight: 600;
+            font-size: 14px;
+            font-weight: 600;
             color: #6c757d;
             text-decoration: none;
             border-bottom: 3px solid transparent;
             margin-bottom: -2px;
             transition: color 0.2s, border-color 0.2s;
+            white-space: nowrap;
         }
         .sub-nav-link:hover { color: #2c3e50; }
         .sub-nav-link.active {
@@ -100,11 +130,19 @@
             border-top: 1px solid #e6e9ed;
             margin-top: 10px;
         }
+        .info a {
+            color: #5a8fc2;
+            text-decoration: none;
+        }
+        .info a:hover { text-decoration: underline; }
 
         @media (max-width: 700px) {
-            .nav-links { position: static; margin-top: 10px; justify-content: center; }
-            .header { text-align: center; }
-            .sub-nav { padding: 0 16px; }
+            .header { padding: 14px 16px 0 16px; }
+            .header-top { gap: 8px; }
+            .header-top h1 { font-size: 16px; }
+            .main-nav-link { padding: 10px 14px; font-size: 13px; }
+            .sub-nav { padding: 0 10px; overflow-x: auto; }
+            .sub-nav-link { padding: 14px 14px; font-size: 13px; }
         }
     </style>
 </head>
@@ -113,11 +151,23 @@
 
     <!-- ══ Top header ══ -->
     <div class="header">
-        <h1>📈 European Electricity Day-Ahead Prices</h1>
-        <p>Data source: ENTSO-E | Author: Hanyu Jian</p>
-        <div class="nav-links">
-            <a href="price.html" class="nav-link active">Price Analysis</a>
-            <a href="load.html"  class="nav-link">Load Analysis</a>
+        <!-- Brand -->
+        <div class="header-top">
+            <span style="font-size:22px; line-height:1;">⚡</span>
+            <h1>European Electricity Dashboard</h1>
+        </div>
+
+        <!-- Main navigation tabs (sit flush at bottom of header) -->
+        <div class="main-nav">
+            <div class="main-nav-item">
+                <a href="price.html" class="main-nav-link active">Price</a>
+            </div>
+            <div class="main-nav-item">
+                <a href="load.html" class="main-nav-link">Load</a>
+            </div>
+            <div class="main-nav-item">
+                <a href="capacity.html" class="main-nav-link">Installed Capacity</a>
+            </div>
         </div>
     </div>
 
@@ -125,7 +175,7 @@
     <div class="sub-nav">
         <a class="sub-nav-link" href="price.html">Price Overview</a>
         <a class="sub-nav-link" href="capture-price.html">Capture Prices</a>
-        <a class="sub-nav-link active">Price Spread</a>
+        <a class="sub-nav-link active" href="price-spread.html">Price Spread</a>
     </div>
 
     <!-- ══ Placeholder ══ -->
@@ -139,8 +189,11 @@
         <span class="badge">🚧 Coming Soon</span>
     </div>
 
+    <!-- ══ Footer ══ -->
     <div class="info">
-        📊 Price Spread | Unit: €/MWh
+        Data source: <a href="https://www.entsoe.eu/" target="_blank">ENTSO-E Transparency Platform</a>
+        &nbsp;|&nbsp; Author: Hanyu Jian
+        &nbsp;|&nbsp; Unit: €/MWh
     </div>
 
 </div>

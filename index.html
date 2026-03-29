@@ -86,6 +86,7 @@
             color: #6c757d;
             line-height: 1.5;
             margin-bottom: 24px;
+            flex: 1;
         }
 
         .card .btn {
@@ -100,6 +101,7 @@
             transition: background 0.2s;
             display: inline-block;
             text-decoration: none;
+            margin-top: auto;
         }
 
         .card .btn:hover {
@@ -115,9 +117,18 @@
             padding-top: 24px;
         }
 
+        @media (max-width: 1080px) {
+            .cards {
+                gap: 24px;
+            }
+            .card {
+                width: 280px;
+            }
+        }
+
         @media (max-width: 700px) {
             .header h1 { font-size: 1.8rem; }
-            .card { width: 280px; padding: 24px 20px; }
+            .card { width: 100%; max-width: 360px; padding: 24px 20px; }
             .card-icon { font-size: 48px; }
             .card h2 { font-size: 1.5rem; }
         }
@@ -126,25 +137,35 @@
 <body>
 <div class="container">
     <div class="header">
-        <h1>⚡ European Electricity Dashboard</h1>
-        <p>Monitor day-ahead prices and electricity load across Europe</p>
+        <h1>European Electricity Dashboard</h1>
+        <p>Monitor day-ahead prices, electricity load, and installed capacity across Europe</p>
     </div>
     <div class="cards">
+
+        <!-- Price Analysis -->
         <a href="price.html" class="card">
-            <div class="card-icon">📈</div>
-            <h2>Price Analysis</h2>
+            <h2>Price</h2>
             <p>Explore hourly and monthly electricity prices (€/MWh) across European countries. Interactive map and trend charts.</p>
             <span class="btn">View Dashboard →</span>
         </a>
+
+        <!-- Load Analysis -->
         <a href="load.html" class="card">
-            <div class="card-icon">⚡</div>
-            <h2>Load Analysis</h2>
+            <h2>Load</h2>
             <p>Analyze electricity load (MW) patterns with hourly trends, seasonal profiles, and 7‑day moving average comparisons.</p>
             <span class="btn">View Dashboard →</span>
         </a>
+
+        <!-- Installed Capacity -->
+        <a href="capacity.html" class="card">
+            <h2>Installed Capacity</h2>
+            <p>Examine installed generation capacity (MW) by energy source across European countries. Compare renewable and conventional energy mixes.</p>
+            <span class="btn">View Dashboard →</span>
+        </a>
+
     </div>
     <div class="footer">
-        <p>Data source: ENTSO‑E | Author: Hanyu Jian</p>
+        <p>Data source: <a href="https://transparency.entsoe.eu/" target="_blank" style="color:#2c3e50; text-decoration:none;">ENTSO‑E Transparency Platform</a> | Author: Hanyu Jian</p>
     </div>
 </div>
 </body>

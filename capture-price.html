@@ -946,5 +946,97 @@ function buildCountryRadios() {
     COUNTRIES.forEach(c => {
         const item  = document.createElement('div');
         item.className = 'country-item';
+
         const radio = document.createElement('input');
-        radio.type = 'radio'; radio.name = 'countryRad_
+        radio.type  = 'radio';
+        radio.name  = 'countryRad';  
+        radio.value = c.code;
+        radio.id    = `rad_${c.code}`;
+        if (c.code === state.country) radio.checked = true;
+
+        radio.addEventListener('change', () => {
+            state.country = c.code;
+            document.getElementById('countrySelectText').textContent = c.name;
+            document.getElementById('countryDropdown').classList.remove('show');
+            renderAll();
+        });
+
+        const label = document.createElement('label');
+        label.htmlFor     = `rad_${c.code}`;
+        label.textContent = c.name;
+
+        item.appendChild(radio);
+        item.appendChild(label);
+        list.appendChild(item);
+    });
+}
+
+function setupUI() {
+    // ── Country dropdown toggle ──
+    const btn      = document.getElementById('countrySelectBtn');
+    const dropdown = document.getElementById('countryDropdown');
+
+    btn.addEventListener('click', e => {
+        e.stopPropagation();
+        dropdown.classList.toggle('show');
+    });
+    document.addEventListener('click', () => {
+        dropdown.classList.remove('show');
+    });
+
+    // ── Frequency buttons (Card 1) ──
+    document.getElementById('freqGroup1')
+        .querySelectorAll('button')
+        .forEach(b => {
+            b.addEventListener('click', () => {
+                document.querySelectorAll('#freqGroup1 button')
+                    .forEach(x => x.classList.remove('active'));
+                b.classList.add('active');
+                state.freq1 = b.dataset.freq;
+                renderChart1();
+            });
+        });
+
+    // ── Source toggle (Solar / Wind) ──
+    document.getElementById('btnSolar').addEventListener('click', () => {
+        state.source2 = 'solar';
+        document.getElementById('btnSolar').classList.add('active');
+        document.getElementById('btnWind').classList.remove('active');
+        renderAllChart2();
+        updateTitles();
+    });
+    document.getElementById('btnWind').addEventListener('click', () => {
+        state.source2 = 'wind';
+        document.getElementById('btnWind').classList.add('active');
+        document.getElementById('btnSolar').classList.remove('active');
+        renderAllChart2();
+        updateTitles();
+    });
+
+    // ── Year selector (Card 2) ──
+    document.getElementById('yearSelect').addEventListener('change', e => {
+        state.year2 = e.target.value;
+        renderChart2Daily();
+    });
+}
+
+/* ═══════════════════════════════════════════════════════════
+   ENTRY POINT
+═══════════════════════════════════════════════════════════ */
+(async () => {
+    try {
+        await loadAllData();
+        document.getElementById('loadingMsg').style.display  = 'none';
+        document.getElementById('mainContent').style.display = 'block';
+        buildCountryRadios();
+        setupUI();
+        initCharts();
+        renderAll();
+    } catch (err) {
+        document.getElementById('loadingMsg').textContent =
+            '❌ Failed to load data: ' + err.message;
+        console.error(err);
+    }
+})();
+</script>
+

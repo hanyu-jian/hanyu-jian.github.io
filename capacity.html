@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>Installed Capacity – European Electricity Dashboard</title>
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
     <style>
@@ -107,15 +107,18 @@
 
         /* ── Controls ── */
         .controls {
-            padding: 20px 30px 0 30px;
+            padding: 20px 30px;
             display: flex;
             align-items: center;
             gap: 15px;
             flex-wrap: wrap;
             border-bottom: 1px solid #e6e9ed;
-            padding-bottom: 20px;
         }
-        .controls label { font-weight: 600; font-size: 13px; color: #2c3e50; }
+        .controls label {
+            font-weight: 600;
+            font-size: 13px;
+            color: #2c3e50;
+        }
 
         .year-selector {
             display: flex;
@@ -159,36 +162,39 @@
             color: #2c3e50;
             border-left: 4px solid #2c3e50;
             padding-left: 12px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         }
         .chart-container { width: 100%; height: 500px; }
 
         /* ── Table ── */
         .data-table-section { margin-top: 4px; }
-        .data-table-section h3 {
-            font-size: 18px;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            margin-bottom: 12px;
-            font-weight: 500;
-            color: #2c3e50;
-            border-left: 4px solid #2c3e50;
-            padding-left: 12px;
-        }
+
         table {
             width: 100%;
             border-collapse: collapse;
             font-size: 13px;
-            font-family: monospace;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background: #fff;
             border-radius: 8px;
-            overflow-x: auto;
-            display: block;
         }
-        th, td { border: 1px solid #ddd; padding: 8px 10px; text-align: right; }
-        th { background: #f8f9fc; font-weight: 600; text-align: center; }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px 10px;
+            text-align: right;
+        }
+        th {
+            background: #f8f9fc;
+            font-weight: 600;
+            text-align: center;
+            color: #2c3e50;
+        }
         td:first-child, th:first-child {
-            position: sticky; left: 0;
-            background: #f8f9fc; font-weight: 500;
+            position: sticky;
+            left: 0;
+            background: #f8f9fc;
+            font-weight: 500;
         }
+        tbody tr:hover { background: #f8f9fc; }
 
         /* ── Footer ── */
         .info {
@@ -199,7 +205,10 @@
             border-top: 1px solid #e6e9ed;
             margin-top: 10px;
         }
-        .info a { color: #5a8fc2; text-decoration: none; }
+        .info a {
+            color: #5a8fc2;
+            text-decoration: none;
+        }
         .info a:hover { text-decoration: underline; }
 
         @media (max-width: 700px) {
@@ -208,6 +217,7 @@
             .main-nav-link { padding: 10px 14px; font-size: 13px; }
             .sub-nav { padding: 0 10px; overflow-x: auto; }
             .sub-nav-link { padding: 14px 14px; font-size: 13px; }
+            .controls { padding: 16px; }
             .content { padding: 16px; }
             th, td { padding: 6px 8px; font-size: 12px; }
         }
@@ -222,9 +232,15 @@
             <h1>European Electricity Dashboard</h1>
         </div>
         <div class="main-nav">
-            <a href="price-overview.html" class="main-nav-link">Price</a>
-            <a href="load.html"           class="main-nav-link">Load</a>
-            <a href="capacity.html"       class="main-nav-link active">Installed Capacity</a>
+            <a href="price-overview.html" class="main-nav-link">
+                <span class="nav-icon"></span>Price
+            </a>
+            <a href="load.html" class="main-nav-link">
+                <span class="nav-icon"></span>Load
+            </a>
+            <a href="capacity.html" class="main-nav-link active">
+                <span class="nav-icon"></span>Installed Capacity
+            </a>
         </div>
     </div>
 
@@ -267,7 +283,7 @@
 
     <!-- ══ Footer ══ -->
     <div class="info">
-        Data source: <a href="https://www.mavir.hu/" target="_blank">MAVIR</a> 
+        Data source: <a href="https://www.mavir.hu/" target="_blank">MAVIR</a>
         &nbsp;|&nbsp; Unit: MW
         &nbsp;|&nbsp; Author: Hanyu Jian
     </div>
@@ -334,7 +350,7 @@
 
         myChart.setOption({
             title: {
-                text: `${year} PV Installed Cpacity`,
+                text: `${year} PV Installed Capacity`,
                 left: 'center',
                 top: 0,
                 textStyle: { fontSize: 15, fontWeight: 'normal', color: '#2c3e50' }

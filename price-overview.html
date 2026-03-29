@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>European Electricity Price Dashboard</title>
+    <title>Price Overview – European Electricity Dashboard</title>
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -27,31 +27,59 @@
         .header {
             background: #2c3e50;
             color: white;
-            padding: 20px 30px;
+            padding: 20px 30px 0 30px;
+        }
+        .header-top {
+            padding-bottom: 16px;
+        }
+        .header-top h1 {
+            font-size: 24px;
+            font-weight: 500;
+            letter-spacing: 0.2px;
+        }
+
+        /* ── Main nav (inside header) ── */
+        .main-nav {
+            display: flex;
+            gap: 2px;
+            margin-top: 4px;
+        }
+        .main-nav-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            padding: 10px 24px;
+            font-size: 14px;
+            font-weight: 600;
+            color: rgba(255,255,255,0.65);
+            text-decoration: none;
+            border-radius: 6px 6px 0 0;
+            background: rgba(255,255,255,0.06);
+            border: 1px solid transparent;
+            border-bottom: none;
+            letter-spacing: 0.2px;
+            transition: background 0.2s, color 0.2s, border-color 0.2s;
+            white-space: nowrap;
             position: relative;
+            top: 1px;
         }
-        .header h1 { font-size: 24px; font-weight: 500; }
-        .header p  { font-size: 14px; opacity: 0.9; margin-top: 6px; }
+        .main-nav-link:hover {
+            color: rgba(255,255,255,0.95);
+            background: rgba(255,255,255,0.14);
+        }
+        .main-nav-link.active {
+            color: #2c3e50;
+            background: #f8f9fa;
+            border-color: #e6e9ed;
+            border-bottom-color: #f8f9fa;
+        }
 
-        .nav-links {
-            position: absolute; top: 20px; right: 30px;
-            display: flex; gap: 16px;
-        }
-        .nav-link {
-            color: white; text-decoration: none;
-            padding: 6px 12px; border-radius: 20px;
-            background: rgba(255,255,255,0.2);
-            transition: 0.2s; font-size: 14px; font-weight: 500;
-        }
-        .nav-link:hover, .nav-link.active { background: rgba(255,255,255,0.4); }
-
-        /* ── Sub-nav (Price Overview / Capture Prices) ── */
+        /* ── Sub-nav ── */
         .sub-nav {
             background: #f8f9fa;
             border-bottom: 2px solid #e6e9ed;
             padding: 0 30px;
             display: flex;
-            gap: 0;
         }
         .sub-nav-link {
             display: inline-block;
@@ -63,6 +91,7 @@
             border-bottom: 3px solid transparent;
             margin-bottom: -2px;
             transition: color 0.2s, border-color 0.2s;
+            white-space: nowrap;
             cursor: pointer;
         }
         .sub-nav-link:hover { color: #2c3e50; }
@@ -70,10 +99,6 @@
             color: #2c3e50;
             border-bottom-color: #2c3e50;
         }
-
-        /* ── Tab panels ── */
-        .tab-panel { display: none; }
-        .tab-panel.active { display: block; }
 
         /* ── Controls bar ── */
         .controls {
@@ -144,17 +169,6 @@
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         }
 
-        /* ── Buttons ── */
-        .btn-primary {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            height: 36px; padding: 0 20px;
-            background: #2c3e50; color: white;
-            border: none; border-radius: 6px;
-            font-size: 14px; cursor: pointer; transition: background 0.2s;
-        }
-        .btn-primary:hover    { background: #1e2b38; }
-        .btn-primary:disabled { opacity: 0.5; cursor: default; }
-
         /* ── Chart grid ── */
         .chart-grid {
             display: grid; grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
@@ -207,16 +221,28 @@
         .loading {
             text-align: center; padding: 40px 20px; color: #666; font-size: 15px;
         }
+
+        /* ── Footer ── */
         .info {
             padding: 12px 30px 20px;
             font-size: 13px; color: #6c757d;
-            text-align: center; border-top: 1px solid #e6e9ed; margin-top: 10px;
+            text-align: center;
+            border-top: 1px solid #e6e9ed;
+            margin-top: 10px;
         }
+        .info a {
+            color: #5a8fc2;
+            text-decoration: none;
+        }
+        .info a:hover { text-decoration: underline; }
 
         /* ── Responsive ── */
         @media (max-width: 700px) {
-            .nav-links { position: static; margin-top: 10px; justify-content: center; }
-            .header { text-align: center; }
+            .header { padding: 16px 16px 0 16px; }
+            .header-top h1 { font-size: 20px; }
+            .main-nav-link { padding: 10px 14px; font-size: 13px; }
+            .sub-nav { padding: 0 10px; overflow-x: auto; }
+            .sub-nav-link { padding: 14px 14px; font-size: 13px; }
         }
         @media (max-width: 900px) {
             .chart-grid { grid-template-columns: 1fr; }
@@ -225,7 +251,6 @@
             .country-select-btn { width: 100%; }
             .country-dropdown { min-width: 100%; }
             .dual-panel { flex-direction: column; }
-            .sub-nav { padding: 0 16px; }
         }
     </style>
 </head>
@@ -234,102 +259,99 @@
 
     <!-- ══ Top header ══ -->
     <div class="header">
-        <h1>📈 European Electricity Day-Ahead Prices</h1>
-        <p>Data source: ENTSO-E | Author: Hanyu Jian</p>
-        <div class="nav-links">
-            <a href="price.html"  class="nav-link active">Price Analysis</a>
-            <a href="load.html"   class="nav-link">Load Analysis</a>
+        <div class="header-top">
+            <h1>European Electricity Dashboard</h1>
+        </div>
+        <div class="main-nav">
+            <a href="price.html"    class="main-nav-link active">Price</a>
+            <a href="load.html"     class="main-nav-link">Load</a>
+            <a href="capacity.html" class="main-nav-link">Installed Capacity</a>
         </div>
     </div>
 
     <!-- ══ Sub-navigation ══ -->
     <div class="sub-nav">
-        <a class="sub-nav-link active" data-tab="overview">Price Overview</a>
-        <a class="sub-nav-link"          href="capture-price.html">Capture Prices</a>
-        <a class="sub-nav-link"          href="price-spread.html">Price Spread</a>
+        <a class="sub-nav-link active"  href="price.html">Price Overview</a>
+        <a class="sub-nav-link"         href="capture-price.html">Capture Prices</a>
+        <a class="sub-nav-link"         href="price-spread.html">Price Spread</a>
     </div>
 
-    <!-- ══ TAB: Price Overview ══ -->
-    <div class="tab-panel active" id="tab-overview">
-
-        <!-- Controls -->
-        <div class="controls">
-            <div class="control-group">
-                <label>📅 Year</label>
-                <select id="yearSelect" disabled></select>
-            </div>
-            <div class="control-group">
-                <label>🌍 Countries</label>
-                <div class="country-select-wrapper">
-                    <div class="country-select-btn" id="countrySelectBtn">
-                        <span id="countrySelectText">Select...</span>
+    <!-- ══ Controls ══ -->
+    <div class="controls">
+        <div class="control-group">
+            <label>📅 Year</label>
+            <select id="yearSelect" disabled></select>
+        </div>
+        <div class="control-group">
+            <label>🌍 Countries</label>
+            <div class="country-select-wrapper">
+                <div class="country-select-btn" id="countrySelectBtn">
+                    <span id="countrySelectText">Select...</span>
+                </div>
+                <div class="country-dropdown" id="countryDropdown">
+                    <div class="country-dropdown-header">
+                        <button id="selectAllBtn" class="btn-small" disabled>Select All</button>
+                        <button id="clearAllBtn"  class="btn-small" disabled>Clear All</button>
                     </div>
-                    <div class="country-dropdown" id="countryDropdown">
-                        <div class="country-dropdown-header">
-                            <button id="selectAllBtn" class="btn-small" disabled>Select All</button>
-                            <button id="clearAllBtn"  class="btn-small" disabled>Clear All</button>
-                        </div>
-                        <div id="countryCheckboxes" class="country-list"></div>
-                    </div>
+                    <div id="countryCheckboxes" class="country-list"></div>
                 </div>
             </div>
-            <div class="control-group">
-                <label>&nbsp;</label>
-                <button id="refreshBtn" class="btn-primary" disabled>Refresh</button>
-            </div>
         </div>
+    </div>
 
-        <div id="loadingMsg" class="loading">Loading price data...</div>
+    <div id="loadingMsg" class="loading">Loading price data...</div>
 
-        <!-- Charts -->
-        <div class="chart-grid" style="display:none;" id="chartGrid">
-            <div class="chart-card">
-                <h3>Hourly Price Trends (multiple countries)</h3>
-                <div id="hourlyChart" class="chart-container"></div>
-            </div>
-            <div class="chart-card">
-                <h3>Monthly Average Price (multiple countries)</h3>
-                <div id="monthlyChart" class="chart-container"></div>
-            </div>
-            <div class="chart-card full-width-card">
-                <h3>Hourly Average Price (selected month) &amp; European Map</h3>
-                <div class="dual-panel">
-                    <div>
-                        <div class="card-control">
-                            <label>📆 Month:</label>
-                            <select id="monthSelect" disabled>
-                                <option value="">-- Select month --</option>
-                                <option value="1">January</option>
-                                <option value="2">February</option>
-                                <option value="3">March</option>
-                                <option value="4">April</option>
-                                <option value="5">May</option>
-                                <option value="6">June</option>
-                                <option value="7">July</option>
-                                <option value="8">August</option>
-                                <option value="9">September</option>
-                                <option value="10">October</option>
-                                <option value="11">November</option>
-                                <option value="12">December</option>
-                            </select>
-                        </div>
-                        <div id="hourlyAvgChart" style="height:400px;"></div>
+    <!-- ══ Charts ══ -->
+    <div class="chart-grid" style="display:none;" id="chartGrid">
+        <div class="chart-card">
+            <h3>Hourly Price Trends (multiple countries)</h3>
+            <div id="hourlyChart" class="chart-container"></div>
+        </div>
+        <div class="chart-card">
+            <h3>Monthly Average Price (multiple countries)</h3>
+            <div id="monthlyChart" class="chart-container"></div>
+        </div>
+        <div class="chart-card full-width-card">
+            <h3>Hourly Average Price (selected month) &amp; European Map</h3>
+            <div class="dual-panel">
+                <div>
+                    <div class="card-control">
+                        <label>📆 Month:</label>
+                        <select id="monthSelect" disabled>
+                            <option value="">-- Select month --</option>
+                            <option value="1">January</option>
+                            <option value="2">February</option>
+                            <option value="3">March</option>
+                            <option value="4">April</option>
+                            <option value="5">May</option>
+                            <option value="6">June</option>
+                            <option value="7">July</option>
+                            <option value="8">August</option>
+                            <option value="9">September</option>
+                            <option value="10">October</option>
+                            <option value="11">November</option>
+                            <option value="12">December</option>
+                        </select>
                     </div>
-                    <div style="position:relative;">
-                        <div id="europeMap"></div>
-                    </div>
+                    <div id="hourlyAvgChart" style="height:400px;"></div>
+                </div>
+                <div style="position:relative;">
+                    <div id="europeMap"></div>
                 </div>
             </div>
-            <div class="chart-card">
-                <h3>Price Difference (HU - DE)</h3>
-                <div id="diffChart" class="chart-container"></div>
-            </div>
         </div>
+        <div class="chart-card">
+            <h3>Price Difference (HU - DE)</h3>
+            <div id="diffChart" class="chart-container"></div>
+        </div>
+    </div>
 
-        <div class="info">
-            📈 Price Overview | Unit: €/MWh | Map color reflects monthly average price.
-        </div>
-    </div><!-- /tab-overview -->
+    <!-- ══ Footer ══ -->
+    <div class="info">
+        Data source: <a href="https://www.entsoe.eu/" target="_blank">ENTSO-E Transparency Platform</a>
+        &nbsp;|&nbsp; Unit: €/MWh
+        &nbsp;|&nbsp; Author: Hanyu Jian
+    </div>
 
 </div><!-- /container -->
 
@@ -431,10 +453,10 @@
         const all     = [...document.querySelectorAll('#countryCheckboxes input[type="checkbox"]')];
         const checked = all.filter(cb => cb.checked);
         const text    = document.getElementById('countrySelectText');
-        if (!checked.length)            text.textContent = 'None selected';
+        if (!checked.length)                    text.textContent = 'None selected';
         else if (checked.length === all.length) text.textContent = `All (${all.length})`;
-        else if (checked.length <= 3)   text.textContent = checked.map(cb => cb.value).join(', ');
-        else                            text.textContent = `${checked.length} selected`;
+        else if (checked.length <= 3)           text.textContent = checked.map(cb => cb.value).join(', ');
+        else                                    text.textContent = `${checked.length} selected`;
     }
 
     function getSelectedCountries() {
@@ -476,7 +498,6 @@
             fullData.years.map(y => `<option value="${y}">${y}</option>`).join('');
         yearSelect.disabled  = false;
         monthSelect.disabled = false;
-        document.getElementById('refreshBtn').disabled = false;
         if (fullData.years.length) yearSelect.value = fullData.years[0];
         monthSelect.value = '1';
     }
@@ -656,8 +677,8 @@
 
     /* ── Refresh ── */
     function refresh() {
-        const year     = parseInt(document.getElementById('yearSelect').value);
-        const month    = parseInt(document.getElementById('monthSelect').value);
+        const year      = parseInt(document.getElementById('yearSelect').value);
+        const month     = parseInt(document.getElementById('monthSelect').value);
         const countries = getSelectedCountries();
         if (!year) return;
         drawHourly(year, countries);
@@ -671,8 +692,8 @@
     async function init() {
         const ok = await fetchData();
         if (!ok) return;
-        document.getElementById('loadingMsg').style.display  = 'none';
-        document.getElementById('chartGrid').style.display   = 'grid';
+        document.getElementById('loadingMsg').style.display = 'none';
+        document.getElementById('chartGrid').style.display  = 'grid';
 
         hourlyChart    = echarts.init(document.getElementById('hourlyChart'));
         monthlyChart   = echarts.init(document.getElementById('monthlyChart'));
@@ -699,7 +720,7 @@
         document.getElementById('clearAllBtn').addEventListener('click',  clearAll);
         document.getElementById('yearSelect').addEventListener('change',  refresh);
         document.getElementById('monthSelect').addEventListener('change', refresh);
-        document.getElementById('refreshBtn').addEventListener('click',   refresh);
+        // ↑ refreshBtn listener removed
     }
 
     init();

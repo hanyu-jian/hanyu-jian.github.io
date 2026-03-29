@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Installed Capacity – European Electricity Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f0f2f5;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        /* ── Top header ── */
+        .header {
+            background: #2c3e50;
+            color: white;
+            padding: 20px 30px 0 30px;
+        }
+        .header-top { padding-bottom: 16px; }
+        .header-top h1 { font-size: 24px; font-weight: 500; letter-spacing: 0.2px; }
+
+        /* ── Main nav ── */
+        .main-nav { display: flex; gap: 2px; margin-top: 4px; }
+        .main-nav-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            padding: 10px 24px;
+            font-size: 14px;
+            font-weight: 600;
+            color: rgba(255,255,255,0.65);
+            text-decoration: none;
+            border-radius: 6px 6px 0 0;
+            background: rgba(255,255,255,0.06);
+            border: 1px solid transparent;
+            border-bottom: none;
+            letter-spacing: 0.2px;
+            transition: background 0.2s, color 0.2s, border-color 0.2s;
+            white-space: nowrap;
+            position: relative;
+            top: 1px;
+        }
+        .main-nav-link:hover {
+            color: rgba(255,255,255,0.95);
+            background: rgba(255,255,255,0.14);
+        }
+        .main-nav-link.active {
+            color: #2c3e50;
+            background: #f8f9fa;
+            border-color: #e6e9ed;
+            border-bottom-color: #f8f9fa;
+        }
+
+        /* ── Sub-nav ── */
+        .sub-nav {
+            background: #f8f9fa;
+            border-bottom: 2px solid #e6e9ed;
+            padding: 0 30px;
+            display: flex;
+        }
+        .sub-nav-link {
+            display: inline-block;
+            padding: 14px 22px;
+            font-size: 14px;
+            font-weight: 600;
+            color: #6c757d;
+            text-decoration: none;
+            border-bottom: 3px solid transparent;
+            margin-bottom: -2px;
+            transition: color 0.2s, border-color 0.2s;
+            white-space: nowrap;
+        }
+        .sub-nav-link:hover { color: #2c3e50; }
+        .sub-nav-link.active {
+            color: #2c3e50;
+            border-bottom-color: #2c3e50;
+        }
+
+        /* ── Controls ── */
+        .controls {
+            padding: 20px 30px 0 30px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            flex-wrap: wrap;
+            border-bottom: 1px solid #e6e9ed;
+            padding-bottom: 20px;
+        }
+        .controls label { font-weight: 600; font-size: 13px; color: #2c3e50; }
+
+        .year-selector {
+            display: flex;
+            gap: 8px;
+            background: #f8f9fc;
+            padding: 6px 12px;
+            border-radius: 40px;
+            border: 1px solid #ddd;
+        }
+        .year-selector button {
+            background: none;
+            border: none;
+            padding: 6px 16px;
+            border-radius: 30px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: 0.2s;
+            font-weight: 500;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        .year-selector button.active {
+            background: #2c3e50;
+            color: white;
+        }
+        .year-selector button:hover:not(.active) { background: #e9ecef; }
+
+        /* ── Content ── */
+        .content { padding: 24px 30px 30px 30px; }
+
+        .chart-card {
+            background: #fff;
+            border-radius: 8px;
+            border: 1px solid #e6e9ed;
+            padding: 16px;
+            margin-bottom: 24px;
+        }
+        .chart-card h3 {
+            font-size: 18px;
+            margin-bottom: 12px;
+            font-weight: 500;
+            color: #2c3e50;
+            border-left: 4px solid #2c3e50;
+            padding-left: 12px;
+        }
+        .chart-container { width: 100%; height: 500px; }
+
+        /* ── Table ── */
+        .data-table-section { margin-top: 4px; }
+        .data-table-section h3 {
+            font-size: 18px;
+            margin-bottom: 12px;
+            font-weight: 500;
+            color: #2c3e50;
+            border-left: 4px solid #2c3e50;
+            padding-left: 12px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+            font-family: monospace;
+            background: #fff;
+            border-radius: 8px;
+            overflow-x: auto;
+            display: block;
+        }
+        th, td { border: 1px solid #ddd; padding: 8px 10px; text-align: right; }
+        th { background: #f8f9fc; font-weight: 600; text-align: center; }
+        td:first-child, th:first-child {
+            position: sticky; left: 0;
+            background: #f8f9fc; font-weight: 500;
+        }
+
+        /* ── Footer ── */
+        .info {
+            padding: 12px 30px 20px;
+            font-size: 13px;
+            color: #6c757d;
+            text-align: center;
+            border-top: 1px solid #e6e9ed;
+            margin-top: 10px;
+        }
+        .info a { color: #5a8fc2; text-decoration: none; }
+        .info a:hover { text-decoration: underline; }
+
+        @media (max-width: 700px) {
+            .header { padding: 16px 16px 0 16px; }
+            .header-top h1 { font-size: 20px; }
+            .main-nav-link { padding: 10px 14px; font-size: 13px; }
+            .sub-nav { padding: 0 10px; overflow-x: auto; }
+            .sub-nav-link { padding: 14px 14px; font-size: 13px; }
+            .content { padding: 16px; }
+            th, td { padding: 6px 8px; font-size: 12px; }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+
+    <!-- ══ Top header ══ -->
+    <div class="header">
+        <div class="header-top">
+            <h1>European Electricity Dashboard</h1>
+        </div>
+        <div class="main-nav">
+            <a href="price-overview.html" class="main-nav-link">Price</a>
+            <a href="load.html"           class="main-nav-link">Load</a>
+            <a href="capacity.html"       class="main-nav-link active">Installed Capacity</a>
+        </div>
+    </div>
+
+    <!-- ══ Sub-navigation ══ -->
+    <div class="sub-nav">
+        <a class="sub-nav-link active" href="capacity.html">Hungary Solar PV</a>
+    </div>
+
+    <!-- ══ Controls ══ -->
+    <div class="controls">
+        <label>📅 Year</label>
+        <div class="year-selector" id="yearSelector">
+            <button data-year="2024">2024</button>
+            <button data-year="2025">2025</button>
+            <button data-year="2026">2026</button>
+        </div>
+    </div>
+
+    <!-- ══ Content ══ -->
+    <div class="content">
+
+        <!-- Chart -->
+        <div class="chart-card">
+            <h3>Monthly Installed Capacity by Category</h3>
+            <div id="monthlyChart" class="chart-container"></div>
+        </div>
+
+        <!-- Table -->
+        <div class="chart-card data-table-section">
+            <h3>Raw Data Table (Unit: MW)</h3>
+            <div style="overflow-x: auto;">
+                <table id="data-table">
+                    <thead id="table-head"></thead>
+                    <tbody id="table-body"></tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- ══ Footer ══ -->
+    <div class="info">
+        Data source: <a href="https://www.mavir.hu/" target="_blank">MAVIR</a> / 
+        <a href="https://mavir.hu/web/mavir-en" target="_blank">MAVIR</a>
+        &nbsp;|&nbsp; Unit: MW
+        &nbsp;|&nbsp; Author: Hanyu Jian
+    </div>
+
+</div><!-- /container -->
+
+<script>
+    // ── Raw data: [year, month, ≤50kW, >50kW, PPOP] ──
+    const rawData = [
+        // 2024
+        [2024,1,2340.9,3331.6,null],[2024,2,2362.2,3379.3,null],[2024,3,2416.3,3478.0,null],
+        [2024,4,2441.2,3496.9,null],[2024,5,2482.2,3496.9,436.0],[2024,6,2513.8,3568.2,519.8],
+        [2024,7,2541.5,3678.2,537.7],[2024,8,2569.6,3688.6,626.3],[2024,9,2595.8,3889.1,656.4],
+        [2024,10,2628.9,3966.9,656.4],[2024,11,2651.1,3994.3,656.4],[2024,12,2651.1,4030.2,656.4],
+        // 2025
+        [2025,1,2691.7,4094.9,861.2],[2025,2,2712.1,4204.3,730.2],[2025,3,2732.8,4389.2,537.1],
+        [2025,4,2748.6,4441.9,552.6],[2025,5,2766.5,4582.4,558.2],[2025,6,2794.5,4608.6,600.5],
+        [2025,7,2803.1,4641.7,600.5],[2025,8,2816.4,4657.7,625.1],[2025,9,2867.4,4692.7,673.8],
+        [2025,10,2867.4,4692.7,673.8],[2025,11,2867.4,4692.7,673.8],[2025,12,2899.3,4785.5,688.3],
+        // 2026
+        [2026,1,2938.7,4785.5,701.0],[2026,2,2938.7,4802.5,701.0]
+    ];
+
+    const years      = [2024, 2025, 2026];
+    const categories = ['≤50 kW', '>50 kW', 'PPOP'];
+    const months     = Array.from({length: 12}, (_, i) => i + 1);
+    const monthLabels = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+    // Organise data: year → month → { category: value }
+    let dataByYear = {};
+    years.forEach(y => {
+        dataByYear[y] = {};
+        months.forEach(m => {
+            dataByYear[y][m] = { '≤50 kW': 0, '>50 kW': 0, 'PPOP': 0 };
+        });
+    });
+    rawData.forEach(item => {
+        const [year, month, v1, v2, v3] = item;
+        if (dataByYear[year]?.[month]) {
+            dataByYear[year][month]['≤50 kW'] = v1 ?? 0;
+            dataByYear[year][month]['>50 kW']  = v2 ?? 0;
+            dataByYear[year][month]['PPOP']    = v3 ?? 0;
+        }
+    });
+
+    let currentYear = 2024;
+    const chartDom  = document.getElementById('monthlyChart');
+    const myChart   = echarts.init(chartDom);
+
+    function updateChart(year) {
+        const monthData = months.map(m => dataByYear[year][m]);
+
+        const series = categories.map(cat => ({
+            name: cat,
+            type: 'bar',
+            stack: 'total',
+            label: {
+                show: true,
+                position: 'inside',
+                formatter: p => p.value > 0 ? p.value.toFixed(0) : ''
+            },
+            data: monthData.map(m => m[cat])
+        }));
+
+        myChart.setOption({
+            title: {
+                text: `${year} – Monthly Installed Capacity (Stacked by Category)`,
+                left: 'center',
+                top: 0,
+                textStyle: { fontSize: 15, fontWeight: 'normal', color: '#2c3e50' }
+            },
+            tooltip: {
+                trigger: 'axis',
+                axisPointer: { type: 'shadow' },
+                formatter(params) {
+                    let res = `<b>${params[0].axisValue}</b><br/>`;
+                    let total = 0;
+                    params.forEach(p => {
+                        res += `${p.marker} ${p.seriesName}: ${p.value.toFixed(1)} MW<br/>`;
+                        total += p.value;
+                    });
+                    res += `<strong>Total: ${total.toFixed(1)} MW</strong>`;
+                    return res;
+                }
+            },
+            legend: { data: categories, left: 'left', top: 30 },
+            grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true, top: 80 },
+            xAxis: {
+                type: 'category',
+                data: monthLabels,
+                axisLabel: { fontSize: 12 }
+            },
+            yAxis: {
+                type: 'value',
+                name: 'Installed Capacity (MW)',
+                nameLocation: 'middle',
+                nameGap: 55
+            },
+            series,
+            color: ['#2c7bb6', '#fdae61', '#abd9e9']
+        }, true);
+    }
+
+    // Initial render
+    updateChart(currentYear);
+
+    // Year-selector interaction
+    const yearBtns = document.querySelectorAll('.year-selector button');
+    yearBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            const year = parseInt(btn.dataset.year);
+            if (year === currentYear) return;
+            currentYear = year;
+            yearBtns.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            updateChart(currentYear);
+        });
+    });
+    document.querySelector('.year-selector button[data-year="2024"]').classList.add('active');
+
+    // Resize
+    window.addEventListener('resize', () => myChart.resize());
+
+    // ── Build full raw-data table ──
+    function buildTable() {
+        const thead = document.getElementById('table-head');
+        const tbody = document.getElementById('table-body');
+
+        thead.innerHTML = `<tr>${
+            ['Year','Month','≤50 kW','&gt;50 kW','PPOP']
+                .map(h => `<th>${h}</th>`).join('')
+        }</tr>`;
+
+        const sorted = [...rawData].sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+        tbody.innerHTML = sorted.map(([year, month, v1, v2, v3]) => `
+            <tr>
+                <td>${year}</td>
+                <td>${monthLabels[month - 1]}</td>
+                <td>${v1 !== null ? v1.toFixed(1) : '—'}</td>
+                <td>${v2 !== null ? v2.toFixed(1) : '—'}</td>
+                <td>${v3 !== null ? v3.toFixed(1) : '—'}</td>
+            </tr>`).join('');
+    }
+    buildTable();
+</script>
+</body>
+</html>

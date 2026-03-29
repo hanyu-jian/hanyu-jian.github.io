@@ -20,67 +20,25 @@
             box-shadow: 0 4px 12px rgba(0,0,0,0.1);
             overflow: hidden;
         }
-
-        /* ── Top header ── */
         .header {
             background: #2c3e50;
             color: white;
-            padding: 20px 30px 0 30px;
-        }
-        .header-top {
-            padding-bottom: 16px;
-        }
-        .header-top h1 {
-            font-size: 24px;
-            font-weight: 500;
-            letter-spacing: 0.2px;
-        }
-
-        /* ── Main nav ── */
-        .main-nav {
-            display: flex;
-            gap: 2px;
-            margin-top: 4px;
-        }
-        .main-nav-link {
-            display: inline-flex;
-            align-items: center;
-            gap: 7px;
-            padding: 10px 24px;
-            font-size: 14px;
-            font-weight: 600;
-            color: rgba(255,255,255,0.65);
-            text-decoration: none;
-            border-radius: 6px 6px 0 0;
-            background: rgba(255,255,255,0.06);
-            border: 1px solid transparent;
-            border-bottom: none;
-            letter-spacing: 0.2px;
-            transition: background 0.2s, color 0.2s, border-color 0.2s;
-            white-space: nowrap;
+            padding: 20px 30px;
             position: relative;
-            top: 1px;
         }
-        .main-nav-link .nav-icon {
-            font-size: 15px;
-            line-height: 1;
-            opacity: 0.85;
+        .header h1 { font-size: 24px; font-weight: 500; }
+        .header p  { font-size: 14px; opacity: 0.9; margin-top: 6px; }
+        .nav-links {
+            position: absolute; top: 20px; right: 30px;
+            display: flex; gap: 16px;
         }
-        .main-nav-link:hover {
-            color: rgba(255,255,255,0.95);
-            background: rgba(255,255,255,0.14);
+        .nav-link {
+            color: white; text-decoration: none;
+            padding: 6px 12px; border-radius: 20px;
+            background: rgba(255,255,255,0.2);
+            transition: 0.2s; font-size: 14px; font-weight: 500;
         }
-        .main-nav-link.active {
-            color: #2c3e50;
-            background: #f8f9fa;
-            border-color: #e6e9ed;
-            border-bottom-color: #f8f9fa;
-        }
-        .main-nav-link.active .nav-icon {
-            opacity: 1;
-        }
-
-        /* ── Sub-nav ── */
+        .nav-link:hover, .nav-link.active { background: rgba(255,255,255,0.4); }
         .sub-nav {
             background: #f8f9fa;
             border-bottom: 2px solid #e6e9ed;
@@ -90,22 +48,16 @@
         .sub-nav-link {
             display: inline-block;
             padding: 14px 22px;
-            font-size: 14px;
-            font-weight: 600;
+            font-size: 14px; font-weight: 600;
             color: #6c757d;
             text-decoration: none;
             border-bottom: 3px solid transparent;
             margin-bottom: -2px;
             transition: color 0.2s, border-color 0.2s;
-            white-space: nowrap;
+            cursor: pointer;
         }
         .sub-nav-link:hover { color: #2c3e50; }
-        .sub-nav-link.active {
-            color: #2c3e50;
-            border-bottom-color: #2c3e50;
-        }
-
-        /* ── Controls ── */
+        .sub-nav-link.active { color: #2c3e50; border-bottom-color: #2c3e50; }
         .controls {
             padding: 20px 30px;
             display: flex; flex-wrap: wrap; gap: 24px;
@@ -188,8 +140,6 @@
         .source-btn:hover { background: #f0f2f5; }
         .source-btn.solar.active { background: #fff8e1; color: #e65100; border-color: #e65100; }
         .source-btn.wind.active  { background: #e3f2fd; color: #0277bd; border-color: #0277bd; }
-
-        /* ── Chart grid ── */
         .chart-grid {
             display: flex; flex-direction: column;
             gap: 24px; padding: 24px 30px;
@@ -227,35 +177,21 @@
             content: ''; display: block; width: 3px; height: 14px;
             background: #2c3e50; border-radius: 2px;
         }
-
-        /* ── Loading ── */
-        .loading {
-            text-align: center; padding: 40px 20px; color: #666; font-size: 15px;
-        }
-
-        /* ── Footer ── */
         .info {
             padding: 12px 30px 20px;
             font-size: 13px; color: #6c757d;
-            text-align: center;
-            border-top: 1px solid #e6e9ed;
-            margin-top: 10px;
+            text-align: center; border-top: 1px solid #e6e9ed; margin-top: 10px;
         }
-        .info a {
-            color: #5a8fc2;
-            text-decoration: none;
+        .loading {
+            text-align: center; padding: 40px 20px; color: #666; font-size: 15px;
         }
-        .info a:hover { text-decoration: underline; }
-
         @media (max-width: 700px) {
-            .header { padding: 16px 16px 0 16px; }
-            .header-top h1 { font-size: 20px; }
-            .main-nav-link { padding: 10px 14px; font-size: 13px; }
-            .sub-nav { padding: 0 10px; overflow-x: auto; }
-            .sub-nav-link { padding: 14px 14px; font-size: 13px; }
+            .nav-links { position: static; margin-top: 10px; justify-content: center; }
+            .header { text-align: center; }
         }
         @media (max-width: 900px) {
             .controls { flex-direction: column; align-items: stretch; }
+            .sub-nav { padding: 0 16px; }
             .chart-grid { padding: 16px; }
         }
     </style>
@@ -263,35 +199,23 @@
 <body>
 <div class="container">
 
-    <!-- ══ Top header ══ -->
     <div class="header">
-        <div class="header-top">
-            <h1>European Electricity Dashboard</h1>
-        </div>
-        <div class="main-nav">
-            <a href="price-overview.html" class="main-nav-link active">
-                <span class="nav-icon">Price</span>
-            </a>
-            <a href="load.html" class="main-nav-link">
-                <span class="nav-icon">Load</span>
-            </a>
-            <a href="capacity.html" class="main-nav-link">
-                <span class="nav-icon">Installed Capacity</span>
-            </a>
+        <h1>📈 European Electricity Day-Ahead Prices</h1>
+        <p>Data source: ENTSO-E | Author: Hanyu Jian</p>
+        <div class="nav-links">
+            <a href="price-overview.html" class="nav-link active">Price Analysis</a>
+            <a href="load.html"  class="nav-link">Load Analysis</a>
         </div>
     </div>
 
-    <!-- ══ Sub-navigation ══ -->
     <div class="sub-nav">
         <a class="sub-nav-link" href="price-overview.html">Price Overview</a>
-        <a class="sub-nav-link active" href="capture-price.html">Capture Prices</a>
+        <a class="sub-nav-link active">Capture Prices</a>
         <a class="sub-nav-link" href="price-spread.html">Price Spread</a>
     </div>
 
-    <!-- ══ Loading ══ -->
     <div id="loadingMsg" class="loading">⏳ Loading data...</div>
 
-    <!-- ══ Main content ══ -->
     <div id="mainContent" style="display:none;">
 
         <div class="controls">
@@ -351,31 +275,49 @@
                     </div>
                 </div>
 
-                <div class="card-section-title">Daily</div>
+                <!-- Daily: full width -->
+                <div class="card-section-title">
+                    Daily 
+                    <span style="font-weight:400;color:#aaa;font-size:11px;"> </span>
+                </div>
                 <div id="chart2Daily" style="width:100%; height:480px;"></div>
 
                 <hr class="card-divider">
 
+                <!-- Weekly (left) + Monthly (right) -->
                 <div style="display:flex; gap:16px; align-items:flex-start;">
                     <div style="flex:1; min-width:0;">
-                        <div class="card-section-title">Weekly</div>
+                        <div class="card-section-title">
+                            Weekly 
+                            <span style="font-weight:400;color:#aaa;font-size:11px;"> </span>
+                        </div>
                         <div id="chart2Weekly" style="width:100%; height:340px;"></div>
                     </div>
                     <div style="flex:1; min-width:0;">
-                        <div class="card-section-title">Monthly</div>
+                        <div class="card-section-title">
+                            Monthly 
+                            <span style="font-weight:400;color:#aaa;font-size:11px;"> </span>
+                        </div>
                         <div id="chart2Monthly" style="width:100%; height:340px;"></div>
                     </div>
                 </div>
 
                 <hr class="card-divider">
 
+                <!-- Quarterly (left) + Yearly (right) -->
                 <div style="display:flex; gap:16px; align-items:flex-start;">
                     <div style="flex:1; min-width:0;">
-                        <div class="card-section-title">Quarterly</div>
+                        <div class="card-section-title">
+                            Quarterly 
+                            <span style="font-weight:400;color:#aaa;font-size:11px;"> </span>
+                        </div>
                         <div id="chart2Quarterly" style="width:100%; height:300px;"></div>
                     </div>
                     <div style="flex:1; min-width:0;">
-                        <div class="card-section-title">Yearly</div>
+                        <div class="card-section-title">
+                            Yearly 
+                            <span style="font-weight:400;color:#aaa;font-size:11px;"> </span>
+                        </div>
                         <div id="chart2Yearly" style="width:100%; height:300px;"></div>
                     </div>
                 </div>
@@ -384,13 +326,9 @@
 
         </div><!-- /chart-grid -->
 
-        <!-- ══ Footer ══ -->
         <div class="info">
-            Data source: <a href="https://www.entsoe.eu/" target="_blank">ENTSO-E Transparency Platform</a>
-            &nbsp;|&nbsp; Unit: €/MWh
-            &nbsp;|&nbsp; Author: Hanyu Jian
+            📊 Capture Prices | Unit: €/MWh | Source: ENTSO-E 
         </div>
-
     </div><!-- /mainContent -->
 
 </div><!-- /container -->
@@ -946,97 +884,98 @@ function buildCountryRadios() {
     COUNTRIES.forEach(c => {
         const item  = document.createElement('div');
         item.className = 'country-item';
-
         const radio = document.createElement('input');
-        radio.type  = 'radio';
-        radio.name  = 'countryRad';  
-        radio.value = c.code;
-        radio.id    = `rad_${c.code}`;
-        if (c.code === state.country) radio.checked = true;
-
-        radio.addEventListener('change', () => {
+        radio.type = 'radio'; radio.name = 'countryRadio';
+        radio.value = c.code; radio.id = `cr_${c.code}`;
+        radio.checked = (c.code === state.country);
+        const span = document.createElement('span');
+        span.textContent = c.name;
+        const selectCountry = () => {
             state.country = c.code;
+            radio.checked = true;
             document.getElementById('countrySelectText').textContent = c.name;
             document.getElementById('countryDropdown').classList.remove('show');
             renderAll();
-        });
-
-        const label = document.createElement('label');
-        label.htmlFor     = `rad_${c.code}`;
-        label.textContent = c.name;
-
+        };
+        radio.addEventListener('change', selectCountry);
+        item.addEventListener('click', e => { if (e.target !== radio) selectCountry(); });
         item.appendChild(radio);
-        item.appendChild(label);
+        item.appendChild(span);
         list.appendChild(item);
     });
 }
 
-function setupUI() {
-    // ── Country dropdown toggle ──
-    const btn      = document.getElementById('countrySelectBtn');
-    const dropdown = document.getElementById('countryDropdown');
-
-    btn.addEventListener('click', e => {
-        e.stopPropagation();
-        dropdown.classList.toggle('show');
+function initDropdown() {
+    const btn  = document.getElementById('countrySelectBtn');
+    const drop = document.getElementById('countryDropdown');
+    btn.addEventListener('click', e => { e.stopPropagation(); drop.classList.toggle('show'); });
+    document.addEventListener('click', e => {
+        if (!drop.contains(e.target) && e.target !== btn) drop.classList.remove('show');
     });
-    document.addEventListener('click', () => {
-        dropdown.classList.remove('show');
-    });
+}
 
-    // ── Frequency buttons (Card 1) ──
-    document.getElementById('freqGroup1')
-        .querySelectorAll('button')
-        .forEach(b => {
-            b.addEventListener('click', () => {
-                document.querySelectorAll('#freqGroup1 button')
-                    .forEach(x => x.classList.remove('active'));
-                b.classList.add('active');
-                state.freq1 = b.dataset.freq;
-                renderChart1();
-            });
+function bindFreqGroup1() {
+    document.querySelectorAll('#freqGroup1 button').forEach(btn => {
+        btn.addEventListener('click', () => {
+            state.freq1 = btn.dataset.freq;
+            document.querySelectorAll('#freqGroup1 button')
+                    .forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            renderChart1();
         });
+    });
+}
 
-    // ── Source toggle (Solar / Wind) ──
+function bindSourceToggle() {
     document.getElementById('btnSolar').addEventListener('click', () => {
         state.source2 = 'solar';
         document.getElementById('btnSolar').classList.add('active');
         document.getElementById('btnWind').classList.remove('active');
-        renderAllChart2();
         updateTitles();
+        renderAllChart2();
     });
     document.getElementById('btnWind').addEventListener('click', () => {
         state.source2 = 'wind';
         document.getElementById('btnWind').classList.add('active');
         document.getElementById('btnSolar').classList.remove('active');
-        renderAllChart2();
         updateTitles();
+        renderAllChart2();
     });
+}
 
-    // ── Year selector (Card 2) ──
+function bindYearSelect() {
     document.getElementById('yearSelect').addEventListener('change', e => {
         state.year2 = e.target.value;
-        renderChart2Daily();
+        updateTitles();
+        renderChart2Daily();   // only daily is year-scoped
     });
 }
 
 /* ═══════════════════════════════════════════════════════════
-   ENTRY POINT
+   BOOTSTRAP
 ═══════════════════════════════════════════════════════════ */
-(async () => {
+async function main() {
     try {
         await loadAllData();
-        document.getElementById('loadingMsg').style.display  = 'none';
-        document.getElementById('mainContent').style.display = 'block';
-        buildCountryRadios();
-        setupUI();
-        initCharts();
-        renderAll();
-    } catch (err) {
+    } catch(e) {
         document.getElementById('loadingMsg').textContent =
-            '❌ Failed to load data: ' + err.message;
-        console.error(err);
+            '⚠ Failed to load data. ';
+        console.error(e);
+        return;
     }
-})();
-</script>
+    document.getElementById('loadingMsg').style.display = 'none';
+    document.getElementById('mainContent').style.display = 'block';
 
+    buildCountryRadios();
+    initDropdown();
+    bindFreqGroup1();
+    bindSourceToggle();
+    bindYearSelect();
+    initCharts();
+    renderAll();
+}
+
+main();
+</script>
+</body>
+</html>

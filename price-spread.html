@@ -24,49 +24,59 @@
         .header {
             background: #2c3e50;
             color: white;
-            padding: 16px 30px 0 30px;
+            padding: 20px 30px 0 30px;
         }
         .header-top {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            padding-bottom: 14px;
+            padding-bottom: 16px;
         }
         .header-top h1 {
-            font-size: 20px;
-            font-weight: 700;
-            letter-spacing: 0.3px;
-            white-space: nowrap;
+            font-size: 24px;
+            font-weight: 500;
+            letter-spacing: 0.2px;
         }
 
         /* ── Main nav (inside header) ── */
         .main-nav {
             display: flex;
-            gap: 4px;
-            margin-top: 2px;
-        }
-        .main-nav-item {
-            position: relative;
+            gap: 2px;
+            margin-top: 4px;
         }
         .main-nav-link {
-            display: inline-block;
-            padding: 10px 22px;
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            padding: 10px 24px;
             font-size: 14px;
             font-weight: 600;
-            color: rgba(255,255,255,0.75);
+            color: rgba(255,255,255,0.65);
             text-decoration: none;
-            border-radius: 8px 8px 0 0;
-            background: transparent;
-            transition: background 0.2s, color 0.2s;
+            border-radius: 6px 6px 0 0;
+            background: rgba(255,255,255,0.06);
+            border: 1px solid transparent;
+            border-bottom: none;
+            letter-spacing: 0.2px;
+            transition: background 0.2s, color 0.2s, border-color 0.2s;
             white-space: nowrap;
+            position: relative;
+            top: 1px;
+        }
+        .main-nav-link .nav-icon {
+            font-size: 15px;
+            line-height: 1;
+            opacity: 0.85;
         }
         .main-nav-link:hover {
-            color: white;
-            background: rgba(255,255,255,0.12);
+            color: rgba(255,255,255,0.95);
+            background: rgba(255,255,255,0.14);
         }
         .main-nav-link.active {
             color: #2c3e50;
             background: #f8f9fa;
+            border-color: #e6e9ed;
+            border-bottom-color: #f8f9fa;
+        }
+        .main-nav-link.active .nav-icon {
+            opacity: 1;
         }
 
         /* ── Sub-nav ── */
@@ -137,9 +147,8 @@
         .info a:hover { text-decoration: underline; }
 
         @media (max-width: 700px) {
-            .header { padding: 14px 16px 0 16px; }
-            .header-top { gap: 8px; }
-            .header-top h1 { font-size: 16px; }
+            .header { padding: 16px 16px 0 16px; }
+            .header-top h1 { font-size: 20px; }
             .main-nav-link { padding: 10px 14px; font-size: 13px; }
             .sub-nav { padding: 0 10px; overflow-x: auto; }
             .sub-nav-link { padding: 14px 14px; font-size: 13px; }
@@ -151,22 +160,21 @@
 
     <!-- ══ Top header ══ -->
     <div class="header">
-        <!-- Brand -->
         <div class="header-top">
             <h1>European Electricity Dashboard</h1>
         </div>
 
-        <!-- Main navigation tabs (sit flush at bottom of header) -->
+        <!-- Main navigation tabs -->
         <div class="main-nav">
-            <div class="main-nav-item">
-                <a href="price.html" class="main-nav-link active">Price</a>
-            </div>
-            <div class="main-nav-item">
-                <a href="load.html" class="main-nav-link">Load</a>
-            </div>
-            <div class="main-nav-item">
-                <a href="capacity.html" class="main-nav-link">Installed Capacity</a>
-            </div>
+            <a href="price.html" class="main-nav-link active">
+                <span class="nav-icon">📈</span> Price
+            </a>
+            <a href="load.html" class="main-nav-link">
+                <span class="nav-icon">⚡</span> Load
+            </a>
+            <a href="capacity.html" class="main-nav-link">
+                <span class="nav-icon">🏭</span> Installed Capacity
+            </a>
         </div>
     </div>
 

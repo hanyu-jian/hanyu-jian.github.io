@@ -3,95 +3,320 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>European Electricity Load Dashboard</title>
+    <title>Load – European Electricity Dashboard</title>
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { 
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
-            background: #f0f2f5; 
-            padding: 20px; 
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f0f2f5;
+            padding: 20px;
         }
-        .container { max-width: 1600px; margin: 0 auto; background: white; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); overflow: hidden; }
-        .header { background: #2c3e50; color: white; padding: 20px 30px; position: relative; }
-        .header h1 { font-size: 24px; font-weight: 500; }
-        .header p { font-size: 14px; opacity: 0.9; margin-top: 6px; }
-        .nav-links { position: absolute; top: 20px; right: 30px; display: flex; gap: 16px; }
-        .nav-link { color: white; text-decoration: none; padding: 6px 12px; border-radius: 20px; background: rgba(255,255,255,0.2); transition: 0.2s; font-size: 14px; font-weight: 500; }
-        .nav-link:hover, .nav-link.active { background: rgba(255,255,255,0.4); }
-        @media (max-width: 700px) { .nav-links { position: static; margin-top: 10px; justify-content: center; } .header { text-align: center; } }
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
 
-        .controls { padding: 20px 30px; display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start; background: #fff; border-bottom: 1px solid #e6e9ed; }
+        /* ── Top header ── */
+        .header {
+            background: #2c3e50;
+            color: white;
+            padding: 20px 30px 0 30px;
+        }
+        .header-top {
+            padding-bottom: 16px;
+        }
+        .header-top h1 {
+            font-size: 24px;
+            font-weight: 500;
+            letter-spacing: 0.2px;
+        }
+
+        /* ── Main nav ── */
+        .main-nav {
+            display: flex;
+            gap: 2px;
+            margin-top: 4px;
+        }
+        .main-nav-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            padding: 10px 24px;
+            font-size: 14px;
+            font-weight: 600;
+            color: rgba(255,255,255,0.65);
+            text-decoration: none;
+            border-radius: 6px 6px 0 0;
+            background: rgba(255,255,255,0.06);
+            border: 1px solid transparent;
+            border-bottom: none;
+            letter-spacing: 0.2px;
+            transition: background 0.2s, color 0.2s, border-color 0.2s;
+            white-space: nowrap;
+            position: relative;
+            top: 1px;
+        }
+        .main-nav-link .nav-icon {
+            font-size: 15px;
+            line-height: 1;
+            opacity: 0.85;
+        }
+        .main-nav-link:hover {
+            color: rgba(255,255,255,0.95);
+            background: rgba(255,255,255,0.14);
+        }
+        .main-nav-link.active {
+            color: #2c3e50;
+            background: #f8f9fa;
+            border-color: #e6e9ed;
+            border-bottom-color: #f8f9fa;
+        }
+        .main-nav-link.active .nav-icon {
+            opacity: 1;
+        }
+
+        /* ── Sub-nav ── */
+        .sub-nav {
+            background: #f8f9fa;
+            border-bottom: 2px solid #e6e9ed;
+            padding: 0 30px;
+            display: flex;
+        }
+        .sub-nav-link {
+            display: inline-block;
+            padding: 14px 22px;
+            font-size: 14px;
+            font-weight: 600;
+            color: #6c757d;
+            text-decoration: none;
+            border-bottom: 3px solid transparent;
+            margin-bottom: -2px;
+            transition: color 0.2s, border-color 0.2s;
+            white-space: nowrap;
+        }
+        .sub-nav-link:hover { color: #2c3e50; }
+        .sub-nav-link.active {
+            color: #2c3e50;
+            border-bottom-color: #2c3e50;
+        }
+
+        /* ── Controls ── */
+        .controls {
+            padding: 20px 30px;
+            display: flex; flex-wrap: wrap; gap: 20px;
+            align-items: flex-start;
+            background: #fff;
+            border-bottom: 1px solid #e6e9ed;
+        }
         .control-group { display: flex; flex-direction: column; gap: 6px; }
         .control-group label { font-size: 13px; font-weight: 600; color: #2c3e50; }
-        select, input, button { padding: 8px 12px; border: 1px solid #ccc; border-radius: 6px; font-size: 14px; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        select, input, button {
+            padding: 8px 12px; border: 1px solid #ccc;
+            border-radius: 6px; font-size: 14px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
         select { min-width: 120px; height: 36px; }
 
         /* 国家下拉 */
         .country-select-wrapper { position: relative; display: inline-block; }
-        .country-select-btn { min-width: 120px; height: 36px; padding: 0 12px; border: 1px solid #ccc; border-radius: 6px; font-size: 14px; background: white; cursor: pointer; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+        .country-select-btn {
+            min-width: 120px; height: 36px; padding: 0 12px;
+            border: 1px solid #ccc; border-radius: 6px;
+            font-size: 14px; background: white; cursor: pointer;
+            display: flex; align-items: center; justify-content: space-between; gap: 8px;
+        }
         .country-select-btn:hover { border-color: #999; }
         .country-select-btn::after { content: '▼'; font-size: 10px; color: #666; flex-shrink: 0; }
-        .country-dropdown { position: absolute; top: calc(100% + 4px); left: 0; min-width: 300px; max-height: 320px; overflow-y: auto; background: white; border: 1px solid #ccc; border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 9999; display: none; padding: 8px 0; }
+        .country-dropdown {
+            position: absolute; top: calc(100% + 4px); left: 0;
+            min-width: 300px; max-height: 320px; overflow-y: auto;
+            background: white; border: 1px solid #ccc; border-radius: 6px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            z-index: 9999; display: none; padding: 8px 0;
+        }
         .country-dropdown.show { display: block; }
-        .country-dropdown-header { display: flex; gap: 8px; padding: 4px 12px 8px; border-bottom: 1px solid #eee; margin-bottom: 4px; }
-        .btn-small { padding: 4px 10px; font-size: 12px; background: #e9ecef; border: 1px solid #ccc; cursor: pointer; border-radius: 4px; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        .country-dropdown-header {
+            display: flex; gap: 8px; padding: 4px 12px 8px;
+            border-bottom: 1px solid #eee; margin-bottom: 4px;
+        }
+        .btn-small {
+            padding: 4px 10px; font-size: 12px;
+            background: #e9ecef; border: 1px solid #ccc;
+            cursor: pointer; border-radius: 4px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
         .btn-small:hover { background: #dee2e6; }
-        .country-list { display: grid; grid-template-columns: repeat(4, 1fr); gap: 2px 0; padding: 0 8px; }
-        .country-item { display: flex; align-items: center; gap: 6px; padding: 4px 6px; border-radius: 4px; cursor: pointer; }
+        .country-list {
+            display: grid; grid-template-columns: repeat(4, 1fr);
+            gap: 2px 0; padding: 0 8px;
+        }
+        .country-item {
+            display: flex; align-items: center; gap: 6px;
+            padding: 4px 6px; border-radius: 4px; cursor: pointer;
+        }
         .country-item:hover { background: #f5f5f5; }
-        .country-item input[type="checkbox"] { width: 14px; height: 14px; margin: 0; flex-shrink: 0; cursor: pointer; }
-        .country-item span { font-size: 13px; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; display: inline-block; width: 26px; }
+        .country-item input[type="checkbox"] {
+            width: 14px; height: 14px; margin: 0;
+            flex-shrink: 0; cursor: pointer;
+        }
+        .country-item span {
+            font-size: 13px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: inline-block; width: 26px;
+        }
 
-        .btn-primary { background: #2c3e50; color: white; border: none; cursor: pointer; transition: 0.2s; height: 36px; padding: 0 16px; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-size: 14px; }
+        .btn-primary {
+            background: #2c3e50; color: white; border: none;
+            cursor: pointer; transition: 0.2s;
+            height: 36px; padding: 0 16px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-size: 14px;
+        }
         .btn-primary:hover { background: #1e2b38; }
 
         /* 年份选择独立区块 */
-        .year-select-section { padding: 14px 30px; background: #f8f9fa; border-bottom: 1px solid #e6e9ed; display: flex; align-items: center; gap: 12px; }
+        .year-select-section {
+            padding: 14px 30px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #e6e9ed;
+            display: flex; align-items: center; gap: 12px;
+        }
         .year-select-section label { font-size: 13px; font-weight: 600; color: #2c3e50; }
 
-        .chart-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(500px, 1fr)); gap: 24px; padding: 24px 30px; }
-        .chart-card { background: #fff; border-radius: 8px; border: 1px solid #e6e9ed; padding: 16px; }
-        .chart-card h3 { font-size: 18px; margin-bottom: 12px; font-weight: 500; color: #2c3e50; border-left: 4px solid #2c3e50; padding-left: 12px; }
+        /* ── Chart grid ── */
+        .chart-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+            gap: 24px; padding: 24px 30px;
+        }
+        .chart-card {
+            background: #fff; border-radius: 8px;
+            border: 1px solid #e6e9ed; padding: 16px;
+        }
+        .chart-card h3 {
+            font-size: 18px; margin-bottom: 12px;
+            font-weight: 500; color: #2c3e50;
+            border-left: 4px solid #2c3e50; padding-left: 12px;
+        }
         .chart-container { width: 100%; height: 400px; }
         .full-width-card { grid-column: 1 / -1; }
         .dual-panel { display: flex; gap: 20px; flex-wrap: wrap; }
         .dual-panel > div { flex: 1; min-width: 280px; position: relative; }
-        .card-control { margin-bottom: 12px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+        .card-control {
+            margin-bottom: 12px; display: flex;
+            align-items: center; gap: 12px; flex-wrap: wrap;
+        }
         .card-control label { font-size: 14px; }
 
-        .year-check-group, .weekday-check-group { margin: 10px 0; display: flex; gap: 20px; align-items: center; flex-wrap: wrap; }
-        .year-check-group label, .weekday-check-group label { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; cursor: pointer; }
+        .year-check-group, .weekday-check-group {
+            margin: 10px 0; display: flex;
+            gap: 20px; align-items: center; flex-wrap: wrap;
+        }
+        .year-check-group label, .weekday-check-group label {
+            display: inline-flex; align-items: center;
+            gap: 6px; font-size: 14px; cursor: pointer;
+        }
         .hint-text { font-size: 12px; color: #888; }
 
-        .info { padding: 15px 30px; font-size: 13px; color: #6c757d; text-align: center; border-top: 1px solid #e6e9ed; margin-top: 10px; }
-        @media (max-width: 900px) { .chart-grid { grid-template-columns: 1fr; } .controls { flex-direction: column; align-items: stretch; } .dual-panel { flex-direction: column; } }
-        .loading { text-align: center; padding: 40px; color: #666; font-size: 16px; }
-        #europeMap { height: 400px; background: #eef2f5; border-radius: 8px; }
-        .map-legend { position: absolute; bottom: 20px; right: 20px; background: rgba(255,255,255,0.92); padding: 8px 12px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); font-size: 12px; font-weight: 500; border-left: 3px solid #ff8c00; z-index: 1000; pointer-events: none; }
-        .map-legend .gradient-bar { width: 160px; height: 14px; background: linear-gradient(to right, #fff7e6, #ff8c00); border-radius: 20px; margin: 6px 0 4px; }
-        .map-legend .labels { display: flex; justify-content: space-between; font-size: 11px; color: #2c3e50; }
+        /* ── Loading ── */
+        .loading {
+            text-align: center; padding: 40px;
+            color: #666; font-size: 16px;
+        }
+
+        /* ── Map ── */
+        #europeMap {
+            height: 400px; background: #eef2f5; border-radius: 8px;
+        }
+        .map-legend {
+            position: absolute; bottom: 20px; right: 20px;
+            background: rgba(255,255,255,0.92);
+            padding: 8px 12px; border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+            font-size: 12px; font-weight: 500;
+            border-left: 3px solid #ff8c00;
+            z-index: 1000; pointer-events: none;
+        }
+        .map-legend .gradient-bar {
+            width: 160px; height: 14px;
+            background: linear-gradient(to right, #fff7e6, #ff8c00);
+            border-radius: 20px; margin: 6px 0 4px;
+        }
+        .map-legend .labels {
+            display: flex; justify-content: space-between;
+            font-size: 11px; color: #2c3e50;
+        }
         .map-legend h4 { margin: 0 0 4px; font-size: 12px; font-weight: 600; }
 
         /* 移动平均加载遮罩 */
         .chart-overlay { position: relative; }
-        .chart-overlay .overlay-mask { display: none; position: absolute; inset: 0; background: rgba(255,255,255,0.7); z-index: 10; align-items: center; justify-content: center; font-size: 14px; color: #666; border-radius: 8px; }
+        .chart-overlay .overlay-mask {
+            display: none; position: absolute; inset: 0;
+            background: rgba(255,255,255,0.7); z-index: 10;
+            align-items: center; justify-content: center;
+            font-size: 14px; color: #666; border-radius: 8px;
+        }
         .chart-overlay .overlay-mask.show { display: flex; }
+
+        /* ── Footer ── */
+        .info {
+            padding: 12px 30px 20px;
+            font-size: 13px; color: #6c757d;
+            text-align: center;
+            border-top: 1px solid #e6e9ed;
+            margin-top: 10px;
+        }
+        .info a { color: #5a8fc2; text-decoration: none; }
+        .info a:hover { text-decoration: underline; }
+
+        @media (max-width: 700px) {
+            .header { padding: 16px 16px 0 16px; }
+            .header-top h1 { font-size: 20px; }
+            .main-nav-link { padding: 10px 14px; font-size: 13px; }
+            .sub-nav { padding: 0 10px; overflow-x: auto; }
+            .sub-nav-link { padding: 14px 14px; font-size: 13px; }
+        }
+        @media (max-width: 900px) {
+            .chart-grid { grid-template-columns: 1fr; }
+            .controls { flex-direction: column; align-items: stretch; }
+            .dual-panel { flex-direction: column; }
+        }
     </style>
 </head>
 <body>
 <div class="container">
+
+    <!-- ══ Top header ══ -->
     <div class="header">
-        <h1>⚡ European Electricity Load Dashboard</h1>
-        <p>Data source: ENTSO-E | Author: Hanyu Jian</p>
-        <div class="nav-links">
-            <a href="price.html" class="nav-link">Price Analysis</a>
-            <a href="load.html" class="nav-link active">Load Analysis</a>
+        <div class="header-top">
+            <h1>European Electricity Dashboard</h1>
+        </div>
+        <div class="main-nav">
+            <a href="price-overview.html" class="main-nav-link">
+                <span class="nav-icon">Price</span>
+            </a>
+            <a href="load.html" class="main-nav-link active">
+                <span class="nav-icon">Load</span>
+            </a>
+            <a href="capacity.html" class="main-nav-link">
+                <span class="nav-icon">Installed Capacity</span>
+            </a>
         </div>
     </div>
 
+    <!-- ══ Sub-navigation ══ -->
+    <div class="sub-nav">
+        <a class="sub-nav-link active" href="load.html">Load Overview</a>
+    </div>
+
+    <!-- ══ Controls ══ -->
     <div class="controls">
         <div class="control-group">
             <label>🌍 Countries</label>
@@ -114,9 +339,10 @@
         </div>
     </div>
 
+    <!-- ══ Loading ══ -->
     <div id="loadingMsg" class="loading">⏳ Loading load data...</div>
 
-    <!-- 七日滑动平均 -->
+    <!-- ══ 7-Day Moving Average ══ -->
     <div id="movingAvgSection" style="display:none; padding: 0 30px 0;">
         <div class="chart-card" style="margin-bottom: 0; border-radius: 8px 8px 0 0; border-bottom: none;">
             <h3>7-Day Moving Average of Daily Load</h3>
@@ -143,13 +369,13 @@
         </div>
     </div>
 
-    <!-- 年份选择器 独立 -->
+    <!-- ══ Year selector ══ -->
     <div class="year-select-section" id="yearSelectSection" style="display:none;">
         <label>📅 Year</label>
         <select id="yearSelect" disabled></select>
     </div>
 
-    <!-- 下方图表 -->
+    <!-- ══ Chart grid ══ -->
     <div id="chartGridBelow" class="chart-grid" style="display:none;">
         <div class="chart-card">
             <h3>Hourly Load Trends</h3>
@@ -167,10 +393,12 @@
                         <label>📆 Month:</label>
                         <select id="monthSelect" disabled>
                             <option value="">-- Select --</option>
-                            <option value="1">January</option><option value="2">February</option><option value="3">March</option>
-                            <option value="4">April</option><option value="5">May</option><option value="6">June</option>
-                            <option value="7">July</option><option value="8">August</option><option value="9">September</option>
-                            <option value="10">October</option><option value="11">November</option><option value="12">December</option>
+                            <option value="1">January</option><option value="2">February</option>
+                            <option value="3">March</option><option value="4">April</option>
+                            <option value="5">May</option><option value="6">June</option>
+                            <option value="7">July</option><option value="8">August</option>
+                            <option value="9">September</option><option value="10">October</option>
+                            <option value="11">November</option><option value="12">December</option>
                         </select>
                     </div>
                     <div id="hourlyAvgChart" style="height:400px;"></div>
@@ -182,10 +410,14 @@
         </div>
     </div>
 
+    <!-- ══ Footer ══ -->
     <div class="info" id="footerInfo" style="display:none;">
-        ⚡ Load Analysis | Unit: MW | Map color based on monthly average load.
+        Data source: <a href="https://www.entsoe.eu/" target="_blank">ENTSO-E Transparency Platform</a>
+        &nbsp;|&nbsp; Unit: MW
+        &nbsp;|&nbsp; Author: Hanyu Jian
     </div>
-</div>
+
+</div><!-- /container -->
 
 <script>
 // ─────────────────────────────────────────────
@@ -243,10 +475,9 @@ function transformData(rows) {
 }
 
 // ─────────────────────────────────────────────
-// 移动平均计算（纯函数，抽离方便替换）
+// 移动平均计算
 // ─────────────────────────────────────────────
 function computeMovingAvg(data, selectedYears, selectedCountries, showWeekday, showWeekend) {
-    // 按 year -> "M-D" -> {total, cnt} 聚合日均值
     const byYear = {};
     selectedYears.forEach(y => { byYear[y] = {}; });
 
@@ -254,29 +485,24 @@ function computeMovingAvg(data, selectedYears, selectedCountries, showWeekday, s
 
     for (const d of data) {
         if (!byYear[d.year]) continue;
-
         if (!includeBoth) {
-            // 用 UTC 避免时区偏移
             const dow = new Date(Date.UTC(d.year, d.month - 1, d.day)).getUTCDay();
             const isWD = dow >= 1 && dow <= 5;
             if (!showWeekday && isWD) continue;
             if (!showWeekend && !isWD) continue;
         }
-
         let sum = 0, cnt = 0;
         for (const c of selectedCountries) {
             const v = d.values[c];
             if (v != null && !isNaN(v)) { sum += v; cnt++; }
         }
         if (!cnt) continue;
-
         const key = `${d.month}-${d.day}`;
         const slot = byYear[d.year][key] || (byYear[d.year][key] = { total: 0, cnt: 0 });
-        slot.total += sum / cnt;   // 国家均值
+        slot.total += sum / cnt;
         slot.cnt++;
     }
 
-    // 生成 x 轴（2024 年日历，最多 366 天）
     const xAxis = [];
     for (let i = 1; i <= 366; i++) {
         const d = new Date(Date.UTC(2024, 0, i));
@@ -299,7 +525,6 @@ function computeMovingAvg(data, selectedYears, selectedCountries, showWeekday, s
             if (slot && slot.cnt > 0) raw[i] = slot.total / slot.cnt;
         }
 
-        // 7-day trailing average
         const avg = new Array(366).fill(null);
         for (let i = 0; i < days; i++) {
             let s = 0, c = 0;
@@ -332,14 +557,11 @@ function computeMovingAvg(data, selectedYears, selectedCountries, showWeekday, s
 // ─────────────────────────────────────────────
 function scheduleMovingAvg() {
     clearTimeout(movingAvgTimer);
-    movingAvgTimer = setTimeout(runMovingAvg, 300);  // 300ms 防抖
+    movingAvgTimer = setTimeout(runMovingAvg, 300);
 }
 
 function runMovingAvg() {
-    if (movingAvgRunning) {
-        movingAvgPending = true;
-        return;
-    }
+    if (movingAvgRunning) { movingAvgPending = true; return; }
 
     const yearCBs = document.querySelectorAll('.year-cb');
     const selectedYears = [...yearCBs].filter(c => c.checked).map(c => +c.value);
@@ -355,23 +577,19 @@ function runMovingAvg() {
         return;
     }
 
-    // 显示遮罩
     document.getElementById('movingAvgMask').classList.add('show');
     movingAvgRunning = true;
 
-    // 用 requestAnimationFrame 让遮罩先渲染，再开始计算
     requestAnimationFrame(() => {
         setTimeout(() => {
             try {
                 const { xAxis, series } = computeMovingAvg(
                     fullData.data, selectedYears, selectedCountries, showWeekday, showWeekend
                 );
-
                 chart.setOption({
                     animation: false,
                     tooltip: {
                         trigger: 'axis',
-                        // 限制tooltip只显示3个点避免大量DOM操作
                         formatter(params) {
                             let s = `<b>${params[0]?.axisValue}</b><br>`;
                             params.forEach(p => {
@@ -385,8 +603,7 @@ function runMovingAvg() {
                     },
                     legend: { data: series.map(s => s.name), top: 0 },
                     xAxis: {
-                        type: 'category',
-                        data: xAxis,
+                        type: 'category', data: xAxis,
                         axisLabel: { rotate: 45, interval: 29 },
                         axisPointer: { snap: false }
                     },
@@ -397,14 +614,11 @@ function runMovingAvg() {
                     ],
                     series
                 }, true);
-
             } catch (e) {
                 console.error('Moving avg error:', e);
             } finally {
                 movingAvgRunning = false;
                 document.getElementById('movingAvgMask').classList.remove('show');
-
-                // 如果有待执行的更新
                 if (movingAvgPending) {
                     movingAvgPending = false;
                     scheduleMovingAvg();
@@ -424,7 +638,9 @@ function drawHourly(year, countries) {
     const pts = fullData.data.filter(d => d.year === year)
         .sort((a, b) => new Date(Date.UTC(a.year, a.month-1, a.day, a.hour)) - new Date(Date.UTC(b.year, b.month-1, b.day, b.hour)));
 
-    const xData = pts.map(d => `${d.year}/${String(d.month).padStart(2,'0')}/${String(d.day).padStart(2,'0')} ${String(d.hour).padStart(2,'0')}:00`);
+    const xData = pts.map(d =>
+        `${d.year}/${String(d.month).padStart(2,'0')}/${String(d.day).padStart(2,'0')} ${String(d.hour).padStart(2,'0')}:00`
+    );
     const series = countries.map(c => ({
         name: c, type: 'line',
         data: pts.map(d => d.values[c] ?? null),
@@ -529,7 +745,10 @@ function updateMapLegend(min, max) {
     const parent = document.getElementById('europeMap').parentNode;
     if (!el) { el = document.createElement('div'); el.className = 'map-legend'; parent.appendChild(el); }
     el.innerHTML = `<h4>Monthly Avg Load</h4><div class="gradient-bar"></div>
-        <div class="labels"><span>${min!=null?min.toFixed(0):'N/A'}</span><span>${max!=null?max.toFixed(0)+' MW':'N/A'}</span></div>`;
+        <div class="labels">
+            <span>${min != null ? min.toFixed(0) : 'N/A'}</span>
+            <span>${max != null ? max.toFixed(0) + ' MW' : 'N/A'}</span>
+        </div>`;
 }
 
 async function drawMap(year, month) {
@@ -547,8 +766,7 @@ async function drawMap(year, month) {
             }
         }
     }
-    const loads = {};
-    const vals = [];
+    const loads = {}, vals = [];
     fullData.countries.forEach(c => {
         loads[c] = cnt[c] > 0 ? sum[c] / cnt[c] : null;
         if (loads[c] !== null) vals.push(loads[c]);
@@ -563,12 +781,16 @@ async function drawMap(year, month) {
         geojsonLayer = L.geoJSON(geo, {
             style: f => {
                 const code = getCode(f);
-                return { color:'#2c3e50', weight:1.2, fillColor: loadColor(code?loads[code]:null, min, max), fillOpacity: 0.75 };
+                return {
+                    color: '#2c3e50', weight: 1.2,
+                    fillColor: loadColor(code ? loads[code] : null, min, max),
+                    fillOpacity: 0.75
+                };
             },
             onEachFeature: (f, layer) => {
                 const code = getCode(f);
                 const v = code && loads[code] != null ? loads[code].toFixed(0) + ' MW' : 'N/A';
-                layer.bindTooltip(`${code||'?'}: ${v}`, { sticky: true });
+                layer.bindTooltip(`${code || '?'}: ${v}`, { sticky: true });
             }
         }).addTo(map);
     } catch (e) { console.warn('GeoJSON failed:', e); }
@@ -584,14 +806,12 @@ function buildCountryCheckboxes() {
         const item = document.createElement('label');
         item.className = 'country-item';
         const cb = document.createElement('input');
-        cb.type = 'checkbox';
-        cb.value = c;
+        cb.type = 'checkbox'; cb.value = c;
         cb.className = 'country-cb-item';
         cb.checked = (c === 'HU');
         const sp = document.createElement('span');
         sp.textContent = c;
-        item.appendChild(cb);
-        item.appendChild(sp);
+        item.appendChild(cb); item.appendChild(sp);
         container.appendChild(item);
     }
     updateCountryText();
@@ -605,18 +825,19 @@ function getSelectedCountries() {
 function updateCountryText() {
     const sel = getSelectedCountries();
     const el = document.getElementById('countrySelectText');
-    el.textContent = sel.length === 0 ? 'Select...' : sel.length <= 3 ? sel.join(', ') : `${sel.length} selected`;
+    el.textContent = sel.length === 0 ? 'Select...'
+        : sel.length <= 3 ? sel.join(', ')
+        : `${sel.length} selected`;
 }
 
 function setupCountryDropdown() {
     const btn = document.getElementById('countrySelectBtn');
-    const dd = document.getElementById('countryDropdown');
+    const dd  = document.getElementById('countryDropdown');
     btn.addEventListener('click', e => { e.stopPropagation(); dd.classList.toggle('show'); });
     document.addEventListener('click', () => dd.classList.remove('show'));
     dd.addEventListener('click', e => e.stopPropagation());
     document.getElementById('countryCheckboxes').addEventListener('change', () => {
-        updateCountryText();
-        refresh();
+        updateCountryText(); refresh();
     });
     document.getElementById('selectAllBtn').addEventListener('click', () => {
         document.querySelectorAll('.country-cb-item').forEach(c => c.checked = true);
@@ -632,10 +853,10 @@ function setupCountryDropdown() {
 // 主刷新
 // ─────────────────────────────────────────────
 function refresh() {
-    const year = +document.getElementById('yearSelect').value || null;
-    const month = +document.getElementById('monthSelect').value || null;
+    const year     = +document.getElementById('yearSelect').value  || null;
+    const month    = +document.getElementById('monthSelect').value || null;
     const countries = getSelectedCountries();
-    scheduleMovingAvg();          // 移动平均单独防抖
+    scheduleMovingAvg();
     drawHourly(year, countries);
     drawMonthly(year, countries);
     drawHourlyAvg(year, month, countries);
@@ -659,11 +880,11 @@ async function init() {
         return;
     }
 
-    document.getElementById('loadingMsg').style.display = 'none';
+    document.getElementById('loadingMsg').style.display      = 'none';
     document.getElementById('movingAvgSection').style.display = 'block';
     document.getElementById('yearSelectSection').style.display = 'flex';
-    document.getElementById('chartGridBelow').style.display = 'grid';
-    document.getElementById('footerInfo').style.display = 'block';
+    document.getElementById('chartGridBelow').style.display   = 'grid';
+    document.getElementById('footerInfo').style.display       = 'block';
 
     // 初始化图表
     charts.movingAvg = echarts.init(document.getElementById('movingAvgChart'));
@@ -682,7 +903,7 @@ async function init() {
         map?.invalidateSize();
     });
 
-    // 年份/月份控件
+    // 年份 / 月份控件
     const yearSelect = document.getElementById('yearSelect');
     yearSelect.innerHTML = '<option value="">-- Select --</option>' +
         fullData.years.map(y => `<option value="${y}">${y}</option>`).join('');
@@ -700,7 +921,6 @@ async function init() {
     document.getElementById('monthSelect').addEventListener('change', refresh);
     document.getElementById('refreshBtn').addEventListener('click', refresh);
 
-    // 移动平均控件：只触发移动平均，不触发全量刷新
     document.querySelectorAll('.year-cb').forEach(cb =>
         cb.addEventListener('change', scheduleMovingAvg)
     );

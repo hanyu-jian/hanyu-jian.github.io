@@ -271,17 +271,23 @@
             <h1>European Electricity Dashboard</h1>
         </div>
         <div class="main-nav">
-            <a href="price-overview.html"    class="main-nav-link active">Price</a>
-            <a href="load.html"     class="main-nav-link">Load</a>
-            <a href="capacity.html" class="main-nav-link">Installed Capacity</a>
+            <a href="price-overview.html" class="main-nav-link active">
+                <span class="nav-icon">Price</span>
+            </a>
+            <a href="load.html" class="main-nav-link">
+                <span class="nav-icon">Load</span>
+            </a>
+            <a href="capacity.html" class="main-nav-link">
+                <span class="nav-icon">Installed Capacity</span>
+            </a>
         </div>
     </div>
 
     <!-- ══ Sub-navigation ══ -->
     <div class="sub-nav">
-        <a class="sub-nav-link active"  href="price-overview.html">Price Overview</a>
-        <a class="sub-nav-link"         href="capture-price.html">Capture Prices</a>
-        <a class="sub-nav-link"         href="price-spread.html">Price Spread</a>
+        <a class="sub-nav-link active" href="price-overview.html">Price Overview</a>
+        <a class="sub-nav-link"        href="capture-price.html">Capture Prices</a>
+        <a class="sub-nav-link"        href="price-spread.html">Price Spread</a>
     </div>
 
     <!-- ══ Controls ══ -->
@@ -394,7 +400,7 @@
         const m = s.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})\s+(\d{1,2}):(\d{2})$/);
         if (!m) return null;
         const [, y, mo, d, h, mi] = m.map(Number);
-        const isoStr = `${y}-${String(mo).padStart(2,'0')}-${String(d).padStart(2,'0')}T${String(h).padStart(2,'0')}:${String(mi).padStart(2,'0')}:00.000Z`;
+        const isoStr = `${y}-${String(mo).padStart(2,'0')}-${String(d).padStart(2,'0')}T${String(h).padStart(2,'0')}:${String(mi).padStart(2,'00')}:00.000Z`;
         return { year: y, month: mo, day: d, hour: h, isoStr };
     }
 
@@ -728,7 +734,6 @@
         document.getElementById('clearAllBtn').addEventListener('click',  clearAll);
         document.getElementById('yearSelect').addEventListener('change',  refresh);
         document.getElementById('monthSelect').addEventListener('change', refresh);
-        // ↑ refreshBtn listener removed
     }
 
     init();

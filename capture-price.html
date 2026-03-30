@@ -77,9 +77,9 @@
         /* Country dropdown */
         .country-select-wrapper { position: relative; display: inline-block; }
         .country-select-btn {
-            min-width: 160px; height: 36px; padding: 0 12px;
+            min-width: 180px; height: 36px; padding: 0 12px;
             border: 1px solid #ccc; border-radius: 6px;
-            font-size: 14px; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-size: 14px; font-family: inherit;
             background: white; cursor: pointer;
             display: flex; align-items: center; justify-content: space-between; gap: 8px;
             white-space: nowrap;
@@ -94,24 +94,14 @@
             z-index: 9999; display: none; padding: 8px 0;
         }
         .country-dropdown.show { display: block; }
-        .country-dropdown-header {
-            display: flex; gap: 8px;
-            padding: 4px 12px 8px; border-bottom: 1px solid #eee; margin-bottom: 4px;
-        }
-        .btn-small {
-            padding: 4px 10px; font-size: 12px;
-            background: #e9ecef; border: 1px solid #ccc;
-            cursor: pointer; border-radius: 4px;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }
-        .btn-small:hover { background: #dee2e6; }
         .country-list {
             display: grid; grid-template-columns: repeat(4, 1fr);
             gap: 2px 0; padding: 0 8px;
         }
         .country-item {
             display: flex; align-items: center; gap: 6px;
-            padding: 4px 6px; border-radius: 4px; cursor: pointer;
+            padding: 6px 8px; border-radius: 4px; cursor: pointer;
+            transition: background 0.15s;
         }
         .country-item:hover { background: #f5f5f5; }
         .country-item input[type="checkbox"] {
@@ -122,6 +112,27 @@
             font-size: 13px;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         }
+        .ctrl-select {
+            font-family: inherit;
+            height: 36px; padding: 0 12px;
+            border: 1px solid #ccc; border-radius: 6px;
+            font-size: 14px; cursor: pointer; background: white;
+        }
+        .ctrl-select:focus { outline: none; border-color: #2c3e50; }
+        .btn-group-inline {
+            display: flex; border: 1px solid #ccc; border-radius: 6px; overflow: hidden;
+        }
+        .btn-group-inline button {
+            font-family: inherit;
+            height: 36px; padding: 0 14px;
+            background: white; border: none;
+            border-right: 1px solid #ccc;
+            font-size: 13px; font-weight: 500;
+            color: #6c757d; cursor: pointer; transition: all 0.15s;
+        }
+        .btn-group-inline button:last-child { border-right: none; }
+        .btn-group-inline button:hover { background: #f0f2f5; color: #2c3e50; }
+        .btn-group-inline button.active { background: #2c3e50; color: white; }
 
         /* Source toggle */
         .source-toggle {

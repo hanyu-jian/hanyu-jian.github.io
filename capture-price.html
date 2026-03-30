@@ -840,33 +840,43 @@ function allNegValues()  {
 }
 
 /* ═══════════════════════════════════════════════════════════
-   COLOR SCALE  white → orange → dark-red
+   COLOR SCALE
 ═══════════════════════════════════════════════════════════ */
 function colorRamp(t, palette) {
-    // palette: array of [r,g,b] stops, evenly spaced
     if (t <= 0) return palette[0];
-    if (t >= 1) return palette[palette.length-1];
-    const seg  = (palette.length - 1) * t;
-    const lo   = Math.floor(seg);
-    const hi   = Math.min(lo + 1, palette.length - 1);
-    const s    = seg - lo;
-    return palette[lo].map((v,i) => Math.round(v + (palette[hi][i] - v) * s));
+    if (t >= 1) return palette[palette.length - 1];
+    const seg = (palette.length - 1) * t;
+    const lo  = Math.floor(seg);
+    const hi  = Math.min(lo + 1, palette.length - 1);
+    const s   = seg - lo;
+    return palette[lo].map((v, i) => Math.round(v + (palette[hi][i] - v) * s));
 }
 
-const CAP_PALETTE = [
-    [245,245,245],   // near white
-    [252,141, 89],   // orange
-    [215, 48, 31]    // dark red
+/* Solar capture price: white → orange → dark red */
+const CAP_PALETTE_SOLAR = [
+    [245, 245, 245],   // near white
+    [252, 141,  89],   // orange
+    [215,  48,  31]    // dark red
 ];
+
+/* Wind capture price: white → sky blue → dark navy */
+const CAP_PALETTE_WIND = [
+    [245, 245, 245],   // near white
+    [ 99, 172, 229],   // sky blue
+    [ 10,  74, 158]    // dark navy blue
+];
+
+/* Negative hours: same as solar — white → orange → dark red */
 const NEG_PALETTE = [
-    [240,244,255],   // near white-blue
-    [107,174,214],   // mid blue
-    [  8, 48,107]    // dark navy
+    [245, 245, 245],   // near white
+    [252, 141,  89],   // orange
+    [215,  48,  31]    // dark red
 ];
 
 function toHex(rgb) {
-    return '#' + rgb.map(v => v.toString(16).padStart(2,'0')).join('');
+    return '#' + rgb.map(v => v.toString(16).padStart(2, '0')).join('');
 }
+
 function getColor(value, min, max, palette) {
     if (value === null || value === undefined) return '#e0e0e0';
     const t = max > min ? (value - min) / (max - min) : 0;
@@ -876,10 +886,11 @@ function getColor(value, min, max, palette) {
 /* Stats helper */
 function statsOf(vals) {
     const arr = vals.filter(v => v !== null && v !== undefined);
-    if (!arr.length) return { min:0, max:0, avg:0, count:0 };
+    if (!arr.length) return { min: 0, max: 0, avg: 0, count: 0 };
     const min = Math.min(...arr), max = Math.max(...arr);
-    return { min, max, avg: arr.reduce((a,b) => a+b,0)/arr.length, count: arr.length };
+    return { min, max, avg: arr.reduce((a, b) => a + b, 0) / arr.length, count: arr.length };
 }
+
 
 /* ═══════════════════════════════════════════════════════════
    LEAFLET MAPS

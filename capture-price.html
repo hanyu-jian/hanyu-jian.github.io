@@ -918,6 +918,8 @@ function renderCapMap() {
     const stats = statsOf(vArr);
     const minV  = stats.min, maxV = stats.max;
 
+    const palette = state.capSource === 'solar' ? CAP_PALETTE_SOLAR : CAP_PALETTE_WIND;
+
     if (capLayer) { capMap.removeLayer(capLayer); capLayer = null; }
 
     capLayer = L.geoJSON(geoData, {
@@ -925,7 +927,7 @@ function renderCapMap() {
             const code = GEO_NAME_TO_CODE[feat.properties.NAME] ?? null;
             const val  = code ? vals[code] : null;
             return {
-                fillColor   : getColor(val, minV, maxV, CAP_PALETTE),
+                fillColor   : getColor(val, minV, maxV, palette),   
                 fillOpacity : (code && val !== null) ? 0.82 : 0.12,
                 color       : '#aaa',
                 weight      : 0.8,
@@ -938,7 +940,7 @@ function renderCapMap() {
             const val  = vals[code];
             const base = mapBaseload(code);
             const cobj = COUNTRIES.find(c => c.code === code);
-
+    
             layer.on({
                 mouseover: e => {
                     e.target.setStyle({ weight:2, color:'#2c3e50', fillOpacity:0.95 });
@@ -968,10 +970,11 @@ function renderCapMap() {
     }).addTo(capMap);
 
     // Legend
-    const srcLbl = state.capSource === 'solar' ? 'Solar' : 'Wind';
-    document.getElementById('capLegendTitle').textContent = `${srcLbl} Capture Price – €/MWh`;
-    document.getElementById('capLegendMin').textContent   = minV.toFixed(1);
-    document.getElementById('capLegendMax').textContent   = maxV.toFixed(1);
+    const capGrad = state.capSource === 'solar'
+    ? 'linear-gradient(to right, #f5f5f5, #fc8d59, #d7301f)'   // 橙红
+    : 'linear-gradient(to right, #f5f5f5, #63ace5, #0a4a9e)';  // 蓝色
+    document.getElementById('capLegendGrad').style.background = capGrad;
+
 
     // Stats chips
     renderStats('capStatsRow', [

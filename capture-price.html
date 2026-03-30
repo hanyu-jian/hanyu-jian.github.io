@@ -883,13 +883,14 @@ function getColor(value, min, max, palette) {
     return toHex(colorRamp(Math.max(0, Math.min(1, t)), palette));
 }
 
-    /* Stats helper */
+/* Stats helper */
 function statsOf(vals) {
     const arr = vals.filter(v => v !== null && v !== undefined);
     if (!arr.length) return { min: 0, max: 0, avg: 0, count: 0 };
     const min = Math.min(...arr), max = Math.max(...arr);
     return { min, max, avg: arr.reduce((a, b) => a + b, 0) / arr.length, count: arr.length };
 }
+    
 
 
 /* ═══════════════════════════════════════════════════════════

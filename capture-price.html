@@ -1084,7 +1084,7 @@ function updateMapTitles() {
 }
 
 /* ═══════════════════════════════════════════════════════════
-   ECHART INSTANCES  (Chart 1 & 2, unchanged)
+             Chart 1 & 2,
 ═══════════════════════════════════════════════════════════ */
 let ec1, ec2d, ec2w, ec2m, ec2q, ec2y;
 
@@ -1430,7 +1430,7 @@ async function main() {
         await loadAllData();
     } catch(e) {
         document.getElementById('loadingMsg').textContent =
-            '⚠ Failed to load data. Check data/price.csv, solar.csv, wind.csv.';
+            '⚠ Failed to load data. ';
         console.error(e); return;
     }
 

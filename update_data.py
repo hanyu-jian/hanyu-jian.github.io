@@ -36,12 +36,12 @@ COUNTRY_CONFIG = {
     "bg": {"tz": "Europe/Sofia",      "bzn": "BG"},
 }
 
-COUNTRIES      = list(COUNTRY_CONFIG.keys())
+COUNTRIES       = list(COUNTRY_CONFIG.keys())
 FULL_START_DATE = "2024-01-01"   # 全量模式起始日
-LOOKBACK_DAYS  = 7               # 增量模式回溯天数
-REQUEST_DELAY  = 1.5
-API_BASE       = "https://api.energy-charts.info"
-DATA_DIR       = Path("data")
+LOOKBACK_DAYS   = 7              # 增量模式回溯天数
+REQUEST_DELAY   = 1.5
+API_BASE        = "https://api.energy-charts.info"
+DATA_DIR        = Path("data")
 
 
 # ─────────────────────────────────────────────────────────────
@@ -84,7 +84,9 @@ def parse_price(data: dict, tz: str) -> pd.Series | None:
     if not data or "unix_seconds" not in data or "price" not in data:
         return None
     idx = _make_index(data["unix_seconds"], tz)
-    return pd.Series(data["price"], index=idx, dtype=float).resample("h").mean()
+    # ✅ 强制转换为数值型，防止API返回文本型数据
+    prices = pd.to_numeric(data["price"], errors="coerce")
+    return pd.Series(prices, index=idx, dtype=float).resample("h").mean()
 
 
 def parse_power(data: dict, tz: str) -> dict:
@@ -101,6 +103,8 @@ def parse_power(data: dict, tz: str) -> dict:
 
     def to_series(key: str) -> pd.Series:
         orig, vals = raw[key]
+        # ✅ 强制转换为数值型，防止API返回文本型数据
+        vals = pd.to_numeric(vals, errors="coerce")
         return pd.Series(vals, index=idx, dtype=float).resample("h").mean()
 
     def find_key(must_contain: list[str], must_exclude: list[str] = []) -> str | None:
@@ -180,20 +184,21 @@ def merge_and_save_wide(new_cols: dict[str, pd.Series], path: Path, label: str):
 
     if path.exists():
         old_df = pd.read_csv(path, index_col=0)
+        # ✅ 读取旧CSV后强制所有列转为数值型，防止文本型数字污染计算
+        old_df = old_df.apply(pd.to_numeric, errors="coerce")
 
         # 将新 df 的 index 格式化为字符串，与旧 df 对齐
         new_df.index = fmt_index(new_df.index)
 
-        # 用新数据更新旧数据：先 update（覆盖已有行），再 combine_first（补充新行）
         # 确保列对齐
         all_cols = old_df.columns.union(new_df.columns)
         old_df   = old_df.reindex(columns=all_cols)
         new_df   = new_df.reindex(columns=all_cols)
 
-        old_df.update(new_df)                          # 覆盖重叠行
-        merged = old_df.combine_first(new_df)          # 追加新行
+        old_df.update(new_df)                 # 覆盖重叠行
+        merged = old_df.combine_first(new_df) # 追加新行
         merged.index.name = "Date"
-        merged.sort_index(inplace=True)                # 按时间排序
+        merged.sort_index(inplace=True)
         merged.to_csv(path)
         print(f"  ✓ {path.name}: 合并后 {len(merged)} 行 × {len(merged.columns)} 国")
     else:
@@ -215,6 +220,8 @@ def merge_and_save_generation(new_rows: list[dict], gen_dir: Path):
 
     gen_dir.mkdir(exist_ok=True)
     df_new = pd.DataFrame(new_rows, columns=["date", "country", "category", "value"])
+    # ✅ 确保新数据value列为数值型
+    df_new["value"] = pd.to_numeric(df_new["value"], errors="coerce")
 
     for country, grp_new in df_new.groupby("country"):
         path = gen_dir / f"{country}.csv"
@@ -222,7 +229,9 @@ def merge_and_save_generation(new_rows: list[dict], gen_dir: Path):
 
         if path.exists():
             grp_old = pd.read_csv(path)
-            # 合并：以 date+category 为主键，新值优先
+            # ✅ 读取旧CSV后强制value列为数值型
+            grp_old["value"] = pd.to_numeric(grp_old["value"], errors="coerce")
+
             merged = (
                 pd.concat([grp_old, grp_new])
                   .drop_duplicates(subset=["date", "category"], keep="last")

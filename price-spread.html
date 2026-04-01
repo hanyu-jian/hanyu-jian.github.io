@@ -573,7 +573,7 @@ window.addEventListener('DOMContentLoaded', () => {
 async function fetchCSV() {
     setStatus('loading', 'Loading price.csv…');
     try {
-        const res  = await fetch('price.csv');
+        const res  = await fetch('data/price.csv');
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const text = await res.text();
         parseCSV(text);
@@ -582,7 +582,7 @@ async function fetchCSV() {
             `${[...new Set(rawRows.map(r=>r.country))].length} countries · `+
             `years: ${[...new Set(rawRows.map(r=>r.year))].sort().join(', ')}`);
     } catch(e) {
-        setStatus('error', `Failed to load price.csv: ${e.message}`);
+        setStatus('error', `Failed to load: ${e.message}`);
     }
 }
 

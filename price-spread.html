@@ -568,13 +568,21 @@ function _renderHeatmap() {
     // ────────────────────────────────────────────────────────────
 
     YEARS.forEach(yr => {
-        const avg     = (dataByCountryYear[currentCountry] || {})[yr] || null;
+        const avg    = (dataByCountryYear[currentCountry] || {})[yr] || null;
         const hasData = avg !== null;
         let ymn = Infinity, ymx = -Infinity;
         if (hasData) avg.forEach(row => row.forEach(v => {
             if (v !== null && isFinite(v)) { ymn = Math.min(ymn, v); ymx = Math.max(ymx, v); }
         }));
 
+        const yVals = [];
+        if (hasData) avg.forEach(row => row.forEach(v => {
+            if (v !== null && isFinite(v)) yVals.push(v);
+        }));
+        yVals.sort((a, b) => a - b);
+        const ymid = yVals[Math.floor(yVals.length / 2)]; 
+    
+        
         const block = document.createElement('div');
         block.className = 'year-hm-block';
 
@@ -614,9 +622,9 @@ function _renderHeatmap() {
                 cell.className = 'hm-cell';
                 const v = hasData ? avg[h][mo] : null;
 
-                // ── 用全局 gmn / gmx / gmid 着色 ──
+                // ── 用全局 gmn / ymx / ymid 着色 ──
                 cell.style.background = v !== null
-                    ? priceColor(v, gmn, gmx, gmid)
+                    ? priceColor(v, ymn, ymx, ymid)
                     : '#e9ecef';
 
                 // 常驻数值

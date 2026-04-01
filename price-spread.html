@@ -82,22 +82,21 @@
         }
         .country-dropdown {
             position: absolute; top: calc(100% + 4px); left: 0;
-            min-width: 300px;
+            min-width: 300px; max-height: 320px; overflow-y: auto;
             background: white; border: 1px solid #ccc; border-radius: 6px;
-            box-shadow: 0 4px 14px rgba(0,0,0,0.13);
-            z-index: 9999; display: none; padding: 10px 8px 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            z-index: 9999; display: none; padding: 8px 0;
         }
         .country-dropdown.show { display: block; }
         .country-list {
             display: grid; grid-template-columns: repeat(4, 1fr);
-            gap: 2px 0;
+            gap: 2px 0; padding: 0 8px;
         }
         .country-item {
-            display: flex; align-items: center; gap: 7px;
-            padding: 7px 10px; border-radius: 4px; cursor: pointer;
-            transition: background 0.12s; user-select: none;
+            display: flex; align-items: center; gap: 6px;
+            padding: 4px 6px; border-radius: 4px; cursor: pointer;
         }
-        .country-item:hover { background: #f5f7fa; }
+        .country-item:hover { background: #f5f5f5; }
 
         .radio-dot {
             width: 15px; height: 15px; border-radius: 50%;
@@ -118,7 +117,7 @@
             border-radius: 50%;
             background: #2c3e50;
         }
-        /* 去掉选中国家的加粗加黑 */
+
         .country-item span {
             font-size: 13px; color: #343a40; letter-spacing: 0.2px;
         }

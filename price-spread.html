@@ -67,14 +67,15 @@
         .control-group { display: flex; flex-direction: column; gap: 6px; }
         .control-group label { font-size: 13px; font-weight: 600; color: #2c3e50; }
 
-        /* ── Country dropdown (from load.html) ── */
+        /* Country dropdown */
         .country-select-wrapper { position: relative; display: inline-block; }
         .country-select-btn {
-            min-width: 120px; height: 36px; padding: 0 12px;
+            min-width: 180px; height: 36px; padding: 0 12px;
             border: 1px solid #ccc; border-radius: 6px;
-            font-size: 14px; background: white; cursor: pointer;
+            font-size: 14px; font-family: inherit;
+            background: white; cursor: pointer;
             display: flex; align-items: center; justify-content: space-between; gap: 8px;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            white-space: nowrap;
         }
         .country-select-btn:hover { border-color: #999; }
         .country-select-btn::after { content: '▼'; font-size: 10px; color: #666; flex-shrink: 0; }
@@ -90,30 +91,41 @@
             display: grid; grid-template-columns: repeat(4, 1fr);
             gap: 2px 0; padding: 0 8px;
         }
-        /* Single-select: radio-style items */
         .country-item {
             display: flex; align-items: center; gap: 6px;
-            padding: 5px 6px; border-radius: 4px; cursor: pointer;
+            padding: 6px 8px; border-radius: 4px; cursor: pointer;
             transition: background 0.15s;
         }
         .country-item:hover { background: #f5f5f5; }
-        .country-item.selected { background: #e8f0fe; }
+        .country-item input[type="checkbox"] {
+            width: 14px; height: 14px; margin: 0;
+            flex-shrink: 0; cursor: pointer; accent-color: #2c3e50;
+        }
         .country-item span {
             font-size: 13px;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         }
-        /* Radio dot */
-        .radio-dot {
-            width: 14px; height: 14px; border-radius: 50%;
-            border: 2px solid #adb5bd; flex-shrink: 0;
-            display: flex; align-items: center; justify-content: center;
-            transition: border-color 0.15s;
+        .ctrl-select {
+            font-family: inherit;
+            height: 36px; padding: 0 12px;
+            border: 1px solid #ccc; border-radius: 6px;
+            font-size: 14px; cursor: pointer; background: white;
         }
-        .country-item.selected .radio-dot {
-            border-color: #2c3e50;
-            background: #2c3e50;
-            box-shadow: inset 0 0 0 2px white;
+        .ctrl-select:focus { outline: none; border-color: #2c3e50; }
+        .btn-group-inline {
+            display: flex; border: 1px solid #ccc; border-radius: 6px; overflow: hidden;
         }
+        .btn-group-inline button {
+            font-family: inherit;
+            height: 36px; padding: 0 14px;
+            background: white; border: none;
+            border-right: 1px solid #ccc;
+            font-size: 13px; font-weight: 500;
+            color: #6c757d; cursor: pointer; transition: all 0.15s;
+        }
+        .btn-group-inline button:last-child { border-right: none; }
+        .btn-group-inline button:hover { background: #f0f2f5; color: #2c3e50; }
+        .btn-group-inline button.active { background: #2c3e50; color: white; }
 
 
         /* ── Content area ── */

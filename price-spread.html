@@ -632,28 +632,25 @@ function _renderHeatmap() {
     content.appendChild(outerDiv);
 }
 
-/--------------色阶----------/
+/* --------------色阶-------------- */
 function priceColor(v, mn, mx) {
     if (!isFinite(mn) || !isFinite(mx) || mx === mn) return '#ffff00';
     const t = Math.max(0, Math.min(1, (v - mn) / (mx - mn)));
     let r, g, b;
 
     if (t <= 0.5) {
-        // 
-        const f = t * 2;                            // 0→1
-        r = Math.round(0   + f * (255 - 0));        // 0   → 255
-        g = Math.round(130 + f * (255 - 130));      // 130 → 255
-        b = Math.round(0   + f * (0   - 0));        // 0   → 0
+        // 绿(0,130,0) → 浅黄(255,255,0)
+        const f = t * 2;
+        r = Math.round(0   + f * 255);
+        g = Math.round(130 + f * 125);
+        b = 0;
     } else {
-        // 
-        const f = (t - 0.5) * 2;                    // 0→1
-        r = 255;                                    // 始终255
-        g = Math.round(255 + f * (0   - 255));      // 255 → 0
-        b = 0;                                      // 始终0
+        // 浅黄(255,255,0) → 红(255,0,0)
+        const f = (t - 0.5) * 2;
+        r = 255;
+        g = Math.round(255 - f * 255);
+        b = 0;
     }
-
-    return `rgb(${r},${g},${b})`;
-}
 
     return `rgb(${r},${g},${b})`;
 }

@@ -56,7 +56,7 @@
         .sub-nav-link:hover { color: #2c3e50; }
         .sub-nav-link.active { color: #2c3e50; border-bottom-color: #2c3e50; }
 
-        /* ── Controls (matches load.html exactly) ── */
+        /* ── Controls ── */
         .controls {
             padding: 20px 30px;
             display: flex; flex-wrap: wrap; gap: 20px;
@@ -65,73 +65,72 @@
             border-bottom: 1px solid #e6e9ed;
         }
         .control-group { display: flex; flex-direction: column; gap: 6px; }
-        .control-group label { font-size: 13px; font-weight: 600; color: #2c3e50; }
+        .control-group > label {
+            font-size: 13px; font-weight: 600; color: #2c3e50;
+        }
 
-        /* Country dropdown */
+        /* ── Country dropdown ── */
         .country-select-wrapper { position: relative; display: inline-block; }
         .country-select-btn {
-            min-width: 180px; height: 36px; padding: 0 12px;
+            min-width: 200px; height: 36px; padding: 0 12px;
             border: 1px solid #ccc; border-radius: 6px;
             font-size: 14px; font-family: inherit;
             background: white; cursor: pointer;
             display: flex; align-items: center; justify-content: space-between; gap: 8px;
-            white-space: nowrap;
+            white-space: nowrap; color: #2c3e50; font-weight: 600;
         }
         .country-select-btn:hover { border-color: #999; }
-        .country-select-btn::after { content: '▼'; font-size: 10px; color: #666; flex-shrink: 0; }
+        .country-select-btn .arrow {
+            font-size: 11px; color: #555; flex-shrink: 0;
+        }
         .country-dropdown {
             position: absolute; top: calc(100% + 4px); left: 0;
-            min-width: 300px; max-height: 320px; overflow-y: auto;
+            min-width: 300px;
             background: white; border: 1px solid #ccc; border-radius: 6px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-            z-index: 9999; display: none; padding: 8px 0;
+            box-shadow: 0 4px 14px rgba(0,0,0,0.13);
+            z-index: 9999; display: none; padding: 10px 8px 12px;
         }
         .country-dropdown.show { display: block; }
         .country-list {
             display: grid; grid-template-columns: repeat(4, 1fr);
-            gap: 2px 0; padding: 0 8px;
+            gap: 2px 0;
         }
         .country-item {
-            display: flex; align-items: center; gap: 6px;
-            padding: 6px 8px; border-radius: 4px; cursor: pointer;
-            transition: background 0.15s;
+            display: flex; align-items: center; gap: 7px;
+            padding: 7px 10px; border-radius: 4px; cursor: pointer;
+            transition: background 0.12s; user-select: none;
         }
-        .country-item:hover { background: #f5f5f5; }
-        .country-item input[type="checkbox"] {
-            width: 14px; height: 14px; margin: 0;
-            flex-shrink: 0; cursor: pointer; accent-color: #2c3e50;
+        .country-item:hover { background: #f5f7fa; }
+
+        /* Radio circle */
+        .radio-dot {
+            width: 15px; height: 15px; border-radius: 50%;
+            border: 2px solid #aaa;
+            flex-shrink: 0; position: relative;
+            background: white;
+            transition: border-color 0.15s;
+        }
+        .country-item.selected .radio-dot {
+            border-color: #2c3e50;
+        }
+        .country-item.selected .radio-dot::after {
+            content: '';
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            width: 7px; height: 7px;
+            border-radius: 50%;
+            background: #2c3e50;
         }
         .country-item span {
-            font-size: 13px;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-size: 13px; color: #343a40; letter-spacing: 0.2px;
         }
-        .ctrl-select {
-            font-family: inherit;
-            height: 36px; padding: 0 12px;
-            border: 1px solid #ccc; border-radius: 6px;
-            font-size: 14px; cursor: pointer; background: white;
-        }
-        .ctrl-select:focus { outline: none; border-color: #2c3e50; }
-        .btn-group-inline {
-            display: flex; border: 1px solid #ccc; border-radius: 6px; overflow: hidden;
-        }
-        .btn-group-inline button {
-            font-family: inherit;
-            height: 36px; padding: 0 14px;
-            background: white; border: none;
-            border-right: 1px solid #ccc;
-            font-size: 13px; font-weight: 500;
-            color: #6c757d; cursor: pointer; transition: all 0.15s;
-        }
-        .btn-group-inline button:last-child { border-right: none; }
-        .btn-group-inline button:hover { background: #f0f2f5; color: #2c3e50; }
-        .btn-group-inline button.active { background: #2c3e50; color: white; }
-
+        .country-item.selected span { color: #2c3e50; font-weight: 600; }
 
         /* ── Content area ── */
         .content-area { padding: 24px 30px 10px; }
 
-        /* ── Section card (matches load.html .chart-card) ── */
+        /* ── Section card ── */
         .section-card {
             background: #fff; border-radius: 8px;
             border: 1px solid #e6e9ed;
@@ -244,7 +243,6 @@
         tbody td { padding: 8px 12px; color: #343a40; white-space: nowrap; }
         td.col-period  { color: #2c3e50; font-weight: 600; }
         td.col-daterange { color: #6c757d; font-size: 11px; }
-        /* unified colors – no year-specific coloring */
         td.col-peak    { color: #c0392b; }
         td.col-valley  { color: #27ae60; }
         td.col-spread-pos  { color: #e67e22; font-weight: 700; }
@@ -295,13 +293,13 @@
         <div class="header-top"><h1>European Electricity Dashboard</h1></div>
         <div class="main-nav">
             <a href="price-overview.html" class="main-nav-link active">
-                <span class="nav-icon">Price</span>
+                <span>Price</span>
             </a>
             <a href="load.html" class="main-nav-link">
-                <span class="nav-icon">Load</span>
+                <span>Load</span>
             </a>
             <a href="capacity.html" class="main-nav-link">
-                <span class="nav-icon">Installed Capacity</span>
+                <span>Installed Capacity</span>
             </a>
         </div>
     </div>
@@ -320,18 +318,13 @@
             <div class="country-select-wrapper">
                 <div class="country-select-btn" id="countrySelectBtn">
                     <span id="countrySelectText">Loading…</span>
+                    <span class="arrow">▼</span>
                 </div>
                 <div class="country-dropdown" id="countryDropdown">
                     <div id="countryList" class="country-list"></div>
                 </div>
             </div>
         </div>
-    </div>
-
-    <!-- ══ Status ══ -->
-    <div class="status-bar">
-        <div class="status-dot" id="statusDot"></div>
-        <span id="statusText">Loading price.csv…</span>
     </div>
 
     <!-- ══ Content ══ -->
@@ -414,8 +407,8 @@ const YEARS  = [2024, 2025, 2026];
 /* ═══════════════════════════════════════════════════════
    State
 ═══════════════════════════════════════════════════════ */
-const dataByCountryYear  = {};   // [country][year]  → avg[h][m]
-const dailyByCountryYear = {};   // [country][year]  → [{month,day,prices[]}]
+const dataByCountryYear  = {};
+const dailyByCountryYear = {};
 
 let allCountries   = [];
 let currentCountry = 'HU';
@@ -435,27 +428,24 @@ window.addEventListener('DOMContentLoaded', () => {
    CSV → pre-aggregate
 ═══════════════════════════════════════════════════════ */
 async function fetchCSV() {
-    setStatus('loading', 'Loading price.csv…');
     try {
         const res = await fetch('data/price.csv');
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         await parseAndAggregate(await res.text());
     } catch(e) {
-        setStatus('error', `Failed to load: ${e.message}`);
+        console.error('Failed to load:', e.message);
     }
 }
 
 async function parseAndAggregate(text) {
-    setStatus('loading', 'Parsing CSV…');
     await yieldFrame();
 
-    const lines    = text.trim().split(/\r?\n/);
-    const header   = lines[0].split(',').map(s => s.trim());
+    const lines     = text.trim().split(/\r?\n/);
+    const header    = lines[0].split(',').map(s => s.trim());
     const countries = header.slice(1);
 
-    /* --- accumulators --- */
-    const hmAcc  = {};   // hmAcc[c][y][h][m]  = {sum, cnt}
-    const dayAcc = {};   // dayAcc[c][y][dayKey] = {month, day, prices[]}
+    const hmAcc  = {};
+    const dayAcc = {};
 
     countries.forEach(c => {
         hmAcc[c]  = {};
@@ -489,18 +479,15 @@ async function parseAndAggregate(text) {
             if (isNaN(price)) continue;
             const c = countries[ci];
 
-            // heatmap bucket
             hmAcc[c][year][hour][month - 1].sum += price;
             hmAcc[c][year][hour][month - 1].cnt += 1;
 
-            // daily bucket
             if (!dayAcc[c][year][dayKey])
                 dayAcc[c][year][dayKey] = { month, day, prices: [] };
             dayAcc[c][year][dayKey].prices.push(price);
         }
     }
 
-    /* --- finalise --- */
     countries.forEach(c => {
         dataByCountryYear[c]  = {};
         dailyByCountryYear[c] = {};
@@ -516,7 +503,6 @@ async function parseAndAggregate(text) {
 
     allCountries = countries.slice().sort();
     buildCountryDropdown();
-    setStatus('ready', 'Ready');
     refresh();
 }
 
@@ -535,19 +521,17 @@ function buildCountryDropdown() {
         const dot = document.createElement('div');
         dot.className = 'radio-dot';
 
-        const label = document.createElement('span');
-        label.textContent = c;
+        const lbl = document.createElement('span');
+        lbl.textContent = c;
 
         item.appendChild(dot);
-        item.appendChild(label);
+        item.appendChild(lbl);
 
         item.addEventListener('click', () => {
             if (currentCountry === c) return;
             currentCountry = c;
-            // update selection highlight
-            list.querySelectorAll('.country-item').forEach(el => {
-                el.classList.toggle('selected', el.dataset.country === c);
-            });
+            list.querySelectorAll('.country-item').forEach(el =>
+                el.classList.toggle('selected', el.dataset.country === c));
             document.getElementById('countrySelectText').textContent = c;
             document.getElementById('countryDropdown').classList.remove('show');
             scheduleRefresh();
@@ -559,17 +543,14 @@ function buildCountryDropdown() {
     document.getElementById('countrySelectText').textContent = currentCountry;
 }
 
-function setupDropdownToggle() {
+/* dropdown open/close */
+(function setupDropdown() {
     const btn = document.getElementById('countrySelectBtn');
     const dd  = document.getElementById('countryDropdown');
-    btn.addEventListener('click', e => {
-        e.stopPropagation();
-        dd.classList.toggle('show');
-    });
+    btn.addEventListener('click', e => { e.stopPropagation(); dd.classList.toggle('show'); });
     document.addEventListener('click', () => dd.classList.remove('show'));
     dd.addEventListener('click', e => e.stopPropagation());
-}
-setupDropdownToggle();
+})();
 
 /* ═══════════════════════════════════════════════════════
    Refresh pipeline
@@ -578,21 +559,17 @@ function scheduleRefresh() {
     clearTimeout(renderDebounce);
     renderDebounce = setTimeout(refresh, 80);
 }
-function refresh() {
-    buildHeatmap();
-    buildSpread();
-}
+function refresh() { buildHeatmap(); buildSpread(); }
 
 /* ═══════════════════════════════════════════════════════
    Heatmap
 ═══════════════════════════════════════════════════════ */
 function buildHeatmap() {
-    const spinner = document.getElementById('hmSpinner');
-    spinner.classList.add('show');
+    document.getElementById('hmSpinner').classList.add('show');
     document.getElementById('hmNoData').style.display = 'none';
     requestAnimationFrame(() => requestAnimationFrame(() => {
         _renderHeatmap();
-        spinner.classList.remove('show');
+        document.getElementById('hmSpinner').classList.remove('show');
     }));
 }
 
@@ -605,14 +582,12 @@ function _renderHeatmap() {
     const tooltip  = document.getElementById('hmTooltip');
     const outerDiv = document.createElement('div');
     outerDiv.className = 'heatmap-outer';
-
     const threeYear = document.createElement('div');
     threeYear.className = 'three-year-hm';
 
     YEARS.forEach(yr => {
         const avg     = (dataByCountryYear[currentCountry] || {})[yr] || null;
         const hasData = avg !== null;
-
         let ymn = Infinity, ymx = -Infinity;
         if (hasData) avg.forEach(h => h.forEach(v => {
             if (v !== null) { ymn = Math.min(ymn, v); ymx = Math.max(ymx, v); }
@@ -621,7 +596,6 @@ function _renderHeatmap() {
         const block = document.createElement('div');
         block.className = 'year-hm-block';
 
-        // title
         const title = document.createElement('div');
         title.className = 'year-hm-title';
         title.textContent = String(yr);
@@ -630,92 +604,67 @@ function _renderHeatmap() {
         // month header
         const mhWrap = document.createElement('div');
         mhWrap.className = 'hm-month-header';
-        const spacer = document.createElement('div');
-        spacer.className = 'hm-month-spacer';
-        mhWrap.appendChild(spacer);
+        mhWrap.appendChild(Object.assign(document.createElement('div'), {className:'hm-month-spacer'}));
         const mlabels = document.createElement('div');
         mlabels.className = 'hm-month-labels';
         MONTHS.forEach(mn => {
-            const s = document.createElement('div');
-            s.className = 'hm-month-label';
-            s.textContent = mn;
-            mlabels.appendChild(s);
+            mlabels.appendChild(Object.assign(document.createElement('div'),
+                {className:'hm-month-label', textContent:mn}));
         });
         mhWrap.appendChild(mlabels);
         block.appendChild(mhWrap);
 
-        // hour rows
+        // rows
         for (let h = 0; h < 24; h++) {
             const row = document.createElement('div');
             row.className = 'hm-row';
-
             const yl = document.createElement('div');
             yl.className = 'hm-ylabel';
-            yl.textContent = (h % 2 === 0) ? `H${String(h + 1).padStart(2, '0')}` : '';
+            yl.textContent = (h % 2 === 0) ? `H${String(h+1).padStart(2,'0')}` : '';
             row.appendChild(yl);
 
             const cellsRow = document.createElement('div');
             cellsRow.className = 'hm-cells-row';
-
             for (let mo = 0; mo < 12; mo++) {
                 const cell = document.createElement('div');
                 cell.className = 'hm-cell';
                 const v = hasData ? avg[h][mo] : null;
-                if (v !== null) {
-                    cell.style.background = priceColor(v, ymn, ymx);
-                    cell.dataset.tip =
-                        `${yr} · ${MONTHS[mo]} · H${String(h + 1).padStart(2, '0')} · ${v.toFixed(2)} €/MWh`;
-                } else {
-                    cell.style.background = '#e9ecef';
-                    cell.dataset.tip =
-                        `${yr} · ${MONTHS[mo]} · H${String(h + 1).padStart(2, '0')} · no data`;
-                }
+                cell.style.background = v !== null ? priceColor(v, ymn, ymx) : '#e9ecef';
+                cell.dataset.tip = v !== null
+                    ? `${yr} · ${MONTHS[mo]} · H${String(h+1).padStart(2,'0')} · ${v.toFixed(2)} €/MWh`
+                    : `${yr} · ${MONTHS[mo]} · H${String(h+1).padStart(2,'0')} · no data`;
                 cellsRow.appendChild(cell);
             }
-
             cellsRow.addEventListener('mousemove', e => {
                 const cell = e.target.closest('.hm-cell');
-                if (!cell || !cell.dataset.tip) { tooltip.style.display = 'none'; return; }
+                if (!cell) { tooltip.style.display='none'; return; }
                 tooltip.style.display = 'block';
                 tooltip.style.left = (e.clientX + 14) + 'px';
                 tooltip.style.top  = (e.clientY + 14) + 'px';
                 const p = cell.dataset.tip.split(' · ');
-                tooltip.innerHTML =
-                    `<b>${p[0]}</b> · ${p[1]} · ${p[2]}&nbsp;&nbsp;` +
-                    `<span style="color:#f1c40f">${p[3]}</span>`;
+                tooltip.innerHTML = `<b>${p[0]}</b> · ${p[1]} · ${p[2]}&nbsp;&nbsp;<span style="color:#f1c40f">${p[3]}</span>`;
             });
-            cellsRow.addEventListener('mouseleave', () => {
-                tooltip.style.display = 'none';
-            });
-
+            cellsRow.addEventListener('mouseleave', () => { tooltip.style.display='none'; });
             row.appendChild(cellsRow);
             block.appendChild(row);
         }
 
-        // per-year legend
+        // legend
         const legend = document.createElement('div');
         legend.className = 'hm-year-legend';
         if (hasData && isFinite(ymn)) {
-            const minS = document.createElement('span');
-            minS.className = 'hm-legend-val';
-            minS.textContent = ymn.toFixed(1);
-
+            const minS = Object.assign(document.createElement('span'),
+                {className:'hm-legend-val', textContent: ymn.toFixed(1)});
             const bar = document.createElement('div');
             bar.className = 'hm-legend-bar';
             bar.style.background =
-                `linear-gradient(to right, ${priceColor(ymn,ymn,ymx)}, ` +
-                `${priceColor((ymn+ymx)/2,ymn,ymx)}, ${priceColor(ymx,ymn,ymx)})`;
-
-            const maxS = document.createElement('span');
-            maxS.className = 'hm-legend-val';
-            maxS.textContent = ymx.toFixed(1) + ' €/MWh';
-
-            legend.appendChild(minS);
-            legend.appendChild(bar);
-            legend.appendChild(maxS);
+                `linear-gradient(to right,${priceColor(ymn,ymn,ymx)},` +
+                `${priceColor((ymn+ymx)/2,ymn,ymx)},${priceColor(ymx,ymn,ymx)})`;
+            const maxS = Object.assign(document.createElement('span'),
+                {className:'hm-legend-val', textContent: ymx.toFixed(1)+' €/MWh'});
+            legend.appendChild(minS); legend.appendChild(bar); legend.appendChild(maxS);
         } else {
-            legend.textContent = 'No data';
-            legend.style.color = '#ced4da';
+            legend.textContent = 'No data'; legend.style.color = '#ced4da';
         }
         block.appendChild(legend);
         threeYear.appendChild(block);
@@ -725,16 +674,14 @@ function _renderHeatmap() {
     content.appendChild(outerDiv);
 }
 
-/* green → yellow → red */
+/* ── Excel green→yellow→red ── */
 function priceColor(v, mn, mx) {
-    if (!isFinite(mn) || !isFinite(mx) || mx === mn) return '#f1c40f';
+    if (!isFinite(mn) || !isFinite(mx) || mx === mn) return '#ffeb84';
     const t = Math.max(0, Math.min(1, (v - mn) / (mx - mn)));
-    if (t < 0.5) {
-        const u = t * 2;
-        return `rgb(${~~(39 + u*(241-39))},${~~(174 + u*(196-174))},${~~(96 + u*(30-96))})`;
-    }
-    const u = (t - 0.5) * 2;
-    return `rgb(${~~(241 + u*(231-241))},${~~(196 + u*(76-196))},${~~(30 + u*(60-30))})`;
+    let r, g;
+    if (t <= 0.5) { r = Math.round(t * 2 * 255); g = 220; }
+    else          { r = 255; g = Math.round((1 - (t - 0.5) * 2) * 220); }
+    return `rgb(${r},${g},0)`;
 }
 
 /* ═══════════════════════════════════════════════════════
@@ -750,12 +697,11 @@ function switchTab(tab, btn) {
 }
 
 function buildSpread() {
-    const spinner = document.getElementById('spSpinner');
-    spinner.classList.add('show');
+    document.getElementById('spSpinner').classList.add('show');
     document.getElementById('spNoData').style.display = 'none';
     requestAnimationFrame(() => requestAnimationFrame(() => {
         _renderSpread();
-        spinner.classList.remove('show');
+        document.getElementById('spSpinner').classList.remove('show');
     }));
 }
 
@@ -763,33 +709,30 @@ function _renderSpread() {
     const nP = Math.max(1, Math.min(23, +document.getElementById('nPeak').value   || 1));
     const nV = Math.max(1, Math.min(23, +document.getElementById('nValley').value || 1));
 
-    // compute daily peak/valley per year
     const yearDaily = {};
     YEARS.forEach(yr => {
         const raw = (dailyByCountryYear[currentCountry] || {})[yr] || [];
         yearDaily[yr] = raw.map(d => {
-            const s = d.prices.slice().sort((a, b) => a - b);
+            const s = d.prices.slice().sort((a,b) => a-b);
             const n = s.length;
-            if (!n) return { month: d.month, day: d.day, peak: null, valley: null };
-            const nVv   = Math.min(nV, n);
-            const nPv   = Math.min(nP, n);
-            const valley = s.slice(0, nVv).reduce((a, b) => a + b, 0) / nVv;
-            const peak   = s.slice(n - nPv).reduce((a, b) => a + b, 0) / nPv;
-            return { month: d.month, day: d.day, peak, valley };
+            if (!n) return { month:d.month, day:d.day, peak:null, valley:null };
+            const nVv = Math.min(nV,n), nPv = Math.min(nP,n);
+            const valley = s.slice(0,nVv).reduce((a,b)=>a+b,0)/nVv;
+            const peak   = s.slice(n-nPv).reduce((a,b)=>a+b,0)/nPv;
+            return { month:d.month, day:d.day, peak, valley };
         }).filter(d => d.peak !== null);
     });
 
     let tableRows, hasRange = false;
 
     if (currentTab === 'monthly') {
-        const periods = MONTHS.map((label, i) => ({ key: i + 1, label }));
-        periods.push({ key: 'annual', label: 'Annual', isTotal: true });
+        const periods = MONTHS.map((label,i) => ({key:i+1,label}));
+        periods.push({key:'annual',label:'Annual',isTotal:true});
         tableRows = periods.map(p => {
-            const row = { label: p.label, isTotal: p.isTotal || false };
+            const row = {label:p.label, isTotal:p.isTotal||false};
             YEARS.forEach(yr => {
-                const g = p.key === 'annual'
-                    ? yearDaily[yr]
-                    : yearDaily[yr].filter(d => d.month === p.key);
+                const g = p.key==='annual' ? yearDaily[yr]
+                    : yearDaily[yr].filter(d=>d.month===p.key);
                 row[yr] = agg(g);
             });
             return row;
@@ -798,47 +741,36 @@ function _renderSpread() {
     } else if (currentTab === 'quarterly') {
         const qDef  = [[1,2,3],[4,5,6],[7,8,9],[10,11,12]];
         const qName = ['Q1 (Jan–Mar)','Q2 (Apr–Jun)','Q3 (Jul–Sep)','Q4 (Oct–Dec)'];
-        tableRows = qDef.map((ms, i) => {
+        tableRows = qDef.map((ms,i) => {
             const set = new Set(ms);
-            const row = { label: qName[i] };
-            YEARS.forEach(yr => {
-                row[yr] = agg(yearDaily[yr].filter(d => set.has(d.month)));
-            });
+            const row = {label:qName[i]};
+            YEARS.forEach(yr => { row[yr]=agg(yearDaily[yr].filter(d=>set.has(d.month))); });
             return row;
         });
-        const annual = { label: 'Annual', isTotal: true };
-        YEARS.forEach(yr => { annual[yr] = agg(yearDaily[yr]); });
+        const annual = {label:'Annual',isTotal:true};
+        YEARS.forEach(yr => { annual[yr]=agg(yearDaily[yr]); });
         tableRows.push(annual);
 
     } else {
-        // weekly
         hasRange = true;
         const allWeeks = new Set();
-        YEARS.forEach(yr => {
-            yearDaily[yr].forEach(d => allWeeks.add(isoWeek(yr, d.month, d.day)));
-        });
-        const sorted = [...allWeeks].map(Number).sort((a, b) => a - b);
-
+        YEARS.forEach(yr => yearDaily[yr].forEach(d => allWeeks.add(isoWeek(yr,d.month,d.day))));
+        const sorted = [...allWeeks].map(Number).sort((a,b)=>a-b);
         tableRows = sorted.map(w => {
-            const row = { label: `W${String(w).padStart(2, '0')}` };
+            const row = {label:`W${String(w).padStart(2,'0')}`};
             YEARS.forEach(yr => {
-                const g = yearDaily[yr].filter(d => isoWeek(yr, d.month, d.day) === w);
+                const g = yearDaily[yr].filter(d=>isoWeek(yr,d.month,d.day)===w);
                 row[yr] = agg(g);
-                // Date range – use any year's dates (structure is the same M/D)
                 if (!row._range && g.length) {
-                    const dates = g.map(d =>
-                        new Date(yr, d.month - 1, d.day)).sort((a, b) => a - b);
-                    // show only M/D  (no year)
-                    row._range =
-                        `${dates[0].getMonth()+1}/${dates[0].getDate()} – ` +
-                        `${dates[dates.length-1].getMonth()+1}/${dates[dates.length-1].getDate()}`;
+                    const dates = g.map(d=>new Date(yr,d.month-1,d.day)).sort((a,b)=>a-b);
+                    row._range = `${dates[0].getMonth()+1}/${dates[0].getDate()} – `
+                        + `${dates[dates.length-1].getMonth()+1}/${dates[dates.length-1].getDate()}`;
                 }
             });
             return row;
         });
-
-        const annual = { label: 'Annual', _range: 'Full year', isTotal: true };
-        YEARS.forEach(yr => { annual[yr] = agg(yearDaily[yr]); });
+        const annual = {label:'Annual',_range:'Full year',isTotal:true};
+        YEARS.forEach(yr => { annual[yr]=agg(yearDaily[yr]); });
         tableRows.push(annual);
     }
 
@@ -848,101 +780,80 @@ function _renderSpread() {
 }
 
 function agg(days) {
-    if (!days || !days.length) return { peak: null, valley: null, spread: null };
-    const p = days.reduce((a, d) => a + d.peak,   0) / days.length;
-    const v = days.reduce((a, d) => a + d.valley,  0) / days.length;
-    return { peak: p, valley: v, spread: p - v };
+    if (!days||!days.length) return {peak:null,valley:null,spread:null};
+    const p = days.reduce((a,d)=>a+d.peak,  0)/days.length;
+    const v = days.reduce((a,d)=>a+d.valley,0)/days.length;
+    return {peak:p, valley:v, spread:p-v};
 }
 
 function renderCompareTable(tableRows, hasRange) {
-    /* ── header ── */
     const head = document.getElementById('spHead');
     head.innerHTML = '';
-
     const tr1 = document.createElement('tr');
-    // Period col (rowspan 2)
     const thP = document.createElement('th');
-    thP.rowSpan = 2; thP.textContent = 'Period';
-    thP.style.verticalAlign = 'middle';
+    thP.rowSpan=2; thP.textContent='Period'; thP.style.verticalAlign='middle';
     tr1.appendChild(thP);
-
     if (hasRange) {
         const thR = document.createElement('th');
-        thR.rowSpan = 2; thR.textContent = 'Date Range';
-        thR.style.verticalAlign = 'middle';
+        thR.rowSpan=2; thR.textContent='Date Range'; thR.style.verticalAlign='middle';
         tr1.appendChild(thR);
     }
-
-    // Year group headers – plain color, no year-specific tint
     YEARS.forEach(yr => {
         const th = document.createElement('th');
-        th.colSpan = 3;
-        th.className = 'th-year-group';
-        th.textContent = yr;
+        th.colSpan=3; th.className='th-year-group'; th.textContent=yr;
         tr1.appendChild(th);
     });
     head.appendChild(tr1);
 
-    // Sub-headers: Peak / Valley / Spread  ×3 years
     const tr2 = document.createElement('tr');
-    YEARS.forEach((yr, yi) => {
-        ['Peak (€/MWh)', 'Valley (€/MWh)', 'Spread (€/MWh)'].forEach((lbl, li) => {
+    YEARS.forEach((_,yi) => {
+        ['Peak (€/MWh)','Valley (€/MWh)','Spread (€/MWh)'].forEach((lbl,li) => {
             const th = document.createElement('th');
-            th.textContent = lbl;
-            if (li === 0) th.classList.add('col-sep');
+            th.textContent=lbl;
+            if (li===0) th.classList.add('col-sep');
             tr2.appendChild(th);
         });
     });
     head.appendChild(tr2);
 
-    /* ── body ── */
     const body = document.getElementById('spBody');
     body.innerHTML = '';
-
     tableRows.forEach(row => {
         const tr = document.createElement('tr');
         if (row.isTotal) tr.classList.add('row-total');
 
         const tdP = document.createElement('td');
-        tdP.className = 'col-period';
-        tdP.textContent = row.label;
+        tdP.className='col-period'; tdP.textContent=row.label;
         tr.appendChild(tdP);
 
         if (hasRange) {
             const tdR = document.createElement('td');
-            tdR.className = 'col-daterange';
-            tdR.textContent = row._range || '';
+            tdR.className='col-daterange'; tdR.textContent=row._range||'';
             tr.appendChild(tdR);
         }
 
-        YEARS.forEach((yr, yi) => {
-            const d   = row[yr] || { peak: null, valley: null, spread: null };
-            const sep = yi === 0;
+        YEARS.forEach((yr,yi) => {
+            const d = row[yr]||{peak:null,valley:null,spread:null};
+            const sep = yi===0;
 
             const tdPk = document.createElement('td');
-            tdPk.className = 'col-peak' + (sep ? ' col-sep' : '');
-            tdPk.textContent = d.peak !== null ? d.peak.toFixed(2) : '—';
+            tdPk.className='col-peak'+(sep?' col-sep':'');
+            tdPk.textContent = d.peak!==null ? d.peak.toFixed(2) : '—';
             tr.appendChild(tdPk);
 
             const tdVl = document.createElement('td');
-            tdVl.className = 'col-valley';
-            tdVl.textContent = d.valley !== null ? d.valley.toFixed(2) : '—';
+            tdVl.className='col-valley';
+            tdVl.textContent = d.valley!==null ? d.valley.toFixed(2) : '—';
             tr.appendChild(tdVl);
 
             const tdSp = document.createElement('td');
-            if (d.spread !== null) {
-                const sign = d.spread >= 0 ? '+' : '';
-                tdSp.className =
-                    d.spread >  0.005 ? 'col-spread-pos' :
-                    d.spread < -0.005 ? 'col-spread-neg' : 'col-spread-zero';
+            if (d.spread!==null) {
+                const sign = d.spread>=0?'+':'';
+                tdSp.className = d.spread>0.005?'col-spread-pos':d.spread<-0.005?'col-spread-neg':'col-spread-zero';
                 tdSp.textContent = `${sign}${d.spread.toFixed(2)}`;
-            } else {
-                tdSp.className = 'col-na';
-                tdSp.textContent = '—';
-            }
+            } else { tdSp.className='col-na'; tdSp.textContent='—'; }
             tr.appendChild(tdSp);
         });
-
         body.appendChild(tr);
     });
 }
@@ -951,18 +862,11 @@ function renderCompareTable(tableRows, hasRange) {
    Helpers
 ═══════════════════════════════════════════════════════ */
 function isoWeek(year, month, day) {
-    const d    = new Date(year, month - 1, day);
-    const jan4 = new Date(year, 0, 4);
-    const w1s  = new Date(jan4);
-    w1s.setDate(jan4.getDate() - ((jan4.getDay() || 7) - 1));
-    return Math.max(1, Math.floor((d - w1s) / 864e5 / 7) + 1);
-}
-
-function setStatus(state, msg) {
-    const dot = document.getElementById('statusDot');
-    dot.className = 'status-dot ' +
-        (state === 'loading' ? 'loading' : state === 'error' ? 'error' : 'ready');
-    document.getElementById('statusText').textContent = msg;
+    const d   = new Date(year, month-1, day);
+    const j4  = new Date(year, 0, 4);
+    const w1s = new Date(j4);
+    w1s.setDate(j4.getDate()-((j4.getDay()||7)-1));
+    return Math.max(1, Math.floor((d-w1s)/864e5/7)+1);
 }
 
 function yieldFrame() {

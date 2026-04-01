@@ -318,7 +318,7 @@
 
         <div class="section-card">
             <div class="section-head">
-                <h2>Monthly Average Price Heatmap (H01–H24 × Month)</h2>
+                <h2>Monthly Average Price Heatmap (H01–H24)</h2>
             </div>
             <div class="section-body">
                 <div class="spinner-wrap" id="hmSpinner"><div class="spinner"></div> Rendering…</div>
@@ -578,7 +578,7 @@ function _renderHeatmap() {
             row.className = 'hm-row';
             const yl = document.createElement('div');
             yl.className = 'hm-ylabel';
-            yl.textContent = (h % 2 === 0) ? `H${String(h+1).padStart(2,'0')}` : '';
+            yl.textContent = `H${String(h+1).padStart(2,'0')}`;
             row.appendChild(yl);
 
             const cellsRow = document.createElement('div');

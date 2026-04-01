@@ -634,18 +634,24 @@ function _renderHeatmap() {
 
 /* ── 色阶：绿(低) → 黄(中) → 红(高)，与图片完全一致 ── */
 function priceColor(v, mn, mx) {
-    if (!isFinite(mn) || !isFinite(mx) || mx === mn) return '#ffff00';
+    if (!isFinite(mn) || !isFinite(mx) || mx === mn) return '#c8b850';
     const t = Math.max(0, Math.min(1, (v - mn) / (mx - mn)));
-    let r, g, b = 0;
-    if (t <= 0.5) {
-        // 绿 → 黄
-        r = Math.round(t * 2 * 255);
-        g = 200;
+    let r, g, b;
+
+    if (t <= 0.3) {
+        // 柔和绿 → 柔和黄
+        const f = t * 2;                          // 0→1
+        r = Math.round(80  + f * (200 - 80));     // 80 → 200
+        g = Math.round(160 + f * (185 - 160));    // 160 → 185
+        b = Math.round(100 + f * (80  - 100));    // 100 → 80
     } else {
-        // 黄 → 红
-        r = 255;
-        g = Math.round((1 - (t - 0.5) * 2) * 200);
+        // 柔和黄 → 柔和红
+        const f = (t - 0.3) * 2;                  // 0→1
+        r = Math.round(200 + f * (185 - 200));    // 200 → 185
+        g = Math.round(185 + f * (75  - 185));    // 185 → 75
+        b = Math.round(80  + f * (75  - 80));     // 80 → 75
     }
+
     return `rgb(${r},${g},${b})`;
 }
 

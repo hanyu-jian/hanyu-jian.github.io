@@ -29,7 +29,6 @@
         .header-top { padding-bottom: 16px; }
         .header-top h1 { font-size: 24px; font-weight: 500; letter-spacing: 0.2px; }
 
-        /* ── Main nav ── */
         .main-nav { display: flex; gap: 2px; margin-top: 4px; }
         .main-nav-link {
             display: inline-flex; align-items: center; gap: 7px;
@@ -40,15 +39,12 @@
             letter-spacing: 0.2px; transition: background 0.2s, color 0.2s, border-color 0.2s;
             white-space: nowrap; position: relative; top: 1px;
         }
-        .main-nav-link .nav-icon { font-size: 15px; line-height: 1; opacity: 0.85; }
         .main-nav-link:hover { color: rgba(255,255,255,0.95); background: rgba(255,255,255,0.14); }
         .main-nav-link.active {
             color: #2c3e50; background: #f8f9fa;
             border-color: #e6e9ed; border-bottom-color: #f8f9fa;
         }
-        .main-nav-link.active .nav-icon { opacity: 1; }
 
-        /* ── Sub-nav ── */
         .sub-nav {
             background: #f8f9fa; border-bottom: 2px solid #e6e9ed;
             padding: 0 30px; display: flex;
@@ -62,7 +58,6 @@
         .sub-nav-link:hover { color: #2c3e50; }
         .sub-nav-link.active { color: #2c3e50; border-bottom-color: #2c3e50; }
 
-        /* ── Footer ── */
         .info {
             padding: 12px 30px 20px; font-size: 13px; color: #6c757d;
             text-align: center; border-top: 1px solid #e6e9ed; margin-top: 10px;
@@ -70,21 +65,7 @@
         .info a { color: #5a8fc2; text-decoration: none; }
         .info a:hover { text-decoration: underline; }
 
-        @media (max-width: 700px) {
-            .header { padding: 16px 16px 0 16px; }
-            .header-top h1 { font-size: 20px; }
-            .main-nav-link { padding: 10px 14px; font-size: 13px; }
-            .sub-nav { padding: 0 10px; overflow-x: auto; }
-            .sub-nav-link { padding: 14px 14px; font-size: 13px; }
-        }
-
-        /* ════════════════════════════════════════
-           CONTENT STYLES (新增部分)
-           ════════════════════════════════════════ */
-
-        .content-area {
-            padding: 24px 30px 10px;
-        }
+        .content-area { padding: 24px 30px 10px; }
 
         /* ── Control bar ── */
         .control-bar {
@@ -110,8 +91,7 @@
             text-transform: uppercase;
             letter-spacing: 0.05em;
         }
-        .ctrl-group select,
-        .ctrl-group input[type="number"] {
+        .ctrl-group select {
             padding: 7px 11px;
             border: 1px solid #ced4da;
             border-radius: 6px;
@@ -120,28 +100,12 @@
             background: white;
             outline: none;
             transition: border-color 0.2s, box-shadow 0.2s;
-            min-width: 110px;
+            min-width: 130px;
         }
-        .ctrl-group select:focus,
-        .ctrl-group input:focus {
+        .ctrl-group select:focus {
             border-color: #5a8fc2;
             box-shadow: 0 0 0 3px rgba(90,143,194,0.15);
         }
-        .btn-load {
-            padding: 8px 22px;
-            background: #2c3e50;
-            color: white;
-            border: none;
-            border-radius: 6px;
-            font-size: 14px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: background 0.2s, transform 0.1s;
-            align-self: flex-end;
-        }
-        .btn-load:hover { background: #3d5166; }
-        .btn-load:active { transform: scale(0.97); }
-        .btn-load:disabled { background: #adb5bd; cursor: not-allowed; }
 
         /* status */
         .status-bar {
@@ -181,77 +145,102 @@
             padding: 14px 20px;
             background: #f8f9fa;
             border-bottom: 1px solid #e6e9ed;
-            gap: 16px;
-            flex-wrap: wrap;
         }
         .section-head h2 {
             font-size: 15px;
             font-weight: 700;
             color: #2c3e50;
-            display: flex;
-            align-items: center;
-            gap: 8px;
         }
         .section-body { padding: 20px; }
 
         /* ── Heatmap ── */
         .heatmap-outer { overflow-x: auto; }
-        .heatmap-layout { display: flex; gap: 0; }
-        .hm-ylabels {
+
+        /* 三年并排容器 */
+        .three-year-hm {
             display: flex;
-            flex-direction: column;
-            padding-top: 26px;
-            flex-shrink: 0;
+            gap: 24px;
+            min-width: 700px;
         }
-        .hm-ylabels span {
-            font-size: 11px;
-            color: #6c757d;
-            height: 26px;
+
+        /* 单年 heatmap 块 */
+        .year-hm-block {
+            flex: 1;
+            min-width: 0;
+        }
+        .year-hm-title {
+            text-align: center;
+            font-size: 14px;
+            font-weight: 700;
+            color: #2c3e50;
+            margin-bottom: 8px;
+            letter-spacing: 0.5px;
+        }
+
+        /* 行 = y-label + row of 12 cells */
+        .hm-row {
             display: flex;
             align-items: center;
-            justify-content: flex-end;
-            padding-right: 8px;
+            margin-bottom: 2px;
+        }
+        .hm-ylabel {
+            width: 34px;
+            flex-shrink: 0;
+            font-size: 10px;
+            color: #6c757d;
+            text-align: right;
+            padding-right: 6px;
             white-space: nowrap;
         }
-        .hm-grid-wrap { flex: 1; min-width: 0; }
-        .hm-months {
-            display: flex;
-            margin-bottom: 3px;
-        }
-        .hm-months span {
-            flex: 1;
-            font-size: 12px;
-            color: #495057;
-            text-align: center;
-            font-weight: 600;
-        }
-        .hm-grid {
+        .hm-cells-row {
             display: grid;
             grid-template-columns: repeat(12, 1fr);
             gap: 2px;
+            flex: 1;
         }
         .hm-cell {
-            height: 24px;
+            height: 22px;
             border-radius: 3px;
             cursor: default;
-            position: relative;
         }
-        .hm-cell:hover { outline: 2px solid rgba(44,62,80,0.5); z-index: 5; }
+        .hm-cell:hover { outline: 2px solid rgba(44,62,80,0.6); z-index: 5; position: relative; }
+
+        /* month header row */
+        .hm-month-header {
+            display: flex;
+            margin-bottom: 4px;
+        }
+        .hm-month-spacer {
+            width: 34px;
+            flex-shrink: 0;
+        }
+        .hm-month-labels {
+            display: grid;
+            grid-template-columns: repeat(12, 1fr);
+            gap: 2px;
+            flex: 1;
+        }
+        .hm-month-label {
+            font-size: 10px;
+            color: #495057;
+            font-weight: 600;
+            text-align: center;
+        }
 
         /* legend */
-        .hm-legend {
+        .hm-legend-wrap {
             display: flex;
             align-items: center;
+            justify-content: center;
             gap: 10px;
-            margin-top: 12px;
+            margin-top: 16px;
             font-size: 12px;
             color: #6c757d;
         }
         .hm-legend-bar {
-            width: 160px; height: 10px;
+            width: 180px; height: 10px;
             border-radius: 5px;
             background: linear-gradient(to right, #27ae60, #f1c40f, #e74c3c);
-            flex-shrink: 0;
         }
 
         /* tooltip */
@@ -288,7 +277,7 @@
             font-weight: 500;
         }
         .spread-params input[type="number"] {
-            width: 60px;
+            width: 52px;
             padding: 5px 8px;
             border: 1px solid #ced4da;
             border-radius: 5px;
@@ -334,19 +323,28 @@
         table {
             width: 100%;
             border-collapse: collapse;
-            font-size: 14px;
+            font-size: 13.5px;
         }
         thead tr { background: #f8f9fa; }
         thead th {
-            padding: 10px 16px;
+            padding: 10px 14px;
             text-align: left;
-            font-size: 12px;
+            font-size: 11px;
             font-weight: 700;
             color: #6c757d;
             text-transform: uppercase;
             letter-spacing: 0.04em;
             border-bottom: 2px solid #e6e9ed;
             white-space: nowrap;
+        }
+        /* 年份分组 header */
+        thead th.th-year-group {
+            text-align: center;
+            background: #edf2f7;
+            font-size: 12px;
+            color: #2c3e50;
+            border-left: 2px solid #dee2e6;
+            letter-spacing: 0.5px;
         }
         tbody tr { border-bottom: 1px solid #f1f3f5; transition: background 0.15s; }
         tbody tr:hover { background: #f8f9fa; }
@@ -356,7 +354,7 @@
             border-top: 2px solid #dee2e6;
         }
         tbody td {
-            padding: 9px 16px;
+            padding: 9px 14px;
             color: #343a40;
             white-space: nowrap;
         }
@@ -367,8 +365,10 @@
         td.col-spread-pos { color: #e67e22; font-weight: 700; }
         td.col-spread-neg { color: #2980b9; font-weight: 700; }
         td.col-spread-zero { color: #6c757d; }
+        td.col-sep { border-left: 2px solid #dee2e6; }
+        td.col-na { color: #ced4da; text-align: center; }
 
-        /* no-data inside section */
+        /* no-data */
         .no-data {
             text-align: center;
             padding: 50px 20px;
@@ -377,7 +377,7 @@
         .no-data .nd-icon { font-size: 42px; margin-bottom: 10px; }
         .no-data p { font-size: 14px; color: #6c757d; }
 
-        /* loading spinner */
+        /* spinner */
         .spinner-wrap {
             display: none;
             justify-content: center;
@@ -399,15 +399,14 @@
 
         @media (max-width: 700px) {
             .content-area { padding: 16px; }
-            .control-bar { gap: 14px; }
-            .section-body { padding: 14px; }
+            .header { padding: 16px 16px 0 16px; }
+            .sub-nav { padding: 0 10px; overflow-x: auto; }
         }
     </style>
 </head>
 <body>
 <div class="container">
 
-    <!-- ══ Top header ══ -->
     <div class="header">
         <div class="header-top">
             <h1>European Electricity Dashboard</h1>
@@ -425,62 +424,51 @@
         </div>
     </div>
 
-    <!-- ══ Sub-navigation ══ -->
     <div class="sub-nav">
         <a class="sub-nav-link" href="price-overview.html">Price Overview</a>
         <a class="sub-nav-link" href="capture-price.html">Capture Prices</a>
         <a class="sub-nav-link active" href="price-spread.html">Price Spread</a>
     </div>
 
-    <!-- ══ CONTENT ══ -->
     <div class="content-area">
 
-        <!-- Control bar -->
+        <!-- Control bar：只选国家 -->
         <div class="control-bar">
             <div class="ctrl-group">
                 <label>Country</label>
-                <select id="selCountry">
-                    <option value="">— select —</option>
+                <select id="selCountry" onchange="onCountryChange()">
+                    <option value="">— loading —</option>
                 </select>
             </div>
-            <div class="ctrl-group">
-                <label>Year</label>
-                <select id="selYear">
-                    <option value="">— select —</option>
-                </select>
-            </div>
-            <button class="btn-load" id="btnLoad" onclick="loadData()">Load Data</button>
+            <span style="font-size:13px;color:#6c757d;align-self:flex-end;padding-bottom:8px;">
+                Showing 2024 · 2025 · 2026 simultaneously
+            </span>
         </div>
 
         <!-- Status -->
         <div class="status-bar">
             <div class="status-dot" id="statusDot"></div>
-            <span id="statusText">Select a country and year, then click Load Data.</span>
+            <span id="statusText">Loading price.csv…</span>
         </div>
 
         <!-- ── Heatmap card ── -->
         <div class="section-card">
             <div class="section-head">
-                <h2>🗺️ Monthly–Hourly Average Price Heatmap</h2>
+                <h2>🗺️ Monthly–Hourly Average Price Heatmap (H01–H24 × Month)</h2>
             </div>
             <div class="section-body">
-
-                <div class="spinner-wrap" id="hmSpinner">
-                    <div class="spinner"></div> Rendering heatmap…
-                </div>
-
+                <div class="spinner-wrap" id="hmSpinner"><div class="spinner"></div> Rendering…</div>
                 <div id="hmContent">
                     <div class="no-data" id="hmNoData">
                         <div class="nd-icon">🗺️</div>
-                        <p>No data loaded. Please select a country and year.</p>
+                        <p>Select a country to load data.</p>
                     </div>
                 </div>
-
-                <div class="hm-legend" id="hmLegend" style="display:none">
+                <div class="hm-legend-wrap" id="hmLegend" style="display:none">
                     <span id="legendMin">—</span>
                     <div class="hm-legend-bar"></div>
                     <span id="legendMax">—</span>
-                    <span>€/MWh</span>
+                    <span style="margin-left:2px">€/MWh (shared scale across years)</span>
                 </div>
             </div>
         </div>
@@ -488,10 +476,9 @@
         <!-- ── Spread card ── -->
         <div class="section-card">
             <div class="section-head">
-                <h2>📊 Peak–Valley Spread Analysis</h2>
+                <h2>📊 Peak–Valley Spread Analysis — 2024 / 2025 / 2026 Comparison</h2>
             </div>
 
-            <!-- N params -->
             <div class="spread-params">
                 <label>
                     Peak hours (top
@@ -503,26 +490,21 @@
                     <input type="number" id="nValley" value="6" min="1" max="12">
                     h/day)
                 </label>
-                <span class="spread-hint">Spread = avg(top-N prices) − avg(bottom-N prices) per day, then averaged over the period</span>
+                <span class="spread-hint">Spread = avg(top-N prices) − avg(bottom-N prices) per day, averaged over period</span>
             </div>
 
-            <!-- Tabs -->
             <div class="tab-bar">
                 <button class="tab-btn active" onclick="switchTab('monthly',this)">Monthly</button>
                 <button class="tab-btn" onclick="switchTab('quarterly',this)">Quarterly</button>
                 <button class="tab-btn" onclick="switchTab('weekly',this)">Weekly</button>
             </div>
 
-            <!-- Spinner -->
-            <div class="spinner-wrap" id="spSpinner">
-                <div class="spinner"></div> Calculating…
-            </div>
+            <div class="spinner-wrap" id="spSpinner"><div class="spinner"></div> Calculating…</div>
 
-            <!-- Table -->
             <div id="spContent">
                 <div class="no-data" id="spNoData">
                     <div class="nd-icon">📊</div>
-                    <p>Load data to view spread analysis.</p>
+                    <p>Select a country to view spread analysis.</p>
                 </div>
                 <div class="table-wrap" id="spTableWrap" style="display:none">
                     <table>
@@ -533,30 +515,28 @@
             </div>
         </div>
 
-    </div><!-- /content-area -->
-
-    <!-- ══ Footer ══ -->
-    <div class="info">
-        Data source: <a href="https://www.entsoe.eu/" target="_blank">ENTSO-E Transparency Platform</a>
-        &nbsp;|&nbsp; Unit: €/MWh
-        &nbsp;|&nbsp; Author: Hanyu Jian
     </div>
 
-</div><!-- /container -->
+    <div class="info">
+        Data source: <a href="https://www.entsoe.eu/" target="_blank">ENTSO-E Transparency Platform</a>
+        &nbsp;|&nbsp; Unit: €/MWh &nbsp;|&nbsp; Author: Hanyu Jian
+    </div>
+</div>
 
-<!-- Tooltip (global) -->
 <div class="hm-tooltip" id="hmTooltip"></div>
 
 <script>
 /* ═══════════════════════════════════════════════
-   Globals
+   Constants & Globals
 ═══════════════════════════════════════════════ */
-const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun',
-                'Jul','Aug','Sep','Oct','Nov','Dec'];
+const MONTHS   = ['Jan','Feb','Mar','Apr','May','Jun',
+                  'Jul','Aug','Sep','Oct','Nov','Dec'];
+const YEARS    = [2024, 2025, 2026];
+const YEAR_COLORS = { 2024: '#3498db', 2025: '#e67e22', 2026: '#27ae60' };
 
-let rawRows      = [];   // {country,year,month,day,hour,price}
-let filteredRows = [];
-let currentTab   = 'monthly';
+let rawRows    = [];   // {country,year,month,day,hour,price}
+let currentTab = 'monthly';
+let currentCountry = 'HU';
 
 /* ═══════════════════════════════════════════════
    Boot
@@ -577,21 +557,16 @@ async function fetchCSV() {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const text = await res.text();
         parseCSV(text);
-        setStatus('ready',
-            `CSV loaded — ${rawRows.length.toLocaleString()} hourly records · `+
-            `${[...new Set(rawRows.map(r=>r.country))].length} countries · `+
-            `years: ${[...new Set(rawRows.map(r=>r.year))].sort().join(', ')}`);
     } catch(e) {
-        setStatus('error', `Failed to load: ${e.message}`);
+        setStatus('error', `Failed to load CSV: ${e.message}`);
     }
 }
 
 function parseCSV(text) {
     const lines = text.trim().split(/\r?\n/);
-    if (lines.length < 2) return;
+    if (lines.length < 2) { setStatus('error','CSV empty or invalid'); return; }
 
-    // Header: Date, AT, BG, DE, ...
-    const header   = lines[0].split(',').map(s => s.trim());
+    const header    = lines[0].split(',').map(s => s.trim());
     const countries = header.slice(1);
 
     const countrySet = new Set();
@@ -600,14 +575,10 @@ function parseCSV(text) {
     for (let i = 1; i < lines.length; i++) {
         const cols = lines[i].split(',');
         if (cols.length < 2) continue;
-
-        // "2024/1/1 0:00"
         const m = cols[0].trim().match(/(\d{4})\/(\d{1,2})\/(\d{1,2})\s+(\d{1,2}):(\d{2})/);
         if (!m) continue;
-
-        const year  = +m[1], month = +m[2], day = +m[3], hour = +m[4];
+        const year = +m[1], month = +m[2], day = +m[3], hour = +m[4];
         yearSet.add(year);
-
         for (let c = 0; c < countries.length; c++) {
             const price = parseFloat((cols[c+1]||'').trim());
             if (isNaN(price)) continue;
@@ -616,281 +587,415 @@ function parseCSV(text) {
         }
     }
 
-    // Populate dropdowns
+    // Populate country dropdown, default HU
     const selC = document.getElementById('selCountry');
-    [...countrySet].sort().forEach(c => {
-        selC.insertAdjacentHTML('beforeend', `<option value="${c}">${c}</option>`);
+    selC.innerHTML = '';
+    const sorted = [...countrySet].sort();
+    sorted.forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c; opt.textContent = c;
+        if (c === 'HU') opt.selected = true;
+        selC.appendChild(opt);
     });
-    const selY = document.getElementById('selYear');
-    [...yearSet].sort().forEach(y => {
-        selY.insertAdjacentHTML('beforeend', `<option value="${y}">${y}</option>`);
-    });
+
+    setStatus('ready',
+        `CSV loaded — ${rawRows.length.toLocaleString()} records · ` +
+        `${sorted.length} countries · years: ${[...yearSet].sort().join(', ')}`);
+
+    // Auto-render default country
+    currentCountry = selC.value || sorted[0];
+    refresh();
 }
 
 /* ═══════════════════════════════════════════════
-   Load Data (button)
+   Country change → auto refresh
 ═══════════════════════════════════════════════ */
-function loadData() {
-    const country = document.getElementById('selCountry').value;
-    const year    = +document.getElementById('selYear').value;
-    if (!country || !year) { alert('Please select both a country and a year.'); return; }
+function onCountryChange() {
+    currentCountry = document.getElementById('selCountry').value;
+    if (!currentCountry) return;
+    refresh();
+}
 
-    filteredRows = rawRows.filter(r => r.country === country && r.year === year);
-    if (!filteredRows.length) {
-        setStatus('error', `No data for ${country} ${year}.`);
-        return;
-    }
-
-    setStatus('ready',
-        `Showing ${country} · ${year} — ${filteredRows.length.toLocaleString()} hourly records`);
-
-    buildHeatmap(filteredRows);
+function refresh() {
+    buildHeatmap();
     buildSpread();
 }
 
 /* ═══════════════════════════════════════════════
-   Heatmap
+   Get rows for a country+year
 ═══════════════════════════════════════════════ */
-function buildHeatmap(rows) {
-    const spinner = document.getElementById('hmSpinner');
-    spinner.classList.add('show');
+function getRows(year) {
+    return rawRows.filter(r => r.country === currentCountry && r.year === year);
+}
+
+/* ═══════════════════════════════════════════════
+   Heatmap — three years side by side
+═══════════════════════════════════════════════ */
+function buildHeatmap() {
+    document.getElementById('hmSpinner').classList.add('show');
+    document.getElementById('hmNoData').style.display = 'none';
     setTimeout(() => {
-        _renderHeatmap(rows);
-        spinner.classList.remove('show');
+        _renderHeatmap();
+        document.getElementById('hmSpinner').classList.remove('show');
     }, 30);
 }
 
-function _renderHeatmap(rows) {
-    // avg[hour 0-23][month 0-11]
-    const buckets = Array.from({length:24}, () => Array.from({length:12}, () => []));
-    rows.forEach(r => {
-        if (r.hour >= 0 && r.hour < 24 && r.month >= 1 && r.month <= 12)
-            buckets[r.hour][r.month-1].push(r.price);
+function _renderHeatmap() {
+    // Build avg[year][hour][month]
+    const data = {};
+    let globalMin = Infinity, globalMax = -Infinity;
+
+    YEARS.forEach(yr => {
+        const rows = getRows(yr);
+        // buckets[hour 0-23][month 0-11]
+        const buckets = Array.from({length:24}, () =>
+            Array.from({length:12}, () => []));
+        rows.forEach(r => {
+            if (r.hour >= 0 && r.hour < 24 && r.month >= 1 && r.month <= 12)
+                buckets[r.hour][r.month-1].push(r.price);
+        });
+        const avg = buckets.map(hrs =>
+            hrs.map(arr => {
+                if (!arr.length) return null;
+                const v = arr.reduce((a,b)=>a+b,0)/arr.length;
+                globalMin = Math.min(globalMin, v);
+                globalMax = Math.max(globalMax, v);
+                return v;
+            })
+        );
+        data[yr] = avg;
     });
-    const avg = buckets.map(hrs =>
-        hrs.map(arr => arr.length ? arr.reduce((a,b)=>a+b,0)/arr.length : null)
-    );
 
-    let mn = Infinity, mx = -Infinity;
-    avg.forEach(hrs => hrs.forEach(v => { if(v!==null){mn=Math.min(mn,v);mx=Math.max(mx,v);} }));
-
-    // Build DOM
     const content = document.getElementById('hmContent');
     content.innerHTML = '';
 
-    // Y-labels
-    const yLabels = document.createElement('div');
-    yLabels.className = 'hm-ylabels';
-    for (let h = 0; h < 24; h++) {
-        const s = document.createElement('span');
-        s.textContent = `H${String(h+1).padStart(2,'0')}`;
-        yLabels.appendChild(s);
-    }
+    const tooltip  = document.getElementById('hmTooltip');
+    const outerDiv = document.createElement('div');
+    outerDiv.className = 'heatmap-outer';
 
-    // Grid wrap
-    const gridWrap = document.createElement('div');
-    gridWrap.className = 'hm-grid-wrap';
+    const threeYear = document.createElement('div');
+    threeYear.className = 'three-year-hm';
 
-    const monthRow = document.createElement('div');
-    monthRow.className = 'hm-months';
-    MONTHS.forEach(m => {
-        const s = document.createElement('span');
-        s.textContent = m;
-        monthRow.appendChild(s);
-    });
-    gridWrap.appendChild(monthRow);
+    YEARS.forEach(yr => {
+        const block = document.createElement('div');
+        block.className = 'year-hm-block';
 
-    const grid = document.createElement('div');
-    grid.className = 'hm-grid';
+        // Year title
+        const title = document.createElement('div');
+        title.className = 'year-hm-title';
+        title.style.color = YEAR_COLORS[yr];
+        title.textContent = yr;
+        block.appendChild(title);
 
-    const tooltip = document.getElementById('hmTooltip');
+        // Month header
+        const mhWrap = document.createElement('div');
+        mhWrap.className = 'hm-month-header';
+        const spacer = document.createElement('div');
+        spacer.className = 'hm-month-spacer';
+        mhWrap.appendChild(spacer);
+        const mlabels = document.createElement('div');
+        mlabels.className = 'hm-month-labels';
+        MONTHS.forEach(mn => {
+            const s = document.createElement('div');
+            s.className = 'hm-month-label';
+            s.textContent = mn;
+            mlabels.appendChild(s);
+        });
+        mhWrap.appendChild(mlabels);
+        block.appendChild(mhWrap);
 
-    for (let h = 0; h < 24; h++) {
-        for (let m = 0; m < 12; m++) {
-            const cell = document.createElement('div');
-            cell.className = 'hm-cell';
-            const v = avg[h][m];
-            if (v !== null) {
-                cell.style.background = priceColor(v, mn, mx);
-                cell.addEventListener('mousemove', e => {
-                    tooltip.style.display = 'block';
-                    tooltip.style.left = (e.clientX + 14) + 'px';
-                    tooltip.style.top  = (e.clientY + 14) + 'px';
-                    tooltip.innerHTML =
-                        `<b>${MONTHS[m]}</b> · Hour ${h+1}&nbsp;&nbsp;` +
-                        `<span style="color:#f1c40f">${v.toFixed(2)} €/MWh</span>`;
-                });
-                cell.addEventListener('mouseleave', () => { tooltip.style.display='none'; });
-            } else {
-                cell.style.background = '#e9ecef';
+        const avg = data[yr];
+        const hasData = getRows(yr).length > 0;
+
+        // Rows H01–H24
+        for (let h = 0; h < 24; h++) {
+            const row = document.createElement('div');
+            row.className = 'hm-row';
+
+            const yl = document.createElement('div');
+            yl.className = 'hm-ylabel';
+            yl.textContent = `H${String(h+1).padStart(2,'0')}`;
+            row.appendChild(yl);
+
+            const cellsRow = document.createElement('div');
+            cellsRow.className = 'hm-cells-row';
+
+            for (let mo = 0; mo < 12; mo++) {
+                const cell = document.createElement('div');
+                cell.className = 'hm-cell';
+                const v = hasData ? avg[h][mo] : null;
+                if (v !== null) {
+                    cell.style.background = priceColor(v, globalMin, globalMax);
+                    cell.addEventListener('mousemove', e => {
+                        tooltip.style.display = 'block';
+                        tooltip.style.left = (e.clientX + 14) + 'px';
+                        tooltip.style.top  = (e.clientY + 14) + 'px';
+                        tooltip.innerHTML =
+                            `<b>${yr}</b> · ${MONTHS[mo]} · Hour ${h+1}&nbsp;&nbsp;` +
+                            `<span style="color:#f1c40f">${v.toFixed(2)} €/MWh</span>`;
+                    });
+                    cell.addEventListener('mouseleave', () => {
+                        tooltip.style.display = 'none';
+                    });
+                } else {
+                    // No data: show subtle placeholder
+                    cell.style.background = '#e9ecef';
+                    cell.title = `${yr} · ${MONTHS[mo]} · Hour ${h+1}: no data`;
+                }
+                cellsRow.appendChild(cell);
             }
-            grid.appendChild(cell);
+
+            row.appendChild(cellsRow);
+            block.appendChild(row);
         }
-    }
 
-    gridWrap.appendChild(grid);
+        threeYear.appendChild(block);
+    });
 
-    const layout = document.createElement('div');
-    layout.className = 'hm-layout';
-    layout.appendChild(yLabels);
-    layout.appendChild(gridWrap);
-
-    const outer = document.createElement('div');
-    outer.className = 'heatmap-outer';
-    outer.appendChild(layout);
-    content.appendChild(outer);
+    outerDiv.appendChild(threeYear);
+    content.appendChild(outerDiv);
 
     // Legend
-    document.getElementById('hmLegend').style.display = 'flex';
-    document.getElementById('legendMin').textContent = mn.toFixed(1);
-    document.getElementById('legendMax').textContent = mx.toFixed(1);
+    if (isFinite(globalMin) && isFinite(globalMax)) {
+        document.getElementById('hmLegend').style.display = 'flex';
+        document.getElementById('legendMin').textContent = globalMin.toFixed(1);
+        document.getElementById('legendMax').textContent = globalMax.toFixed(1);
+    }
 }
 
-/* Green→Yellow→Red color scale */
+/* Green → Yellow → Red */
 function priceColor(v, mn, mx) {
     if (mx === mn) return '#f1c40f';
-    const t = (v - mn) / (mx - mn);
+    const t = Math.max(0, Math.min(1, (v - mn) / (mx - mn)));
     if (t < 0.5) {
         const u = t * 2;
-        return `rgb(${Math.round(39+u*(241-39))},${Math.round(174+u*(196-174))},${Math.round(96+u*(30-96))})`;
+        return `rgb(${Math.round(39  + u*(241-39 ))},${Math.round(174 + u*(196-174))},${Math.round(96  + u*(30 -96 ))})`;
     } else {
-        const u = (t-0.5)*2;
-        return `rgb(${Math.round(241+u*(231-241))},${Math.round(196+u*(76-196))},${Math.round(30+u*(60-30))})`;
+        const u = (t - 0.5) * 2;
+        return `rgb(${Math.round(241 + u*(231-241))},${Math.round(196 + u*(76 -196))},${Math.round(30  + u*(60 -30 ))})`;
     }
 }
 
 /* ═══════════════════════════════════════════════
-   Spread
+   Spread — three-year comparison
 ═══════════════════════════════════════════════ */
 function onParamChange() {
-    if (filteredRows.length) buildSpread();
+    if (rawRows.length) buildSpread();
 }
 function switchTab(tab, btn) {
     currentTab = tab;
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
-    if (filteredRows.length) buildSpread();
+    if (rawRows.length) buildSpread();
 }
 
 function buildSpread() {
-    const spinner = document.getElementById('spSpinner');
-    spinner.classList.add('show');
+    document.getElementById('spSpinner').classList.add('show');
+    document.getElementById('spNoData').style.display = 'none';
     setTimeout(() => {
         _renderSpread();
-        spinner.classList.remove('show');
+        document.getElementById('spSpinner').classList.remove('show');
     }, 20);
 }
 
 function _renderSpread() {
-    const nP = Math.max(1, +document.getElementById('nPeak').value   || 6);
-    const nV = Math.max(1, +document.getElementById('nValley').value || 6);
+    const nP = Math.max(1, Math.min(24, +document.getElementById('nPeak').value   || 6));
+    const nV = Math.max(1, Math.min(24, +document.getElementById('nValley').value || 6));
 
-    // Group by day
-    const dayMap = {};
-    filteredRows.forEach(r => {
-        const key = `${r.year}-${r.month}-${r.day}`;
-        if (!dayMap[key]) dayMap[key] = { year:r.year, month:r.month, day:r.day, prices:[] };
-        dayMap[key].prices.push(r.price);
+    // For each year, compute daily peak/valley
+    const yearDaily = {};
+    YEARS.forEach(yr => {
+        const rows = getRows(yr);
+        const dayMap = {};
+        rows.forEach(r => {
+            const key = `${r.year}-${r.month}-${r.day}`;
+            if (!dayMap[key]) dayMap[key] = { year:r.year, month:r.month, day:r.day, prices:[] };
+            dayMap[key].prices.push(r.price);
+        });
+        yearDaily[yr] = Object.values(dayMap).map(d => {
+            const s   = [...d.prices].sort((a,b)=>a-b);
+            const n   = s.length;
+            const nVv = Math.min(nV, n), nPv = Math.min(nP, n);
+            const valley = s.slice(0, nVv).reduce((a,b)=>a+b,0) / nVv;
+            const peak   = s.slice(n-nPv).reduce((a,b)=>a+b,0) / nPv;
+            return { ...d, peak, valley };
+        });
     });
 
-    // Daily peak/valley
-    const daily = Object.values(dayMap).map(d => {
-        const s = [...d.prices].sort((a,b) => a-b);
-        const n = s.length;
-        const nVv = Math.min(nV, n), nPv = Math.min(nP, n);
-        const valley = s.slice(0, nVv).reduce((a,b)=>a+b,0) / nVv;
-        const peak   = s.slice(n-nPv).reduce((a,b)=>a+b,0) / nPv;
-        return { ...d, peak, valley };
-    });
-
-    let rows, headers, hasRange = false;
+    // Aggregate per period per year
+    let periods;
+    let hasRange = false;
 
     if (currentTab === 'monthly') {
-        const groups = {};
-        daily.forEach(d => {
-            if (!groups[d.month]) groups[d.month]=[];
-            groups[d.month].push(d);
+        periods = MONTHS.map((label, idx) => ({ key: idx+1, label }));
+        periods.push({ key: 'annual', label: 'Annual', isTotal: true });
+
+        const tableRows = periods.map(p => {
+            const rowData = { label: p.label, isTotal: p.isTotal || false };
+            YEARS.forEach(yr => {
+                const daily = yearDaily[yr];
+                const group = p.key === 'annual'
+                    ? daily
+                    : daily.filter(d => d.month === p.key);
+                rowData[yr] = agg(group);
+            });
+            return rowData;
         });
-        rows = [];
-        for (let m=1; m<=12; m++) {
-            if (groups[m]) rows.push({ label: MONTHS[m-1], ...agg(groups[m]) });
-        }
-        rows.push({ label:'Annual', ...agg(daily), isTotal:true });
-        headers = ['Period','Peak (€/MWh)','Valley (€/MWh)','Spread (€/MWh)'];
+        renderCompareTable(tableRows, false, nP, nV);
 
     } else if (currentTab === 'quarterly') {
-        const qDef = [[1,2,3],[4,5,6],[7,8,9],[10,11,12]];
-        const qName= ['Q1 (Jan–Mar)','Q2 (Apr–Jun)','Q3 (Jul–Sep)','Q4 (Oct–Dec)'];
-        rows = [];
-        qDef.forEach((ms,i) => {
+        const qDef  = [[1,2,3],[4,5,6],[7,8,9],[10,11,12]];
+        const qName = ['Q1 (Jan–Mar)','Q2 (Apr–Jun)','Q3 (Jul–Sep)','Q4 (Oct–Dec)'];
+        const tableRows = qDef.map((ms, i) => {
+            const rowData = { label: qName[i] };
             const ms2 = new Set(ms);
-            const g = daily.filter(d => ms2.has(d.month));
-            if (g.length) rows.push({ label: qName[i], ...agg(g) });
+            YEARS.forEach(yr => {
+                rowData[yr] = agg(yearDaily[yr].filter(d => ms2.has(d.month)));
+            });
+            return rowData;
         });
-        rows.push({ label:'Annual', ...agg(daily), isTotal:true });
-        headers = ['Period','Peak (€/MWh)','Valley (€/MWh)','Spread (€/MWh)'];
+        tableRows.push((() => {
+            const rowData = { label:'Annual', isTotal:true };
+            YEARS.forEach(yr => { rowData[yr] = agg(yearDaily[yr]); });
+            return rowData;
+        })());
+        renderCompareTable(tableRows, false, nP, nV);
 
     } else {
         // Weekly
         hasRange = true;
-        const weekMap = {};
-        daily.forEach(d => {
-            const w = isoWeek(d.year, d.month, d.day);
-            if (!weekMap[w]) weekMap[w] = { days:[], dates:[] };
-            weekMap[w].days.push(d);
-            weekMap[w].dates.push(new Date(d.year, d.month-1, d.day));
+        // Collect all ISO-weeks across years
+        const allWeeks = new Set();
+        YEARS.forEach(yr => {
+            yearDaily[yr].forEach(d => allWeeks.add(isoWeek(d.year, d.month, d.day)));
         });
-        rows = Object.keys(weekMap).map(Number).sort((a,b)=>a-b).map(w => {
-            const e = weekMap[w];
-            const dates = e.dates.sort((a,b)=>a-b);
-            return {
-                label: `W${String(w).padStart(2,'0')}`,
-                dateRange: `${fmtD(dates[0])} – ${fmtD(dates[dates.length-1])}`,
-                ...agg(e.days)
-            };
+        const sortedWeeks = [...allWeeks].map(Number).sort((a,b)=>a-b);
+
+        const tableRows = sortedWeeks.map(w => {
+            const rowData = { label: `W${String(w).padStart(2,'0')}` };
+            YEARS.forEach(yr => {
+                const group = yearDaily[yr].filter(d => isoWeek(d.year,d.month,d.day) === w);
+                rowData[yr] = agg(group);
+                // date range from any year that has data
+                if (!rowData._range && group.length) {
+                    const dates = group.map(d => new Date(d.year,d.month-1,d.day)).sort((a,b)=>a-b);
+                    rowData._range = `${fmtD(dates[0])} – ${fmtD(dates[dates.length-1])}`;
+                }
+            });
+            return rowData;
         });
-        rows.push({ label:'Annual', dateRange:'Full year', ...agg(daily), isTotal:true });
-        headers = ['Week','Date Range','Peak (€/MWh)','Valley (€/MWh)','Spread (€/MWh)'];
+        tableRows.push((() => {
+            const rowData = { label:'Annual', _range:'Full year', isTotal:true };
+            YEARS.forEach(yr => { rowData[yr] = agg(yearDaily[yr]); });
+            return rowData;
+        })());
+        renderCompareTable(tableRows, true, nP, nV);
     }
 
-    renderTable(headers, rows, hasRange);
     document.getElementById('spNoData').style.display = 'none';
     document.getElementById('spTableWrap').style.display = 'block';
 }
 
-function agg(days) {
-    if (!days.length) return { peak:null, valley:null, spread:null };
-    const p = days.reduce((a,d)=>a+d.peak,  0) / days.length;
-    const v = days.reduce((a,d)=>a+d.valley, 0) / days.length;
-    return { peak:p, valley:v, spread:p-v };
-}
+/* ── Render comparison table ── */
+function renderCompareTable(tableRows, hasRange) {
+    // Build header: two-level
+    // Row 1: Period | [Year groupings]
+    // Row 2: Period | Peak | Valley | Spread | ...repeated
 
-function renderTable(headers, rows, hasRange) {
-    document.getElementById('spHead').innerHTML =
-        '<tr>' + headers.map(h=>`<th>${h}</th>`).join('') + '</tr>';
+    const head = document.getElementById('spHead');
+    head.innerHTML = '';
 
+    // Row 1
+    const tr1 = document.createElement('tr');
+    // Period cell (rowspan=2)
+    const thPeriod = document.createElement('th');
+    thPeriod.rowSpan = 2;
+    thPeriod.textContent = 'Period';
+    thPeriod.style.verticalAlign = 'middle';
+    tr1.appendChild(thPeriod);
+
+    if (hasRange) {
+        const thRange = document.createElement('th');
+        thRange.rowSpan = 2;
+        thRange.textContent = 'Date Range';
+        thRange.style.verticalAlign = 'middle';
+        tr1.appendChild(thRange);
+    }
+
+    YEARS.forEach(yr => {
+        const th = document.createElement('th');
+        th.colSpan = 3;
+        th.className = 'th-year-group';
+        th.style.color = YEAR_COLORS[yr];
+        th.textContent = yr;
+        tr1.appendChild(th);
+    });
+    head.appendChild(tr1);
+
+    // Row 2: Peak / Valley / Spread for each year
+    const tr2 = document.createElement('tr');
+    YEARS.forEach(yr => {
+        ['Peak', 'Valley', 'Spread'].forEach((label, i) => {
+            const th = document.createElement('th');
+            th.textContent = `${label} (€/MWh)`;
+            if (i === 0) th.classList.add('col-sep');
+            tr2.appendChild(th);
+        });
+    });
+    head.appendChild(tr2);
+
+    // Body
     const body = document.getElementById('spBody');
     body.innerHTML = '';
 
-    rows.forEach(row => {
+    tableRows.forEach(row => {
         const tr = document.createElement('tr');
         if (row.isTotal) tr.classList.add('row-total');
 
-        let html = `<td class="col-period">${row.label}</td>`;
-        if (hasRange) html += `<td class="col-daterange">${row.dateRange||''}</td>`;
-        html += `<td class="col-peak">${row.peak!==null ? row.peak.toFixed(2) : '—'}</td>`;
-        html += `<td class="col-valley">${row.valley!==null ? row.valley.toFixed(2) : '—'}</td>`;
+        // Period
+        const tdP = document.createElement('td');
+        tdP.className = 'col-period';
+        tdP.textContent = row.label;
+        tr.appendChild(tdP);
 
-        if (row.spread !== null) {
-            const sign = row.spread > 0 ? '+' : '';
-            const cls  = row.spread >  0.005 ? 'col-spread-pos' :
-                         row.spread < -0.005 ? 'col-spread-neg' : 'col-spread-zero';
-            html += `<td class="${cls}">${sign}${row.spread.toFixed(2)}</td>`;
-        } else {
-            html += `<td class="col-spread-zero">—</td>`;
+        if (hasRange) {
+            const tdR = document.createElement('td');
+            tdR.className = 'col-daterange';
+            tdR.textContent = row._range || '';
+            tr.appendChild(tdR);
         }
 
-        tr.innerHTML = html;
+        YEARS.forEach((yr, yi) => {
+            const d   = row[yr] || { peak:null, valley:null, spread:null };
+            const sep = yi === 0;
+
+            // Peak
+            const tdPeak = document.createElement('td');
+            tdPeak.className = 'col-peak' + (sep ? ' col-sep' : '');
+            tdPeak.textContent = d.peak !== null ? d.peak.toFixed(2) : '—';
+            tr.appendChild(tdPeak);
+
+            // Valley
+            const tdVal = document.createElement('td');
+            tdVal.className = 'col-valley';
+            tdVal.textContent = d.valley !== null ? d.valley.toFixed(2) : '—';
+            tr.appendChild(tdVal);
+
+            // Spread
+            const tdSp = document.createElement('td');
+            if (d.spread !== null) {
+                const sign = d.spread > 0 ? '+' : '';
+                const cls  = d.spread >  0.005 ? 'col-spread-pos' :
+                             d.spread < -0.005 ? 'col-spread-neg' : 'col-spread-zero';
+                tdSp.className = cls;
+                tdSp.textContent = `${sign}${d.spread.toFixed(2)}`;
+            } else {
+                tdSp.className = 'col-na';
+                tdSp.textContent = '—';
+            }
+            tr.appendChild(tdSp);
+        });
+
         body.appendChild(tr);
     });
 }
@@ -898,20 +1003,29 @@ function renderTable(headers, rows, hasRange) {
 /* ═══════════════════════════════════════════════
    Helpers
 ═══════════════════════════════════════════════ */
+function agg(days) {
+    if (!days || !days.length) return { peak:null, valley:null, spread:null };
+    const p = days.reduce((a,d)=>a+d.peak,  0) / days.length;
+    const v = days.reduce((a,d)=>a+d.valley, 0) / days.length;
+    return { peak:p, valley:v, spread:p-v };
+}
+
 function isoWeek(year, month, day) {
     const d    = new Date(year, month-1, day);
     const jan4 = new Date(year, 0, 4);
     const w1start = new Date(jan4);
-    w1start.setDate(jan4.getDate() - (jan4.getDay()||7) + 1);
+    w1start.setDate(jan4.getDate() - ((jan4.getDay()||7) - 1));
     return Math.max(1, Math.floor((d - w1start) / 864e5 / 7) + 1);
 }
+
 function fmtD(d) {
     return `${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()}`;
 }
+
 function setStatus(state, msg) {
     const dot = document.getElementById('statusDot');
-    dot.className = 'status-dot' + (state !== 'loading' && state !== 'error' ? ' ready' :
-                                    state === 'loading' ? ' loading' : ' error');
+    dot.className = 'status-dot ' +
+        (state === 'loading' ? 'loading' : state === 'error' ? 'error' : 'ready');
     document.getElementById('statusText').textContent = msg;
 }
 </script>

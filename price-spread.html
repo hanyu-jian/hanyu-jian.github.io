@@ -20,7 +20,6 @@
             overflow: hidden;
         }
 
-        /* ── Header ── */
         .header {
             background: #2c3e50;
             color: white;
@@ -56,7 +55,6 @@
         .sub-nav-link:hover { color: #2c3e50; }
         .sub-nav-link.active { color: #2c3e50; border-bottom-color: #2c3e50; }
 
-        /* ── Controls ── */
         .controls {
             padding: 20px 30px;
             display: flex; flex-wrap: wrap; gap: 20px;
@@ -69,7 +67,6 @@
             font-size: 13px; font-weight: 600; color: #2c3e50;
         }
 
-        /* ── Country dropdown ── */
         .country-select-wrapper { position: relative; display: inline-block; }
         .country-select-btn {
             min-width: 200px; height: 36px; padding: 0 12px;
@@ -102,7 +99,6 @@
         }
         .country-item:hover { background: #f5f7fa; }
 
-        /* Radio circle */
         .radio-dot {
             width: 15px; height: 15px; border-radius: 50%;
             border: 2px solid #aaa;
@@ -122,15 +118,17 @@
             border-radius: 50%;
             background: #2c3e50;
         }
+        /* 去掉选中国家的加粗加黑 */
         .country-item span {
             font-size: 13px; color: #343a40; letter-spacing: 0.2px;
         }
-        .country-item.selected span { color: #2c3e50; font-weight: 600; }
+        .country-item.selected span {
+            color: #343a40;
+            font-weight: normal;
+        }
 
-        /* ── Content area ── */
         .content-area { padding: 24px 30px 10px; }
 
-        /* ── Section card ── */
         .section-card {
             background: #fff; border-radius: 8px;
             border: 1px solid #e6e9ed;
@@ -146,7 +144,6 @@
         }
         .section-body { padding: 16px 20px; }
 
-        /* ── Heatmap ── */
         .heatmap-outer { overflow-x: auto; }
         .three-year-hm { display: flex; gap: 20px; min-width: 600px; }
         .year-hm-block { flex: 1; min-width: 0; }
@@ -179,7 +176,6 @@
         .hm-legend-bar { flex: 1; height: 7px; border-radius: 4px; }
         .hm-legend-val { white-space: nowrap; font-size: 10px; color: #495057; }
 
-        /* tooltip */
         .hm-tooltip {
             position: fixed; background: rgba(44,62,80,0.93); color: white;
             padding: 6px 11px; border-radius: 6px; font-size: 12px;
@@ -187,7 +183,6 @@
             white-space: nowrap; box-shadow: 0 3px 10px rgba(0,0,0,0.25);
         }
 
-        /* ── Spread params ── */
         .spread-params {
             display: flex; align-items: center; gap: 24px; flex-wrap: wrap;
             padding: 12px 20px; background: #f8f9fa; border-bottom: 1px solid #e6e9ed;
@@ -205,7 +200,6 @@
         .spread-params input:focus { border-color: #5a8fc2; box-shadow: 0 0 0 3px rgba(90,143,194,0.15); }
         .spread-hint { font-size: 11px; color: #868e96; margin-left: auto; }
 
-        /* tabs */
         .tab-bar {
             display: flex; border-bottom: 2px solid #e6e9ed;
             padding: 0 20px; background: white;
@@ -220,7 +214,6 @@
         .tab-btn:hover { color: #2c3e50; }
         .tab-btn.active { color: #2c3e50; border-bottom-color: #2c3e50; }
 
-        /* ── Table ── */
         .table-wrap { overflow-x: auto; }
         table { width: 100%; border-collapse: collapse; font-size: 13px; }
         thead tr { background: #f8f9fa; }
@@ -234,6 +227,11 @@
             text-align: center; font-size: 12px; color: #2c3e50;
             border-left: 2px solid #dee2e6; letter-spacing: 0.5px;
         }
+        /* 列头颜色 */
+        thead th.th-peak   { color: #c0392b; }
+        thead th.th-valley { color: #27ae60; }
+        thead th.th-spread { color: #6c757d; }
+
         tbody tr { border-bottom: 1px solid #f1f3f5; transition: background 0.15s; }
         tbody tr:hover { background: #f8f9fa; }
         tbody tr.row-total {
@@ -241,17 +239,17 @@
             border-top: 2px solid #dee2e6;
         }
         tbody td { padding: 8px 12px; color: #343a40; white-space: nowrap; }
-        td.col-period  { color: #2c3e50; font-weight: 600; }
+        td.col-period   { color: #2c3e50; font-weight: 600; }
         td.col-daterange { color: #6c757d; font-size: 11px; }
-        td.col-peak    { color: #c0392b; }
-        td.col-valley  { color: #27ae60; }
-        td.col-spread-pos  { color: #e67e22; font-weight: 700; }
-        td.col-spread-neg  { color: #2980b9; font-weight: 700; }
-        td.col-spread-zero { color: #6c757d; }
+        td.col-peak   { color: #2c3e50; }
+        td.col-valley { color: #2c3e50; }
+        /* Spread 统一用橙色，不区分正负 */
+        td.col-spread     { color: #e67e22; font-weight: 700; }
+        td.col-spread-neg { color: #2980b9; font-weight: 700; }
+        td.col-spread-zero{ color: #6c757d; }
         td.col-sep { border-left: 2px solid #dee2e6; }
         td.col-na  { color: #ced4da; text-align: center; }
 
-        /* spinner */
         .spinner-wrap {
             display: none; justify-content: center; align-items: center;
             padding: 36px; gap: 12px; color: #6c757d; font-size: 13px;
@@ -268,7 +266,6 @@
         .no-data .nd-icon { font-size: 36px; margin-bottom: 8px; }
         .no-data p { font-size: 13px; color: #6c757d; }
 
-        /* ── Footer ── */
         .info {
             padding: 12px 30px 20px; font-size: 13px; color: #6c757d;
             text-align: center; border-top: 1px solid #e6e9ed; margin-top: 10px;
@@ -288,30 +285,21 @@
 <body>
 <div class="container">
 
-    <!-- ══ Header ══ -->
     <div class="header">
         <div class="header-top"><h1>European Electricity Dashboard</h1></div>
         <div class="main-nav">
-            <a href="price-overview.html" class="main-nav-link active">
-                <span>Price</span>
-            </a>
-            <a href="load.html" class="main-nav-link">
-                <span>Load</span>
-            </a>
-            <a href="capacity.html" class="main-nav-link">
-                <span>Installed Capacity</span>
-            </a>
+            <a href="price-overview.html" class="main-nav-link active"><span>Price</span></a>
+            <a href="load.html" class="main-nav-link"><span>Load</span></a>
+            <a href="capacity.html" class="main-nav-link"><span>Installed Capacity</span></a>
         </div>
     </div>
 
-    <!-- ══ Sub-nav ══ -->
     <div class="sub-nav">
         <a class="sub-nav-link" href="price-overview.html">Price Overview</a>
         <a class="sub-nav-link" href="capture-price.html">Capture Prices</a>
         <a class="sub-nav-link active" href="price-spread.html">Price Spread</a>
     </div>
 
-    <!-- ══ Controls ══ -->
     <div class="controls">
         <div class="control-group">
             <label>🌍 Country</label>
@@ -327,10 +315,8 @@
         </div>
     </div>
 
-    <!-- ══ Content ══ -->
     <div class="content-area">
 
-        <!-- Heatmap card -->
         <div class="section-card">
             <div class="section-head">
                 <h2>Monthly–Hourly Average Price Heatmap (H01–H24 × Month)</h2>
@@ -346,7 +332,6 @@
             </div>
         </div>
 
-        <!-- Spread card -->
         <div class="section-card">
             <div class="section-head">
                 <h2>Peak–Valley Spread — 2024 / 2025 / 2026 Comparison</h2>
@@ -385,28 +370,22 @@
             </div>
         </div>
 
-    </div><!-- /content-area -->
+    </div>
 
     <div class="info">
         Data source:
         <a href="https://www.entsoe.eu/" target="_blank">ENTSO-E Transparency Platform</a>
         &nbsp;|&nbsp; Unit: €/MWh &nbsp;|&nbsp; Author: Hanyu Jian
     </div>
-</div><!-- /container -->
+</div>
 
 <div class="hm-tooltip" id="hmTooltip"></div>
 
 <script>
-/* ═══════════════════════════════════════════════════════
-   Constants
-═══════════════════════════════════════════════════════ */
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun',
                 'Jul','Aug','Sep','Oct','Nov','Dec'];
 const YEARS  = [2024, 2025, 2026];
 
-/* ═══════════════════════════════════════════════════════
-   State
-═══════════════════════════════════════════════════════ */
 const dataByCountryYear  = {};
 const dailyByCountryYear = {};
 
@@ -415,18 +394,12 @@ let currentCountry = 'HU';
 let currentTab     = 'monthly';
 let renderDebounce = null;
 
-/* ═══════════════════════════════════════════════════════
-   Boot
-═══════════════════════════════════════════════════════ */
 window.addEventListener('DOMContentLoaded', () => {
     fetchCSV();
     document.getElementById('nPeak')  .addEventListener('change', onParamChange);
     document.getElementById('nValley').addEventListener('change', onParamChange);
 });
 
-/* ═══════════════════════════════════════════════════════
-   CSV → pre-aggregate
-═══════════════════════════════════════════════════════ */
 async function fetchCSV() {
     try {
         const res = await fetch('data/price.csv');
@@ -506,9 +479,6 @@ async function parseAndAggregate(text) {
     refresh();
 }
 
-/* ═══════════════════════════════════════════════════════
-   Country dropdown  (single-select, radio style)
-═══════════════════════════════════════════════════════ */
 function buildCountryDropdown() {
     const list = document.getElementById('countryList');
     list.innerHTML = '';
@@ -543,7 +513,6 @@ function buildCountryDropdown() {
     document.getElementById('countrySelectText').textContent = currentCountry;
 }
 
-/* dropdown open/close */
 (function setupDropdown() {
     const btn = document.getElementById('countrySelectBtn');
     const dd  = document.getElementById('countryDropdown');
@@ -552,18 +521,12 @@ function buildCountryDropdown() {
     dd.addEventListener('click', e => e.stopPropagation());
 })();
 
-/* ═══════════════════════════════════════════════════════
-   Refresh pipeline
-═══════════════════════════════════════════════════════ */
 function scheduleRefresh() {
     clearTimeout(renderDebounce);
     renderDebounce = setTimeout(refresh, 80);
 }
 function refresh() { buildHeatmap(); buildSpread(); }
 
-/* ═══════════════════════════════════════════════════════
-   Heatmap
-═══════════════════════════════════════════════════════ */
 function buildHeatmap() {
     document.getElementById('hmSpinner').classList.add('show');
     document.getElementById('hmNoData').style.display = 'none';
@@ -601,7 +564,6 @@ function _renderHeatmap() {
         title.textContent = String(yr);
         block.appendChild(title);
 
-        // month header
         const mhWrap = document.createElement('div');
         mhWrap.className = 'hm-month-header';
         mhWrap.appendChild(Object.assign(document.createElement('div'), {className:'hm-month-spacer'}));
@@ -614,7 +576,6 @@ function _renderHeatmap() {
         mhWrap.appendChild(mlabels);
         block.appendChild(mhWrap);
 
-        // rows
         for (let h = 0; h < 24; h++) {
             const row = document.createElement('div');
             row.className = 'hm-row';
@@ -649,7 +610,6 @@ function _renderHeatmap() {
             block.appendChild(row);
         }
 
-        // legend
         const legend = document.createElement('div');
         legend.className = 'hm-year-legend';
         if (hasData && isFinite(ymn)) {
@@ -657,9 +617,10 @@ function _renderHeatmap() {
                 {className:'hm-legend-val', textContent: ymn.toFixed(1)});
             const bar = document.createElement('div');
             bar.className = 'hm-legend-bar';
+            // 图例渐变：绿→黄→红
             bar.style.background =
-                `linear-gradient(to right,${priceColor(ymn,ymn,ymx)},` +
-                `${priceColor((ymn+ymx)/2,ymn,ymx)},${priceColor(ymx,ymn,ymx)})`;
+                `linear-gradient(to right, ${priceColor(ymn,ymn,ymx)}, ` +
+                `${priceColor((ymn+ymx)/2,ymn,ymx)}, ${priceColor(ymx,ymn,ymx)})`;
             const maxS = Object.assign(document.createElement('span'),
                 {className:'hm-legend-val', textContent: ymx.toFixed(1)+' €/MWh'});
             legend.appendChild(minS); legend.appendChild(bar); legend.appendChild(maxS);
@@ -674,19 +635,23 @@ function _renderHeatmap() {
     content.appendChild(outerDiv);
 }
 
-/* ── Excel green→yellow→red ── */
+/* ── 色阶：绿(低) → 黄(中) → 红(高)，与图片完全一致 ── */
 function priceColor(v, mn, mx) {
-    if (!isFinite(mn) || !isFinite(mx) || mx === mn) return '#ffeb84';
+    if (!isFinite(mn) || !isFinite(mx) || mx === mn) return '#ffff00';
     const t = Math.max(0, Math.min(1, (v - mn) / (mx - mn)));
-    let r, g;
-    if (t <= 0.5) { r = Math.round(t * 2 * 255); g = 220; }
-    else          { r = 255; g = Math.round((1 - (t - 0.5) * 2) * 220); }
-    return `rgb(${r},${g},0)`;
+    let r, g, b = 0;
+    if (t <= 0.5) {
+        // 绿 → 黄
+        r = Math.round(t * 2 * 255);
+        g = 200;
+    } else {
+        // 黄 → 红
+        r = 255;
+        g = Math.round((1 - (t - 0.5) * 2) * 200);
+    }
+    return `rgb(${r},${g},${b})`;
 }
 
-/* ═══════════════════════════════════════════════════════
-   Spread
-═══════════════════════════════════════════════════════ */
 function onParamChange() { if (allCountries.length) buildSpread(); }
 
 function switchTab(tab, btn) {
@@ -807,12 +772,21 @@ function renderCompareTable(tableRows, hasRange) {
 
     const tr2 = document.createElement('tr');
     YEARS.forEach((_,yi) => {
-        ['Peak (€/MWh)','Valley (€/MWh)','Spread (€/MWh)'].forEach((lbl,li) => {
-            const th = document.createElement('th');
-            th.textContent=lbl;
-            if (li===0) th.classList.add('col-sep');
-            tr2.appendChild(th);
-        });
+        // Peak 列头
+        const thPk = document.createElement('th');
+        thPk.textContent = 'Peak (€/MWh)';
+        thPk.className = 'th-peak' + (yi===0 ? ' col-sep' : '');
+        tr2.appendChild(thPk);
+        // Valley 列头
+        const thVl = document.createElement('th');
+        thVl.textContent = 'Valley (€/MWh)';
+        thVl.className = 'th-valley';
+        tr2.appendChild(thVl);
+        // Spread 列头
+        const thSp = document.createElement('th');
+        thSp.textContent = 'Spread (€/MWh)';
+        thSp.className = 'th-spread';
+        tr2.appendChild(thSp);
     });
     head.appendChild(tr2);
 
@@ -836,31 +810,41 @@ function renderCompareTable(tableRows, hasRange) {
             const d = row[yr]||{peak:null,valley:null,spread:null};
             const sep = yi===0;
 
+            // Peak 单元格
             const tdPk = document.createElement('td');
-            tdPk.className='col-peak'+(sep?' col-sep':'');
+            tdPk.className = 'col-peak' + (sep ? ' col-sep' : '');
             tdPk.textContent = d.peak!==null ? d.peak.toFixed(2) : '—';
             tr.appendChild(tdPk);
 
+            // Valley 单元格
             const tdVl = document.createElement('td');
-            tdVl.className='col-valley';
+            tdVl.className = 'col-valley';
             tdVl.textContent = d.valley!==null ? d.valley.toFixed(2) : '—';
             tr.appendChild(tdVl);
 
+            // Spread 单元格，去掉正负号区分，去掉 + 号
             const tdSp = document.createElement('td');
-            if (d.spread!==null) {
-                const sign = d.spread>=0?'+':'';
-                tdSp.className = d.spread>0.005?'col-spread-pos':d.spread<-0.005?'col-spread-neg':'col-spread-zero';
-                tdSp.textContent = `${sign}${d.spread.toFixed(2)}`;
-            } else { tdSp.className='col-na'; tdSp.textContent='—'; }
+            if (d.spread !== null) {
+                if (Math.abs(d.spread) < 0.005) {
+                    tdSp.className = 'col-spread-zero';
+                    tdSp.textContent = d.spread.toFixed(2);
+                } else if (d.spread < 0) {
+                    tdSp.className = 'col-spread-neg';
+                    tdSp.textContent = d.spread.toFixed(2);
+                } else {
+                    tdSp.className = 'col-spread';
+                    tdSp.textContent = d.spread.toFixed(2);   // 无 + 号
+                }
+            } else {
+                tdSp.className = 'col-na';
+                tdSp.textContent = '—';
+            }
             tr.appendChild(tdSp);
         });
         body.appendChild(tr);
     });
 }
 
-/* ═══════════════════════════════════════════════════════
-   Helpers
-═══════════════════════════════════════════════════════ */
 function isoWeek(year, month, day) {
     const d   = new Date(year, month-1, day);
     const j4  = new Date(year, 0, 4);

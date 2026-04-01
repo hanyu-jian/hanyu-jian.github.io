@@ -632,25 +632,28 @@ function _renderHeatmap() {
     content.appendChild(outerDiv);
 }
 
-/* ── 色阶：绿(低) → 黄(中) → 红(高)，与图片完全一致 ── */
+/--------------色阶----------/
 function priceColor(v, mn, mx) {
-    if (!isFinite(mn) || !isFinite(mx) || mx === mn) return '#c8b850';
+    if (!isFinite(mn) || !isFinite(mx) || mx === mn) return '#ffff00';
     const t = Math.max(0, Math.min(1, (v - mn) / (mx - mn)));
     let r, g, b;
 
-    if (t <= 0.3) {
-        // 柔和绿 → 柔和黄
-        const f = t * 2;                          // 0→1
-        r = Math.round(80  + f * (200 - 80));     // 80 → 200
-        g = Math.round(160 + f * (185 - 160));    // 160 → 185
-        b = Math.round(100 + f * (80  - 100));    // 100 → 80
+    if (t <= 0.5) {
+        // 
+        const f = t * 2;                            // 0→1
+        r = Math.round(0   + f * (255 - 0));        // 0   → 255
+        g = Math.round(130 + f * (255 - 130));      // 130 → 255
+        b = Math.round(0   + f * (0   - 0));        // 0   → 0
     } else {
-        // 柔和黄 → 柔和红
-        const f = (t - 0.3) * 2;                  // 0→1
-        r = Math.round(200 + f * (185 - 200));    // 200 → 185
-        g = Math.round(185 + f * (75  - 185));    // 185 → 75
-        b = Math.round(80  + f * (75  - 80));     // 80 → 75
+        // 
+        const f = (t - 0.5) * 2;                    // 0→1
+        r = 255;                                    // 始终255
+        g = Math.round(255 + f * (0   - 255));      // 255 → 0
+        b = 0;                                      // 始终0
     }
+
+    return `rgb(${r},${g},${b})`;
+}
 
     return `rgb(${r},${g},${b})`;
 }
@@ -825,7 +828,7 @@ function renderCompareTable(tableRows, hasRange) {
             tdVl.textContent = d.valley!==null ? d.valley.toFixed(2) : '—';
             tr.appendChild(tdVl);
 
-            // Spread 单元格，去掉正负号区分，去掉 + 号
+            // Spread 
             const tdSp = document.createElement('td');
             if (d.spread !== null) {
                 if (Math.abs(d.spread) < 0.005) {

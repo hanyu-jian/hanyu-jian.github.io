@@ -1,6 +1,15 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <!-- 🔐 Password Protection -->
+    <script>
+        (function() {
+            if (localStorage.getItem('site_access') !== 'granted') {
+                window.location.replace('/password.html');
+            }
+        })();
+    </script>
+
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>European Electricity Dashboard | Home</title>
@@ -117,13 +126,27 @@
             padding-top: 24px;
         }
 
+        .logout-btn {
+            position: fixed;
+            top: 16px;
+            right: 16px;
+            background: #e74c3c;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .logout-btn:hover {
+            background: #c0392b;
+        }
+
         @media (max-width: 1080px) {
-            .cards {
-                gap: 24px;
-            }
-            .card {
-                width: 280px;
-            }
+            .cards { gap: 24px; }
+            .card { width: 280px; }
         }
 
         @media (max-width: 700px) {
@@ -135,6 +158,10 @@
     </style>
 </head>
 <body>
+
+<!-- Logout Button -->
+<button class="logout-btn" onclick="logout()">🔓 Log Out</button>
+
 <div class="container">
     <div class="header">
         <h1>European Electricity Dashboard</h1>
@@ -145,7 +172,7 @@
         <!-- Price Analysis -->
         <a href="price-overview.html" class="card">
             <h2>Price</h2>
-            <p>Explore hourly and monthly electricity prices (€/MWh) across European countries. Interactive map and trend charts.</p>
+            <p>Explore hourly and monthly Day-ahead prices (€/MWh) across European countries. </p>
             <span class="btn">View Dashboard →</span>
         </a>
 
@@ -159,7 +186,7 @@
         <!-- Installed Capacity -->
         <a href="capacity.html" class="card">
             <h2>Installed Capacity</h2>
-            <p>Examine installed generation capacity (MW) by energy source across European countries. Compare renewable and conventional energy mixes.</p>
+            <p>Installed generation capacity (MW) by energy source across European countries.</p>
             <span class="btn">View Dashboard →</span>
         </a>
 
@@ -168,5 +195,13 @@
         <p>Data source: <a href="https://transparency.entsoe.eu/" target="_blank" style="color:#2c3e50; text-decoration:none;">ENTSO‑E Transparency Platform</a> | Author: Hanyu Jian</p>
     </div>
 </div>
+
+<script>
+    function logout() {
+        localStorage.removeItem('site_access');
+        window.location.href = '/password.html';
+    }
+</script>
+
 </body>
 </html>

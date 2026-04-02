@@ -686,7 +686,7 @@ function _renderHeatmap() {
 }
 
 
-/* --------------色阶（mid中位数）-------------- */
+/* --------------color (mid percentage number)-------------- */
 function priceColor(v, mn, mx, mid) {
     if (!isFinite(mn) || !isFinite(mx) || mx === mn) return 'rgb(255,255,255)';
     const stops = [

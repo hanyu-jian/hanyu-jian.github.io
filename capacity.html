@@ -1,920 +1,272 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <script>
-        (function() {
-            if (localStorage.getItem('site_access') !== 'granted') {
-                window.location.replace('/password.html');
-            }
-        })();
-    </script>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Installed Capacity – European Electricity Dashboard</title>
-    <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: #f0f2f5;
-            padding: 20px;
-        }
-        .container {
-            max-width: 1600px;
-            margin: 0 auto;
-            background: white;
-            border-radius: 12px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-            overflow: hidden;
-        }
-        .header {
-            background: #2c3e50;
-            color: white;
-            padding: 20px 30px 0 30px;
-        }
-        .header-top { padding-bottom: 16px; }
-        .header-top h1 { font-size: 24px; font-weight: 500; letter-spacing: 0.2px; }
-        .main-nav { display: flex; gap: 2px; margin-top: 4px; }
-        .main-nav-link {
-            display: inline-flex; align-items: center; gap: 7px;
-            padding: 10px 24px; font-size: 14px; font-weight: 600;
-            color: rgba(255,255,255,0.65); text-decoration: none;
-            border-radius: 6px 6px 0 0;
-            background: rgba(255,255,255,0.06);
-            border: 1px solid transparent; border-bottom: none;
-            letter-spacing: 0.2px;
-            transition: background 0.2s, color 0.2s;
-            white-space: nowrap; position: relative; top: 1px;
-        }
-        .main-nav-link:hover { color: rgba(255,255,255,0.95); background: rgba(255,255,255,0.14); }
-        .main-nav-link.active {
-            color: #2c3e50; background: #f8f9fa;
-            border-color: #e6e9ed; border-bottom-color: #f8f9fa;
-        }
-        .sub-nav {
-            background: #f8f9fa; border-bottom: 2px solid #e6e9ed;
-            padding: 0 30px; display: flex;
-        }
-        .sub-nav-link {
-            display: inline-block; padding: 14px 22px;
-            font-size: 14px; font-weight: 600; color: #6c757d;
-            text-decoration: none; border-bottom: 3px solid transparent;
-            margin-bottom: -2px; transition: color 0.2s, border-color 0.2s;
-        }
-        .sub-nav-link:hover { color: #2c3e50; }
-        .sub-nav-link.active { color: #2c3e50; border-bottom-color: #2c3e50; }
-        .controls {
-            padding: 16px 30px; display: flex; flex-wrap: wrap;
-            gap: 20px; align-items: flex-end;
-            background: #fff; border-bottom: 1px solid #e6e9ed;
-        }
-        .control-group { display: flex; flex-direction: column; gap: 6px; }
-        .control-group label { font-size: 13px; font-weight: 600; color: #2c3e50; }
-        select {
-            padding: 8px 12px; border: 1px solid #ccc;
-            border-radius: 6px; font-size: 14px; height: 36px;
-            font-family: inherit; cursor: pointer; background: white;
-        }
-        select:focus { outline: none; border-color: #2c3e50; }
-        .loading { text-align: center; padding: 60px; color: #666; font-size: 16px; }
-        .content-area {
-            display: flex; gap: 0; min-height: 620px;
-        }
-        /* ── Map panel ── */
-        .map-panel {
-            width: 400px; flex-shrink: 0;
-            border-right: 1px solid #e6e9ed;
-            display: flex; flex-direction: column;
-        }
-        .map-panel-header {
-            padding: 14px 20px 10px;
-            border-bottom: 1px solid #f0f2f5;
-        }
-        .map-panel-header h3 {
-            font-size: 14px; font-weight: 600; color: #2c3e50;
-            border-left: 4px solid #2c3e50; padding-left: 10px;
-        }
-        .map-panel-header p { font-size: 11px; color: #888; margin-top: 3px; padding-left: 14px; }
-        .map-wrap {
-            flex: 1; position: relative; overflow: hidden;
-            background: #e8f0f8; min-height: 380px;
-        }
-        #europeSvg { width: 100%; height: 100%; display: block; }
-        .country-detail {
-            border-top: 1px solid #e6e9ed;
-            padding: 12px 16px; max-height: 220px; overflow-y: auto;
-        }
-        .country-detail::-webkit-scrollbar { width: 4px; }
-        .country-detail::-webkit-scrollbar-thumb { background: #ccc; border-radius: 2px; }
-        .detail-header {
-            display: flex; justify-content: space-between;
-            align-items: baseline; margin-bottom: 8px;
-        }
-        .detail-country-name { font-size: 14px; font-weight: 700; color: #2c3e50; }
-        .detail-total { font-size: 12px; color: #e67e22; font-weight: 600; }
-        .detail-rows { display: flex; flex-direction: column; gap: 3px; }
-        .detail-row {
-            display: flex; align-items: center; gap: 7px;
-            padding: 4px 7px; border-radius: 4px;
-            background: #f8f9fa; font-size: 11px;
-        }
-        .detail-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-        .detail-type { flex: 1; color: #555; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .detail-mw { font-weight: 600; color: #2c3e50; white-space: nowrap; }
-        .detail-hint {
-            display: flex; align-items: center; justify-content: center;
-            height: 70px; color: #bbb; font-size: 12px; gap: 5px;
-        }
-        /* ── Charts panel ── */
-        .charts-panel {
-            flex: 1; padding: 16px 20px;
-            display: flex; flex-direction: column; gap: 16px;
-            overflow: hidden; min-width: 0;
-        }
-        .chart-card {
-            background: #fff; border-radius: 8px;
-            border: 1px solid #e6e9ed; padding: 14px 18px;
-        }
-        .chart-card h3 {
-            font-size: 14px; margin-bottom: 2px; font-weight: 600; color: #2c3e50;
-            border-left: 4px solid #2c3e50; padding-left: 10px;
-        }
-        .chart-sub { font-size: 11px; color: #999; margin-bottom: 10px; padding-left: 14px; }
-        .info {
-            padding: 10px 30px 16px; font-size: 12px; color: #6c757d;
-            text-align: center; border-top: 1px solid #e6e9ed;
-        }
-        .info a { color: #5a8fc2; text-decoration: none; }
-        .info a:hover { text-decoration: underline; }
-        .map-tooltip {
-            position: fixed; background: rgba(44,62,80,0.95);
-            color: #fff; padding: 7px 11px; border-radius: 5px;
-            font-size: 12px; pointer-events: none; z-index: 9999;
-            display: none; line-height: 1.6;
-            box-shadow: 0 3px 10px rgba(0,0,0,0.3);
-        }
-        /* Range selector styling */
-        .range-selector {
-            display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
-        }
-        .range-selector select { min-width: 110px; }
-        .range-sep { font-size: 13px; color: #888; font-weight: 600; padding: 0 2px; }
+<meta charset="UTF-8">
+<title>European Capacity Dashboard</title>
 
-        @media (max-width: 900px) {
-            .content-area { flex-direction: column; }
-            .map-panel { width: 100%; border-right: none; border-bottom: 1px solid #e6e9ed; }
-            .header { padding: 14px 14px 0; }
-            .header-top h1 { font-size: 18px; }
-        }
-    </style>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+
+<style>
+body {
+    font-family: Segoe UI;
+    background:#f5f7fa;
+    margin:0;
+}
+.container{
+    max-width:1400px;
+    margin:20px auto;
+    background:#fff;
+    padding:20px;
+}
+.top-bar{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:10px;
+}
+h2{
+    margin:0;
+    font-size:18px;
+}
+.range{
+    display:flex;
+    gap:6px;
+}
+select{
+    padding:5px;
+}
+.content{
+    display:flex;
+    gap:20px;
+}
+#map{
+    width:40%;
+    height:600px;
+}
+#bar{
+    width:60%;
+    height:600px;
+}
+</style>
 </head>
+
 <body>
+
 <div class="container">
-    <div class="header">
-        <div class="header-top"><h1>European Electricity Dashboard</h1></div>
-        <div class="main-nav">
-            <a href="price-overview.html" class="main-nav-link"><span>Price</span></a>
-            <a href="load.html" class="main-nav-link"><span>Load</span></a>
-            <a href="capacity.html" class="main-nav-link active"><span>Installed Capacity</span></a>
-        </div>
-    </div>
-    <div class="sub-nav">
-        <a class="sub-nav-link active" href="capacity.html">Overview</a>
-    </div>
 
-    <!-- Controls -->
-    <div class="controls">
-        <div class="control-group">
-            <label>📅 Time Range</label>
-            <div class="range-selector">
-                <select id="startSel"></select>
-                <span class="range-sep">→</span>
-                <select id="endSel"></select>
-            </div>
-        </div>
-        <div class="control-group">
-            <label>🗺️ Map Year</label>
-            <select id="mapYearSel"></select>
-        </div>
-    </div>
+<div class="top-bar">
+    <h2 id="title">Installed Capacity</h2>
 
-    <div id="loadingMsg" class="loading">⏳ Loading capacity data...</div>
-
-    <div class="content-area" id="contentArea" style="display:none;">
-        <!-- Map -->
-        <div class="map-panel">
-            <div class="map-panel-header">
-                <h3>Installed Capacity by Country</h3>
-                <p>Click a country to explore · colour intensity = total capacity</p>
-            </div>
-            <div class="map-wrap" id="mapWrap">
-                <svg id="europeSvg" viewBox="0 0 900 860" preserveAspectRatio="xMidYMid meet"></svg>
-            </div>
-            <div class="country-detail" id="countryDetail">
-                <div class="detail-hint">🗺️ Click a country to see details</div>
-            </div>
-        </div>
-
-        <!-- Charts -->
-        <div class="charts-panel">
-            <div class="chart-card" style="flex:1;display:flex;flex-direction:column;">
-                <h3 id="barTitle">Installed Capacity by Energy Type</h3>
-                <div class="chart-sub" id="barSub">Select a country on the map · stacked by production type</div>
-                <div id="barChart" style="flex:1;min-height:500px;"></div>
-            </div>
-        </div>
-    </div>
-
-    <div class="info" id="footerInfo" style="display:none;">
-        Data source: <a href="https://www.entsoe.eu/" target="_blank">ENTSO-E Transparency Platform</a>
-        &nbsp;|&nbsp; Unit: MW &nbsp;|&nbsp; Author: Hanyu Jian
+    <div class="range">
+        <select id="start"></select>
+        <span>→</span>
+        <select id="end"></select>
     </div>
 </div>
 
-<div class="map-tooltip" id="mapTip"></div>
+<div class="content">
+    <div id="map"></div>
+    <div id="bar"></div>
+</div>
+
+</div>
 
 <script>
-// ═══════════════════════════════════════
-// Color palette matching the legend image
-// ═══════════════════════════════════════
-const TYPE_COLOR = {
-    // Hydro variants → dark blue
-    'Hydro Run-of-river and pondage': '#1a56a0',
-    'Hydro Water Reservoir':          '#1a56a0',
-    'Hydro Pumped Storage':           '#a8c4e0',
-    // Fossil brown coal
-    'Fossil Brown coal/Lignite':      '#8B6914',
-    // Fossil hard coal
-    'Fossil Hard coal':               '#222222',
-    // Fossil oil
-    'Fossil Oil':                     '#6b3a2a',
-    'Fossil Oil shale':               '#6b3a2a',
-    // Fossil gas
-    'Fossil Gas':                     '#f5821f',
-    'Fossil Coal-derived gas':        '#f5821f',
-    // Fossil peat
-    'Fossil Peat':                    '#5d4037',
-    // Wind offshore → dark teal/green
-    'Wind Offshore':                  '#2e7d32',
-    // Wind onshore → light green
-    'Wind Onshore':                   '#81c784',
-    // Solar DC → light yellow
-    'Solar':                          '#fff176',
-    // Battery storage power → light blue/lavender
-    'Energy storage':                 '#b0bec5',
-    // Biomass → dark green
-    'Biomass':                        '#1b5e20',
-    // Other non-renewable / other → light purple
-    'Other':                          '#9c7bb5',
-    'Other renewable':                '#9c7bb5',
-    // Nuclear → kept distinct
-    'Nuclear':                        '#ce93d8',
-    // Geothermal
-    'Geothermal':                     '#ffa726',
-    // Marine
-    'Marine':                         '#42a5f5',
-    // Waste
-    'Waste':                          '#8d6e63',
-};
-
-// Legend items matching the image order/colours
-const LEGEND_ITEMS = [
-    { label: 'Hydro',                    color: '#1a56a0' },
-    { label: 'Hydro pumped storage',     color: '#a8c4e0' },
-    { label: 'Battery storage (power)',  color: '#b0bec5' },
-    { label: 'Battery storage (cap.)',   color: '#ef9a9a' },
-    { label: 'Biomass',                  color: '#1b5e20' },
-    { label: 'Fossil brown coal/lignite',color: '#8B6914' },
-    { label: 'Fossil hard coal',         color: '#222222' },
-    { label: 'Fossil oil',               color: '#6b3a2a' },
-    { label: 'Fossil gas',               color: '#f5821f' },
-    { label: 'Other, non-renewable',     color: '#9c7bb5' },
-    { label: 'Wind offshore',            color: '#2e7d32' },
-    { label: 'Wind onshore',             color: '#81c784' },
-    { label: 'Solar DC',                 color: '#fff176' },
-    { label: 'Solar AC',                 color: '#ffe57f' },
-    { label: 'Nuclear',                  color: '#ce93d8' },
-    { label: 'Geothermal',               color: '#ffa726' },
-];
-
-// Map type names from CSV → legend colour key
-function typeToColor(t) {
-    if (!t) return '#90a4ae';
-    const tl = t.toLowerCase();
-    if (tl.includes('hydro pumped') || tl.includes('pumped storage')) return '#a8c4e0';
-    if (tl.includes('hydro')) return '#1a56a0';
-    if (tl.includes('battery') || tl.includes('energy storage')) return '#b0bec5';
-    if (tl.includes('biomass')) return '#1b5e20';
-    if (tl.includes('brown coal') || tl.includes('lignite')) return '#8B6914';
-    if (tl.includes('hard coal')) return '#222222';
-    if (tl.includes('coal-derived')) return '#f5821f';
-    if (tl.includes('fossil oil') || tl.includes('oil shale')) return '#6b3a2a';
-    if (tl.includes('fossil gas') || tl.includes('gas')) return '#f5821f';
-    if (tl.includes('peat')) return '#5d4037';
-    if (tl.includes('wind off')) return '#2e7d32';
-    if (tl.includes('wind on') || tl.includes('wind')) return '#81c784';
-    if (tl.includes('solar')) return '#fff176';
-    if (tl.includes('nuclear')) return '#ce93d8';
-    if (tl.includes('geotherm')) return '#ffa726';
-    if (tl.includes('marine')) return '#42a5f5';
-    if (tl.includes('waste')) return '#8d6e63';
-    if (tl.includes('other renew')) return '#9c7bb5';
-    if (tl.includes('other')) return '#9c7bb5';
-    return '#90a4ae';
-}
 
 const TARGET = ['AT','BG','DE','ES','FR','GR','HR','HU','IT','PL','RO','RS','SK'];
-const COUNTRY_LABEL = {
+
+const NAME_MAP = {
     AT:'Austria', BG:'Bulgaria', DE:'Germany', ES:'Spain', FR:'France',
     GR:'Greece', HR:'Croatia', HU:'Hungary', IT:'Italy',
     PL:'Poland', RO:'Romania', RS:'Serbia', SK:'Slovakia'
 };
 
-// ── Simplified SVG paths for each target country (mercator-projected, viewBox 0 0 900 860)
-const COUNTRY_PATHS = {
-    FR: `M 200,260 L 185,230 L 160,210 L 140,195 L 125,200 L 110,220
-         L 108,245 L 120,265 L 115,290 L 130,310 L 155,320 L 180,315
-         L 210,305 L 225,285 L 215,268 Z`,
-
-    ES: `M 70,300 L 55,280 L 60,255 L 80,240 L 108,245 L 120,265
-         L 115,290 L 130,310 L 125,335 L 110,360 L 88,375 L 65,370
-         L 50,350 L 45,325 Z`,
-
-    DE: `M 270,155 L 255,135 L 235,125 L 210,130 L 195,145 L 185,165
-         L 185,185 L 195,200 L 215,210 L 235,205 L 260,195 L 275,175 Z`,
-
-    IT: `M 225,285 L 215,268 L 230,255 L 255,245 L 265,260 L 260,280
-         L 250,300 L 255,325 L 248,355 L 238,385 L 230,410 L 220,435
-         L 210,455 L 215,475 L 205,490 L 195,475 L 200,450 L 215,430
-         L 220,405 L 225,380 L 218,355 L 215,325 L 210,305 Z`,
-
-    PL: `M 310,125 L 290,110 L 265,105 L 245,110 L 235,125 L 255,135
-         L 270,155 L 285,160 L 310,155 L 325,140 Z`,
-
-    AT: `M 260,195 L 235,205 L 215,210 L 205,220 L 210,235 L 235,240
-         L 265,238 L 285,230 L 285,215 L 275,205 Z`,
-
-    SK: `M 320,185 L 305,178 L 285,180 L 265,190 L 265,200 L 285,215
-         L 310,215 L 330,205 L 335,193 Z`,
-
-    HU: `M 330,205 L 310,215 L 285,215 L 268,225 L 265,238 L 285,248
-         L 310,252 L 338,248 L 355,235 L 350,220 Z`,
-
-    HR: `M 265,238 L 235,240 L 220,250 L 218,265 L 228,278 L 248,285
-         L 268,290 L 285,282 L 285,265 L 285,248 Z`,
-
-    RO: `M 368,195 L 345,185 L 320,185 L 305,195 L 300,210 L 305,230
-         L 320,245 L 338,255 L 358,255 L 378,245 L 390,228 L 385,210 Z`,
-
-    RS: `M 338,248 L 310,252 L 295,260 L 290,278 L 300,295 L 318,305
-         L 338,300 L 355,288 L 358,268 L 358,255 L 338,255 Z`,
-
-    BG: `M 390,268 L 368,258 L 348,258 L 330,268 L 328,285 L 340,300
-         L 360,310 L 385,305 L 400,290 L 398,272 Z`,
-
-    GR: `M 340,320 L 320,310 L 305,315 L 300,332 L 310,350 L 330,360
-         L 348,355 L 355,340 L 350,325 Z`,
+let DATA = [];
+let PERIODS = [];
+let state = {
+    start:null,
+    end:null,
+    country:null
 };
 
-// ═══════════════════════════
-// State
-// ═══════════════════════════
-const S = {
-    data: [],
-    allPeriods: [],  // sorted list of {year, month} or {year} strings
-    startPeriod: null,
-    endPeriod: null,
-    mapYear: null,
-    country: null,
-};
-let barInst = null;
+async function loadData(){
 
-// ═══════════════════════════
-// Load + parse CSV
-// ═══════════════════════════
-async function loadCSV() {
-    return new Promise((res, rej) => {
-        Papa.parse('data/capacity.csv', {
-            download: true, header: true, skipEmptyLines: true,
-            complete: r => res(r.data),
-            error: e => rej(e),
-        });
+    const geo = await fetch('europe.geojson').then(r=>r.json());
+    echarts.registerMap('europe', geo);
+
+    const raw = await new Promise(res=>{
+        Papa.parse('data/capacity.csv',{
+            download:true,
+            header:true,
+            complete:r=>res(r.data)
+        })
+    });
+
+    DATA = raw.map(r=>({
+        year:+r['Year'],
+        country:r['Country'],
+        type:r['Production Type'],
+        mw:+r['Installed Capacity (MW)']
+    })).filter(r=>TARGET.includes(r.country));
+
+    PERIODS = [...new Set(DATA.map(r=>r.year))].sort();
+
+    state.start = PERIODS[0];
+    state.end = PERIODS[PERIODS.length-1];
+
+    initSelectors();
+    drawMap();
+}
+
+function initSelectors(){
+    const s = document.getElementById('start');
+    const e = document.getElementById('end');
+
+    PERIODS.forEach(p=>{
+        s.innerHTML += `<option>${p}</option>`;
+        e.innerHTML += `<option>${p}</option>`;
+    });
+
+    s.value = state.start;
+    e.value = state.end;
+
+    s.onchange = ()=>{state.start = +s.value; update();}
+    e.onchange = ()=>{state.end = +e.value; update();}
+}
+
+function getTotal(country){
+    return DATA
+        .filter(r=>r.country===country && r.year===state.end)
+        .reduce((s,r)=>s+r.mw,0)/1000;
+}
+
+function drawMap(){
+
+    const chart = echarts.init(document.getElementById('map'));
+
+    chart.setOption({
+        geo:{
+            map:'europe',
+            roam:false,
+            itemStyle:{
+                areaColor:'#dce8f5',
+                borderColor:'#7aacc8'
+            },
+            emphasis:{
+                itemStyle:{
+                    areaColor:'#2c3e50'
+                }
+            },
+            select:{
+                itemStyle:{
+                    areaColor:'#2c3e50'
+                }
+            }
+        },
+        series:[{
+            type:'map',
+            map:'europe',
+            data: TARGET.map(cc=>({
+                name:NAME_MAP[cc],
+                value:getTotal(cc),
+                cc:cc
+            })),
+            label:{
+                show:true,
+                formatter:p=>{
+                    if(!p.data) return '';
+                    return p.data.cc + '\n' + p.value.toFixed(1)+'GW';
+                },
+                fontSize:9
+            }
+        }]
+    });
+
+    chart.on('click',p=>{
+        if(!p.data) return;
+        state.country = p.data.cc;
+        drawBar();
+        document.getElementById('title').innerText =
+            'Installed Capacity — '+NAME_MAP[state.country];
     });
 }
 
-function parseData(raw) {
-    const cleaned = raw.filter(r => {
-        const cc  = (r['Country'] || '').trim();
-        const tp  = (r['Production Type'] || '').trim();
-        const val = (r['Installed Capacity (MW)'] || '').trim();
-        return TARGET.includes(cc) && tp && val !== 'n/e' && val !== '';
-    }).map(r => ({
-        year:    +r['Year'],
-        month:   r['Month'] ? (+r['Month'] || null) : null,
-        country: r['Country'].trim(),
-        type:    r['Production Type'].trim(),
-        mw:      parseFloat(r['Installed Capacity (MW)']),
-    }));
-    S.data = cleaned;
+function drawBar(){
 
-    // Build sorted unique periods
-    const seen = new Set();
-    cleaned.forEach(r => {
-        let key = r.month ? `${r.year}/${String(r.month).padStart(2,'0')}` : `${r.year}`;
-        seen.add(key);
-    });
-    S.allPeriods = [...seen].sort();
+    const chart = echarts.init(document.getElementById('bar'));
 
-    S.startPeriod = S.allPeriods[0];
-    S.endPeriod   = S.allPeriods[S.allPeriods.length - 1];
-
-    // Map year = latest year
-    const years = [...new Set(cleaned.map(r => r.year))].sort();
-    S.mapYear = years[years.length - 1];
-}
-
-// ═══════════════════════════
-// Period helpers
-// ═══════════════════════════
-function periodToNum(p) {
-    // "2024" → 202400, "2024/03" → 202403
-    if (p.includes('/')) {
-        const [y, m] = p.split('/');
-        return +y * 100 + +m;
-    }
-    return +p * 100;
-}
-
-function rowMatchesPeriod(r, periodStr) {
-    if (periodStr.includes('/')) {
-        const [y, m] = periodStr.split('/');
-        return r.year === +y && r.month === +m;
-    }
-    return r.year === +periodStr && !r.month;
-}
-
-function getPeriodsInRange() {
-    const s = periodToNum(S.startPeriod);
-    const e = periodToNum(S.endPeriod);
-    return S.allPeriods.filter(p => {
-        const n = periodToNum(p);
-        return n >= s && n <= e;
-    });
-}
-
-function getRowsForCountryPeriod(country, periodStr) {
-    return S.data.filter(r => r.country === country && rowMatchesPeriod(r, periodStr));
-}
-
-function getTotalForMapYear(country) {
-    return S.data
-        .filter(r => r.country === country && r.year === S.mapYear && !r.month)
-        .reduce((s, r) => s + r.mw, 0);
-}
-
-// ═══════════════════════════
-// SVG Europe Map
-// ═══════════════════════════
-function buildMap() {
-    const svg = document.getElementById('europeSvg');
-
-    // compute totals for colour intensity
-    const totals = {};
-    TARGET.forEach(cc => { totals[cc] = getTotalForMapYear(cc); });
-    const vals = Object.values(totals).filter(v => v > 0);
-    const maxVal = Math.max(...vals) || 1;
-
-    let html = `
-        <defs>
-            <filter id="shadow">
-                <feDropShadow dx="1" dy="1" stdDeviation="2" flood-opacity="0.2"/>
-            </filter>
-        </defs>
-        <!-- Ocean background -->
-        <rect width="900" height="860" fill="#cfe3f0"/>
-    `;
-
-    // Non-target countries (light background shapes for context)
-    const bgShapes = [
-        // Norway/Scandinavia rough
-        { d: 'M 220,20 L 260,15 L 290,30 L 305,60 L 295,90 L 270,100 L 245,85 L 220,60 Z', fill:'#e8eef3' },
-        // Sweden
-        { d: 'M 290,30 L 320,20 L 345,45 L 340,80 L 315,95 L 295,90 L 305,60 Z', fill:'#e8eef3' },
-        // Finland
-        { d: 'M 345,25 L 375,15 L 400,35 L 395,70 L 370,80 L 345,65 L 345,45 Z', fill:'#e8eef3' },
-        // UK
-        { d: 'M 115,140 L 130,120 L 148,115 L 155,135 L 145,160 L 125,165 Z', fill:'#e8eef3' },
-        // Ireland
-        { d: 'M 90,148 L 102,140 L 110,155 L 100,168 L 88,162 Z', fill:'#e8eef3' },
-        // Portugal
-        { d: 'M 55,260 L 68,255 L 72,275 L 68,300 L 55,310 L 48,295 L 50,275 Z', fill:'#e8eef3' },
-        // Benelux
-        { d: 'M 188,165 L 205,155 L 215,165 L 210,180 L 195,185 Z', fill:'#e8eef3' },
-        // Switzerland
-        { d: 'M 208,225 L 220,220 L 230,228 L 226,240 L 212,242 Z', fill:'#e8eef3' },
-        // Czech Republic
-        { d: 'M 255,155 L 275,148 L 292,155 L 290,172 L 268,175 L 252,168 Z', fill:'#e8eef3' },
-        // Ukraine
-        { d: 'M 390,155 L 430,140 L 460,155 L 455,185 L 430,200 L 400,195 L 385,178 Z', fill:'#e8eef3' },
-        // Turkey
-        { d: 'M 400,310 L 445,298 L 480,305 L 475,328 L 445,338 L 408,330 Z', fill:'#e8eef3' },
-        // North Macedonia / Albania
-        { d: 'M 308,318 L 322,310 L 332,318 L 325,335 L 310,336 Z', fill:'#e8eef3' },
-        // Belarus
-        { d: 'M 370,95 L 400,85 L 420,100 L 415,125 L 388,130 L 368,118 Z', fill:'#e8eef3' },
-        // Baltic states
-        { d: 'M 345,75 L 368,68 L 380,80 L 372,100 L 348,105 L 338,92 Z', fill:'#e8eef3' },
-    ];
-
-    bgShapes.forEach(s => {
-        html += `<path d="${s.d}" fill="${s.fill}" stroke="#d0d8e4" stroke-width="0.8"/>`;
-    });
-
-    // Target countries
-    TARGET.forEach(cc => {
-        const path = COUNTRY_PATHS[cc];
-        if (!path) return;
-        const isSelected = S.country === cc;
-        const total = totals[cc] || 0;
-        const intensity = total / maxVal;
-
-        let fill, stroke, sw;
-        if (isSelected) {
-            fill   = '#2c3e50';
-            stroke = '#1a252f';
-            sw     = 2;
-        } else {
-            // Blue scale: low = #dce8f5, high = #1a56a0
-            const r = Math.round(220 - intensity * 100);
-            const g = Math.round(232 - intensity * 110);
-            const b = Math.round(245 - intensity * 100);
-            fill   = `rgb(${r},${g},${b})`;
-            stroke = '#7aacc8';
-            sw     = 1.2;
-        }
-
-        const dispVal = total >= 1000
-            ? (total / 1000).toFixed(0) + ' GW'
-            : total.toFixed(0) + ' MW';
-
-        html += `
-            <path d="${path}"
-                fill="${fill}" stroke="${stroke}" stroke-width="${sw}"
-                filter="url(#shadow)"
-                style="cursor:pointer;transition:fill 0.18s;"
-                data-cc="${cc}"
-                onmouseenter="onMapHover(event,'${cc}')"
-                onmouseleave="onMapLeave()"
-                onclick="onMapClick('${cc}')"/>`;
-
-        // Centroid label (approximate)
-        const bbox = getApproxCenter(path);
-        if (bbox) {
-            const tcol = isSelected ? '#fff' : '#2c4e6a';
-            html += `
-            <text x="${bbox.x}" y="${bbox.y - 3}" text-anchor="middle"
-                font-size="8.5" font-weight="700" fill="${tcol}"
-                style="pointer-events:none;font-family:'Segoe UI',sans-serif;">${cc}</text>
-            <text x="${bbox.x}" y="${bbox.y + 7}" text-anchor="middle"
-                font-size="7" fill="${isSelected ? '#cce' : '#5a7fa0'}"
-                style="pointer-events:none;font-family:'Segoe UI',sans-serif;">${total > 0 ? dispVal : ''}</text>`;
-        }
-    });
-
-    svg.innerHTML = html;
-}
-
-// Rough centroid from path (average of all coordinate pairs)
-function getApproxCenter(pathStr) {
-    const nums = [...pathStr.matchAll(/-?\d+(?:\.\d+)?,-?\d+(?:\.\d+)?/g)];
-    if (!nums.length) return null;
-    let sx = 0, sy = 0, n = 0;
-    nums.forEach(m => {
-        const [x, y] = m[0].split(',').map(Number);
-        sx += x; sy += y; n++;
-    });
-    return { x: sx / n, y: sy / n };
-}
-
-// ── Tooltip & interaction ──
-function onMapHover(e, cc) {
-    const tip   = document.getElementById('mapTip');
-    const total = getTotalForMapYear(cc);
-    const gw    = (total / 1000).toFixed(1);
-    tip.innerHTML = `<b>${COUNTRY_LABEL[cc]}</b><br/>Total (${S.mapYear}): ${gw} GW`;
-    tip.style.display = 'block';
-    moveTip(e);
-}
-function onMapLeave() {
-    document.getElementById('mapTip').style.display = 'none';
-}
-document.addEventListener('mousemove', e => {
-    if (document.getElementById('mapTip').style.display === 'block') moveTip(e);
-});
-function moveTip(e) {
-    const tip = document.getElementById('mapTip');
-    tip.style.left = (e.clientX + 14) + 'px';
-    tip.style.top  = (e.clientY - 10) + 'px';
-}
-
-function onMapClick(cc) {
-    S.country = cc;
-    buildMap();
-    renderDetail(cc);
-    renderBar(cc);
-    document.getElementById('barTitle').textContent =
-        `Installed Capacity — ${COUNTRY_LABEL[cc]} (${cc})`;
-    document.getElementById('barSub').textContent =
-        `ENTSO-E · Unit: MW · ${S.startPeriod} → ${S.endPeriod}`;
-}
-
-// ═══════════════════════════
-// Country detail panel
-// ═══════════════════════════
-function renderDetail(cc) {
-    // Use latest period in range
-    const periods = getPeriodsInRange();
-    const lastPeriod = periods[periods.length - 1];
-    const rows  = getRowsForCountryPeriod(cc, lastPeriod);
-    const total = rows.reduce((s, r) => s + r.mw, 0);
-    const el    = document.getElementById('countryDetail');
-
-    if (!rows.length) {
-        el.innerHTML = `<div class="detail-hint">No data for this selection</div>`;
-        return;
-    }
-
-    const sorted = [...rows].sort((a, b) => b.mw - a.mw);
-    const rowsHTML = sorted.map(r => `
-        <div class="detail-row">
-            <div class="detail-dot" style="background:${typeToColor(r.type)}"></div>
-            <span class="detail-type" title="${r.type}">${r.type}</span>
-            <span class="detail-mw">${Math.round(r.mw).toLocaleString()} MW</span>
-        </div>`).join('');
-
-    el.innerHTML = `
-        <div class="detail-header">
-            <span class="detail-country-name">${COUNTRY_LABEL[cc]} (${cc})</span>
-            <span class="detail-total">Total: ${Math.round(total).toLocaleString()} MW</span>
-        </div>
-        <div style="font-size:10px;color:#aaa;margin-bottom:6px;padding-left:2px;">
-            As of ${lastPeriod}
-        </div>
-        <div class="detail-rows">${rowsHTML}</div>`;
-}
-
-// ═══════════════════════════
-// Bar chart
-// ═══════════════════════════
-function renderBar(cc) {
-    const el = document.getElementById('barChart');
-    if (!barInst) {
-        el.innerHTML = '';
-        barInst = echarts.init(el);
-        window.addEventListener('resize', () => barInst && barInst.resize());
-    }
-
-    const periods = getPeriodsInRange();
-
-    // Collect all types for this country in the range
-    const typeSet = new Set();
-    periods.forEach(p => {
-        getRowsForCountryPeriod(cc, p).forEach(r => typeSet.add(r.type));
-    });
-
-    // Sort types: put larger ones first (by total across periods)
-    const typeTotals = {};
-    typeSet.forEach(t => {
-        typeTotals[t] = periods.reduce((s, p) => {
-            const row = getRowsForCountryPeriod(cc, p).find(r => r.type === t);
-            return s + (row ? row.mw : 0);
-        }, 0);
-    });
-    const types = [...typeSet].sort((a, b) => typeTotals[b] - typeTotals[a]);
-
-    // Period totals for top annotation
-    const periodTotals = periods.map(p =>
-        getRowsForCountryPeriod(cc, p).reduce((s, r) => s + r.mw, 0)
+    const rows = DATA.filter(r=>
+        r.country===state.country &&
+        r.year>=state.start &&
+        r.year<=state.end
     );
 
-    const series = types.map((type, idx) => ({
-        name: type,
-        type: 'bar',
-        stack: 'total',
-        barMaxWidth: 60,
-        emphasis: { focus: 'series' },
-        itemStyle: {
-            color: typeToColor(type),
-            borderColor: typeToColor(type) === '#fff176' ? '#ccc' : undefined,
-            borderWidth: typeToColor(type) === '#fff176' ? 0.5 : 0,
-        },
-        data: periods.map(p => {
-            const row = getRowsForCountryPeriod(cc, p).find(r => r.type === type);
-            return row ? Math.round(row.mw) : 0;
-        }),
-    }));
+    const types = [...new Set(rows.map(r=>r.type))];
 
-    // Legend items: only show types present in data
-    const legendData = types.map(t => ({
-        name: t,
-        itemStyle: { color: typeToColor(t) },
-    }));
+    const series = types.map(t=>{
+        return {
+            name:t,
+            type:'bar',
+            stack:'x',
+            data: PERIODS.map(y=>{
+                const row = rows.find(r=>r.year===y && r.type===t);
+                return row ? row.mw/1000 : 0;
+            })
+        }
+    });
 
-    barInst.setOption({
-        backgroundColor: 'transparent',
-        tooltip: {
-            trigger: 'axis',
-            axisPointer: { type: 'shadow' },
-            backgroundColor: '#fff',
-            borderColor: '#e0e0e0',
-            textStyle: { color: '#2c3e50', fontSize: 12 },
-            extraCssText: 'box-shadow:0 4px 12px rgba(0,0,0,0.15);border-radius:6px;',
-            formatter(params) {
-                const per   = params[0].axisValue;
-                const items = params.filter(p => p.value > 0).sort((a, b) => b.value - a.value);
-                const total = items.reduce((s, p) => s + p.value, 0);
-                let html = `<div style="font-weight:700;margin-bottom:6px;color:#2c3e50">
-                                ${per} · ${COUNTRY_LABEL[cc]}
-                            </div>`;
-                items.forEach(p => {
-                    const dot = `<span style="display:inline-block;width:9px;height:9px;
-                                   border-radius:50%;background:${typeToColor(p.seriesName)};
-                                   border:1px solid #ccc;margin-right:5px;vertical-align:middle;"></span>`;
-                    html += `<div style="display:flex;justify-content:space-between;
-                                          gap:18px;margin:2px 0;font-size:11px;">
-                                <span>${dot}${p.seriesName}</span>
-                                <span style="font-weight:600">${p.value.toLocaleString()} MW</span>
-                             </div>`;
+    const totals = PERIODS.map(y=>{
+        return rows.filter(r=>r.year===y)
+            .reduce((s,r)=>s+r.mw,0)/1000;
+    });
+
+    chart.setOption({
+        tooltip:{
+            trigger:'axis',
+            formatter:p=>{
+                let total = p.reduce((s,x)=>s+x.value,0);
+                let html = `<b>${p[0].axisValue}</b><br/>`;
+                p.forEach(i=>{
+                    if(i.value>0){
+                        html += `${i.seriesName}: ${i.value.toFixed(2)} GW<br/>`;
+                    }
                 });
-                html += `<div style="margin-top:7px;padding-top:5px;
-                                      border-top:1px solid #eee;font-weight:700;color:#2c3e50;font-size:12px;">
-                             Total: ${total.toLocaleString()} MW
-                         </div>`;
+                html += `<b>Total: ${total.toFixed(2)} GW</b>`;
                 return html;
-            },
+            }
         },
-        // Total labels on top of each bar
-        graphic: [],
-        legend: {
-            type: 'scroll',
-            bottom: 0,
-            left: 'center',
-            width: '95%',
-            itemWidth: 12,
-            itemHeight: 12,
-            textStyle: { color: '#444', fontSize: 11 },
-            pageTextStyle: { color: '#888' },
-            data: legendData,
+        xAxis:{type:'category',data:PERIODS},
+        yAxis:{
+            type:'value',
+            name:'GW'
         },
-        grid: { top: 36, left: 70, right: 20, bottom: 110 },
-        xAxis: {
-            type: 'category',
-            data: periods,
-            axisLine:  { lineStyle: { color: '#ccc' } },
-            axisTick:  { lineStyle: { color: '#ccc' } },
-            axisLabel: {
-                color: '#2c3e50', fontSize: 12, fontWeight: 600,
-                rotate: periods.length > 8 ? 35 : 0,
-                interval: 0,
-            },
-        },
-        yAxis: {
-            type: 'value',
-            name: 'Capacity (MW)',
-            nameTextStyle: { color: '#999', fontSize: 11 },
-            axisLine: { show: false },
-            axisTick: { show: false },
-            axisLabel: {
-                color: '#999', fontSize: 11,
-                formatter: v => v >= 1000 ? (v / 1000).toFixed(0) + 'k' : v,
-            },
-            splitLine: { lineStyle: { color: '#f0f2f5' } },
-        },
-        series: [
-            // Total label series (invisible bar just for label)
+        series:[
             {
-                name: '_total',
-                type: 'bar',
-                stack: 'total',
-                barMaxWidth: 60,
-                itemStyle: { color: 'transparent' },
-                emphasis: { disabled: true },
-                label: {
-                    show: true,
-                    position: 'top',
-                    color: '#2c3e50',
-                    fontSize: 10,
-                    fontWeight: 700,
-                    formatter: params => {
-                        const t = periodTotals[params.dataIndex];
-                        return t >= 1000 ? (t / 1000).toFixed(1) + ' GW' : t.toFixed(0) + ' MW';
-                    },
+                type:'bar',
+                data:totals,
+                label:{
+                    show:true,
+                    position:'top',
+                    formatter:p=>p.value.toFixed(1)+' GW'
                 },
-                data: periods.map(() => 0),
-                tooltip: { show: false },
-                legendHoverLink: false,
-                showInLegend: false,
+                itemStyle:{color:'transparent'},
+                tooltip:{show:false}
             },
-            ...series,
-        ],
-    }, true);
-}
-
-// ═══════════════════════════
-// Controls init
-// ═══════════════════════════
-function formatPeriodLabel(p) {
-    if (p.includes('/')) {
-        const [y, m] = p.split('/');
-        const mName = new Date(2000, +m - 1).toLocaleString('en', { month: 'short' });
-        return `${mName} ${y}`;
-    }
-    return p;
-}
-
-function initControls() {
-    const startSel  = document.getElementById('startSel');
-    const endSel    = document.getElementById('endSel');
-    const mapYearSel = document.getElementById('mapYearSel');
-
-    // Populate start/end selectors
-    S.allPeriods.forEach(p => {
-        const lbl = formatPeriodLabel(p);
-        startSel.innerHTML += `<option value="${p}">${lbl}</option>`;
-        endSel.innerHTML   += `<option value="${p}">${lbl}</option>`;
-    });
-    startSel.value = S.startPeriod;
-    endSel.value   = S.endPeriod;
-
-    startSel.addEventListener('change', () => {
-        S.startPeriod = startSel.value;
-        // Ensure end >= start
-        if (periodToNum(S.endPeriod) < periodToNum(S.startPeriod)) {
-            S.endPeriod = S.startPeriod;
-            endSel.value = S.endPeriod;
-        }
-        refreshAll();
-    });
-    endSel.addEventListener('change', () => {
-        S.endPeriod = endSel.value;
-        if (periodToNum(S.startPeriod) > periodToNum(S.endPeriod)) {
-            S.startPeriod = S.endPeriod;
-            startSel.value = S.startPeriod;
-        }
-        refreshAll();
-    });
-
-    // Map year selector
-    const years = [...new Set(S.data.map(r => r.year))].sort();
-    years.forEach(y => {
-        mapYearSel.innerHTML += `<option value="${y}">${y}</option>`;
-    });
-    mapYearSel.value = S.mapYear;
-    mapYearSel.addEventListener('change', () => {
-        S.mapYear = +mapYearSel.value;
-        buildMap();
-        if (S.country) renderDetail(S.country);
+            ...series
+        ]
     });
 }
 
-function refreshAll() {
-    buildMap();
-    if (S.country) {
-        renderDetail(S.country);
-        renderBar(S.country);
-        document.getElementById('barSub').textContent =
-            `ENTSO-E · Unit: MW · ${S.startPeriod} → ${S.endPeriod}`;
-    }
+function update(){
+    drawMap();
+    if(state.country) drawBar();
 }
 
-// ═══════════════════════════
-// Init
-// ═══════════════════════════
-async function init() {
-    try {
-        const raw = await loadCSV();
-        parseData(raw);
-        initControls();
+loadData();
 
-        document.getElementById('loadingMsg').style.display  = 'none';
-        document.getElementById('contentArea').style.display = 'flex';
-        document.getElementById('footerInfo').style.display  = 'block';
-
-        requestAnimationFrame(() => {
-            buildMap();
-        });
-        window.addEventListener('resize', () => {
-            buildMap();
-            barInst && barInst.resize();
-        });
-    } catch (e) {
-        console.error(e);
-        document.getElementById('loadingMsg').textContent = '❌ Failed to load: ' + e.message;
-    }
-}
-
-init();
 </script>
+
 </body>
 </html>
+

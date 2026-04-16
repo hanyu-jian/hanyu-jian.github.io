@@ -427,9 +427,9 @@ function getTotalForMapYear(country) {
 // lon: -25 … 45  → x = (lon+25)/70 * 420
 // lat:  34 … 72  → y = (72-lat)/38 * 500
 // ═══════════════════════════════════════════════════════
-const VIEW_W = 420, VIEW_H = 420;
+const VIEW_W = 420, VIEW_H = 450;
 const LON_MIN = -12, LON_MAX = 36;
-const LAT_MIN = 38,  LAT_MAX = 55;
+const LAT_MIN = 32,  LAT_MAX = 60;
 
 function lonlatToXY(lon, lat) {
     const x = (lon - LON_MIN) / (LON_MAX - LON_MIN) * VIEW_W;

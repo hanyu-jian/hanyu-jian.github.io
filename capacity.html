@@ -80,6 +80,10 @@
         .map-panel-header {
             padding: 16px 20px 10px;
             border-bottom: 1px solid #f0f2f5;
+            min-height: 57px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
         }
         .map-year-ctrl {
             display: flex; align-items: center; gap: 8px;
@@ -132,8 +136,7 @@
             overflow: hidden; min-width: 0;
         }
 
-
-        /* ── Chart card — matches load.html style ── */
+        /* ── Chart card ── */
         .chart-card {
             margin: 0 30px;
             background: #fff;
@@ -151,7 +154,7 @@
             margin-bottom: 0;
         }
 
-        /* ── Top bar inside chart card (title + range selector) ── */
+        /* ── Top bar inside chart card ── */
         .chart-top-bar {
             display: flex; align-items: center;
             justify-content: space-between;
@@ -175,6 +178,107 @@
 
         #barChart { width: 100%; min-height: 500px; }
 
+        /* ── Forecast Table ── */
+        .forecast-table-wrap {
+            margin: 16px 30px 0 30px;
+            border: 1px solid #e6e9ed;
+            border-radius: 8px;
+            overflow: hidden;
+            background: #fff;
+        }
+        .forecast-table-header {
+            padding: 11px 16px 10px;
+            border-bottom: 1px solid #e6e9ed;
+            display: flex;
+            align-items: baseline;
+            gap: 10px;
+            background: #fafbfc;
+        }
+        .forecast-table-header h4 {
+            font-size: 13px;
+            font-weight: 700;
+            color: #2c3e50;
+            white-space: nowrap;
+        }
+        .forecast-table-header span {
+            font-size: 11px;
+            color: #999;
+        }
+        .forecast-table-hint {
+            padding: 18px;
+            text-align: center;
+            color: #bbb;
+            font-size: 12px;
+        }
+        .forecast-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+        }
+        .forecast-table thead tr {
+            background: #f0f4f8;
+        }
+        .forecast-table th {
+            padding: 9px 16px;
+            text-align: center;
+            font-size: 11px;
+            font-weight: 700;
+            color: #2c3e50;
+            border-bottom: 2px solid #e0e6ed;
+            white-space: nowrap;
+            line-height: 1.5;
+        }
+        .forecast-table th:first-child { text-align: left; }
+        .forecast-table td {
+            padding: 10px 16px;
+            text-align: center;
+            color: #2c3e50;
+            border-bottom: 1px solid #f0f2f5;
+            font-size: 13px;
+        }
+        .forecast-table td:first-child {
+            text-align: left;
+            font-weight: 600;
+            font-size: 12px;
+        }
+        .forecast-table tr:last-child td { border-bottom: none; }
+        .forecast-table tbody tr:hover { background: #f8fbff; }
+
+        /* 类型色点 */
+        .type-dot-solar {
+            display: inline-block; width: 9px; height: 9px;
+            border-radius: 50%; background: #f9d923;
+            border: 1px solid #ccb800;
+            margin-right: 6px; vertical-align: middle;
+        }
+        .type-dot-wind {
+            display: inline-block; width: 9px; height: 9px;
+            border-radius: 50%; background: #81c784;
+            margin-right: 6px; vertical-align: middle;
+        }
+
+        /* 分隔竖线 */
+        .col-divider {
+            width: 1px;
+            padding: 0 !important;
+            background: #dde4ec;
+        }
+        /* 2030列高亮 */
+        .td-forecast {
+            background: #eef5ff;
+            color: #1a56a0 !important;
+            font-weight: 700 !important;
+        }
+        .td-forecast-pct {
+            background: #eef5ff;
+            color: #2e6db4 !important;
+            font-weight: 600 !important;
+        }
+        .th-forecast {
+            background: #ddeaf8 !important;
+            color: #1a3d6e !important;
+        }
+
         .info {
             padding: 10px 30px 16px; font-size: 12px; color: #6c757d;
             text-align: center; border-top: 1px solid #e6e9ed;
@@ -190,9 +294,8 @@
             box-shadow: 0 3px 10px rgba(0,0,0,0.3);
         }
 
-        /* Section wrapper spacing */
         .section-wrap {
-            padding: 20px 0 20px 0;
+            padding: 20px 0 24px 0;
             display: flex; flex-direction: column; gap: 0;
             flex: 1;
         }
@@ -203,6 +306,7 @@
             .header { padding: 14px 14px 0; }
             .header-top h1 { font-size: 18px; }
             .chart-card { margin: 0 14px; }
+            .forecast-table-wrap { margin: 16px 14px 0 14px; }
         }
     </style>
 </head>
@@ -250,6 +354,8 @@
         <!-- ── Right: Charts panel ── -->
         <div class="charts-panel">
             <div class="section-wrap">
+
+                <!-- Bar chart card -->
                 <div class="chart-card">
                     <div class="chart-card-inner">
                         <div class="chart-top-bar">
@@ -268,6 +374,20 @@
                         <div id="barChart"></div>
                     </div>
                 </div>
+
+                <!-- Forecast table -->
+                <div class="forecast-table-wrap">
+                    <div class="forecast-table-header">
+                        <h4>☀️ Solar &amp; 💨 Wind — Capacity &amp; 2030 Forecast</h4>
+                        <span id="forecastSubtitle">Click a country on the map to view</span>
+                    </div>
+                    <div id="forecastTableBody">
+                        <div class="forecast-table-hint">
+                            🗺️ Click a country to see solar &amp; wind capacity data
+                        </div>
+                    </div>
+                </div>
+
             </div>
         </div>
     </div>
@@ -316,6 +436,29 @@ const COUNTRY_LABEL = {
     PL:'Poland', RO:'Romania', RS:'Serbia', SK:'Slovakia'
 };
 
+// ═══════════════════════════════════════════════════════════════════════
+// ★ 2030 Forecast — 手动填写全部四个字段
+//   solar        : 2030年光伏装机容量预测 (GW)
+//   solarSharePct: 2030年光伏占总容量比例 (%)
+//   wind         : 2030年风电装机容量预测 (GW，含陆上+海上)
+//   windSharePct : 2030年风电占总容量比例 (%)
+// ═══════════════════════════════════════════════════════════════════════
+const FORECAST_2030 = {
+    AT: { solar: 13.0,  solarSharePct: 18.5, wind: 11.0,  windSharePct: 15.5 },
+    BG: { solar: 6.0,   solarSharePct: 14.2, wind: 4.0,   windSharePct: 9.5  },
+    DE: { solar: 215.0, solarSharePct: 28.3, wind: 160.0, windSharePct: 21.1 },
+    ES: { solar: 76.0,  solarSharePct: 22.4, wind: 62.0,  windSharePct: 18.3 },
+    FR: { solar: 44.0,  solarSharePct: 12.0, wind: 40.0,  windSharePct: 10.9 },
+    GR: { solar: 13.0,  solarSharePct: 19.7, wind: 9.0,   windSharePct: 13.6 },
+    HR: { solar: 2.5,   solarSharePct: 17.8, wind: 2.8,   windSharePct: 20.0 },
+    HU: { solar: 12.0,  solarSharePct: 30.2, wind: 1.0,   windSharePct: 2.5  },
+    IT: { solar: 80.0,  solarSharePct: 23.1, wind: 28.0,  windSharePct: 8.1  },
+    PL: { solar: 30.0,  solarSharePct: 16.5, wind: 20.0,  windSharePct: 11.0 },
+    RO: { solar: 7.0,   solarSharePct: 11.3, wind: 6.0,   windSharePct: 9.7  },
+    RS: { solar: 2.0,   solarSharePct: 10.5, wind: 2.5,   windSharePct: 13.2 },
+    SK: { solar: 2.0,   solarSharePct: 8.3,  wind: 0.5,   windSharePct: 2.1  },
+};
+
 // ═══════════════════════════
 // State
 // ═══════════════════════════
@@ -326,7 +469,7 @@ const S = {
     endPeriod: null,
     mapYear: null,
     country: null,
-    geoFeatures: [],   // GeoJSON features
+    geoFeatures: [],
 };
 let barInst = null;
 
@@ -379,7 +522,6 @@ function parseData(raw) {
 async function loadGeoJSON() {
     const resp = await fetch('europe.geojson');
     const geo  = await resp.json();
-    // Keep ALL features for background; mark target ones
     S.geoFeatures = geo.features || [];
 }
 
@@ -422,10 +564,156 @@ function getTotalForMapYear(country) {
 }
 
 // ═══════════════════════════════════════════════════════
-// GeoJSON → SVG  (equirectangular, clipped to Europe)
-// ViewBox 0 0 420 500
-// lon: -25 … 45  → x = (lon+25)/70 * 420
-// lat:  34 … 72  → y = (72-lat)/38 * 500
+// 获取某国最新一期的 Solar / Wind 数值
+// ═══════════════════════════════════════════════════════
+function getSolarWindLatest(cc) {
+    const periods = getPeriodsInRange();
+    let lastPeriod = null;
+    let rows = [];
+    // 从末尾往前找第一个有数据的 period
+    for (let i = periods.length - 1; i >= 0; i--) {
+        rows = getRowsForCountryPeriod(cc, periods[i]);
+        if (rows.length > 0) { lastPeriod = periods[i]; break; }
+    }
+    if (!rows.length || !lastPeriod) return null;
+
+    const totalMW = rows.reduce((s, r) => s + r.mw, 0);
+
+    // Solar
+    const solarMW = rows
+        .filter(r => r.type.toLowerCase().includes('solar'))
+        .reduce((s, r) => s + r.mw, 0);
+
+    // Wind onshore
+    const windOnMW = rows
+        .filter(r => {
+            const tl = r.type.toLowerCase();
+            return tl.includes('wind') && tl.includes('on');
+        })
+        .reduce((s, r) => s + r.mw, 0);
+
+    // Wind offshore
+    const windOffMW = rows
+        .filter(r => {
+            const tl = r.type.toLowerCase();
+            return tl.includes('wind') && tl.includes('off');
+        })
+        .reduce((s, r) => s + r.mw, 0);
+
+    // 如果 onshore/offshore 都是 0，fallback 到所有 wind
+    let windMW = windOnMW + windOffMW;
+    if (windMW === 0) {
+        windMW = rows
+            .filter(r => r.type.toLowerCase().includes('wind'))
+            .reduce((s, r) => s + r.mw, 0);
+    }
+
+    return { solarMW, windMW, windOnMW, windOffMW, totalMW, period: lastPeriod };
+}
+
+// ═══════════════════════════════════════════════════════
+// Render Forecast Table  ── 完全使用手动输入值，零估算
+// ═══════════════════════════════════════════════════════
+function renderForecastTable(cc) {
+    const bodyEl     = document.getElementById('forecastTableBody');
+    const subtitleEl = document.getElementById('forecastSubtitle');
+
+    const info = getSolarWindLatest(cc);
+    const fc   = FORECAST_2030[cc] || null;
+    const label = COUNTRY_LABEL[cc] || cc;
+
+    if (!info) {
+        bodyEl.innerHTML = `<div class="forecast-table-hint">No data available for ${label}</div>`;
+        subtitleEl.textContent = label;
+        return;
+    }
+
+    subtitleEl.textContent = `${label}  ·  Latest period: ${info.period}`;
+
+    // ── Current values
+    const solarNowGW = info.solarMW / 1000;
+    const windNowGW  = info.windMW  / 1000;
+    const totalNowGW = info.totalMW / 1000;
+
+    const nowSolarSharePct = totalNowGW > 0 ? (solarNowGW / totalNowGW * 100) : null;
+    const nowWindSharePct  = totalNowGW > 0 ? (windNowGW  / totalNowGW * 100) : null;
+
+    // ── 2030 values — directly from manual input, no calculation
+    const solar2030GW       = fc ? fc.solar         : null;
+    const solar2030SharePct = fc ? fc.solarSharePct  : null;
+    const wind2030GW        = fc ? fc.wind           : null;
+    const wind2030SharePct  = fc ? fc.windSharePct   : null;
+
+    // ── Wind sub-label (show onshore / offshore breakdown if available)
+    let windSubLabel = '';
+    if (info.windOnMW > 0 && info.windOffMW > 0) {
+        windSubLabel =
+            `<span style="font-size:10px;color:#888;font-weight:400;margin-left:4px;">` +
+            `(On ${(info.windOnMW/1000).toFixed(1)} + Off ${(info.windOffMW/1000).toFixed(1)} GW)</span>`;
+    } else if (info.windOnMW > 0) {
+        windSubLabel = `<span style="font-size:10px;color:#888;font-weight:400;margin-left:4px;">(Onshore)</span>`;
+    } else if (info.windOffMW > 0) {
+        windSubLabel = `<span style="font-size:10px;color:#888;font-weight:400;margin-left:4px;">(Offshore)</span>`;
+    }
+
+    // ── Format helpers
+    const fmtGW = v =>
+        (v === null || v === undefined || isNaN(v))
+            ? `<span style="color:#bbb">—</span>`
+            : `${v.toFixed(2)} GW`;
+
+    const fmtPct = v =>
+        (v === null || v === undefined || isNaN(v))
+            ? `<span style="color:#bbb">—</span>`
+            : `${v.toFixed(1)}%`;
+
+    bodyEl.innerHTML = `
+        <table class="forecast-table">
+            <thead>
+                <tr>
+                    <th style="min-width:120px; text-align:left;">Energy Type</th>
+                    <th>Installed Capacity
+                        <br><span style="font-size:10px;font-weight:400;color:#666;">
+                            (${info.period}, GW)</span>
+                    </th>
+                    <th>Share of Total
+                        <br><span style="font-size:10px;font-weight:400;color:#666;">
+                            (${info.period})</span>
+                    </th>
+                    <th class="th-forecast">2030 Forecast
+                        <br><span style="font-size:10px;font-weight:500;color:#3a72b8;">
+                            (GW)</span>
+                    </th>
+                    <th class="th-forecast">2030 Share
+                        <br><span style="font-size:10px;font-weight:500;color:#3a72b8;">
+                            of Total</span>
+                    </th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><span class="type-dot-solar"></span>Solar PV</td>
+                    <td>${fmtGW(solarNowGW)}</td>
+                    <td>${fmtPct(nowSolarSharePct)}</td>
+                    <td class="td-forecast">${fmtGW(solar2030GW)}</td>
+                    <td class="td-forecast-pct">${fmtPct(solar2030SharePct)}</td>
+                </tr>
+                <tr>
+                    <td><span class="type-dot-wind"></span>Wind${windSubLabel}</td>
+                    <td>${fmtGW(windNowGW)}</td>
+                    <td>${fmtPct(nowWindSharePct)}</td>
+                    <td class="td-forecast">${fmtGW(wind2030GW)}</td>
+                    <td class="td-forecast-pct">${fmtPct(wind2030SharePct)}</td>
+                </tr>
+            </tbody>
+        </table>
+        <div style="padding:5px 16px 7px; font-size:10px; color:#bbb; text-align:right;">
+            Current total: ${fmtGW(totalNowGW)}
+        </div>`;
+}
+
+// ═══════════════════════════════════════════════════════
+// GeoJSON → SVG
 // ═══════════════════════════════════════════════════════
 const VIEW_W = 420, VIEW_H = 450;
 const LON_MIN = -12, LON_MAX = 36;
@@ -438,7 +726,6 @@ function lonlatToXY(lon, lat) {
 }
 
 function coordsToD(coords) {
-    // coords: array of [lon,lat] (ring)
     const pts = coords.map(([lon, lat]) => lonlatToXY(lon, lat));
     if (!pts.length) return '';
     let d = `M ${pts[0][0].toFixed(1)},${pts[0][1].toFixed(1)}`;
@@ -452,12 +739,10 @@ function featureToPathD(feature) {
     const geom = feature.geometry;
     if (!geom) return '';
     const parts = [];
-
     const processRings = rings => rings.forEach(ring => {
         const d = coordsToD(ring);
         if (d) parts.push(d);
     });
-
     if (geom.type === 'Polygon') {
         processRings(geom.coordinates);
     } else if (geom.type === 'MultiPolygon') {
@@ -466,7 +751,6 @@ function featureToPathD(feature) {
     return parts.join(' ');
 }
 
-// Get iso_a2 from a GeoJSON feature (handles various property key names)
 function getISO(feature) {
     const p = feature.properties || {};
     return (p.ISO_A2 || p.iso_a2 || p.ISO2 || p.iso2 || p.ADM0_A3 || '').toUpperCase();
@@ -474,7 +758,6 @@ function getISO(feature) {
 
 function buildMap() {
     const svg = document.getElementById('europeSvg');
-
     let html = `
         <defs>
             <filter id="shad" x="-20%" y="-20%" width="140%" height="140%">
@@ -483,17 +766,15 @@ function buildMap() {
         </defs>
         <rect width="${VIEW_W}" height="${VIEW_H}" fill="#d4e8f5"/>`;
 
-    // ── Background countries (non-target)
     S.geoFeatures.forEach(f => {
         const cc = getISO(f);
-        if (TARGET.includes(cc)) return;   // skip — drawn separately below
+        if (TARGET.includes(cc)) return;
         const d = featureToPathD(f);
         if (!d) return;
         html += `<path d="${d}" fill="#c8dce8" stroke="#b0c8d8"
                     stroke-width="0.6" stroke-linejoin="round"/>`;
     });
 
-    // ── Target countries
     S.geoFeatures.forEach(f => {
         const cc = getISO(f);
         if (!TARGET.includes(cc)) return;
@@ -504,72 +785,59 @@ function buildMap() {
         const fill   = isSelected ? '#2c3e50' : '#7aafc8';
         const stroke = isSelected ? '#1a252f' : '#5a90b0';
         const sw     = isSelected ? 2 : 1.2;
-
         const total  = getTotalForMapYear(cc);
         const totalGW = (total / 1000).toFixed(1);
 
-        html += `
-            <path d="${d}"
-                fill="${fill}" stroke="${stroke}" stroke-width="${sw}"
-                stroke-linejoin="round"
-                filter="url(#shad)"
-                style="cursor:pointer;transition:fill 0.15s;"
-                onmouseenter="onMapHover(event,'${cc}')"
-                onmouseleave="onMapLeave()"
-                onclick="onMapClick('${cc}')"/>`;
+        html += `<path d="${d}" fill="${fill}" stroke="${stroke}" stroke-width="${sw}"
+                    stroke-linejoin="round" filter="url(#shad)"
+                    style="cursor:pointer;transition:fill 0.15s;"
+                    onmouseenter="onMapHover(event,'${cc}')"
+                    onmouseleave="onMapLeave()"
+                    onclick="onMapClick('${cc}')"/>`;
 
-        // Centroid label
         const ctr = getFeatureCentroid(f);
         if (ctr) {
             const [cx, cy] = lonlatToXY(ctr[0], ctr[1]);
             const tcol  = isSelected ? '#ffffff' : '#1a3a52';
             const tcol2 = isSelected ? '#c0d4e8' : '#2a5a7a';
             html += `
-                <text x="${cx.toFixed(1)}" y="${(cy - 1).toFixed(1)}"
+                <text x="${cx.toFixed(1)}" y="${(cy-1).toFixed(1)}"
                     text-anchor="middle" font-size="8" font-weight="800"
                     fill="${tcol}" style="pointer-events:none;
                     font-family:'Segoe UI',sans-serif;">${cc}</text>
-                <text x="${cx.toFixed(1)}" y="${(cy + 7).toFixed(1)}"
+                <text x="${cx.toFixed(1)}" y="${(cy+7).toFixed(1)}"
                     text-anchor="middle" font-size="6.5" fill="${tcol2}"
                     style="pointer-events:none;font-family:'Segoe UI',sans-serif;">
-                    ${total > 0 ? totalGW + ' GW' : ''}
-                </text>`;
+                    ${total > 0 ? totalGW + ' GW' : ''}</text>`;
         }
     });
 
     svg.innerHTML = html;
 }
 
-// Simple centroid: average of all coordinate points in the largest polygon ring
 function getFeatureCentroid(feature) {
     const geom = feature.geometry;
     if (!geom) return null;
-
     let best = null, bestLen = 0;
-
     const checkRing = ring => {
         if (ring.length > bestLen) { bestLen = ring.length; best = ring; }
     };
-
     if (geom.type === 'Polygon') {
         geom.coordinates.forEach(checkRing);
     } else if (geom.type === 'MultiPolygon') {
         geom.coordinates.forEach(poly => poly.forEach(checkRing));
     }
     if (!best) return null;
-
     let sx = 0, sy = 0;
     best.forEach(([lon, lat]) => { sx += lon; sy += lat; });
     return [sx / best.length, sy / best.length];
 }
 
-// ── Tooltip & click ──────────────────────────────
 function onMapHover(e, cc) {
     const tip   = document.getElementById('mapTip');
     const total = getTotalForMapYear(cc);
-    const gw    = (total / 1000).toFixed(2);
     tip.innerHTML = `<b>${COUNTRY_LABEL[cc] || cc}</b><br/>
-                     Total (${S.mapYear}): ${gw} GW`;
+                     Total (${S.mapYear}): ${(total/1000).toFixed(2)} GW`;
     tip.style.display = 'block';
     moveTip(e);
 }
@@ -591,6 +859,7 @@ function onMapClick(cc) {
     buildMap();
     renderDetail(cc);
     renderBar(cc);
+    renderForecastTable(cc);
     document.getElementById('barTitle').textContent =
         `Installed Capacity — ${COUNTRY_LABEL[cc]} (${cc})`;
     document.getElementById('barSubLine').textContent =
@@ -636,7 +905,7 @@ function renderDetail(cc) {
 }
 
 // ═══════════════════════════════════════════════════════════
-// Bar chart  ── total labels float ABOVE each stacked bar
+// Bar chart
 // ═══════════════════════════════════════════════════════════
 function renderBar(cc) {
     const el = document.getElementById('barChart');
@@ -646,8 +915,6 @@ function renderBar(cc) {
     }
 
     const periods = getPeriodsInRange();
-
-    // Collect types and compute per-type totals across the range
     const typeSet = new Set();
     periods.forEach(p =>
         getRowsForCountryPeriod(cc, p).forEach(r => typeSet.add(r.type))
@@ -661,13 +928,12 @@ function renderBar(cc) {
     });
     const types = [...typeSet].sort((a, b) => typeTotals[b] - typeTotals[a]);
 
-    // Period totals in GW
     const periodTotalsGW = periods.map(p =>
         getRowsForCountryPeriod(cc, p).reduce((s, r) => s + r.mw, 0) / 1000
     );
     const maxTotal = Math.max(...periodTotalsGW, 0);
+    const yMax = Math.ceil(maxTotal * 1.18);
 
-    // Build one series per type (MW → GW)
     const series = types.map(type => ({
         name:        type,
         type:        'bar',
@@ -685,13 +951,6 @@ function renderBar(cc) {
         }),
     }));
 
-    // ── Key trick for labels above bars:
-    //    Add one extra transparent series (also stacked) whose value equals
-    //    (yAxisMax - total) so its top edge always sits at yAxisMax.
-    //    We put the label at position 'insideTop' of that cap bar — which is
-    //    visually just above the real stacked bar, in the white space.
-    const yMax = Math.ceil(maxTotal * 1.18);  // 18% head-room
-
     const capSeries = {
         name:        '_cap',
         type:        'bar',
@@ -702,18 +961,13 @@ function renderBar(cc) {
         silent:      true,
         legendHoverLink: false,
         label: {
-            show:       true,
-            position:   'top',           // above the transparent cap = above the real bar
-            distance:   4,
-            color:      '#2c3e50',
-            fontSize:   10,
-            fontWeight: 700,
-            formatter:  params => {
+            show: true, position: 'top', distance: 4,
+            color: '#2c3e50', fontSize: 10, fontWeight: 700,
+            formatter: params => {
                 const t = periodTotalsGW[params.dataIndex];
                 return t > 0 ? t.toFixed(1) + ' GW' : '';
             },
         },
-        // Each cap bar value = yMax - realTotal  → top of cap sits exactly at yMax
         data: periodTotalsGW.map(t => +(Math.max(yMax - t, 0)).toFixed(3)),
         tooltip: { show: false },
     };
@@ -735,8 +989,7 @@ function renderBar(cc) {
                     .sort((a, b) => b.value - a.value);
                 const total = items.reduce((s, p) => s + p.value, 0);
                 let html = `<div style="font-weight:700;margin-bottom:6px;color:#2c3e50">
-                                ${per} · ${COUNTRY_LABEL[cc]}
-                            </div>`;
+                                ${per} · ${COUNTRY_LABEL[cc]}</div>`;
                 items.forEach(p => {
                     const dot = `<span style="display:inline-block;width:9px;height:9px;
                         border-radius:50%;background:${typeToColor(p.seriesName)};
@@ -747,56 +1000,36 @@ function renderBar(cc) {
                                 <span style="font-weight:600">${p.value.toFixed(2)} GW</span>
                              </div>`;
                 });
-                html += `<div style="margin-top:7px;padding-top:5px;
-                            border-top:1px solid #eee;font-weight:700;
-                            color:#2c3e50;font-size:12px;">
-                             Total: ${total.toFixed(2)} GW
-                         </div>`;
+                html += `<div style="margin-top:7px;padding-top:5px;border-top:1px solid #eee;
+                            font-weight:700;color:#2c3e50;font-size:12px;">
+                             Total: ${total.toFixed(2)} GW</div>`;
                 return html;
             },
         },
         legend: {
-            type: 'scroll',
-            bottom: 0,
-            left: 'center',
-            width: '95%',
+            type: 'scroll', bottom: 0, left: 'center', width: '95%',
             itemWidth: 12, itemHeight: 12,
             textStyle: { color: '#444', fontSize: 11 },
             pageTextStyle: { color: '#888' },
             data: types.map(t => ({ name: t, itemStyle: { color: typeToColor(t) } })),
         },
-        grid: {
-            top:    36,
-            left:   64,
-            right:  20,
-            bottom: 110,
-        },
+        grid: { top: 36, left: 64, right: 20, bottom: 110 },
         xAxis: {
-            type: 'category',
-            data: periods,
+            type: 'category', data: periods,
             axisLine:  { lineStyle: { color: '#ccc' } },
             axisTick:  { lineStyle: { color: '#ccc' } },
             axisLabel: {
                 color: '#2c3e50', fontSize: 12, fontWeight: 600,
-                rotate: periods.length > 8 ? 35 : 0,
-                interval: 0,
+                rotate: periods.length > 8 ? 35 : 0, interval: 0,
             },
         },
         yAxis: {
-            type:  'value',
-            name:  'GW',
-            min:   0,
-            max:   yMax,
+            type: 'value', name: 'GW', min: 0, max: yMax,
             nameTextStyle: { color: '#999', fontSize: 11 },
-            axisLine:  { show: false },
-            axisTick:  { show: false },
-            axisLabel: {
-                color: '#999', fontSize: 11,
-                formatter: v => v.toFixed(0),
-            },
+            axisLine: { show: false }, axisTick: { show: false },
+            axisLabel: { color: '#999', fontSize: 11, formatter: v => v.toFixed(0) },
             splitLine: { lineStyle: { color: '#f0f2f5' } },
         },
-        // Order: real data series first, then cap on top
         series: [...series, capSeries],
     }, true);
 }
@@ -829,16 +1062,14 @@ function initControls() {
     startSel.addEventListener('change', () => {
         S.startPeriod = startSel.value;
         if (periodToNum(S.endPeriod) < periodToNum(S.startPeriod)) {
-            S.endPeriod = S.startPeriod;
-            endSel.value = S.endPeriod;
+            S.endPeriod = S.startPeriod; endSel.value = S.endPeriod;
         }
         refreshAll();
     });
     endSel.addEventListener('change', () => {
         S.endPeriod = endSel.value;
         if (periodToNum(S.startPeriod) > periodToNum(S.endPeriod)) {
-            S.startPeriod = S.endPeriod;
-            startSel.value = S.startPeriod;
+            S.startPeriod = S.endPeriod; startSel.value = S.startPeriod;
         }
         refreshAll();
     });
@@ -860,6 +1091,7 @@ function refreshAll() {
     if (S.country) {
         renderDetail(S.country);
         renderBar(S.country);
+        renderForecastTable(S.country);
         document.getElementById('barSubLine').textContent =
             `ENTSO-E · Unit: GW · ${S.startPeriod} → ${S.endPeriod}`;
     }
@@ -893,4 +1125,3 @@ init();
 </script>
 </body>
 </html>
-

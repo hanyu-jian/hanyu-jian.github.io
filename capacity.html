@@ -14,12 +14,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>Installed Capacity – European Electricity Dashboard</title>
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/echarts/map/js/world.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background: #f0f2f5;
-            padding: 20px;
         }
         .container {
             max-width: 1600px;
@@ -45,7 +45,7 @@
             letter-spacing: 0.2px;
         }
 
-        /* ── Main nav (inside header) ── */
+        /* ── Main nav ── */
         .main-nav {
             display: flex;
             gap: 2px;
@@ -85,9 +85,7 @@
             border-color: #e6e9ed;
             border-bottom-color: #f8f9fa;
         }
-        .main-nav-link.active .nav-icon {
-            opacity: 1;
-        }
+        .main-nav-link.active .nav-icon { opacity: 1; }
 
         /* ── Sub-nav ── */
         .sub-nav {
@@ -114,97 +112,6 @@
             border-bottom-color: #2c3e50;
         }
 
-        /* ── Controls ── */
-        .controls {
-            padding: 20px 30px;
-            display: flex;
-            align-items: center;
-            gap: 15px;
-            flex-wrap: wrap;
-            border-bottom: 1px solid #e6e9ed;
-        }
-        .controls label {
-            font-weight: 600;
-            font-size: 13px;
-            color: #2c3e50;
-        }
-
-        .year-selector {
-            display: flex;
-            gap: 8px;
-            background: #f8f9fc;
-            padding: 6px 12px;
-            border-radius: 40px;
-            border: 1px solid #ddd;
-        }
-        .year-selector button {
-            background: none;
-            border: none;
-            padding: 6px 16px;
-            border-radius: 30px;
-            font-size: 14px;
-            cursor: pointer;
-            transition: 0.2s;
-            font-weight: 500;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }
-        .year-selector button.active {
-            background: #2c3e50;
-            color: white;
-        }
-        .year-selector button:hover:not(.active) { background: #e9ecef; }
-
-        /* ── Content ── */
-        .content { padding: 24px 30px 30px 30px; }
-
-        .chart-card {
-            background: #fff;
-            border-radius: 8px;
-            border: 1px solid #e6e9ed;
-            padding: 16px;
-            margin-bottom: 24px;
-        }
-        .chart-card h3 {
-            font-size: 18px;
-            margin-bottom: 12px;
-            font-weight: 500;
-            color: #2c3e50;
-            border-left: 4px solid #2c3e50;
-            padding-left: 12px;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }
-        .chart-container { width: 100%; height: 500px; }
-
-        /* ── Table ── */
-        .data-table-section { margin-top: 4px; }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 13px;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: #fff;
-            border-radius: 8px;
-        }
-        th, td {
-            border: 1px solid #ddd;
-            padding: 8px 10px;
-            text-align: right;
-        }
-        th {
-            background: #f8f9fc;
-            font-weight: 600;
-            text-align: center;
-            color: #2c3e50;
-        }
-        td:first-child, th:first-child {
-            position: sticky;
-            left: 0;
-            background: #f8f9fc;
-            font-weight: 500;
-        }
-        tbody tr:hover { background: #f8f9fc; }
-
         /* ── Footer ── */
         .info {
             padding: 12px 30px 20px;
@@ -214,11 +121,193 @@
             border-top: 1px solid #e6e9ed;
             margin-top: 10px;
         }
-        .info a {
-            color: #5a8fc2;
-            text-decoration: none;
-        }
+        .info a { color: #5a8fc2; text-decoration: none; }
         .info a:hover { text-decoration: underline; }
+
+        /* ════════════════════════════════
+           DASHBOARD CONTENT STYLES
+        ════════════════════════════════ */
+
+        /* ── Controls bar ── */
+        #controls {
+            background: #131e2a;
+            border-bottom: 1px solid #1e3a50;
+            padding: 8px 20px;
+            display: flex;
+            align-items: center;
+            gap: 24px;
+            flex-wrap: wrap;
+        }
+        .ctrl-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .ctrl-label {
+            font-size: 12px;
+            color: #5a8aaa;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            white-space: nowrap;
+        }
+
+        /* Year toggle buttons */
+        .year-btn {
+            padding: 4px 12px;
+            border-radius: 14px;
+            border: 1px solid #2a5a7a;
+            background: transparent;
+            color: #7aaccc;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .year-btn.active {
+            background: #1a6a9a;
+            border-color: #3a9acf;
+            color: #fff;
+        }
+        .year-btn:hover:not(.active) {
+            border-color: #5a9abf;
+            color: #aad4ee;
+        }
+
+        /* Month selector */
+        #monthSelect {
+            padding: 4px 10px;
+            background: #1a2a3a;
+            border: 1px solid #2a5a7a;
+            color: #7aaccc;
+            border-radius: 6px;
+            font-size: 12px;
+            cursor: pointer;
+        }
+        #monthSelect:focus { outline: none; border-color: #3a9acf; }
+
+        /* Energy type filter */
+        .energy-btn {
+            padding: 3px 10px;
+            border-radius: 12px;
+            border: 1px solid #2a4a5a;
+            background: transparent;
+            color: #6a9aaa;
+            font-size: 11px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .energy-btn.active { color: #fff; }
+        .energy-filter-wrap {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex-wrap: wrap;
+            max-width: 600px;
+        }
+
+        /* ── Main layout ── */
+        #main {
+            display: flex;
+            height: 560px;
+            background: #0d1822;
+        }
+
+        /* ── Left: Map ── */
+        #map-panel {
+            width: 45%;
+            display: flex;
+            flex-direction: column;
+            border-right: 1px solid #1e3a50;
+            background: #0d1822;
+            flex-shrink: 0;
+        }
+        #map-panel .panel-title {
+            padding: 8px 16px;
+            font-size: 12px;
+            color: #5a8aaa;
+            background: #111d28;
+            border-bottom: 1px solid #1e3a50;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        #mapChart { flex: 1; }
+
+        /* ── Right: Charts ── */
+        #chart-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        #chart-panel .panel-title {
+            padding: 8px 16px;
+            font-size: 12px;
+            color: #5a8aaa;
+            background: #111d28;
+            border-bottom: 1px solid #1e3a50;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        #selectedCountry {
+            font-size: 13px;
+            color: #7ecfff;
+            font-weight: 600;
+        }
+        #charts-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        #mainChart { flex: 1; }
+        #trendChart {
+            height: 160px;
+            border-top: 1px solid #1e3a50;
+        }
+
+        /* ── Legend ── */
+        #map-legend {
+            padding: 8px 16px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            border-top: 1px solid #1e3a50;
+            font-size: 11px;
+            color: #5a8aaa;
+            background: #0d1822;
+        }
+        .legend-gradient {
+            width: 120px;
+            height: 10px;
+            background: linear-gradient(to right, #1a3a5a, #0d8aff);
+            border-radius: 4px;
+        }
+
+        /* ── Loading overlay ── */
+        #loadingMsg {
+            position: fixed;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            background: #1a2a3a;
+            border: 1px solid #2a5a7a;
+            border-radius: 10px;
+            padding: 20px 30px;
+            text-align: center;
+            color: #7aaccc;
+            font-size: 14px;
+            z-index: 999;
+        }
+        .spinner {
+            width: 30px; height: 30px;
+            border: 3px solid #1a4a6a;
+            border-top-color: #3a9acf;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin: 0 auto 10px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
 
         @media (max-width: 700px) {
             .header { padding: 16px 16px 0 16px; }
@@ -226,13 +315,19 @@
             .main-nav-link { padding: 10px 14px; font-size: 13px; }
             .sub-nav { padding: 0 10px; overflow-x: auto; }
             .sub-nav-link { padding: 14px 14px; font-size: 13px; }
-            .controls { padding: 16px; }
-            .content { padding: 16px; }
-            th, td { padding: 6px 8px; font-size: 12px; }
+            #main { flex-direction: column; height: auto; }
+            #map-panel { width: 100%; height: 320px; }
         }
     </style>
 </head>
 <body>
+
+<!-- Loading overlay -->
+<div id="loadingMsg">
+    <div class="spinner"></div>
+    Loading data...
+</div>
+
 <div class="container">
 
     <!-- ══ Top header ══ -->
@@ -240,60 +335,85 @@
         <div class="header-top">
             <h1>European Electricity Dashboard</h1>
         </div>
-        
         <div class="main-nav">
             <a href="price-overview.html" class="main-nav-link">
-                <span class="nav-icon"> Price
+                <span class="nav-icon">💰</span> Price
             </a>
             <a href="load.html" class="main-nav-link">
-                <span class="nav-icon"> Load
+                <span class="nav-icon">📈</span> Load
             </a>
             <a href="capacity.html" class="main-nav-link active">
-                <span class="nav-icon"> Installed Capacity
+                <span class="nav-icon">⚡</span> Installed Capacity
             </a>
         </div>
     </div>
 
     <!-- ══ Sub-navigation ══ -->
     <div class="sub-nav">
-        <a class="sub-nav-link active" href="capacity.html">Hungary Solar PV</a>
+        <a class="sub-nav-link active" href="capacity.html">Overview</a>
     </div>
 
-    <!-- ══ Controls ══ -->
-    <div class="controls">
-        <label>📅 Year</label>
-        <div class="year-selector" id="yearSelector">
-            <button data-year="2024">2024</button>
-            <button data-year="2025">2025</button>
-            <button data-year="2026">2026</button>
+    <!-- ══ Controls (dashboard) ══ -->
+    <div id="controls">
+        <!-- Year selector -->
+        <div class="ctrl-group">
+            <span class="ctrl-label">📅 Year</span>
+            <div id="yearBtns" style="display:flex;gap:6px;"></div>
         </div>
+
+        <!-- Month selector -->
+        <div class="ctrl-group" id="monthCtrl">
+            <span class="ctrl-label">📆 Month</span>
+            <select id="monthSelect">
+                <option value="all">All Year</option>
+            </select>
+        </div>
+
+        <!-- Energy type filter -->
+        <div class="ctrl-group" style="flex-wrap:wrap;">
+            <span class="ctrl-label">⚡ Type</span>
+            <div class="energy-filter-wrap" id="energyBtns"></div>
+        </div>
+
+        <!-- Data info -->
+        <div style="margin-left:auto;font-size:12px;color:#3a6a8a;" id="dataInfo">—</div>
     </div>
 
-    <!-- ══ Content ══ -->
-    <div class="content">
-
-        <!-- Chart -->
-        <div class="chart-card">
-            <h3>Monthly Installed Capacity by Category</h3>
-            <div id="monthlyChart" class="chart-container"></div>
-        </div>
-
-        <!-- Table -->
-        <div class="chart-card data-table-section">
-            <h3>Raw Data Table (Unit: MW)</h3>
-            <div style="overflow-x: auto;">
-                <table id="data-table">
-                    <thead id="table-head"></thead>
-                    <tbody id="table-body"></tbody>
-                </table>
+    <!-- ══ Main layout ══ -->
+    <div id="main">
+        <!-- Left: Map -->
+        <div id="map-panel">
+            <div class="panel-title">
+                <span>🗺️ Installed Capacity by Country
+                    <span style="color:#3a7aaa;margin-left:8px;">(click to select)</span>
+                </span>
+                <span id="mapYearLabel" style="color:#7ecfff;"></span>
+            </div>
+            <div id="mapChart"></div>
+            <div id="map-legend">
+                <span>Low</span>
+                <div class="legend-gradient"></div>
+                <span>High</span>
+                <span style="margin-left:10px;color:#3a7aaa;">Total Grand Capacity (MW)</span>
             </div>
         </div>
 
+        <!-- Right: Charts -->
+        <div id="chart-panel">
+            <div class="panel-title">
+                <span>📊 Capacity Breakdown — <span id="selectedCountry">Select a country</span></span>
+                <span id="chartModeLabel" style="color:#3a7aaa;font-size:11px;"></span>
+            </div>
+            <div id="charts-container">
+                <div id="mainChart"></div>
+                <div id="trendChart"></div>
+            </div>
+        </div>
     </div>
 
     <!-- ══ Footer ══ -->
     <div class="info">
-        Data source: <a href="https://www.mavir.hu/" target="_blank">MAVIR</a>
+        Data source: <a href="https://transparency.entsoe.eu/" target="_blank">ENTSO-E Transparency Platform</a>
         &nbsp;|&nbsp; Unit: MW
         &nbsp;|&nbsp; Author: Hanyu Jian
     </div>
@@ -301,143 +421,565 @@
 </div><!-- /container -->
 
 <script>
-    // ── Raw data: [year, month, ≤50kW, >50kW, PPOP] ──
-    const rawData = [
-        // 2024
-        [2024,1,2340.9,3331.6,null],[2024,2,2362.2,3379.3,null],[2024,3,2416.3,3478.0,null],
-        [2024,4,2441.2,3496.9,null],[2024,5,2482.2,3496.9,436.0],[2024,6,2513.8,3568.2,519.8],
-        [2024,7,2541.5,3678.2,537.7],[2024,8,2569.6,3688.6,626.3],[2024,9,2595.8,3889.1,656.4],
-        [2024,10,2628.9,3966.9,656.4],[2024,11,2651.1,3994.3,656.4],[2024,12,2651.1,4030.2,656.4],
-        // 2025
-        [2025,1,2691.7,4094.9,861.2],[2025,2,2712.1,4204.3,730.2],[2025,3,2732.8,4389.2,537.1],
-        [2025,4,2748.6,4441.9,552.6],[2025,5,2766.5,4582.4,558.2],[2025,6,2794.5,4608.6,600.5],
-        [2025,7,2803.1,4641.7,600.5],[2025,8,2816.4,4657.7,625.1],[2025,9,2867.4,4692.7,673.8],
-        [2025,10,2867.4,4692.7,673.8],[2025,11,2867.4,4692.7,673.8],[2025,12,2899.3,4785.5,688.3],
-        // 2026
-        [2026,1,2938.7,4785.5,701.0],[2026,2,2938.7,4802.5,701.0]
-    ];
+// ════════════════════════════════════════════
+//  CONFIG
+// ════════════════════════════════════════════
+const CSV_PATH = 'data/capacity.csv';
+const ALL_YEARS = [2023, 2024, 2025];
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
-    const years      = [2024, 2025, 2026];
-    const categories = ['≤50 kW', '>50 kW', 'PPOP'];
-    const months     = Array.from({length: 12}, (_, i) => i + 1);
-    const monthLabels = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const TYPE_CONFIG = {
+    'Solar':                         { color: '#FFD700', short: 'Solar' },
+    'Wind Onshore':                  { color: '#00CED1', short: 'Wind On' },
+    'Wind Offshore':                 { color: '#006994', short: 'Wind Off' },
+    'Hydro Run-of-river and pondage':{ color: '#4169E1', short: 'Hydro RoR' },
+    'Hydro Water Reservoir':         { color: '#1E90FF', short: 'Hydro Res' },
+    'Hydro Pumped Storage':          { color: '#87CEEB', short: 'Pumped' },
+    'Nuclear':                       { color: '#9932CC', short: 'Nuclear' },
+    'Fossil Gas':                    { color: '#FF6B35', short: 'Gas' },
+    'Fossil Hard coal':              { color: '#696969', short: 'Hard Coal' },
+    'Fossil Brown coal/Lignite':     { color: '#8B4513', short: 'Lignite' },
+    'Fossil Oil':                    { color: '#2F4F4F', short: 'Oil' },
+    'Fossil Coal-derived gas':       { color: '#A0522D', short: 'Coal Gas' },
+    'Fossil Oil shale':              { color: '#556B2F', short: 'Oil Shale' },
+    'Fossil Peat':                   { color: '#6B4226', short: 'Peat' },
+    'Biomass':                       { color: '#228B22', short: 'Biomass' },
+    'Waste':                         { color: '#8FBC8F', short: 'Waste' },
+    'Geothermal':                    { color: '#FF4500', short: 'Geo' },
+    'Marine':                        { color: '#20B2AA', short: 'Marine' },
+    'Other renewable':               { color: '#7FFF00', short: 'Oth.Renew' },
+    'Energy storage':                { color: '#DA70D6', short: 'Storage' },
+    'Other':                         { color: '#778899', short: 'Other' },
+};
 
-    // Organise data: year → month → { category: value }
-    let dataByYear = {};
-    years.forEach(y => {
-        dataByYear[y] = {};
-        months.forEach(m => {
-            dataByYear[y][m] = { '≤50 kW': 0, '>50 kW': 0, 'PPOP': 0 };
-        });
+const CHART_BG  = '#0d1822';
+const AXIS_COLOR  = '#2a4a6a';
+const LABEL_COLOR = '#5a8aaa';
+
+// ════════════════════════════════════════════
+//  STATE
+// ════════════════════════════════════════════
+let rawData = [];
+let selectedYears   = new Set([2023, 2024, 2025]);
+let selectedMonth   = 'all';
+let selectedCountry = null;
+let activeTypes     = new Set(Object.keys(TYPE_CONFIG));
+let availableTypes  = [];
+
+// ════════════════════════════════════════════
+//  CHART INSTANCES
+// ════════════════════════════════════════════
+let mapChart, mainChart, trendChart;
+
+// ════════════════════════════════════════════
+//  PARSE CSV (tab-separated)
+// ════════════════════════════════════════════
+function parseCSV(text) {
+    const lines = text.trim().split('\n');
+    const rows  = [];
+    for (let i = 1; i < lines.length; i++) {
+        const cols = lines[i].split('\t').map(c => c.trim());
+        if (cols.length < 4) continue;
+        const year     = parseInt(cols[0]);
+        const month    = cols[1] === '' ? null : parseInt(cols[1]);
+        const country  = cols[2];
+        const type     = cols[3];
+        const capStr   = cols[4];
+        const totalStr = cols[5];
+        if (!country) continue;
+        const cap   = (capStr   && capStr   !== 'n/e' && capStr   !== '') ? parseFloat(capStr)   : null;
+        const total = (totalStr && totalStr !== 'n/e' && totalStr !== '') ? parseFloat(totalStr) : null;
+        rows.push({ year, month, country, type, cap, total });
+    }
+    return rows;
+}
+
+// ════════════════════════════════════════════
+//  DATA HELPERS
+// ════════════════════════════════════════════
+function getCountries() {
+    return [...new Set(rawData.map(r => r.country))].sort();
+}
+
+function getTotalCapacity(country, year) {
+    const row = rawData.find(r =>
+        r.country === country && r.year === year &&
+        (r.type === '' || r.type === null || r.type === undefined) &&
+        r.total !== null
+    );
+    return row ? row.total : null;
+}
+
+function getBreakdown(country, year, month = null) {
+    return rawData.filter(r =>
+        r.country === country &&
+        r.year    === year    &&
+        r.month   === month   &&
+        r.type && r.type !== '' &&
+        r.cap !== null &&
+        activeTypes.has(r.type)
+    );
+}
+
+function hasMonthlyData(country) {
+    return rawData.some(r => r.country === country && r.month !== null && r.type);
+}
+
+function getTypesForCountry(country) {
+    const types = new Set(
+        rawData
+            .filter(r => r.country === country && r.type && r.cap !== null)
+            .map(r => r.type)
+    );
+    return [...types];
+}
+
+// ════════════════════════════════════════════
+//  BUILD YEAR BUTTONS
+// ════════════════════════════════════════════
+function buildYearButtons() {
+    const container = document.getElementById('yearBtns');
+    container.innerHTML = '';
+    ALL_YEARS.forEach(yr => {
+        const btn = document.createElement('button');
+        btn.className = 'year-btn' + (selectedYears.has(yr) ? ' active' : '');
+        btn.textContent = yr;
+        btn.onclick = () => {
+            if (selectedYears.has(yr)) {
+                if (selectedYears.size === 1) return;
+                selectedYears.delete(yr);
+            } else {
+                selectedYears.add(yr);
+            }
+            btn.classList.toggle('active', selectedYears.has(yr));
+            updateAll();
+        };
+        container.appendChild(btn);
     });
-    rawData.forEach(item => {
-        const [year, month, v1, v2, v3] = item;
-        if (dataByYear[year]?.[month]) {
-            dataByYear[year][month]['≤50 kW'] = v1 ?? 0;
-            dataByYear[year][month]['>50 kW']  = v2 ?? 0;
-            dataByYear[year][month]['PPOP']    = v3 ?? 0;
+}
+
+// ════════════════════════════════════════════
+//  BUILD MONTH SELECTOR
+// ════════════════════════════════════════════
+function buildMonthSelector(country) {
+    const ctrl = document.getElementById('monthCtrl');
+    const sel  = document.getElementById('monthSelect');
+    if (!country || !hasMonthlyData(country)) {
+        ctrl.style.display = 'none';
+        selectedMonth = 'all';
+        return;
+    }
+    const existingMonths = new Set(
+        rawData
+            .filter(r => r.country === country && r.month !== null && r.type)
+            .map(r => r.month)
+    );
+    sel.innerHTML = '<option value="all">All Year</option>';
+    MONTHS.forEach((name, idx) => {
+        if (existingMonths.has(idx + 1)) {
+            const opt = document.createElement('option');
+            opt.value = idx + 1;
+            opt.textContent = name;
+            sel.appendChild(opt);
         }
     });
+    sel.value = selectedMonth;
+    ctrl.style.display = 'flex';
+}
 
-    let currentYear = 2024;
-    const chartDom  = document.getElementById('monthlyChart');
-    const myChart   = echarts.init(chartDom);
+// ════════════════════════════════════════════
+//  BUILD ENERGY TYPE FILTER BUTTONS
+// ════════════════════════════════════════════
+function buildEnergyButtons(country) {
+    const container = document.getElementById('energyBtns');
+    container.innerHTML = '';
+    availableTypes = country ? getTypesForCountry(country) : Object.keys(TYPE_CONFIG);
 
-    function updateChart(year) {
-        const monthData = months.map(m => dataByYear[year][m]);
+    const allBtn = document.createElement('button');
+    allBtn.className = 'energy-btn';
+    allBtn.textContent = 'All';
+    allBtn.style.borderColor = '#3a9acf';
+    allBtn.style.color = '#3a9acf';
+    allBtn.onclick = () => {
+        availableTypes.forEach(t => activeTypes.add(t));
+        buildEnergyButtons(country);
+        updateCharts();
+    };
+    container.appendChild(allBtn);
 
-        const series = categories.map(cat => ({
-            name: cat,
-            type: 'bar',
-            stack: 'total',
-            label: {
-                show: true,
-                position: 'inside',
-                formatter: p => p.value > 0 ? p.value.toFixed(0) : ''
+    availableTypes.forEach(type => {
+        const cfg = TYPE_CONFIG[type] || { color: '#888', short: type };
+        const btn = document.createElement('button');
+        btn.className = 'energy-btn' + (activeTypes.has(type) ? ' active' : '');
+        btn.textContent = cfg.short;
+        btn.style.borderColor = cfg.color + '88';
+        if (activeTypes.has(type)) {
+            btn.style.background = cfg.color + '33';
+            btn.style.color = cfg.color;
+        }
+        btn.onclick = () => {
+            if (activeTypes.has(type)) {
+                if (activeTypes.size === 1) return;
+                activeTypes.delete(type);
+            } else {
+                activeTypes.add(type);
+            }
+            buildEnergyButtons(country);
+            updateCharts();
+        };
+        container.appendChild(btn);
+    });
+}
+
+// ════════════════════════════════════════════
+//  MAP CHART
+// ════════════════════════════════════════════
+function initMapChart() {
+    mapChart = echarts.init(document.getElementById('mapChart'), 'dark');
+    mapChart.on('click', params => {
+        if (params.data) selectCountry(params.data.countryCode);
+    });
+    window.addEventListener('resize', () => mapChart.resize());
+}
+
+function updateMapChart() {
+    const years = [...selectedYears].sort();
+    document.getElementById('mapYearLabel').textContent = years.join(' / ');
+
+    const countries = getCountries();
+    const mapData   = countries.map(cc => {
+        const totals = years.map(yr => getTotalCapacity(cc, yr)).filter(v => v !== null);
+        const avg    = totals.length ? totals.reduce((a, b) => a + b, 0) / totals.length : 0;
+        return { name: cc, value: Math.round(avg), countryCode: cc };
+    });
+
+    const maxVal = Math.max(...mapData.map(d => d.value));
+
+    mapChart.setOption({
+        backgroundColor: CHART_BG,
+        tooltip: {
+            trigger: 'item',
+            formatter: params => {
+                if (!params.data) return params.name;
+                return `<b>${params.data.name}</b><br/>Avg Total: <b>${params.data.value.toLocaleString()} MW</b>`;
             },
-            data: monthData.map(m => m[cat])
-        }));
-
-        myChart.setOption({
-            title: {
-                text: `${year} PV Installed Capacity`,
-                left: 'center',
-                top: 0,
-                textStyle: { fontSize: 15, fontWeight: 'normal', color: '#2c3e50' }
+            backgroundColor: '#1a2a3a',
+            borderColor: '#2a5a7a',
+            textStyle: { color: '#cde' }
+        },
+        visualMap: {
+            min: 0, max: maxVal,
+            inRange: { color: ['#1a3a5a', '#0d5a9a', '#0d8aff', '#5ac8ff'] },
+            text: ['High', 'Low'],
+            textStyle: { color: '#5a8aaa', fontSize: 11 },
+            orient: 'vertical',
+            left: 10, bottom: 10,
+            itemWidth: 12, itemHeight: 80,
+        },
+        series: [{
+            name: 'Capacity',
+            type: 'map',
+            map: 'world',
+            roam: true,
+            zoom: 3.5,
+            center: [15, 52],
+            selectedMode: 'single',
+            select: {
+                itemStyle: { borderColor: '#7ecfff', borderWidth: 2, areaColor: '#1a6aaa' }
             },
-            tooltip: {
-                trigger: 'axis',
-                axisPointer: { type: 'shadow' },
-                formatter(params) {
-                    let res = `<b>${params[0].axisValue}</b><br/>`;
-                    let total = 0;
-                    params.forEach(p => {
-                        res += `${p.marker} ${p.seriesName}: ${p.value.toFixed(1)} MW<br/>`;
-                        total += p.value;
-                    });
-                    res += `<strong>Total: ${total.toFixed(1)} MW</strong>`;
-                    return res;
+            emphasis: {
+                itemStyle: { areaColor: '#1a5a9a' },
+                label: { color: '#fff' }
+            },
+            itemStyle: {
+                areaColor: '#1a2a3a',
+                borderColor: '#2a4a6a',
+                borderWidth: 0.5,
+            },
+            label: { show: false, color: '#aac' },
+            data: mapData,
+        }]
+    });
+
+    if (selectedCountry) {
+        mapChart.dispatchAction({ type: 'select', seriesIndex: 0, name: selectedCountry });
+    }
+}
+
+// ════════════════════════════════════════════
+//  SELECT COUNTRY
+// ════════════════════════════════════════════
+function selectCountry(cc) {
+    selectedCountry = cc;
+    selectedMonth   = 'all';
+    document.getElementById('selectedCountry').textContent = cc;
+    buildMonthSelector(cc);
+    buildEnergyButtons(cc);
+    updateCharts();
+}
+
+// ════════════════════════════════════════════
+//  MAIN BAR CHART
+// ════════════════════════════════════════════
+function initMainChart() {
+    mainChart = echarts.init(document.getElementById('mainChart'), 'dark');
+    window.addEventListener('resize', () => mainChart.resize());
+}
+
+function updateMainChart() {
+    if (!selectedCountry) {
+        mainChart.setOption({
+            backgroundColor: CHART_BG,
+            graphic: [{
+                type: 'text', left: 'center', top: 'middle',
+                style: { text: 'Click a country on the map to explore', fill: '#3a6a8a', fontSize: 16 }
+            }]
+        });
+        return;
+    }
+
+    const years = [...selectedYears].sort();
+    const month = selectedMonth === 'all' ? null : parseInt(selectedMonth);
+    let xData, series, modeLabel;
+
+    if (years.length === 1) {
+        const yr   = years[0];
+        const rows = getBreakdown(selectedCountry, yr, month);
+        const types = [...new Set(rows.map(r => r.type))];
+        xData     = types.map(t => (TYPE_CONFIG[t] || {}).short || t);
+        modeLabel = `${yr}${month ? ' · ' + MONTHS[month - 1] : ''}`;
+        series = [{
+            name: yr, type: 'bar',
+            data: types.map(t => {
+                const row = rows.find(r => r.type === t);
+                return row ? row.cap : 0;
+            }),
+            itemStyle: {
+                color: params => {
+                    const type = types[params.dataIndex];
+                    return (TYPE_CONFIG[type] || {}).color || '#4a8aaa';
                 }
             },
-            legend: { data: categories, left: 'left', top: 30 },
-            grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true, top: 80 },
-            xAxis: {
-                type: 'category',
-                data: monthLabels,
-                axisLabel: { fontSize: 12 }
-            },
-            yAxis: {
-                type: 'value',
-                name: 'Installed Capacity (MW)',
-                nameLocation: 'middle',
-                nameGap: 55
-            },
-            series,
-            color: ['#2c7bb6', '#fdae61', '#abd9e9']
-        }, true);
+            label: {
+                show: true, position: 'top',
+                color: '#aac', fontSize: 10,
+                formatter: p => p.value > 0 ? p.value.toLocaleString() : ''
+            }
+        }];
+    } else {
+        const allTypes = new Set();
+        years.forEach(yr => getBreakdown(selectedCountry, yr, month).forEach(r => allTypes.add(r.type)));
+        const typeList = [...allTypes];
+        xData     = typeList.map(t => (TYPE_CONFIG[t] || {}).short || t);
+        modeLabel = years.join(', ') + (month ? ' · ' + MONTHS[month - 1] : '');
+        const yearColors = { 2023: '#ff9d42', 2024: '#3a9acf', 2025: '#4ecf7a' };
+        series = years.map(yr => ({
+            name: String(yr), type: 'bar', barGap: '5%',
+            data: typeList.map(t => {
+                const rows = getBreakdown(selectedCountry, yr, month);
+                const row  = rows.find(r => r.type === t);
+                return row ? row.cap : 0;
+            }),
+            itemStyle: { color: yearColors[yr] || '#aaa', opacity: 0.85 },
+            label: { show: false }
+        }));
     }
 
-    // Initial render
-    updateChart(currentYear);
+    document.getElementById('chartModeLabel').textContent = modeLabel;
 
-    // Year-selector interaction
-    const yearBtns = document.querySelectorAll('.year-selector button');
-    yearBtns.forEach(btn => {
-        btn.addEventListener('click', () => {
-            const year = parseInt(btn.dataset.year);
-            if (year === currentYear) return;
-            currentYear = year;
-            yearBtns.forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            updateChart(currentYear);
-        });
+    mainChart.setOption({
+        backgroundColor: CHART_BG,
+        tooltip: {
+            trigger: 'axis',
+            axisPointer: { type: 'shadow' },
+            backgroundColor: '#1a2a3a',
+            borderColor: '#2a5a7a',
+            textStyle: { color: '#cde', fontSize: 12 },
+            formatter: params => {
+                const label = params[0].axisValue;
+                let html = `<b>${label}</b><br/>`;
+                params.forEach(p => {
+                    if (p.value > 0) {
+                        html += `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;
+                                 background:${p.color};margin-right:6px;"></span>
+                                 ${p.seriesName}: <b>${p.value.toLocaleString()} MW</b><br/>`;
+                    }
+                });
+                return html;
+            }
+        },
+        legend: years.length > 1 ? {
+            data: years.map(String), top: 4, right: 16,
+            textStyle: { color: '#7aaccc', fontSize: 11 },
+            itemWidth: 14, itemHeight: 10,
+        } : { show: false },
+        grid: { left: 60, right: 20, top: 40, bottom: 60 },
+        xAxis: {
+            type: 'category', data: xData,
+            axisLine: { lineStyle: { color: AXIS_COLOR } },
+            axisLabel: { color: LABEL_COLOR, fontSize: 10, rotate: xData.length > 8 ? 35 : 0, interval: 0 },
+            splitLine: { show: false },
+        },
+        yAxis: {
+            type: 'value', name: 'MW',
+            nameTextStyle: { color: LABEL_COLOR, fontSize: 11 },
+            axisLine: { show: false },
+            axisLabel: {
+                color: LABEL_COLOR, fontSize: 10,
+                formatter: v => v >= 1000 ? (v / 1000).toFixed(1) + 'k' : v
+            },
+            splitLine: { lineStyle: { color: '#1a3a50', type: 'dashed' } },
+        },
+        series,
+    }, true);
+}
+
+// ════════════════════════════════════════════
+//  TREND LINE CHART
+// ════════════════════════════════════════════
+function initTrendChart() {
+    trendChart = echarts.init(document.getElementById('trendChart'), 'dark');
+    window.addEventListener('resize', () => trendChart.resize());
+}
+
+function updateTrendChart() {
+    if (!selectedCountry) {
+        trendChart.setOption({ backgroundColor: CHART_BG });
+        return;
+    }
+
+    const trendYears = ALL_YEARS;
+    const totals     = trendYears.map(yr => getTotalCapacity(selectedCountry, yr));
+    const types      = availableTypes.filter(t => activeTypes.has(t)).slice(0, 5);
+
+    const seriesList = types.map(t => {
+        const cfg = TYPE_CONFIG[t] || { color: '#888', short: t };
+        return {
+            name: cfg.short, type: 'line', smooth: true,
+            data: trendYears.map(yr => {
+                const row = rawData.find(r =>
+                    r.country === selectedCountry && r.year === yr &&
+                    r.type === t && r.month === null
+                );
+                return row ? row.cap : null;
+            }),
+            lineStyle: { color: cfg.color, width: 2 },
+            itemStyle: { color: cfg.color },
+            symbol: 'circle', symbolSize: 5,
+            connectNulls: false,
+        };
     });
-    document.querySelector('.year-selector button[data-year="2024"]').classList.add('active');
 
-    // Resize
-    window.addEventListener('resize', () => myChart.resize());
+    seriesList.push({
+        name: 'Total', type: 'line', smooth: true,
+        data: totals,
+        lineStyle: { color: '#7ecfff', width: 2, type: 'dashed' },
+        itemStyle: { color: '#7ecfff' },
+        yAxisIndex: 1,
+        symbol: 'diamond', symbolSize: 6,
+    });
 
-    // ── Build full raw-data table ──
-    function buildTable() {
-        const thead = document.getElementById('table-head');
-        const tbody = document.getElementById('table-body');
+    trendChart.setOption({
+        backgroundColor: CHART_BG,
+        tooltip: {
+            trigger: 'axis',
+            backgroundColor: '#1a2a3a',
+            borderColor: '#2a5a7a',
+            textStyle: { color: '#cde', fontSize: 11 },
+        },
+        legend: {
+            top: 2, right: 10,
+            textStyle: { color: '#5a8aaa', fontSize: 10 },
+            itemWidth: 12, itemHeight: 8,
+        },
+        grid: { left: 55, right: 60, top: 28, bottom: 30 },
+        xAxis: {
+            type: 'category', data: trendYears,
+            axisLine: { lineStyle: { color: AXIS_COLOR } },
+            axisLabel: { color: LABEL_COLOR, fontSize: 10 },
+            splitLine: { show: false },
+        },
+        yAxis: [
+            {
+                type: 'value', name: 'MW',
+                nameTextStyle: { color: LABEL_COLOR, fontSize: 10 },
+                axisLabel: {
+                    color: LABEL_COLOR, fontSize: 9,
+                    formatter: v => v >= 1000 ? (v / 1000).toFixed(0) + 'k' : v
+                },
+                splitLine: { lineStyle: { color: '#1a3a50', type: 'dashed' } },
+            },
+            {
+                type: 'value', name: 'Total\nMW',
+                nameTextStyle: { color: '#7ecfff', fontSize: 9 },
+                axisLabel: {
+                    color: '#7ecfff', fontSize: 9,
+                    formatter: v => v >= 1000 ? (v / 1000).toFixed(0) + 'k' : v
+                },
+                splitLine: { show: false },
+            }
+        ],
+        series: seriesList,
+    }, true);
+}
 
-        thead.innerHTML = `<tr>${
-            ['Year','Month','≤50 kW','&gt;50 kW','PPOP']
-                .map(h => `<th>${h}</th>`).join('')
-        }</tr>`;
+// ════════════════════════════════════════════
+//  UPDATE ALL
+// ════════════════════════════════════════════
+function updateAll() {
+    updateMapChart();
+    updateCharts();
+}
+function updateCharts() {
+    updateMainChart();
+    updateTrendChart();
+}
 
-        const sorted = [...rawData].sort((a, b) => a[0] - b[0] || a[1] - b[1]);
-        tbody.innerHTML = sorted.map(([year, month, v1, v2, v3]) => `
-            <tr>
-                <td>${year}</td>
-                <td>${monthLabels[month - 1]}</td>
-                <td>${v1 !== null ? v1.toFixed(1) : '—'}</td>
-                <td>${v2 !== null ? v2.toFixed(1) : '—'}</td>
-                <td>${v3 !== null ? v3.toFixed(1) : '—'}</td>
-            </tr>`).join('');
+// ════════════════════════════════════════════
+//  MONTH SELECT LISTENER
+// ════════════════════════════════════════════
+document.getElementById('monthSelect').addEventListener('change', e => {
+    selectedMonth = e.target.value;
+    updateCharts();
+});
+
+// ════════════════════════════════════════════
+//  INIT
+// ════════════════════════════════════════════
+async function init() {
+    initMapChart();
+    initMainChart();
+    initTrendChart();
+
+    try {
+        const resp = await fetch(CSV_PATH);
+        if (!resp.ok) throw new Error(`Cannot load ${CSV_PATH}: ${resp.status}`);
+        const text = await resp.text();
+        rawData = parseCSV(text);
+
+        const countries = getCountries();
+        document.getElementById('dataInfo').textContent =
+            `${countries.length} countries · ${rawData.length} records`;
+
+        buildYearButtons();
+        buildEnergyButtons(null);
+        updateMapChart();
+
+        if (countries.length > 0) selectCountry(countries[0]);
+
+    } catch (err) {
+        console.error(err);
+        document.getElementById('loadingMsg').innerHTML =
+            `<div style="color:#ff6b6b">⚠️ Failed to load data<br/>
+             <small style="color:#888">${err.message}</small><br/><br/>
+             <small>Make sure <code>data/capacity.csv</code> exists</small></div>`;
+        return;
     }
-    buildTable();
+
+    document.getElementById('loadingMsg').style.display = 'none';
+}
+
+init();
 </script>
 </body>
 </html>

@@ -73,7 +73,7 @@
 
         /* ── Map panel ── */
         .map-panel {
-            width: 420px; flex-shrink: 0;
+            width: 33.333%; flex-shrink: 0;
             border-right: 1px solid #e6e9ed;
             display: flex; flex-direction: column;
         }
@@ -128,9 +128,10 @@
 
         /* ── Charts panel ── */
         .charts-panel {
-            flex: 1; display: flex; flex-direction: column;
+            flex: 2; display: flex; flex-direction: column;
             overflow: hidden; min-width: 0;
         }
+
 
         /* ── Chart card — matches load.html style ── */
         .chart-card {
@@ -427,8 +428,8 @@ function getTotalForMapYear(country) {
 // lat:  34 … 72  → y = (72-lat)/38 * 500
 // ═══════════════════════════════════════════════════════
 const VIEW_W = 420, VIEW_H = 500;
-const LON_MIN = -25, LON_MAX = 45;
-const LAT_MIN = 34,  LAT_MAX = 72;
+const LON_MIN = 5, LON_MAX = 42;
+const LAT_MIN = 35,  LAT_MAX = 57;
 
 function lonlatToXY(lon, lat) {
     const x = (lon - LON_MIN) / (LON_MAX - LON_MIN) * VIEW_W;

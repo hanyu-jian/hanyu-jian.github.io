@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+
     <!-- 🔐 Password Protection -->
     <script>
         (function() {
@@ -12,7 +13,10 @@
 
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard Template</title>
+    <title>Project Overview</title>
+
+    <!-- ECharts -->
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
 
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -32,23 +36,19 @@
             overflow: hidden;
         }
 
-        /* ── Header ── */
+        /* Header */
         .header {
             background: #2c3e50;
             color: white;
             padding: 20px 30px 0 30px;
         }
 
-        .header-top {
-            padding-bottom: 16px;
-        }
-
         .header-top h1 {
             font-size: 24px;
             font-weight: 500;
+            padding-bottom: 16px;
         }
 
-        /* ── Main nav ── */
         .main-nav {
             display: flex;
             gap: 2px;
@@ -64,17 +64,11 @@
             background: rgba(255,255,255,0.06);
         }
 
-        .main-nav-link:hover {
-            color: white;
-            background: rgba(255,255,255,0.14);
-        }
-
         .main-nav-link.active {
             color: #2c3e50;
             background: #f8f9fa;
         }
 
-        /* ── Sub nav ── */
         .sub-nav {
             background: #f8f9fa;
             border-bottom: 2px solid #e6e9ed;
@@ -86,40 +80,53 @@
             padding: 14px 22px;
             font-size: 14px;
             font-weight: 600;
-            color: #6c757d;
-            text-decoration: none;
-        }
-
-        .sub-nav-link.active {
             color: #2c3e50;
             border-bottom: 3px solid #2c3e50;
         }
 
-        /* ── Main content placeholder ── */
+        /* Layout */
         .content {
-            padding: 40px;
-            min-height: 500px;
+            display: flex;
+            height: 600px;
+        }
+
+        .map {
+            width: 50%;
+            height: 100%;
+        }
+
+        .panel {
+            width: 50%;
+            padding: 20px;
+            border-left: 1px solid #e6e9ed;
+        }
+
+        .country-title {
+            font-size: 20px;
+            margin-bottom: 10px;
+        }
+
+        .country-map {
+            height: 250px;
+            margin-bottom: 20px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            border: 1px solid #e6e9ed;
+            padding: 10px;
             text-align: center;
-            color: #999;
+            font-size: 14px;
         }
 
-        /* ── Footer ── */
-        .info {
-            padding: 14px 30px 20px;
-            font-size: 13px;
-            color: #6c757d;
-            text-align: center;
-            border-top: 1px solid #e6e9ed;
+        th {
+            background: #f8f9fa;
         }
 
-        .info a {
-            color: #5a8fc2;
-            text-decoration: none;
-        }
-
-        .info a:hover {
-            text-decoration: underline;
-        }
     </style>
 </head>
 
@@ -141,24 +148,152 @@
         </div>
     </div>
 
-    <!-- Sub Nav -->
     <div class="sub-nav">
-        <a class="sub-nav-link active" href="#">Overview</a>
+        <div class="sub-nav-link">Overview</div>
     </div>
 
-    <!-- Content Placeholder -->
+    <!-- Content -->
     <div class="content">
-        Your content here
-    </div>
+        <div id="map" class="map"></div>
 
-    <!-- Footer -->
-    <div class="info">
-        Data source: 
-        <a href="https://www.entsoe.eu/" target="_blank">ENTSO-E Transparency Platform</a>
-        &nbsp;|&nbsp; Author: Hanyu Jian
+        <div class="panel">
+            <div class="country-title" id="countryName">Select a country</div>
+            <div id="countryMap" class="country-map"></div>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>Project Name</th>
+                        <th>Installed Capacity</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody id="projectTable">
+                </tbody>
+            </table>
+        </div>
     </div>
 
 </div>
+
+<script>
+
+const chart = echarts.init(document.getElementById('map'));
+const countryChart = echarts.init(document.getElementById('countryMap'));
+
+/* ====== project information ====== */
+const projectData = {
+    Romania: [
+        {name: "Prime", capacity: "130 MW", status: "Under Construction", coord: [24.9,45.9]}
+    ],
+    Hungary: [
+        {
+            name: "Tokaj",
+            capacity: "197 MW",
+            status: "Operating",
+            coord: [21.41, 48.12]   // Tokaj
+        },
+        {
+            name: "Victor",
+            capacity: "132 MW",
+            status: "Operating",
+            coord: [19.04, 47.50]   // Budapest
+        }
+    ],
+    Serbia: [
+        {name: "Blackpeak", capacity: "156 MW", status: "Under Construction", coord: [20.4,44.8]}
+    ],
+    Turkey: [
+        {name: "xxx", capacity: "1320 MW", status: "Operating", coord: [32.8,39.9]}
+    ],
+    Malta: [
+        {name: "xxx", capacity: "152 MW", status: "Operating", coord: [14.4,35.9]}
+    ],
+    Montenegro: [
+        {name: "Mozura", capacity: "48 MW", status: "Operating", coord: [19.3,42.4]}
+    ]
+};
+
+/* ====== 高亮国家 ====== */
+const countries = ["Romania","Hungary","Serbia","Turkey","Malta","Montenegro"];
+
+/* ====== 欧洲地图 ====== */
+fetch('https://geo.datav.aliyun.com/areas_v3/bound/150000_full.json')
+.then(res => res.json())
+.then(geoJson => {
+
+    echarts.registerMap('europe', geoJson);
+
+    chart.setOption({
+        geo: {
+            map: 'europe',
+            roam: true,
+            itemStyle: {
+                areaColor: '#dcdcdc',
+                borderColor: '#999'
+            },
+            emphasis: {
+                itemStyle: {
+                    areaColor: '#5a8fc2'
+                }
+            }
+        },
+        series: [{
+            type: 'map',
+            map: 'europe',
+            data: countries.map(c => ({name: c, value: 1})),
+            itemStyle: {
+                areaColor: '#bcd4ec'
+            }
+        }]
+    });
+
+});
+
+/* ====== 点击事件 ====== */
+chart.on('click', function(params) {
+
+    const name = params.name;
+
+    if (!projectData[name]) return;
+
+    document.getElementById('countryName').innerText = name;
+
+    /* 表格 */
+    const table = document.getElementById('projectTable');
+    table.innerHTML = '';
+
+    projectData[name].forEach(p => {
+        table.innerHTML += `
+            <tr>
+                <td>${p.name}</td>
+                <td>${p.capacity}</td>
+                <td>${p.status}</td>
+            </tr>
+        `;
+    });
+
+    /* 国家地图 + 点 */
+    countryChart.setOption({
+        geo: {
+            map: 'europe',
+            zoom: 4,
+            center: projectData[name][0].coord
+        },
+        series: [{
+            type: 'scatter',
+            coordinateSystem: 'geo',
+            data: projectData[name].map(p => ({
+                name: p.name,
+                value: p.coord
+            })),
+            symbolSize: 10
+        }]
+    });
+
+});
+
+</script>
 
 </body>
 </html>

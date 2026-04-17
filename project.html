@@ -67,7 +67,7 @@
         .loading { text-align: center; padding: 60px; color: #666; font-size: 16px; }
 
         .content-area {
-            display: flex; gap: 0; min-height: 680px;
+            display: flex; gap: 0; min-height: 520px;
         }
 
         /* ── Left Map panel ── */
@@ -197,7 +197,8 @@
             border: 1px solid #e6e9ed;
             border-radius: 10px;
             overflow: hidden;
-            flex: 1;
+            flex: 0 1 auto;
+            max-height: 260px;
             display: flex;
             flex-direction: column;
         }
@@ -482,9 +483,9 @@ function getCountryName(feature) {
 /* ═══════════════════════════
    Europe map projection
    ═══════════════════════════ */
-const VIEW_W = 420, VIEW_H = 470;
-const LON_MIN = -12, LON_MAX = 45;
-const LAT_MIN = 30,  LAT_MAX = 62;
+const VIEW_W = 420, VIEW_H = 380;
+const LON_MIN = -12, LON_MAX = 40;
+const LAT_MIN = 32,  LAT_MAX = 62;
 
 function lonlatToXY(lon, lat) {
     const x = (lon - LON_MIN) / (LON_MAX - LON_MIN) * VIEW_W;

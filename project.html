@@ -11,7 +11,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Project Overview</title>
-    <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -47,10 +46,7 @@
             border-radius: 6px 6px 0 0;
             background: rgba(255,255,255,0.06);
         }
-        .main-nav-link.active {
-            color: #2c3e50;
-            background: #f8f9fa;
-        }
+        .main-nav-link.active { color: #2c3e50; background: #f8f9fa; }
         .sub-nav {
             background: #f8f9fa;
             border-bottom: 2px solid #e6e9ed;
@@ -68,26 +64,52 @@
             display: flex;
             height: 620px;
         }
+
+        /* ── Left map panel ── */
         .map-wrapper {
             width: 50%;
             height: 100%;
             display: flex;
             flex-direction: column;
             position: relative;
+            background: #f8fafc;
         }
-        .map { flex: 1; width: 100%; }
+        .map-svg-wrap {
+            flex: 1;
+            overflow: hidden;
+            position: relative;
+        }
+        #europeSvg {
+            width: 100%;
+            height: 100%;
+        }
 
-        /* Legend 左下角 */
+        /* Tooltip */
+        #mapTip {
+            position: fixed;
+            display: none;
+            background: rgba(30,40,55,0.92);
+            color: #fff;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            pointer-events: none;
+            z-index: 9999;
+            line-height: 1.6;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.25);
+        }
+
+        /* Legend */
         .map-legend {
             position: absolute;
             bottom: 16px;
             left: 16px;
-            background: rgba(255,255,255,0.95);
+            background: rgba(255,255,255,0.96);
             border: 1px solid #dde2e8;
             border-radius: 8px;
             padding: 12px 16px;
             box-shadow: 0 2px 8px rgba(0,0,0,0.12);
-            min-width: 180px;
+            min-width: 190px;
             z-index: 10;
         }
         .map-legend h4 {
@@ -116,7 +138,7 @@
         .legend-label { flex: 1; }
         .legend-value { font-weight: 700; color: #2c3e50; }
 
-        /* 右侧面板 */
+        /* ── Right panel ── */
         .panel {
             width: 50%;
             padding: 20px;
@@ -132,12 +154,18 @@
             margin-bottom: 10px;
         }
         .country-map {
-            height: 240px;
+            height: 220px;
             margin-bottom: 16px;
             flex-shrink: 0;
             border: 1px solid #e6e9ed;
             border-radius: 6px;
             background: #f8fafc;
+            overflow: hidden;
+            position: relative;
+        }
+        #countryMapSvg {
+            width: 100%;
+            height: 100%;
         }
         .table-wrapper { overflow-y: auto; flex: 1; }
         table { width: 100%; border-collapse: collapse; }
@@ -176,6 +204,8 @@
 </head>
 
 <body>
+<div id="mapTip"></div>
+
 <div class="container">
     <div class="header">
         <div class="header-top"><h1>European Electricity Dashboard</h1></div>
@@ -192,9 +222,12 @@
 
     <div class="content">
 
-        <!-- 地图 + Legend -->
+        <!-- Left: SVG map -->
         <div class="map-wrapper">
-            <div id="map" class="map"></div>
+            <div class="map-svg-wrap">
+                <svg id="europeSvg" viewBox="0 0 420 480"
+                     preserveAspectRatio="xMidYMid meet"></svg>
+            </div>
             <div class="map-legend">
                 <h4>Portfolio by Type</h4>
                 <div class="legend-item">
@@ -217,7 +250,8 @@
                     <span class="legend-label">Fossil</span>
                     <span class="legend-value" id="legendFossil">0 MW</span>
                 </div>
-                <div class="legend-item" style="border-top:1px solid #eee;padding-top:7px;margin-top:3px;">
+                <div class="legend-item"
+                     style="border-top:1px solid #eee;padding-top:7px;margin-top:3px;">
                     <div class="legend-dot" style="background:#2c3e50;"></div>
                     <span class="legend-label" style="font-weight:600;">Total</span>
                     <span class="legend-value" id="legendTotal">0 MW</span>
@@ -225,10 +259,13 @@
             </div>
         </div>
 
-        <!-- 右侧面板 -->
+        <!-- Right panel -->
         <div class="panel">
             <div class="country-title" id="countryName">Select a country</div>
-            <div id="countryMap" class="country-map"></div>
+            <div class="country-map">
+                <svg id="countryMapSvg" viewBox="0 0 340 220"
+                     preserveAspectRatio="xMidYMid meet"></svg>
+            </div>
             <div class="table-wrapper">
                 <table>
                     <thead>
@@ -240,7 +277,11 @@
                         </tr>
                     </thead>
                     <tbody id="projectTable">
-                        <tr><td colspan="4" class="empty-state">Click a country on the map</td></tr>
+                        <tr>
+                            <td colspan="4" class="empty-state">
+                                Click a country on the map
+                            </td>
+                        </tr>
                     </tbody>
                 </table>
             </div>
@@ -249,240 +290,384 @@
 </div>
 
 <script>
-/* ── Project Data ── */
+/* ═══════════════════════════════════════════
+   DATA
+═══════════════════════════════════════════ */
 const projectData = {
-    Romania:    [{ name: 'Prime',     capacity: 130,  type: 'Wind',   status: 'Under Construction', coord: [24.9,  45.9]  }],
-    Hungary:    [{ name: 'Tokaj',     capacity: 197,  type: 'Solar',  status: 'Operating',          coord: [21.41, 48.12] },
-                 { name: 'Victor',    capacity: 132,  type: 'Solar',  status: 'Operating',          coord: [19.04, 47.50] }],
-    Serbia:     [{ name: 'Blackpeak', capacity: 156,  type: 'Wind',   status: 'Under Construction', coord: [20.4,  44.8]  }],
-    Turkey:     [{ name: 'xxx',       capacity: 1320, type: 'Gas',    status: 'Operating',          coord: [32.8,  39.9]  }],
-    Malta:      [{ name: 'xxx',       capacity: 152,  type: 'Fossil', status: 'Operating',          coord: [14.4,  35.9]  }],
-    Montenegro: [{ name: 'Mozura',    capacity: 48,   type: 'Wind',   status: 'Operating',          coord: [19.3,  42.4]  }]
+    Romania:    [{ name: 'Prime',     capacity: 130,  type: 'Wind',
+                   status: 'Under Construction', coord: [24.9,  45.9] }],
+    Hungary:    [{ name: 'Tokaj',     capacity: 197,  type: 'Solar',
+                   status: 'Operating',          coord: [21.41, 48.12] },
+                 { name: 'Victor',    capacity: 132,  type: 'Solar',
+                   status: 'Operating',          coord: [19.04, 47.50] }],
+    Serbia:     [{ name: 'Blackpeak', capacity: 156,  type: 'Wind',
+                   status: 'Under Construction', coord: [20.4,  44.8]  }],
+    Turkey:     [{ name: 'xxx',       capacity: 1320, type: 'Gas',
+                   status: 'Operating',          coord: [32.8,  39.9]  }],
+    Malta:      [{ name: 'xxx',       capacity: 152,  type: 'Fossil',
+                   status: 'Operating',          coord: [14.4,  35.9]  }],
+    Montenegro: [{ name: 'Mozura',    capacity: 48,   type: 'Wind',
+                   status: 'Operating',          coord: [19.3,  42.4]  }]
 };
 
-const typeColor = { Solar: '#f6c94e', Wind: '#4ec9d4', Gas: '#e07b6a', Fossil: '#9e9e9e' };
-const typeBadge = { Solar: 'badge-solar', Wind: 'badge-wind', Gas: 'badge-gas', Fossil: 'badge-fossil' };
+/* ISO-A2 → display name (and reverse) */
+const NAME_TO_ISO = {
+    Romania: 'RO', Hungary: 'HU', Serbia: 'RS',
+    Turkey: 'TR',  Malta: 'MT',   Montenegro: 'ME'
+};
+const ISO_TO_NAME = Object.fromEntries(
+    Object.entries(NAME_TO_ISO).map(([n, c]) => [c, n])
+);
+
+const typeColor = {
+    Solar: '#f6c94e', Wind: '#4ec9d4', Gas: '#e07b6a', Fossil: '#9e9e9e'
+};
+const typeBadge = {
+    Solar: 'badge-solar', Wind: 'badge-wind',
+    Gas: 'badge-gas',     Fossil: 'badge-fossil'
+};
+
+const TARGET_ISO = Object.values(NAME_TO_ISO); // ['RO','HU','RS','TR','MT','ME']
 
 /* ── Legend totals ── */
-(function updateGlobalLegend() {
+(function() {
     const t = { Solar: 0, Wind: 0, Gas: 0, Fossil: 0 };
-    Object.values(projectData).forEach(ps => ps.forEach(p => { if (t[p.type] !== undefined) t[p.type] += p.capacity; }));
+    Object.values(projectData).forEach(ps =>
+        ps.forEach(p => { if (t[p.type] !== undefined) t[p.type] += p.capacity; })
+    );
     document.getElementById('legendSolar').textContent  = t.Solar  + ' MW';
     document.getElementById('legendWind').textContent   = t.Wind   + ' MW';
     document.getElementById('legendGas').textContent    = t.Gas    + ' MW';
     document.getElementById('legendFossil').textContent = t.Fossil + ' MW';
-    document.getElementById('legendTotal').textContent  = (t.Solar + t.Wind + t.Gas + t.Fossil) + ' MW';
+    document.getElementById('legendTotal').textContent  =
+        (t.Solar + t.Wind + t.Gas + t.Fossil) + ' MW';
 })();
 
-/* ── ECharts instances ── */
-const chart        = echarts.init(document.getElementById('map'));
-const countryChart = echarts.init(document.getElementById('countryMap'));
-const highlightCountries = Object.keys(projectData);
+/* ═══════════════════════════════════════════
+   MAP PROJECTION  (lon/lat → SVG coords)
+   Covers roughly -12..42 lon, 30..62 lat
+═══════════════════════════════════════════ */
+const VIEW_W = 420, VIEW_H = 480;
+const LON_MIN = -12, LON_MAX = 42;
+const LAT_MIN = 30,  LAT_MAX = 62;
 
-/* ── Country ISO codes for label display ── */
-const countryISO = {
-    Romania: 'RO', Hungary: 'HU', Serbia: 'RS',
-    Turkey: 'TR', Malta: 'MT', Montenegro: 'ME'
-};
+function ll2xy(lon, lat) {
+    const x = (lon - LON_MIN) / (LON_MAX - LON_MIN) * VIEW_W;
+    const y = (LAT_MAX - lat) / (LAT_MAX - LAT_MIN) * VIEW_H;
+    return [x, y];
+}
 
-/* ── Load GeoJSON ── */
-fetch('europe.geojson')
-    .then(res => { if (!res.ok) throw new Error(res.status); return res.json(); })
-    .then(geoJson => {
+function ringToD(ring) {
+    const pts = ring.map(([ln, lt]) => ll2xy(ln, lt));
+    if (!pts.length) return '';
+    return 'M' + pts[0][0].toFixed(1) + ',' + pts[0][1].toFixed(1)
+        + pts.slice(1).map(p => 'L' + p[0].toFixed(1) + ',' + p[1].toFixed(1)).join('')
+        + 'Z';
+}
 
-        echarts.registerMap('europe', geoJson);
+function featureToD(f) {
+    const g = f.geometry; if (!g) return '';
+    const parts = [];
+    if (g.type === 'Polygon')
+        g.coordinates.forEach(r => parts.push(ringToD(r)));
+    else if (g.type === 'MultiPolygon')
+        g.coordinates.forEach(poly => poly.forEach(r => parts.push(ringToD(r))));
+    return parts.filter(Boolean).join(' ');
+}
 
-        /* Build ISO label scatter data */
-        const isoLabels = highlightCountries.map(name => {
-            /* find the feature for this country by name matching */
-            const feat = geoJson.features.find(f => {
-                const p = f.properties || {};
-                const n = (p.NAME || p.name || p.NAME_EN || p.ADMIN || '').toLowerCase();
-                return n === name.toLowerCase();
-            });
-            if (!feat) return null;
+function featureCentroid(f) {
+    const g = f.geometry; if (!g) return null;
+    let best = null, bestN = 0;
+    const check = r => { if (r.length > bestN) { bestN = r.length; best = r; } };
+    if (g.type === 'Polygon') g.coordinates.forEach(check);
+    else if (g.type === 'MultiPolygon') g.coordinates.forEach(p => p.forEach(check));
+    if (!best) return null;
+    let sx = 0, sy = 0;
+    best.forEach(([ln, lt]) => { sx += ln; sy += lt; });
+    return [sx / best.length, sy / best.length];
+}
 
-            /* centroid */
-            let coords = [];
-            const geom = feat.geometry;
-            const collect = ring => ring.forEach(c => coords.push(c));
-            if (geom.type === 'Polygon') geom.coordinates.forEach(collect);
-            else if (geom.type === 'MultiPolygon') geom.coordinates.forEach(poly => poly.forEach(collect));
-            if (!coords.length) return null;
+function getISO(f) {
+    const p = f.properties || {};
+    return (p.ISO_A2 || p.iso_a2 || p.ISO2 || p.iso2 || '').toUpperCase();
+}
 
-            const lon = coords.reduce((s, c) => s + c[0], 0) / coords.length;
-            const lat = coords.reduce((s, c) => s + c[1], 0) / coords.length;
+/* ═══════════════════════════════════════════
+   STATE
+═══════════════════════════════════════════ */
+let geoFeatures = [];
+let selectedISO = null;
 
-            return {
-                name: name,
-                value: [lon, lat],
-                label: {
-                    show: true,
-                    formatter: countryISO[name] || name.slice(0,2).toUpperCase(),
-                    color: '#1a3a52',
-                    fontWeight: 800,
-                    fontSize: 10,
-                    fontFamily: 'Segoe UI, sans-serif',
-                    textBorderColor: 'rgba(255,255,255,0.6)',
-                    textBorderWidth: 2
-                }
-            };
-        }).filter(Boolean);
+/* ═══════════════════════════════════════════
+   BUILD MAIN MAP
+═══════════════════════════════════════════ */
+function buildMap() {
+    const svg = document.getElementById('europeSvg');
 
-        chart.setOption({
-            tooltip: {
-                trigger: 'item',
-                formatter(params) {
-                    if (params.seriesType === 'scatter' && params.data.country) {
-                        const p = params.data;
-                        return `<b>${p.projName}</b><br/>Type: ${p.projType}<br/>Capacity: ${p.capacity} MW<br/>Status: ${p.status}`;
-                    }
-                    if (!projectData[params.name]) return params.name || '';
-                    const projects = projectData[params.name];
-                    const totalMW  = projects.reduce((s, p) => s + p.capacity, 0);
-                    return `<b>${params.name}</b><br/>${projects.length} project(s)<br/>${totalMW} MW total`;
-                }
-            },
-            geo: {
-                map: 'europe',
-                roam: true,
-                center: [15, 52],
-                zoom: 1.2,
-                /* ── same colour scheme as capacity.html ── */
-                itemStyle: {
-                    areaColor: '#c8dce8',   /* non-project countries */
-                    borderColor: '#b0c8d8',
-                    borderWidth: 0.6
-                },
-                emphasis: {
-                    itemStyle: { areaColor: '#5a90b0' },
-                    label: { show: false }
-                }
-            },
-            series: [
-                /* ── highlighted project countries ── */
-                {
-                    type: 'map',
-                    map: 'europe',
-                    geoIndex: 0,
-                    selectedMode: 'single',
-                    data: highlightCountries.map(c => ({ name: c, value: 1 })),
-                    itemStyle: {
-                        areaColor: '#7aafc8',   /* same as capacity.html active colour */
-                        borderColor: '#5a90b0',
-                        borderWidth: 1.2
-                    },
-                    emphasis: { itemStyle: { areaColor: '#5a90b0' } },
-                    select:    { itemStyle: { areaColor: '#2c3e50' } },
-                    label: { show: false }
-                },
-                /* ── ISO abbreviation labels on highlighted countries ── */
-                {
-                    type: 'scatter',
-                    coordinateSystem: 'geo',
-                    symbol: 'none',      /* invisible dot, only label shown */
-                    silent: true,
-                    data: isoLabels,
-                    tooltip: { show: false }
-                },
-                /* ── project dots ── */
-                ...Object.entries(projectData).flatMap(([country, projects]) =>
-                    projects.map(p => ({
-                        type: 'scatter',
-                        coordinateSystem: 'geo',
-                        data: [{
-                            name: p.name,
-                            value: [...p.coord, p.capacity],
-                            country,
-                            projName: p.name,
-                            projType: p.type,
-                            capacity: p.capacity,
-                            status:   p.status
-                        }],
-                        symbolSize: Math.max(8, Math.sqrt(p.capacity) * 0.8),
-                        itemStyle: {
-                            color: typeColor[p.type] || '#888',
-                            borderColor: '#fff',
-                            borderWidth: 1.5
-                        },
-                        zlevel: 5
-                    }))
-                )
-            ]
+    let html = `
+        <defs>
+          <filter id="shad">
+            <feDropShadow dx="0" dy="1" stdDeviation="1.5" flood-opacity="0.18"/>
+          </filter>
+        </defs>
+        <rect width="${VIEW_W}" height="${VIEW_H}" fill="#d4e8f5"/>`;
+
+    /* non-target countries first (background) */
+    geoFeatures.forEach(f => {
+        const iso = getISO(f);
+        if (TARGET_ISO.includes(iso)) return;
+        const d = featureToD(f);
+        if (!d) return;
+        html += `<path d="${d}" fill="#c8dce8" stroke="#b0c8d8"
+                      stroke-width="0.5" stroke-linejoin="round"/>`;
+    });
+
+    /* target (project) countries on top */
+    geoFeatures.forEach(f => {
+        const iso = getISO(f);
+        if (!TARGET_ISO.includes(iso)) return;
+        const d = featureToD(f);
+        if (!d) return;
+
+        const name      = ISO_TO_NAME[iso];
+        const isSelected = selectedISO === iso;
+        const fill   = isSelected ? '#2c3e50' : '#7aafc8';
+        const stroke = isSelected ? '#1a252f' : '#5a90b0';
+        const sw     = isSelected ? 2 : 1.2;
+
+        /* total MW for this country */
+        const total = (projectData[name] || [])
+            .reduce((s, p) => s + p.capacity, 0);
+        const totalLabel = total >= 1000
+            ? (total / 1000).toFixed(1) + ' GW'
+            : total + ' MW';
+
+        html += `<path d="${d}" fill="${fill}" stroke="${stroke}"
+                      stroke-width="${sw}" stroke-linejoin="round"
+                      filter="url(#shad)" style="cursor:pointer;"
+                      onmouseenter="showTip(event,'${name}',${total})"
+                      onmouseleave="hideTip()"
+                      onclick="onCountryClick('${iso}')"/>`;
+
+        /* label: ISO code + total capacity */
+        const ctr = featureCentroid(f);
+        if (ctr) {
+            const [cx, cy] = ll2xy(ctr[0], ctr[1]);
+            const tcol  = isSelected ? '#ffffff' : '#1a3a52';
+            const tcol2 = isSelected ? '#a0c4dc' : '#2a5a7a';
+            html += `
+              <text x="${cx.toFixed(1)}" y="${(cy - 2).toFixed(1)}"
+                    text-anchor="middle" font-size="8.5" font-weight="800"
+                    fill="${tcol}" paint-order="stroke"
+                    stroke="rgba(255,255,255,0.55)" stroke-width="2.5"
+                    style="pointer-events:none;
+                           font-family:'Segoe UI',sans-serif;">${iso}</text>
+              <text x="${cx.toFixed(1)}" y="${(cy + 7).toFixed(1)}"
+                    text-anchor="middle" font-size="7" font-weight="600"
+                    fill="${tcol2}" paint-order="stroke"
+                    stroke="rgba(255,255,255,0.55)" stroke-width="2"
+                    style="pointer-events:none;
+                           font-family:'Segoe UI',sans-serif;">${totalLabel}</text>`;
+        }
+
+        /* project dots */
+        (projectData[name] || []).forEach(p => {
+            const [px, py] = ll2xy(p.coord[0], p.coord[1]);
+            const r = Math.max(5, Math.sqrt(p.capacity) * 0.45);
+            html += `
+              <circle cx="${px.toFixed(1)}" cy="${py.toFixed(1)}" r="${r}"
+                      fill="${typeColor[p.type] || '#888'}"
+                      stroke="#fff" stroke-width="1.4"
+                      style="pointer-events:none;" opacity="0.92"/>`;
         });
+    });
 
+    svg.innerHTML = html;
+}
+
+/* ═══════════════════════════════════════════
+   TOOLTIP
+═══════════════════════════════════════════ */
+function showTip(e, name, total) {
+    const projects = projectData[name] || [];
+    const tip = document.getElementById('mapTip');
+    tip.innerHTML = `<b>${name}</b><br/>
+        ${projects.length} project(s) · ${total} MW total`;
+    tip.style.display = 'block';
+    moveTip(e);
+}
+function hideTip() {
+    document.getElementById('mapTip').style.display = 'none';
+}
+document.addEventListener('mousemove', e => {
+    const tip = document.getElementById('mapTip');
+    if (tip.style.display === 'block') moveTip(e);
+});
+function moveTip(e) {
+    const tip = document.getElementById('mapTip');
+    tip.style.left = (e.clientX + 14) + 'px';
+    tip.style.top  = (e.clientY - 10) + 'px';
+}
+
+/* ═══════════════════════════════════════════
+   CLICK → right panel
+═══════════════════════════════════════════ */
+function onCountryClick(iso) {
+    selectedISO = iso;
+    buildMap();
+
+    const name = ISO_TO_NAME[iso];
+    document.getElementById('countryName').textContent = name;
+
+    /* table */
+    const tbody = document.getElementById('projectTable');
+    const projects = projectData[name] || [];
+    if (!projects.length) {
+        tbody.innerHTML =
+            `<tr><td colspan="4" class="empty-state">No projects in ${name}</td></tr>`;
+    } else {
+        tbody.innerHTML = projects.map(p => `
+            <tr>
+                <td>${p.name}</td>
+                <td><span class="badge ${typeBadge[p.type] || ''}">${p.type}</span></td>
+                <td>${p.capacity} MW</td>
+                <td>${p.status}</td>
+            </tr>`).join('');
+    }
+
+    /* mini map */
+    buildCountryMap(name, iso);
+}
+
+/* ═══════════════════════════════════════════
+   MINI MAP (right panel)
+═══════════════════════════════════════════ */
+function buildCountryMap(name, iso) {
+    const SVG_W = 340, SVG_H = 220;
+    const PAD = 20;
+
+    /* find the feature */
+    const feat = geoFeatures.find(f => getISO(f) === iso);
+    const svg  = document.getElementById('countryMapSvg');
+
+    if (!feat) { svg.innerHTML = ''; return; }
+
+    /* collect all coords to find bounding box */
+    const g = feat.geometry;
+    let allCoords = [];
+    const collect = ring => ring.forEach(c => allCoords.push(c));
+    if (g.type === 'Polygon') g.coordinates.forEach(collect);
+    else if (g.type === 'MultiPolygon')
+        g.coordinates.forEach(poly => poly.forEach(collect));
+
+    if (!allCoords.length) { svg.innerHTML = ''; return; }
+
+    const lons = allCoords.map(c => c[0]);
+    const lats = allCoords.map(c => c[1]);
+    const lonMin = Math.min(...lons), lonMax = Math.max(...lons);
+    const latMin = Math.min(...lats), latMax = Math.max(...lats);
+
+    /* scale to fit with padding */
+    const scaleX = (SVG_W - PAD * 2) / (lonMax - lonMin || 1);
+    const scaleY = (SVG_H - PAD * 2) / (latMax - latMin || 1);
+    const scale  = Math.min(scaleX, scaleY);
+
+    const offX = PAD + ((SVG_W - PAD * 2) - (lonMax - lonMin) * scale) / 2;
+    const offY = PAD + ((SVG_H - PAD * 2) - (latMax - latMin) * scale) / 2;
+
+    function proj(lon, lat) {
+        return [
+            offX + (lon - lonMin) * scale,
+            offY + (latMax - lat) * scale
+        ];
+    }
+
+    function miniRingToD(ring) {
+        const pts = ring.map(([ln, lt]) => proj(ln, lt));
+        if (!pts.length) return '';
+        return 'M' + pts[0][0].toFixed(1) + ',' + pts[0][1].toFixed(1)
+            + pts.slice(1).map(p => 'L' + p[0].toFixed(1) + ',' + p[1].toFixed(1)).join('')
+            + 'Z';
+    }
+
+    /* also draw neighbouring countries for context */
+    let bgPaths = '';
+    geoFeatures.forEach(f => {
+        if (getISO(f) === iso) return;
+        /* rough bounding-box filter: only neighbours */
+        const fc = f.geometry; if (!fc) return;
+        let fc_coords = [];
+        const fc_collect = r => r.forEach(c => fc_coords.push(c));
+        if (fc.type === 'Polygon') fc.coordinates.forEach(fc_collect);
+        else if (fc.type === 'MultiPolygon')
+            fc.coordinates.forEach(p => p.forEach(fc_collect));
+        if (!fc_coords.length) return;
+
+        const fLons = fc_coords.map(c => c[0]);
+        const fLats = fc_coords.map(c => c[1]);
+        const fLonMin = Math.min(...fLons), fLonMax = Math.max(...fLons);
+        const fLatMin = Math.min(...fLats), fLatMax = Math.max(...fLats);
+
+        /* skip if doesn't overlap extended bbox */
+        const EXT = 4; // degrees of context
+        if (fLonMax < lonMin - EXT || fLonMin > lonMax + EXT ||
+            fLatMax < latMin - EXT || fLatMin > latMax + EXT) return;
+
+        const gd = fc.type === 'Polygon'
+            ? fc.coordinates.map(miniRingToD).join(' ')
+            : fc.coordinates.map(poly => poly.map(miniRingToD).join(' ')).join(' ');
+
+        if (gd.trim()) {
+            bgPaths += `<path d="${gd}" fill="#c8dce8"
+                              stroke="#b0c8d8" stroke-width="0.5"/>`;
+        }
+    });
+
+    /* main country path */
+    let mainD = '';
+    if (g.type === 'Polygon')
+        mainD = g.coordinates.map(miniRingToD).join(' ');
+    else if (g.type === 'MultiPolygon')
+        mainD = g.coordinates.map(poly => poly.map(miniRingToD).join(' ')).join(' ');
+
+    /* project dots */
+    let dots = '';
+    (projectData[name] || []).forEach(p => {
+        const [px, py] = proj(p.coord[0], p.coord[1]);
+        const r = 6;
+        dots += `
+          <circle cx="${px.toFixed(1)}" cy="${py.toFixed(1)}" r="${r}"
+                  fill="${typeColor[p.type] || '#888'}"
+                  stroke="#fff" stroke-width="1.5"/>
+          <text x="${(px + 9).toFixed(1)}" y="${(py + 4).toFixed(1)}"
+                font-size="9" font-weight="600" fill="#2c3e50"
+                style="font-family:'Segoe UI',sans-serif;">${p.name}</text>`;
+    });
+
+    svg.innerHTML = `
+        <rect width="${SVG_W}" height="${SVG_H}" fill="#d4e8f5"/>
+        ${bgPaths}
+        <path d="${mainD}" fill="#7aafc8" stroke="#5a90b0"
+              stroke-width="1.2" stroke-linejoin="round"/>
+        ${dots}`;
+}
+
+/* ═══════════════════════════════════════════
+   LOAD GeoJSON → build map
+═══════════════════════════════════════════ */
+fetch('europe.geojson')
+    .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
+    .then(geo => {
+        geoFeatures = geo.features || [];
+        buildMap();
     })
     .catch(err => {
         console.error(err);
-        document.getElementById('map').innerHTML =
-            `<div style="padding:40px;color:#c0392b;font-size:14px;">
-                ❌ Could not load <b>europe.geojson</b>.<br/>
-                Run via a local server (e.g. <code>python -m http.server</code>).
-             </div>`;
+        document.getElementById('europeSvg').innerHTML =
+            `<text x="20" y="40" fill="#c0392b" font-size="13">
+               ❌ Could not load europe.geojson
+             </text>`;
     });
-
-/* ── Click handler ── */
-chart.on('click', function(params) {
-    const name = params.name;
-    document.getElementById('countryName').innerText = name;
-    const table = document.getElementById('projectTable');
-
-    if (!projectData[name]) {
-        table.innerHTML = `<tr><td colspan="4" class="empty-state">No projects in ${name}</td></tr>`;
-        countryChart.clear();
-        return;
-    }
-
-    table.innerHTML = projectData[name].map(p => `
-        <tr>
-            <td>${p.name}</td>
-            <td><span class="badge ${typeBadge[p.type] || ''}">${p.type}</span></td>
-            <td>${p.capacity} MW</td>
-            <td>${p.status}</td>
-        </tr>`).join('');
-
-    const center = getCenterCoord(name);
-    countryChart.setOption({
-        backgroundColor: '#f8fafc',
-        geo: {
-            map: 'europe',
-            zoom: 5.5,
-            center,
-            roam: false,
-            itemStyle: { areaColor: '#c8dce8', borderColor: '#b0c8d8', borderWidth: 0.5 },
-            emphasis: { disabled: true },
-            regions: [{ name, itemStyle: { areaColor: '#7aafc8' } }]
-        },
-        series: [{
-            type: 'scatter',
-            coordinateSystem: 'geo',
-            data: projectData[name].map(p => ({
-                name: p.name,
-                value: p.coord,
-                itemStyle: { color: typeColor[p.type] || '#888' }
-            })),
-            symbolSize: 14,
-            label: {
-                show: true,
-                formatter: '{b}',
-                position: 'top',
-                fontSize: 11,
-                color: '#333'
-            }
-        }]
-    }, true);
-});
-
-/* ── Country centres for mini-map ── */
-function getCenterCoord(country) {
-    const c = {
-        Romania: [25.0,45.9], Hungary: [19.5,47.2], Serbia: [21.0,44.0],
-        Turkey:  [35.0,39.0], Malta:   [14.4,35.9], Montenegro: [19.3,42.7]
-    };
-    return c[country] || [15, 52];
-}
-
-window.addEventListener('resize', () => { chart.resize(); countryChart.resize(); });
 </script>
 </body>
 </html>

@@ -964,8 +964,19 @@ function renderBar(cc) {
             show: true, position: 'top', distance: 4,
             color: '#2c3e50', fontSize: 10, fontWeight: 700,
             formatter: params => {
-                const t = periodTotalsGW[params.dataIndex];
-                return t > 0 ? t.toFixed(1) + ' GW' : '';
+                const chart = barInst;
+                const option = chart.getOption();
+                const selected = option.legend[0].selected || {};
+                let sum = 0;
+                option.series.forEach(series => {
+                    if (series.name === '_cap') return;
+                    const isOn = selected[series.name] !== false;
+                    if (isOn) {
+                        const val = series.data[params.dataIndex] || 0;
+                        sum += val;
+                    }
+                });
+                return sum > 0 ? sum.toFixed(1) + ' GW' : '';
             },
         },
         data: periodTotalsGW.map(t => +(Math.max(yMax - t, 0)).toFixed(3)),
@@ -1007,7 +1018,7 @@ function renderBar(cc) {
             },
         },
         legend: {
-            type: 'scroll', bottom: 0, left: 'center', width: '95%',
+            type: 'plain', bottom: 0, left: 'center', width: '75%',
             itemWidth: 12, itemHeight: 12,
             textStyle: { color: '#444', fontSize: 11 },
             pageTextStyle: { color: '#888' },

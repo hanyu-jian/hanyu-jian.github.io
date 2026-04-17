@@ -1018,15 +1018,15 @@ function renderBar(cc) {
             },
         },
         legend: {
+            selector: [
+                { type: 'all', title: 'Select All' },
+                { type: 'inverse', title: 'Clear All' }
+                ]            
             type: 'plain', bottom: 0, left: 'center', width: '85%',
             itemWidth: 12, itemHeight: 12,
             textStyle: { color: '#444', fontSize: 11 },
             pageTextStyle: { color: '#888' },
             data: types.map(t => ({ name: t, itemStyle: { color: typeToColor(t) } })),
-            selector: [
-                { type: 'all', title: 'Select All' },
-                { type: 'inverse', title: 'Clear All' }
-                ]
         },
         grid: { top: 36, left: 64, right: 20, bottom: 110 },
         xAxis: {

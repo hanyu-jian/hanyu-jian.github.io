@@ -232,12 +232,15 @@
 <script>
 /* ===== DATA ===== */
 const projectData = {
-    Romania:[{name:'Prime',capacity:130,type:'Wind',status:'Construction',coord:[24.9,45.9]}],
-    Hungary:[
-        {name:'Tokaj',capacity:197,type:'Solar',status:'Operating',coord:[21.41,48.12]},
-        {name:'Victor',capacity:132,type:'Solar',status:'Operating',coord:[19.04,47.5]}
-    ]
+    Romania:    [{ name: 'Prime',     capacity: 130,  type: 'Wind',   status: 'Under Construction', coord: [24.9,  45.9]  }],
+    Hungary:    [{ name: 'Tokaj',     capacity: 197,  type: 'Solar',  status: 'Operating',          coord: [21.41, 48.12] },
+                 { name: 'Victor',    capacity: 132,  type: 'Solar',  status: 'Operating',          coord: [19.04, 47.50] }],
+    Serbia:     [{ name: 'Blackpeak', capacity: 156,  type: 'Wind',   status: 'Under Construction', coord: [20.4,  44.8]  }],
+    Turkey:     [{ name: 'xxx',       capacity: 1320, type: 'Gas',    status: 'Operating',          coord: [32.8,  39.9]  }],
+    Malta:      [{ name: 'xxx',       capacity: 152,  type: 'Fossil', status: 'Operating',          coord: [14.4,  35.9]  }],
+    Montenegro: [{ name: 'Mozura',    capacity: 48,   type: 'Wind',   status: 'Operating',          coord: [19.3,  42.4]  }]
 };
+
 
 const typeColor = {
     Solar:'#f6c94e',

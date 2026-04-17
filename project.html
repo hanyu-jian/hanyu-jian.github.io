@@ -141,7 +141,7 @@
         </div>
 
         <div class="main-nav">
-            <a href="Project.html" class="main-nav-link active">Project</a>
+            <a href="project.html" class="main-nav-link active">Project</a>
             <a href="price-overview.html" class="main-nav-link">Price</a>
             <a href="load.html" class="main-nav-link">Load</a>
             <a href="capacity.html" class="main-nav-link">Installed Capacity</a>
@@ -255,14 +255,18 @@ chart.on('click', function(params) {
 
     const name = params.name;
 
-    if (!projectData[name]) return;
-
     document.getElementById('countryName').innerText = name;
 
-    /* 表格 */
     const table = document.getElementById('projectTable');
     table.innerHTML = '';
 
+    /* 只有匈牙利有数据 */
+    if (!projectData[name]) {
+        countryChart.clear();
+        return;
+    }
+
+    /* ===== 表格 ===== */
     projectData[name].forEach(p => {
         table.innerHTML += `
             <tr>
@@ -273,12 +277,12 @@ chart.on('click', function(params) {
         `;
     });
 
-    /* 国家地图 + 点 */
+    /* ===== 国家地图（自动聚焦匈牙利） ===== */
     countryChart.setOption({
         geo: {
             map: 'europe',
-            zoom: 4,
-            center: projectData[name][0].coord
+            zoom: 6,
+            center: [19.5, 47.2]   // Hungary center
         },
         series: [{
             type: 'scatter',
@@ -287,7 +291,7 @@ chart.on('click', function(params) {
                 name: p.name,
                 value: p.coord
             })),
-            symbolSize: 10
+            symbolSize: 12
         }]
     });
 

@@ -331,7 +331,7 @@
                 <p style="font-size:11px;color:#888;margin-top:3px;">Click a highlighted country to explore</p>
             </div>
             <div class="map-wrap">
-                <svg id="europeSvg" viewBox="0 0 420 500"
+                <svg id="europeSvg" viewBox="0 0 420 450"
                      preserveAspectRatio="xMidYMid meet"></svg>
             </div>
             <!-- Summary totals -->
@@ -484,7 +484,7 @@ function getCountryName(feature) {
    Europe map projection
    ═══════════════════════════ */
 const VIEW_W = 420, VIEW_H = 380;
-const LON_MIN = -20, LON_MAX = 35;
+const LON_MIN = -5, LON_MAX = 35;
 const LAT_MIN = 32,  LAT_MAX = 62;
 
 function lonlatToXY(lon, lat) {

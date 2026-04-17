@@ -8,11 +8,10 @@
             }
         })();
     </script>
-
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Project Overview – European Electricity Dashboard</title>
-
+    <title>Project Overview</title>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -28,15 +27,17 @@
             box-shadow: 0 4px 12px rgba(0,0,0,0.1);
             overflow: hidden;
         }
-
         .header {
             background: #2c3e50;
             color: white;
             padding: 20px 30px 0 30px;
         }
-        .header-top h1 { font-size: 24px; font-weight: 500; }
-
-        .main-nav { display: flex; gap: 2px; margin-top: 4px; }
+        .header-top h1 {
+            font-size: 24px;
+            font-weight: 500;
+            padding-bottom: 16px;
+        }
+        .main-nav { display: flex; gap: 2px; }
         .main-nav-link {
             padding: 10px 24px;
             font-size: 14px;
@@ -50,283 +51,438 @@
             color: #2c3e50;
             background: #f8f9fa;
         }
-
-        .content-area { display: flex; min-height: 680px; }
-
-        .map-panel {
+        .sub-nav {
+            background: #f8f9fa;
+            border-bottom: 2px solid #e6e9ed;
+            padding: 0 30px;
+            display: flex;
+        }
+        .sub-nav-link {
+            padding: 14px 22px;
+            font-size: 14px;
+            font-weight: 600;
+            color: #2c3e50;
+            border-bottom: 3px solid #2c3e50;
+        }
+        .content {
+            display: flex;
+            height: 620px;
+        }
+        .map-wrapper {
             width: 50%;
-            border-right: 1px solid #e6e9ed;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
             position: relative;
         }
+        .map { flex: 1; width: 100%; }
 
-        .map-wrap { position: relative; height: 100%; background: #d4e8f5; }
-
-        #projectSvg { width: 100%; height: 100%; display: block; }
-
+        /* Legend 左下角 */
         .map-legend {
             position: absolute;
             bottom: 16px;
             left: 16px;
             background: rgba(255,255,255,0.95);
+            border: 1px solid #dde2e8;
             border-radius: 8px;
-            padding: 10px;
+            padding: 12px 16px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+            min-width: 180px;
+            z-index: 10;
+        }
+        .map-legend h4 {
             font-size: 12px;
+            font-weight: 700;
+            color: #555;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 10px;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 6px;
         }
-
-        .detail-panel { width: 50%; display: flex; flex-direction: column; }
-
-        .mini-map-wrap {
-            height: 220px;
-            background: #d4e8f5;
-            position: relative;
-        }
-
-        #miniSvg { width: 100%; height: 100%; }
-
-        .mini-map-empty {
-            position: absolute;
-            inset: 0;
+        .legend-item {
             display: flex;
             align-items: center;
-            justify-content: center;
-            color: #aaa;
+            gap: 8px;
+            margin-bottom: 7px;
+            font-size: 13px;
+            color: #333;
         }
+        .legend-item:last-child { margin-bottom: 0; }
+        .legend-dot {
+            width: 12px; height: 12px;
+            border-radius: 50%; flex-shrink: 0;
+        }
+        .legend-label { flex: 1; }
+        .legend-value { font-weight: 700; color: #2c3e50; }
 
-        .table-wrap { flex: 1; overflow: auto; }
-
-        table { width: 100%; border-collapse: collapse; font-size: 13px; }
-        th, td { padding: 10px; border-bottom: 1px solid #eee; text-align: center; }
-        th { background: #f0f4f8; }
-
-        .badge { padding: 2px 8px; border-radius: 10px; font-size: 11px; }
-
-        .badge-solar { background: #fff3cd; }
-        .badge-wind { background: #d1ecf1; }
-        .badge-gas { background: #f8d7da; }
-        .badge-fossil { background: #e2e3e5; }
-
-        .map-tooltip {
-            position: fixed;
-            background: rgba(0,0,0,0.8);
-            color: white;
-            padding: 6px 10px;
-            font-size: 12px;
-            border-radius: 4px;
-            display: none;
-            pointer-events: none;
+        /* 右侧面板 */
+        .panel {
+            width: 50%;
+            padding: 20px;
+            border-left: 1px solid #e6e9ed;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .country-title {
+            font-size: 20px;
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+        .country-map {
+            height: 240px;
+            margin-bottom: 16px;
+            flex-shrink: 0;
+            border: 1px solid #e6e9ed;
+            border-radius: 6px;
+            background: #f8fafc;
+        }
+        .table-wrapper { overflow-y: auto; flex: 1; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td {
+            border: 1px solid #e6e9ed;
+            padding: 9px 10px;
+            text-align: center;
+            font-size: 13px;
+        }
+        th {
+            background: #f8f9fa;
+            font-weight: 600;
+            color: #2c3e50;
+            position: sticky;
+            top: 0;
+        }
+        tbody tr:hover { background: #f0f4f8; }
+        .badge {
+            display: inline-block;
+            padding: 2px 9px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+        .badge-solar  { background: #fff3cd; color: #856404; }
+        .badge-wind   { background: #d1ecf1; color: #0c5460; }
+        .badge-gas    { background: #f8d7da; color: #721c24; }
+        .badge-fossil { background: #e2e3e5; color: #383d41; }
+        .empty-state {
+            text-align: center;
+            color: #aaa;
+            padding: 30px 0;
+            font-size: 14px;
         }
     </style>
 </head>
 
 <body>
-
 <div class="container">
     <div class="header">
         <div class="header-top"><h1>European Electricity Dashboard</h1></div>
+        <div class="main-nav">
+            <a href="project.html"        class="main-nav-link active">Project</a>
+            <a href="price-overview.html" class="main-nav-link">Price</a>
+            <a href="load.html"           class="main-nav-link">Load</a>
+            <a href="capacity.html"       class="main-nav-link">Installed Capacity</a>
+        </div>
+    </div>
+    <div class="sub-nav">
+        <div class="sub-nav-link">Overview</div>
     </div>
 
-    <div class="content-area">
+    <div class="content">
 
-        <!-- MAP -->
-        <div class="map-panel">
-            <div class="map-wrap">
-                <svg id="projectSvg" viewBox="0 0 420 450"></svg>
+        <!-- 地图 + Legend -->
+        <div class="map-wrapper">
+            <div id="map" class="map"></div>
+            <div class="map-legend">
+                <h4>Portfolio by Type</h4>
+                <div class="legend-item">
+                    <div class="legend-dot" style="background:#f6c94e;"></div>
+                    <span class="legend-label">Solar</span>
+                    <span class="legend-value" id="legendSolar">0 MW</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-dot" style="background:#4ec9d4;"></div>
+                    <span class="legend-label">Wind</span>
+                    <span class="legend-value" id="legendWind">0 MW</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-dot" style="background:#e07b6a;"></div>
+                    <span class="legend-label">Gas</span>
+                    <span class="legend-value" id="legendGas">0 MW</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-dot" style="background:#9e9e9e;"></div>
+                    <span class="legend-label">Fossil</span>
+                    <span class="legend-value" id="legendFossil">0 MW</span>
+                </div>
+                <div class="legend-item" style="border-top:1px solid #eee;padding-top:7px;margin-top:3px;">
+                    <div class="legend-dot" style="background:#2c3e50;"></div>
+                    <span class="legend-label" style="font-weight:600;">Total</span>
+                    <span class="legend-value" id="legendTotal">0 MW</span>
+                </div>
             </div>
         </div>
 
-        <!-- RIGHT -->
-        <div class="detail-panel">
-            <h3 id="detailTitle" style="padding:10px;">Select country</h3>
-            <p id="detailSub" style="padding-left:10px;color:#888;"></p>
-
-            <div class="mini-map-wrap">
-                <svg id="miniSvg"></svg>
-                <div class="mini-map-empty" id="miniEmpty">Click country</div>
-            </div>
-
-            <div class="table-wrap">
+        <!-- 右侧面板 -->
+        <div class="panel">
+            <div class="country-title" id="countryName">Select a country</div>
+            <div id="countryMap" class="country-map"></div>
+            <div class="table-wrapper">
                 <table>
                     <thead>
                         <tr>
-                            <th>Name</th>
+                            <th>Project Name</th>
                             <th>Type</th>
-                            <th>MW</th>
+                            <th>Installed Capacity</th>
                             <th>Status</th>
                         </tr>
                     </thead>
-                    <tbody id="tbody"></tbody>
+                    <tbody id="projectTable">
+                        <tr><td colspan="4" class="empty-state">Click a country on the map</td></tr>
+                    </tbody>
                 </table>
             </div>
         </div>
-
     </div>
 </div>
 
-<div class="map-tooltip" id="tip"></div>
-
 <script>
-
-/* ================= DATA ================= */
+/* ── Project Data ── */
 const projectData = {
-    Romania: [{name:'Prime',capacity:130,type:'Wind',status:'Construction',coord:[24.9,45.9]}],
-    Hungary: [
-        {name:'Tokaj',capacity:197,type:'Solar',status:'Operating',coord:[21.41,48.12]},
-        {name:'Victor',capacity:132,type:'Solar',status:'Operating',coord:[19.04,47.5]}
-    ],
-    Serbia: [{name:'Blackpeak',capacity:156,type:'Wind',status:'Construction',coord:[20.4,44.8]}],
-    Turkey: [{name:'Ankara',capacity:1320,type:'Gas',status:'Operating',coord:[32.8,39.9]}],
-    Malta: [{name:'Delimara',capacity:152,type:'Fossil',status:'Operating',coord:[14.4,35.9]}]
+    Romania:    [{ name: 'Prime',     capacity: 130,  type: 'Wind',   status: 'Under Construction', coord: [24.9,  45.9]  }],
+    Hungary:    [{ name: 'Tokaj',     capacity: 197,  type: 'Solar',  status: 'Operating',          coord: [21.41, 48.12] },
+                 { name: 'Victor',    capacity: 132,  type: 'Solar',  status: 'Operating',          coord: [19.04, 47.50] }],
+    Serbia:     [{ name: 'Blackpeak', capacity: 156,  type: 'Wind',   status: 'Under Construction', coord: [20.4,  44.8]  }],
+    Turkey:     [{ name: 'xxx',       capacity: 1320, type: 'Gas',    status: 'Operating',          coord: [32.8,  39.9]  }],
+    Malta:      [{ name: 'xxx',       capacity: 152,  type: 'Fossil', status: 'Operating',          coord: [14.4,  35.9]  }],
+    Montenegro: [{ name: 'Mozura',    capacity: 48,   type: 'Wind',   status: 'Operating',          coord: [19.3,  42.4]  }]
 };
 
-const NAME_TO_ISO = {
-    Romania:'RO', Hungary:'HU', Serbia:'RS',
-    Turkey:'TR', Malta:'MT'
+const typeColor = { Solar: '#f6c94e', Wind: '#4ec9d4', Gas: '#e07b6a', Fossil: '#9e9e9e' };
+const typeBadge = { Solar: 'badge-solar', Wind: 'badge-wind', Gas: 'badge-gas', Fossil: 'badge-fossil' };
+
+/* ── Legend totals ── */
+(function updateGlobalLegend() {
+    const t = { Solar: 0, Wind: 0, Gas: 0, Fossil: 0 };
+    Object.values(projectData).forEach(ps => ps.forEach(p => { if (t[p.type] !== undefined) t[p.type] += p.capacity; }));
+    document.getElementById('legendSolar').textContent  = t.Solar  + ' MW';
+    document.getElementById('legendWind').textContent   = t.Wind   + ' MW';
+    document.getElementById('legendGas').textContent    = t.Gas    + ' MW';
+    document.getElementById('legendFossil').textContent = t.Fossil + ' MW';
+    document.getElementById('legendTotal').textContent  = (t.Solar + t.Wind + t.Gas + t.Fossil) + ' MW';
+})();
+
+/* ── ECharts instances ── */
+const chart        = echarts.init(document.getElementById('map'));
+const countryChart = echarts.init(document.getElementById('countryMap'));
+const highlightCountries = Object.keys(projectData);
+
+/* ── Country ISO codes for label display ── */
+const countryISO = {
+    Romania: 'RO', Hungary: 'HU', Serbia: 'RS',
+    Turkey: 'TR', Malta: 'MT', Montenegro: 'ME'
 };
 
-const ISO_TO_NAME = Object.fromEntries(
-    Object.entries(NAME_TO_ISO).map(([k,v])=>[v,k])
-);
+/* ── Load GeoJSON ── */
+fetch('europe.geojson')
+    .then(res => { if (!res.ok) throw new Error(res.status); return res.json(); })
+    .then(geoJson => {
 
-const TYPE_COLOR = {
-    Solar:'#f6c94e',
-    Wind:'#4ec9d4',
-    Gas:'#e07b6a',
-    Fossil:'#9e9e9e'
-};
+        echarts.registerMap('europe', geoJson);
 
-let geo = [];
-let selectedISO = null;
+        /* Build ISO label scatter data */
+        const isoLabels = highlightCountries.map(name => {
+            /* find the feature for this country by name matching */
+            const feat = geoJson.features.find(f => {
+                const p = f.properties || {};
+                const n = (p.NAME || p.name || p.NAME_EN || p.ADMIN || '').toLowerCase();
+                return n === name.toLowerCase();
+            });
+            if (!feat) return null;
 
-/* ================= FIX ISO ================= */
-function getISO(f){
-    const p = f.properties || {};
-    return (
-        p.ISO_A2 ||
-        p.ISO2 ||
-        p.iso_a2 ||
-        p.iso2 ||
-        p.adm0_a3 ||
-        p.name
-    )?.toUpperCase() || '';
-}
+            /* centroid */
+            let coords = [];
+            const geom = feat.geometry;
+            const collect = ring => ring.forEach(c => coords.push(c));
+            if (geom.type === 'Polygon') geom.coordinates.forEach(collect);
+            else if (geom.type === 'MultiPolygon') geom.coordinates.forEach(poly => poly.forEach(collect));
+            if (!coords.length) return null;
 
-/* ================= MAP PROJECTION ================= */
-const W=420,H=450;
-const LON_MIN=-12,LON_MAX=50;
-const LAT_MIN=32,LAT_MAX=62;
+            const lon = coords.reduce((s, c) => s + c[0], 0) / coords.length;
+            const lat = coords.reduce((s, c) => s + c[1], 0) / coords.length;
 
-function xy(lon,lat){
-    return [
-        (lon-LON_MIN)/(LON_MAX-LON_MIN)*W,
-        (LAT_MAX-lat)/(LAT_MAX-LAT_MIN)*H
-    ];
-}
+            return {
+                name: name,
+                value: [lon, lat],
+                label: {
+                    show: true,
+                    formatter: countryISO[name] || name.slice(0,2).toUpperCase(),
+                    color: '#1a3a52',
+                    fontWeight: 800,
+                    fontSize: 10,
+                    fontFamily: 'Segoe UI, sans-serif',
+                    textBorderColor: 'rgba(255,255,255,0.6)',
+                    textBorderWidth: 2
+                }
+            };
+        }).filter(Boolean);
 
-function centroid(coords){
-    let sx=0,sy=0,n=0;
-    coords.forEach(([lon,lat])=>{sx+=lon;sy+=lat;n++;});
-    return [sx/n,sy/n];
-}
-
-/* ================= MAIN MAP ================= */
-function draw(){
-    const svg=document.getElementById('projectSvg');
-
-    let html='';
-
-    geo.forEach(f=>{
-        const iso=getISO(f);
-        if(!iso) return;
-
-        const d=toPath(f);
-        const isSel = iso===selectedISO;
-
-        const fill = isSel?'#2c3e50':'#7aafc8';
-        const stroke=isSel?'#000':'#5a90b0';
-
-        html+=`<path d="${d}" fill="${fill}" stroke="${stroke}"
-            stroke-width="${isSel?2:1}"
-            onclick="clickCountry('${iso}')"
-            style="cursor:pointer"/>`;
-
-        const c=getCentroid(f);
-        if(c){
-            const [x,y]=xy(...c);
-            const name=ISO_TO_NAME[iso]||iso;
-
-            html+=`
-            <text x="${x}" y="${y}"
-                font-size="10"
-                text-anchor="middle"
-                fill="#1a3a52"
-                pointer-events="none">${iso}</text>`;
-        }
-    });
-
-    /* project dots */
-    Object.entries(projectData).forEach(([c,ps])=>{
-        ps.forEach(p=>{
-            const [x,y]=xy(...p.coord);
-            html+=`<circle cx="${x}" cy="${y}" r="5"
-                fill="${TYPE_COLOR[p.type]}"
-                onclick="clickCountry('${NAME_TO_ISO[c]}')"/>`;
+        chart.setOption({
+            tooltip: {
+                trigger: 'item',
+                formatter(params) {
+                    if (params.seriesType === 'scatter' && params.data.country) {
+                        const p = params.data;
+                        return `<b>${p.projName}</b><br/>Type: ${p.projType}<br/>Capacity: ${p.capacity} MW<br/>Status: ${p.status}`;
+                    }
+                    if (!projectData[params.name]) return params.name || '';
+                    const projects = projectData[params.name];
+                    const totalMW  = projects.reduce((s, p) => s + p.capacity, 0);
+                    return `<b>${params.name}</b><br/>${projects.length} project(s)<br/>${totalMW} MW total`;
+                }
+            },
+            geo: {
+                map: 'europe',
+                roam: true,
+                center: [15, 52],
+                zoom: 1.2,
+                /* ── same colour scheme as capacity.html ── */
+                itemStyle: {
+                    areaColor: '#c8dce8',   /* non-project countries */
+                    borderColor: '#b0c8d8',
+                    borderWidth: 0.6
+                },
+                emphasis: {
+                    itemStyle: { areaColor: '#5a90b0' },
+                    label: { show: false }
+                }
+            },
+            series: [
+                /* ── highlighted project countries ── */
+                {
+                    type: 'map',
+                    map: 'europe',
+                    geoIndex: 0,
+                    selectedMode: 'single',
+                    data: highlightCountries.map(c => ({ name: c, value: 1 })),
+                    itemStyle: {
+                        areaColor: '#7aafc8',   /* same as capacity.html active colour */
+                        borderColor: '#5a90b0',
+                        borderWidth: 1.2
+                    },
+                    emphasis: { itemStyle: { areaColor: '#5a90b0' } },
+                    select:    { itemStyle: { areaColor: '#2c3e50' } },
+                    label: { show: false }
+                },
+                /* ── ISO abbreviation labels on highlighted countries ── */
+                {
+                    type: 'scatter',
+                    coordinateSystem: 'geo',
+                    symbol: 'none',      /* invisible dot, only label shown */
+                    silent: true,
+                    data: isoLabels,
+                    tooltip: { show: false }
+                },
+                /* ── project dots ── */
+                ...Object.entries(projectData).flatMap(([country, projects]) =>
+                    projects.map(p => ({
+                        type: 'scatter',
+                        coordinateSystem: 'geo',
+                        data: [{
+                            name: p.name,
+                            value: [...p.coord, p.capacity],
+                            country,
+                            projName: p.name,
+                            projType: p.type,
+                            capacity: p.capacity,
+                            status:   p.status
+                        }],
+                        symbolSize: Math.max(8, Math.sqrt(p.capacity) * 0.8),
+                        itemStyle: {
+                            color: typeColor[p.type] || '#888',
+                            borderColor: '#fff',
+                            borderWidth: 1.5
+                        },
+                        zlevel: 5
+                    }))
+                )
+            ]
         });
+
+    })
+    .catch(err => {
+        console.error(err);
+        document.getElementById('map').innerHTML =
+            `<div style="padding:40px;color:#c0392b;font-size:14px;">
+                ❌ Could not load <b>europe.geojson</b>.<br/>
+                Run via a local server (e.g. <code>python -m http.server</code>).
+             </div>`;
     });
 
-    svg.innerHTML=html;
-}
+/* ── Click handler ── */
+chart.on('click', function(params) {
+    const name = params.name;
+    document.getElementById('countryName').innerText = name;
+    const table = document.getElementById('projectTable');
 
-/* ================= PATH ================= */
-function toPath(f){
-    const g=f.geometry;
-    const ring=g.coordinates[0];
-    let d='';
-    ring.forEach((c,i)=>{
-        const [x,y]=xy(c[0],c[1]);
-        d+=(i?'L':'M')+x+','+y;
-    });
-    return d+'Z';
-}
+    if (!projectData[name]) {
+        table.innerHTML = `<tr><td colspan="4" class="empty-state">No projects in ${name}</td></tr>`;
+        countryChart.clear();
+        return;
+    }
 
-function getCentroid(f){
-    return centroid(f.geometry.coordinates[0]);
-}
-
-/* ================= CLICK ================= */
-function clickCountry(iso){
-    selectedISO=iso;
-    const name=ISO_TO_NAME[iso];
-
-    const ps=projectData[name]||[];
-
-    document.getElementById('detailTitle').innerText=name||iso;
-    document.getElementById('detailSub').innerText=
-        ps.length+' projects';
-
-    document.getElementById('tbody').innerHTML=
-        ps.map(p=>`
+    table.innerHTML = projectData[name].map(p => `
         <tr>
             <td>${p.name}</td>
-            <td>${p.type}</td>
-            <td>${p.capacity}</td>
+            <td><span class="badge ${typeBadge[p.type] || ''}">${p.type}</span></td>
+            <td>${p.capacity} MW</td>
             <td>${p.status}</td>
         </tr>`).join('');
 
-    draw();
+    const center = getCenterCoord(name);
+    countryChart.setOption({
+        backgroundColor: '#f8fafc',
+        geo: {
+            map: 'europe',
+            zoom: 5.5,
+            center,
+            roam: false,
+            itemStyle: { areaColor: '#c8dce8', borderColor: '#b0c8d8', borderWidth: 0.5 },
+            emphasis: { disabled: true },
+            regions: [{ name, itemStyle: { areaColor: '#7aafc8' } }]
+        },
+        series: [{
+            type: 'scatter',
+            coordinateSystem: 'geo',
+            data: projectData[name].map(p => ({
+                name: p.name,
+                value: p.coord,
+                itemStyle: { color: typeColor[p.type] || '#888' }
+            })),
+            symbolSize: 14,
+            label: {
+                show: true,
+                formatter: '{b}',
+                position: 'top',
+                fontSize: 11,
+                color: '#333'
+            }
+        }]
+    }, true);
+});
+
+/* ── Country centres for mini-map ── */
+function getCenterCoord(country) {
+    const c = {
+        Romania: [25.0,45.9], Hungary: [19.5,47.2], Serbia: [21.0,44.0],
+        Turkey:  [35.0,39.0], Malta:   [14.4,35.9], Montenegro: [19.3,42.7]
+    };
+    return c[country] || [15, 52];
 }
 
-/* ================= LOAD GEO ================= */
-async function init(){
-    const r=await fetch('europe.geojson');
-    geo=await r.json();
-    geo=geo.features;
-
-    draw();
-}
-
-init();
-
+window.addEventListener('resize', () => { chart.resize(); countryChart.resize(); });
 </script>
-
 </body>
 </html>

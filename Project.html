@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <!-- 🔐 Password Protection -->
+    <script>
+        (function() {
+            if (localStorage.getItem('site_access') !== 'granted') {
+                window.location.replace('/password.html');
+            }
+        })();
+    </script>
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Template</title>
+
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f0f2f5;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        /* ── Header ── */
+        .header {
+            background: #2c3e50;
+            color: white;
+            padding: 20px 30px 0 30px;
+        }
+
+        .header-top {
+            padding-bottom: 16px;
+        }
+
+        .header-top h1 {
+            font-size: 24px;
+            font-weight: 500;
+        }
+
+        /* ── Main nav ── */
+        .main-nav {
+            display: flex;
+            gap: 2px;
+        }
+
+        .main-nav-link {
+            padding: 10px 24px;
+            font-size: 14px;
+            font-weight: 600;
+            color: rgba(255,255,255,0.65);
+            text-decoration: none;
+            border-radius: 6px 6px 0 0;
+            background: rgba(255,255,255,0.06);
+        }
+
+        .main-nav-link:hover {
+            color: white;
+            background: rgba(255,255,255,0.14);
+        }
+
+        .main-nav-link.active {
+            color: #2c3e50;
+            background: #f8f9fa;
+        }
+
+        /* ── Sub nav ── */
+        .sub-nav {
+            background: #f8f9fa;
+            border-bottom: 2px solid #e6e9ed;
+            padding: 0 30px;
+            display: flex;
+        }
+
+        .sub-nav-link {
+            padding: 14px 22px;
+            font-size: 14px;
+            font-weight: 600;
+            color: #6c757d;
+            text-decoration: none;
+        }
+
+        .sub-nav-link.active {
+            color: #2c3e50;
+            border-bottom: 3px solid #2c3e50;
+        }
+
+        /* ── Main content placeholder ── */
+        .content {
+            padding: 40px;
+            min-height: 500px;
+            text-align: center;
+            color: #999;
+        }
+
+        /* ── Footer ── */
+        .info {
+            padding: 14px 30px 20px;
+            font-size: 13px;
+            color: #6c757d;
+            text-align: center;
+            border-top: 1px solid #e6e9ed;
+        }
+
+        .info a {
+            color: #5a8fc2;
+            text-decoration: none;
+        }
+
+        .info a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="container">
+
+    <!-- Header -->
+    <div class="header">
+        <div class="header-top">
+            <h1>European Electricity Dashboard</h1>
+        </div>
+
+        <div class="main-nav">
+            <a href="Project-overview.html" class="main-nav-link active">Project</a>
+            <a href="price-overview.html" class="main-nav-link">Price</a>
+            <a href="load.html" class="main-nav-link">Load</a>
+            <a href="capacity.html" class="main-nav-link">Installed Capacity</a>
+        </div>
+    </div>
+
+    <!-- Sub Nav -->
+    <div class="sub-nav">
+        <a class="sub-nav-link active" href="#">Overview</a>
+    </div>
+
+    <!-- Content Placeholder -->
+    <div class="content">
+        Your content here
+    </div>
+
+    <!-- Footer -->
+    <div class="info">
+        Data source: 
+        <a href="https://www.entsoe.eu/" target="_blank">ENTSO-E Transparency Platform</a>
+        &nbsp;|&nbsp; Author: Hanyu Jian
+    </div>
+
+</div>
+
+</body>
+</html>

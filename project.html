@@ -1,216 +1,238 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <script>
-        (function() {
-            if (localStorage.getItem('site_access') !== 'granted') {
-                window.location.replace('/password.html');
-            }
-        })();
-    </script>
+<script>
+(function() {
+    if (localStorage.getItem('site_access') !== 'granted') {
+        window.location.replace('/password.html');
+    }
+})();
+</script>
 
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Projects – European Electricity Dashboard</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Projects – European Electricity Dashboard</title>
 
-    <!-- Leaflet -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
-    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 
-    <style>
-        * { margin:0; padding:0; box-sizing:border-box; }
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
 
-        body {
-            font-family:'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background:#f0f2f5;
-            padding:20px;
-        }
+body {
+    font-family:'Segoe UI', sans-serif;
+    background:#f0f2f5;
+    padding:20px;
+}
 
-        .container {
-            max-width:1600px;
-            margin:0 auto;
-            background:#fff;
-            border-radius:12px;
-            box-shadow:0 4px 12px rgba(0,0,0,0.1);
-            overflow:hidden;
-        }
+.container {
+    max-width:1600px;
+    margin:0 auto;
+    background:#fff;
+    border-radius:12px;
+    box-shadow:0 4px 12px rgba(0,0,0,0.1);
+    overflow:hidden;
+}
 
-        /* HEADER */
-        .header {
-            background:#2c3e50;
-            color:#fff;
-            padding:20px 30px 0 30px;
-        }
+/* HEADER */
+.header {
+    background:#2c3e50;
+    color:#fff;
+    padding:20px 30px 0;
+}
+.main-nav { display:flex; gap:2px; margin-top:8px; }
+.main-nav-link {
+    padding:10px 24px;
+    color:rgba(255,255,255,0.65);
+    text-decoration:none;
+}
+.main-nav-link.active {
+    color:#2c3e50;
+    background:#f8f9fa;
+}
 
-        .header-top h1 {
-            font-size:24px;
-            font-weight:500;
-        }
+/* SUB NAV */
+.sub-nav {
+    background:#f8f9fa;
+    border-bottom:2px solid #e6e9ed;
+    padding:0 30px;
+}
+.sub-nav-link {
+    display:inline-block;
+    padding:14px 22px;
+    font-weight:600;
+}
+.sub-nav-link.active {
+    color:#2c3e50;
+    border-bottom:3px solid #2c3e50;
+}
 
-        .main-nav {
-            display:flex;
-            gap:2px;
-            margin-top:8px;
-        }
+/* LAYOUT */
+.content-area {
+    display:flex;
+    height:600px;
+}
 
-        .main-nav-link {
-            padding:10px 24px;
-            font-size:14px;
-            font-weight:600;
-            color:rgba(255,255,255,0.65);
-            text-decoration:none;
-            background:rgba(255,255,255,0.06);
-            border-radius:6px 6px 0 0;
-        }
+/* MAP */
+.map-panel {
+    width:50%;
+}
+#map { height:100%; }
 
-        .main-nav-link.active {
-            color:#2c3e50;
-            background:#f8f9fa;
-        }
+/* RIGHT PANEL */
+.right-panel {
+    width:50%;
+    border-left:1px solid #eee;
+    padding:20px;
+    display:flex;
+    flex-direction:column;
+}
 
-        /* SUB NAV */
-        .sub-nav {
-            background:#f8f9fa;
-            border-bottom:2px solid #e6e9ed;
-            padding:0 30px;
-        }
+/* PLACEHOLDER */
+.placeholder {
+    flex:1;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    color:#bbb;
+}
 
-        .sub-nav-link {
-            display:inline-block;
-            padding:14px 22px;
-            font-size:14px;
-            font-weight:600;
-            color:#6c757d;
-            text-decoration:none;
-        }
+/* HEADER */
+.panel-header {
+    margin-bottom:10px;
+}
+.panel-header h3 {
+    font-size:16px;
+}
 
-        .sub-nav-link.active {
-            color:#2c3e50;
-            border-bottom:3px solid #2c3e50;
-        }
+/* SUMMARY */
+.summary {
+    font-size:13px;
+    color:#666;
+    margin-bottom:10px;
+}
 
-        /* MAP */
-        .map-container {
-            height:600px;
-        }
+/* TABLE */
+.table-wrap {
+    flex:1;
+    overflow:auto;
+    border:1px solid #eee;
+    border-radius:8px;
+}
 
-        #map {
-            width:100%;
-            height:100%;
-        }
+table {
+    width:100%;
+    border-collapse:collapse;
+}
+th, td {
+    padding:10px;
+    font-size:13px;
+    border-bottom:1px solid #f0f2f5;
+}
+th {
+    background:#f8f9fa;
+    text-align:left;
+}
 
-        /* POPUP */
-        .leaflet-popup-content {
-            font-size:13px;
-        }
-
-        .popup-title {
-            font-weight:700;
-            font-size:14px;
-            margin-bottom:4px;
-        }
-
-        .popup-link {
-            display:inline-block;
-            margin-top:6px;
-            color:#5a8fc2;
-            text-decoration:none;
-            font-weight:600;
-        }
-
-        .popup-link:hover {
-            text-decoration:underline;
-        }
-
-        .info {
-            padding:10px 30px 16px;
-            font-size:12px;
-            color:#6c757d;
-            text-align:center;
-            border-top:1px solid #e6e9ed;
-        }
-    </style>
+/* FOOTER */
+.info {
+    padding:10px;
+    font-size:12px;
+    text-align:center;
+    border-top:1px solid #eee;
+}
+</style>
 </head>
 
 <body>
 
 <div class="container">
 
-    <!-- HEADER -->
-    <div class="header">
-        <div class="header-top">
-            <h1>European Electricity Dashboard</h1>
-        </div>
-
-        <div class="main-nav">
-            <a href="price-overview.html" class="main-nav-link">Price</a>
-            <a href="load.html" class="main-nav-link">Load</a>
-            <a href="capacity.html" class="main-nav-link">Installed Capacity</a>
-            <a href="project.html" class="main-nav-link active">Project</a>
-        </div>
+<div class="header">
+    <h1>European Electricity Dashboard</h1>
+    <div class="main-nav">
+        <a href="#" class="main-nav-link">Price</a>
+        <a href="#" class="main-nav-link">Load</a>
+        <a href="#" class="main-nav-link">Capacity</a>
+        <a href="#" class="main-nav-link active">Project</a>
     </div>
+</div>
 
-    <!-- SUB NAV -->
-    <div class="sub-nav">
-        <a class="sub-nav-link active" href="#">Portfolio Overview</a>
-    </div>
+<div class="sub-nav">
+    <a class="sub-nav-link active">Portfolio Overview</a>
+</div>
+
+<div class="content-area">
 
     <!-- MAP -->
-    <div class="map-container">
+    <div class="map-panel">
         <div id="map"></div>
     </div>
 
-    <!-- FOOTER -->
-    <div class="info">
-        Data source: Internal Portfolio Database
-        &nbsp;|&nbsp; Author: Hanyu Jian
+    <!-- RIGHT PANEL -->
+    <div class="right-panel">
+
+        <div class="placeholder" id="placeholder">
+            Click a project on the map
+        </div>
+
+        <div id="panelContent" style="display:none;">
+
+            <div class="panel-header">
+                <h3 id="countryTitle"></h3>
+            </div>
+
+            <div class="summary" id="summary"></div>
+
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Type</th>
+                            <th>Capacity</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbody"></tbody>
+                </table>
+            </div>
+
+        </div>
+
     </div>
 
 </div>
 
+<div class="info">
+    Data source: Internal Portfolio Database
+</div>
+
+</div>
+
 <script>
-/* 项目数据 */
 const projectData = {
-    Romania: [
-        { name:'Prime', capacity:130, type:'Wind', status:'Under Construction', coord:[24.9,45.9], link:'prime.html' }
+    Romania:[{name:'Prime',capacity:130,type:'Wind',status:'Under Construction',coord:[24.9,45.9]}],
+    Hungary:[
+        {name:'Tokaj',capacity:197,type:'Solar',status:'Operating',coord:[21.41,48.12]},
+        {name:'Victor',capacity:132,type:'Solar',status:'Operating',coord:[19.04,47.50]}
     ],
-    Hungary: [
-        { name:'Tokaj', capacity:197, type:'Solar', status:'Operating', coord:[21.41,48.12], link:'tokaj.html' },
-        { name:'Victor', capacity:132, type:'Solar', status:'Operating', coord:[19.04,47.50], link:'victor.html' }
-    ],
-    Serbia: [
-        { name:'Blackpeak', capacity:156, type:'Wind', status:'Under Construction', coord:[20.4,44.8], link:'blackpeak.html' }
-    ],
-    Turkey: [
-        { name:'XXX Gas', capacity:1320, type:'Gas', status:'Operating', coord:[32.8,39.9], link:'gas.html' }
-    ],
-    Malta: [
-        { name:'Malta Plant', capacity:152, type:'Fossil', status:'Operating', coord:[14.4,35.9], link:'malta.html' }
-    ],
-    Montenegro: [
-        { name:'Mozura', capacity:48, type:'Wind', status:'Operating', coord:[19.3,42.4], link:'mozura.html' }
-    ]
+    Serbia:[{name:'Blackpeak',capacity:156,type:'Wind',status:'Under Construction',coord:[20.4,44.8]}]
 };
 
-/* 颜色 */
 const TYPE_COLOR = {
     Solar:'#f6c94e',
-    Wind:'#4ec9d4',
-    Gas:'#e07b6a',
-    Fossil:'#9e9e9e'
+    Wind:'#4ec9d4'
 };
 
-/* 初始化地图 */
 const map = L.map('map').setView([47,15],4);
 
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution:'&copy; OpenStreetMap'
-}).addTo(map);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-/* 添加项目点 */
 let bounds = [];
 
-Object.values(projectData).forEach(projects => {
+Object.entries(projectData).forEach(([country, projects]) => {
+
     projects.forEach(p => {
 
         const marker = L.circleMarker(
@@ -218,32 +240,39 @@ Object.values(projectData).forEach(projects => {
             {
                 radius:7,
                 color:'#fff',
-                weight:1.5,
-                fillColor:TYPE_COLOR[p.type] || '#999',
-                fillOpacity:0.95
+                fillColor:TYPE_COLOR[p.type],
+                fillOpacity:0.9
             }
         ).addTo(map);
 
-        marker.bindTooltip(`<b>${p.name}</b><br>${p.capacity} MW`);
-
-        marker.bindPopup(`
-            <div class="popup-title">${p.name}</div>
-            <div>${p.type} · ${p.capacity} MW</div>
-            <div style="color:${p.status==='Operating'?'#27ae60':'#e67e22'};font-weight:600;">
-                ${p.status}
-            </div>
-            <a href="${p.link}" target="_blank" class="popup-link">
-                View Project →
-            </a>
-        `);
+        marker.on('click', () => showPanel(country));
 
         bounds.push([p.coord[1], p.coord[0]]);
     });
 });
 
-/* 自动缩放 */
-if (bounds.length) {
-    map.fitBounds(bounds, { padding:[40,40] });
+if(bounds.length) map.fitBounds(bounds);
+
+function showPanel(country){
+    document.getElementById('placeholder').style.display='none';
+    document.getElementById('panelContent').style.display='block';
+
+    const projects = projectData[country];
+
+    document.getElementById('countryTitle').innerText = country;
+
+    const total = projects.reduce((s,p)=>s+p.capacity,0);
+    document.getElementById('summary').innerText =
+        `${projects.length} projects · ${total} MW`;
+
+    document.getElementById('tbody').innerHTML = projects.map(p=>`
+        <tr>
+            <td>${p.name}</td>
+            <td>${p.type}</td>
+            <td>${p.capacity} MW</td>
+            <td>${p.status}</td>
+        </tr>
+    `).join('');
 }
 </script>
 

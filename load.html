@@ -371,10 +371,30 @@
                 <label><input type="checkbox" id="showWeekend" checked> Weekend (Sat–Sun)</label>
                 <span class="hint-text">(Both checked = all days)</span>
             </div>
-            <div class="chart-overlay">
-                <div id="movingAvgChart" style="height:420px; width:100%;"></div>
-                <div class="overlay-mask" id="movingAvgMask">⏳ Calculating...</div>
+            <div style="display:flex; gap:20px;">
+                <!-- 左：图 -->
+                <div class="chart-overlay" style="flex:1;">
+                    <div id="movingAvgChart" style="height:420px; width:100%;"></div>
+                    <div class="overlay-mask" id="movingAvgMask">⏳ Calculating...</div>
+                </div>
+
+                <!-- 右：全年平均 -->
+                <div id="movingAvgSummary" style="
+                    width:180px;
+                    background:#f8f9fa;
+                    border-radius:8px;
+                    padding:14px;
+                    font-size:13px;
+                    display:flex;
+                    flex-direction:column;
+                    justify-content:center;
+                ">
+                    <b style="margin-bottom:10px;">Annual Avg</b>
+                    <div id="avgContent">–</div>
+                </div>
+                
             </div>
+
         </div>
     </div>
 
@@ -492,26 +512,31 @@ function computeMovingAvg(data, selectedYears, selectedCountries, showWeekday, s
 
     const includeBoth = showWeekday && showWeekend;
 
+    // ── 1. 聚合 daily raw ──
     for (const d of data) {
         if (!byYear[d.year]) continue;
+
         if (!includeBoth) {
             const dow = new Date(Date.UTC(d.year, d.month - 1, d.day)).getUTCDay();
             const isWD = dow >= 1 && dow <= 5;
             if (!showWeekday && isWD) continue;
             if (!showWeekend && !isWD) continue;
         }
+
         let sum = 0, cnt = 0;
         for (const c of selectedCountries) {
             const v = d.values[c];
             if (v != null && !isNaN(v)) { sum += v; cnt++; }
         }
         if (!cnt) continue;
+
         const key = `${d.month}-${d.day}`;
         const slot = byYear[d.year][key] || (byYear[d.year][key] = { total: 0, cnt: 0 });
         slot.total += sum / cnt;
         slot.cnt++;
     }
 
+    // ── 2. xAxis ──
     const xAxis = [];
     for (let i = 1; i <= 366; i++) {
         const d = new Date(Date.UTC(2024, 0, i));
@@ -522,9 +547,11 @@ function computeMovingAvg(data, selectedYears, selectedCountries, showWeekday, s
     const COLORS = { 2024: '#ffaa00', 2025: '#222222', 2026: '#cc0000' };
     const series = [];
 
+    // ── 3. 生成 moving avg 曲线 ──
     for (const year of selectedYears) {
         const isLeap = (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
         const days = isLeap ? 366 : 365;
+
         const raw = new Array(366).fill(null);
 
         for (let i = 0; i < days; i++) {
@@ -538,7 +565,7 @@ function computeMovingAvg(data, selectedYears, selectedCountries, showWeekday, s
         for (let i = 0; i < days; i++) {
             let s = 0, c = 0;
             for (let j = Math.max(0, i - 6); j <= i; j++) {
-                if (raw[j] !== null) { s += raw[j]; c++; }
+                if (raw[j] != null) { s += raw[j]; c++; }
             }
             if (c) avg[i] = s / c;
         }
@@ -558,7 +585,49 @@ function computeMovingAvg(data, selectedYears, selectedCountries, showWeekday, s
         });
     }
 
-    return { xAxis, series };
+    // ── 4. 年平均（用 raw，不用 moving avg）──
+    const averages = {};
+
+    for (const year of selectedYears) {
+        const isLeap = (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
+        const days = isLeap ? 366 : 365;
+
+        let sum = 0, cnt = 0;
+
+        for (let i = 0; i < days; i++) {
+            const d = new Date(Date.UTC(year, 0, i + 1));
+            const key = `${d.getUTCMonth() + 1}-${d.getUTCDate()}`;
+            const slot = byYear[year][key];
+
+            if (slot && slot.cnt > 0) {
+                const val = slot.total / slot.cnt;
+                sum += val;
+                cnt++;
+            }
+        }
+
+        averages[year] = cnt ? sum / cnt : null;
+    }
+
+    // ── 5. 同比变化 (%) ──
+    const changes = {};
+    const sortedYears = [...selectedYears].sort();
+
+    for (let i = 1; i < sortedYears.length; i++) {
+        const prev = sortedYears[i - 1];
+        const curr = sortedYears[i];
+
+        const vPrev = averages[prev];
+        const vCurr = averages[curr];
+
+        if (vPrev != null && vCurr != null && vPrev !== 0) {
+            changes[curr] = (vCurr - vPrev) / vPrev;
+        } else {
+            changes[curr] = null;
+        }
+    }
+
+    return { xAxis, series, averages, changes };
 }
 
 // ─────────────────────────────────────────────
@@ -592,9 +661,10 @@ function runMovingAvg() {
     requestAnimationFrame(() => {
         setTimeout(() => {
             try {
-                const { xAxis, series } = computeMovingAvg(
+                const { xAxis, series, averages, changes } = computeMovingAvg(
                     fullData.data, selectedYears, selectedCountries, showWeekday, showWeekend
                 );
+
                 chart.setOption({
                     animation: false,
                     tooltip: {
@@ -612,7 +682,8 @@ function runMovingAvg() {
                     },
                     legend: { data: series.map(s => s.name), top: 0 },
                     xAxis: {
-                        type: 'category', data: xAxis,
+                        type: 'category',
+                        data: xAxis,
                         axisLabel: { rotate: 45, interval: 29 },
                         axisPointer: { snap: false }
                     },
@@ -623,11 +694,44 @@ function runMovingAvg() {
                     ],
                     series
                 }, true);
+
+                // ===== 右侧 summary =====
+                const avgDiv = document.getElementById('avgContent');
+
+                if (avgDiv) {
+                    let html = '';
+                    const sortedYears = Object.keys(averages).sort();
+
+                    for (const year of sortedYears) {
+                        const val = averages[year];
+
+                        if (val != null) {
+                            let line = `<div style="margin-bottom:6px;">
+                                <b>${year}</b>: ${val.toFixed(0)} MW`;
+
+                            if (changes[year] != null) {
+                                const pct = (changes[year] * 100).toFixed(1);
+                                const color = changes[year] >= 0 ? '#28a745' : '#dc3545';
+
+                                line += ` <span style="color:${color}; font-size:12px;">
+                                    ${changes[year] >= 0 ? '▲' : '▼'} ${Math.abs(pct)}%
+                                </span>`;
+                            }
+
+                            line += `</div>`;
+                            html += line;
+                        }
+                    }
+
+                    avgDiv.innerHTML = html || '–';
+                }
+
             } catch (e) {
                 console.error('Moving avg error:', e);
             } finally {
                 movingAvgRunning = false;
                 document.getElementById('movingAvgMask').classList.remove('show');
+
                 if (movingAvgPending) {
                     movingAvgPending = false;
                     scheduleMovingAvg();

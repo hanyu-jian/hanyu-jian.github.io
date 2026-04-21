@@ -1,7 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <!-- 🔐 Password Protection -->
     <script>
         (function() {
             if (localStorage.getItem('site_access') !== 'granted') {
@@ -38,89 +37,59 @@
             color: white;
             padding: 20px 30px 0 30px;
         }
-        .header-top {
-            padding-bottom: 16px;
-        }
-        .header-top h1 {
-            font-size: 24px;
-            font-weight: 500;
-            letter-spacing: 0.2px;
-        }
+        .header-top { padding-bottom: 16px; }
+        .header-top h1 { font-size: 24px; font-weight: 500; letter-spacing: 0.2px; }
 
         /* ── Main nav ── */
-        .main-nav {
-            display: flex;
-            gap: 2px;
-            margin-top: 4px;
-        }
+        .main-nav { display: flex; gap: 2px; margin-top: 4px; }
         .main-nav-link {
-            display: inline-flex;
-            align-items: center;
-            gap: 7px;
-            padding: 10px 24px;
-            font-size: 14px;
-            font-weight: 600;
-            color: rgba(255,255,255,0.65);
-            text-decoration: none;
-            border-radius: 6px 6px 0 0;
-            background: rgba(255,255,255,0.06);
-            border: 1px solid transparent;
-            border-bottom: none;
+            display: inline-flex; align-items: center; gap: 7px;
+            padding: 10px 24px; font-size: 14px; font-weight: 600;
+            color: rgba(255,255,255,0.65); text-decoration: none;
+            border-radius: 6px 6px 0 0; background: rgba(255,255,255,0.06);
+            border: 1px solid transparent; border-bottom: none;
             letter-spacing: 0.2px;
             transition: background 0.2s, color 0.2s, border-color 0.2s;
-            white-space: nowrap;
-            position: relative;
-            top: 1px;
+            white-space: nowrap; position: relative; top: 1px;
         }
-        .main-nav-link .nav-icon {
-            font-size: 15px;
-            line-height: 1;
-            opacity: 0.85;
-        }
-        .main-nav-link:hover {
-            color: rgba(255,255,255,0.95);
-            background: rgba(255,255,255,0.14);
-        }
-        .main-nav-link.active {
-            color: #2c3e50;
-            background: #f8f9fa;
-            border-color: #e6e9ed;
-            border-bottom-color: #f8f9fa;
-        }
-        .main-nav-link.active .nav-icon {
-            opacity: 1;
-        }
+        .main-nav-link .nav-icon { font-size: 15px; line-height: 1; opacity: 0.85; }
+        .main-nav-link:hover { color: rgba(255,255,255,0.95); background: rgba(255,255,255,0.14); }
+        .main-nav-link.active { color: #2c3e50; background: #f8f9fa; border-color: #e6e9ed; border-bottom-color: #f8f9fa; }
+        .main-nav-link.active .nav-icon { opacity: 1; }
 
         /* ── Sub-nav ── */
         .sub-nav {
-            background: #f8f9fa;
-            border-bottom: 2px solid #e6e9ed;
-            padding: 0 30px;
-            display: flex;
+            background: #f8f9fa; border-bottom: 2px solid #e6e9ed;
+            padding: 0 30px; display: flex;
         }
         .sub-nav-link {
-            display: inline-block;
-            padding: 14px 22px;
-            font-size: 14px;
-            font-weight: 600;
-            color: #6c757d;
-            text-decoration: none;
-            border-bottom: 3px solid transparent;
-            margin-bottom: -2px;
-            transition: color 0.2s, border-color 0.2s;
-            white-space: nowrap;
+            display: inline-block; padding: 14px 22px;
+            font-size: 14px; font-weight: 600; color: #6c757d;
+            text-decoration: none; border-bottom: 3px solid transparent;
+            margin-bottom: -2px; transition: color 0.2s, border-color 0.2s; white-space: nowrap;
         }
         .sub-nav-link:hover { color: #2c3e50; }
-        .sub-nav-link.active {
+        .sub-nav-link.active { color: #2c3e50; border-bottom-color: #2c3e50; }
+
+        /* ── Section divider ── */
+        .section-divider {
+            background: #f8f9fa;
+            border-top: 2px solid #e6e9ed;
+            border-bottom: 1px solid #e6e9ed;
+            padding: 10px 30px;
+            font-size: 13px;
+            font-weight: 700;
             color: #2c3e50;
-            border-bottom-color: #2c3e50;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            margin-top: 8px;
         }
 
         /* ── Controls ── */
         .controls {
-            padding: 20px 30px;
+            padding: 16px 30px;
             display: flex; flex-wrap: wrap; gap: 20px;
-            align-items: flex-start;
+            align-items: flex-end;
             background: #fff;
             border-bottom: 1px solid #e6e9ed;
         }
@@ -136,7 +105,7 @@
         /* 国家下拉 */
         .country-select-wrapper { position: relative; display: inline-block; }
         .country-select-btn {
-            min-width: 120px; height: 36px; padding: 0 12px;
+            min-width: 160px; height: 36px; padding: 0 12px;
             border: 1px solid #ccc; border-radius: 6px;
             font-size: 14px; background: white; cursor: pointer;
             display: flex; align-items: center; justify-content: space-between; gap: 8px;
@@ -178,7 +147,6 @@
         .country-item span {
             font-size: 13px;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            display: inline-block; width: 26px;
         }
 
         .btn-primary {
@@ -186,7 +154,7 @@
             cursor: pointer; transition: 0.2s;
             height: 36px; padding: 0 16px;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            font-size: 14px;
+            font-size: 14px; border-radius: 6px;
         }
         .btn-primary:hover { background: #1e2b38; }
 
@@ -325,115 +293,128 @@
         <a class="sub-nav-link active" href="load.html">Load Overview</a>
     </div>
 
-    <!-- ══ Controls ══ -->
-    <div class="controls">
-        <div class="control-group">
-            <label>🌍 Countries</label>
-            <div class="country-select-wrapper">
-                <div class="country-select-btn" id="countrySelectBtn">
-                    <span id="countrySelectText">Select...</span>
-                </div>
-                <div class="country-dropdown" id="countryDropdown">
-                    <div class="country-dropdown-header">
-                        <button id="selectAllBtn" class="btn-small">Select All</button>
-                        <button id="clearAllBtn" class="btn-small">Clear All</button>
-                    </div>
-                    <div id="countryCheckboxes" class="country-list"></div>
-                </div>
-            </div>
-        </div>
-        <div class="control-group">
-            <label>&nbsp;</label>
-            <button id="refreshBtn" class="btn-primary" disabled>Refresh Charts</button>
-        </div>
-    </div>
-
     <!-- ══ Loading ══ -->
     <div id="loadingMsg" class="loading">⏳ Loading load data...</div>
 
-    <!-- ══ 7-Day Moving Average ══ -->
-    <div id="movingAvgSection" style="display:none; padding: 0 30px 0;">
-        <div class="chart-card" style="margin-bottom: 0; border-radius: 8px 8px 0 0; border-bottom: none;">
-            <h3>7-Day Moving Average of Daily Load</h3>
-            <div class="year-check-group">
-                <label><input type="checkbox" class="year-cb" value="2024" checked>
-                    <span style="background:#ffaa00;display:inline-block;width:20px;height:12px;border-radius:2px;"></span> 2024
-                </label>
-                <label><input type="checkbox" class="year-cb" value="2025" checked>
-                    <span style="background:#222222;display:inline-block;width:20px;height:12px;border-radius:2px;"></span> 2025
-                </label>
-                <label><input type="checkbox" class="year-cb" value="2026" checked>
-                    <span style="background:#cc0000;display:inline-block;width:20px;height:12px;border-radius:2px;"></span> 2026
-                </label>
+    <!-- ════════════════════════════════════════
+         SECTION 1 — Moving Average (single country)
+         ════════════════════════════════════════ -->
+    <div id="movingAvgSection" style="display:none;">
+
+        <!-- Section label -->
+        <div class="section-divider">📈 7-Day Moving Average</div>
+
+        <!-- Controls for moving average -->
+        <div class="controls">
+            <div class="control-group">
+                <label>🌍 Country</label>
+                <select id="movingAvgCountry" style="min-width:140px;"></select>
             </div>
-            <div class="weekday-check-group">
-                <label><input type="checkbox" id="showWeekday" checked> Weekday (Mon–Fri)</label>
-                <label><input type="checkbox" id="showWeekend" checked> Weekend (Sat–Sun)</label>
-                <span class="hint-text">(Both checked = all days)</span>
-            </div>
-            <div style="display:flex; gap:20px;">
-                <!-- 左：图 -->
-                <div class="chart-overlay" style="flex:1;">
-                    <div id="movingAvgChart" style="height:420px; width:100%;"></div>
-                    <div class="overlay-mask" id="movingAvgMask">⏳ Calculating...</div>
+        </div>
+
+        <!-- Chart card -->
+        <div style="padding: 20px 30px 0;">
+            <div class="chart-card" style="border-radius: 8px;">
+                <h3>7-Day Moving Average of Daily Load</h3>
+                <div class="year-check-group">
+                    <label><input type="checkbox" class="year-cb" value="2024" checked>
+                        <span style="background:#ffaa00;display:inline-block;width:20px;height:12px;border-radius:2px;"></span> 2024
+                    </label>
+                    <label><input type="checkbox" class="year-cb" value="2025" checked>
+                        <span style="background:#222222;display:inline-block;width:20px;height:12px;border-radius:2px;"></span> 2025
+                    </label>
+                    <label><input type="checkbox" class="year-cb" value="2026" checked>
+                        <span style="background:#cc0000;display:inline-block;width:20px;height:12px;border-radius:2px;"></span> 2026
+                    </label>
                 </div>
-
-                <!-- 右：全年平均 -->
-                <div id="movingAvgSummary" style="
-                    width:180px;
-                    background:#f8f9fa;
-                    border-radius:8px;
-                    padding:14px;
-                    font-size:13px;
-                    display:flex;
-                    flex-direction:column;
-                    justify-content:center;
-                ">
-                    <b style="margin-bottom:10px;">Annual Avg</b>
-                    <div id="avgContent">–</div>
+                <div class="weekday-check-group">
+                    <label><input type="checkbox" id="showWeekday" checked> Weekday (Mon–Fri)</label>
+                    <label><input type="checkbox" id="showWeekend" checked> Weekend (Sat–Sun)</label>
+                    <span class="hint-text">(Both checked = all days)</span>
                 </div>
-                
-            </div>
-
-        </div>
-    </div>
-
-    <!-- ══ Year selector ══ -->
-    <div class="year-select-section" id="yearSelectSection" style="display:none;">
-        <label>📅 Year</label>
-        <select id="yearSelect" disabled></select>
-    </div>
-
-    <!-- ══ Chart grid ══ -->
-    <div id="chartGridBelow" class="chart-grid" style="display:none;">
-        <div class="chart-card">
-            <h3>Hourly Load Trends</h3>
-            <div id="hourlyChart" class="chart-container"></div>
-        </div>
-        <div class="chart-card">
-            <h3>Monthly Average Load</h3>
-            <div id="monthlyChart" class="chart-container"></div>
-        </div>
-        <div class="chart-card full-width-card">
-            <h3>Hourly Average Load & European Map</h3>
-            <div class="dual-panel">
-                <div>
-                    <div class="card-control">
-                        <label>📆 Month:</label>
-                        <select id="monthSelect" disabled>
-                            <option value="">-- Select --</option>
-                            <option value="1">January</option><option value="2">February</option>
-                            <option value="3">March</option><option value="4">April</option>
-                            <option value="5">May</option><option value="6">June</option>
-                            <option value="7">July</option><option value="8">August</option>
-                            <option value="9">September</option><option value="10">October</option>
-                            <option value="11">November</option><option value="12">December</option>
-                        </select>
+                <div style="display:flex; gap:20px;">
+                    <div class="chart-overlay" style="flex:1;">
+                        <div id="movingAvgChart" style="height:420px; width:100%;"></div>
+                        <div class="overlay-mask" id="movingAvgMask">⏳ Calculating...</div>
                     </div>
-                    <div id="hourlyAvgChart" style="height:400px;"></div>
+                    <div id="movingAvgSummary" style="
+                        width:180px; background:#f8f9fa; border-radius:8px;
+                        padding:14px; font-size:13px;
+                        display:flex; flex-direction:column; justify-content:center;
+                    ">
+                        <b style="margin-bottom:10px;">Annual Avg</b>
+                        <div id="avgContent">–</div>
+                    </div>
                 </div>
-                <div style="position:relative;">
-                    <div id="europeMap"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ════════════════════════════════════════
+         SECTION 2 — Hourly / Monthly / Map (multi-country)
+         ════════════════════════════════════════ -->
+    <div id="multiCountrySection" style="display:none;">
+
+        <!-- Section label -->
+        <div class="section-divider" style="margin-top:24px;">📊 Detailed Charts</div>
+
+        <!-- Controls for multi-country charts -->
+        <div class="controls">
+            <!-- Multi-country selector -->
+            <div class="control-group">
+                <label>🌍 Countries</label>
+                <div class="country-select-wrapper">
+                    <div class="country-select-btn" id="countrySelectBtn">
+                        <span id="countrySelectText">Select...</span>
+                    </div>
+                    <div class="country-dropdown" id="countryDropdown">
+                        <div class="country-dropdown-header">
+                            <button id="selectAllBtn" class="btn-small">Select All</button>
+                            <button id="clearAllBtn" class="btn-small">Clear All</button>
+                        </div>
+                        <div id="countryCheckboxes" class="country-list"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Year selector -->
+            <div class="control-group">
+                <label>📅 Year</label>
+                <select id="yearSelect" disabled></select>
+            </div>
+        </div>
+
+        <!-- Chart grid -->
+        <div class="chart-grid" id="chartGridBelow">
+            <div class="chart-card">
+                <h3>Hourly Load Trends</h3>
+                <div id="hourlyChart" class="chart-container"></div>
+            </div>
+            <div class="chart-card">
+                <h3>Monthly Average Load</h3>
+                <div id="monthlyChart" class="chart-container"></div>
+            </div>
+            <div class="chart-card full-width-card">
+                <h3>Hourly Average Load & European Map</h3>
+                <div class="dual-panel">
+                    <div>
+                        <div class="card-control">
+                            <label>📆 Month:</label>
+                            <select id="monthSelect" disabled>
+                                <option value="">-- Select --</option>
+                                <option value="1">January</option><option value="2">February</option>
+                                <option value="3">March</option><option value="4">April</option>
+                                <option value="5">May</option><option value="6">June</option>
+                                <option value="7">July</option><option value="8">August</option>
+                                <option value="9">September</option><option value="10">October</option>
+                                <option value="11">November</option><option value="12">December</option>
+                            </select>
+                        </div>
+                        <div id="hourlyAvgChart" style="height:400px;"></div>
+                    </div>
+                    <div style="position:relative;">
+                        <div id="europeMap"></div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -450,19 +431,18 @@
 
 <script>
 // ─────────────────────────────────────────────
-// 全局状态
+// Global state
 // ─────────────────────────────────────────────
 let fullData = null;
 let charts = {};
 let map = null, geojsonLayer = null;
 
-// 移动平均专用：防抖 + Worker模拟
 let movingAvgTimer = null;
 let movingAvgPending = false;
 let movingAvgRunning = false;
 
 // ─────────────────────────────────────────────
-// CSV 解析
+// CSV parsing
 // ─────────────────────────────────────────────
 function parseCSV(text) {
     const lines = text.trim().split(/\r?\n/);
@@ -504,15 +484,19 @@ function transformData(rows) {
 }
 
 // ─────────────────────────────────────────────
-// 移动平均计算
+// Moving average — uses SINGLE country selector
 // ─────────────────────────────────────────────
-function computeMovingAvg(data, selectedYears, selectedCountries, showWeekday, showWeekend) {
+function getMovingAvgCountry() {
+    return document.getElementById('movingAvgCountry').value;
+}
+
+function computeMovingAvg(data, selectedYears, country, showWeekday, showWeekend) {
     const byYear = {};
     selectedYears.forEach(y => { byYear[y] = {}; });
 
     const includeBoth = showWeekday && showWeekend;
 
-    // ── 1. 聚合 daily raw ──
+    // 1. Aggregate daily values for the single country
     for (const d of data) {
         if (!byYear[d.year]) continue;
 
@@ -523,20 +507,16 @@ function computeMovingAvg(data, selectedYears, selectedCountries, showWeekday, s
             if (!showWeekend && !isWD) continue;
         }
 
-        let sum = 0, cnt = 0;
-        for (const c of selectedCountries) {
-            const v = d.values[c];
-            if (v != null && !isNaN(v)) { sum += v; cnt++; }
-        }
-        if (!cnt) continue;
+        const v = d.values[country];
+        if (v == null || isNaN(v)) continue;
 
         const key = `${d.month}-${d.day}`;
         const slot = byYear[d.year][key] || (byYear[d.year][key] = { total: 0, cnt: 0 });
-        slot.total += sum / cnt;
+        slot.total += v;
         slot.cnt++;
     }
 
-    // ── 2. xAxis ──
+    // 2. Build xAxis (366 days using 2024 as leap-year template)
     const xAxis = [];
     for (let i = 1; i <= 366; i++) {
         const d = new Date(Date.UTC(2024, 0, i));
@@ -547,13 +527,12 @@ function computeMovingAvg(data, selectedYears, selectedCountries, showWeekday, s
     const COLORS = { 2024: '#ffaa00', 2025: '#222222', 2026: '#cc0000' };
     const series = [];
 
-    // ── 3. 生成 moving avg 曲线 ──
+    // 3. Build 7-day moving average series per year
     for (const year of selectedYears) {
         const isLeap = (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
         const days = isLeap ? 366 : 365;
 
         const raw = new Array(366).fill(null);
-
         for (let i = 0; i < days; i++) {
             const d = new Date(Date.UTC(year, 0, i + 1));
             const key = `${d.getUTCMonth() + 1}-${d.getUTCDate()}`;
@@ -585,53 +564,37 @@ function computeMovingAvg(data, selectedYears, selectedCountries, showWeekday, s
         });
     }
 
-    // ── 4. 年平均（用 raw，不用 moving avg）──
+    // 4. Annual averages (from raw daily values)
     const averages = {};
-
     for (const year of selectedYears) {
         const isLeap = (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
         const days = isLeap ? 366 : 365;
-
         let sum = 0, cnt = 0;
-
         for (let i = 0; i < days; i++) {
             const d = new Date(Date.UTC(year, 0, i + 1));
             const key = `${d.getUTCMonth() + 1}-${d.getUTCDate()}`;
             const slot = byYear[year][key];
-
-            if (slot && slot.cnt > 0) {
-                const val = slot.total / slot.cnt;
-                sum += val;
-                cnt++;
-            }
+            if (slot && slot.cnt > 0) { sum += slot.total / slot.cnt; cnt++; }
         }
-
         averages[year] = cnt ? sum / cnt : null;
     }
 
-    // ── 5. 同比变化 (%) ──
+    // 5. YoY changes
     const changes = {};
     const sortedYears = [...selectedYears].sort();
-
     for (let i = 1; i < sortedYears.length; i++) {
         const prev = sortedYears[i - 1];
         const curr = sortedYears[i];
-
-        const vPrev = averages[prev];
-        const vCurr = averages[curr];
-
-        if (vPrev != null && vCurr != null && vPrev !== 0) {
-            changes[curr] = (vCurr - vPrev) / vPrev;
-        } else {
-            changes[curr] = null;
-        }
+        const vPrev = averages[prev], vCurr = averages[curr];
+        changes[curr] = (vPrev != null && vCurr != null && vPrev !== 0)
+            ? (vCurr - vPrev) / vPrev : null;
     }
 
     return { xAxis, series, averages, changes };
 }
 
 // ─────────────────────────────────────────────
-// 移动平均绘制（带防抖 + 遮罩）
+// Moving average render (debounced + mask)
 // ─────────────────────────────────────────────
 function scheduleMovingAvg() {
     clearTimeout(movingAvgTimer);
@@ -645,12 +608,12 @@ function runMovingAvg() {
     const selectedYears = [...yearCBs].filter(c => c.checked).map(c => +c.value);
     const showWeekday = document.getElementById('showWeekday').checked;
     const showWeekend = document.getElementById('showWeekend').checked;
-    const selectedCountries = getSelectedCountries();
+    const country = getMovingAvgCountry();   // ← single country
 
     const chart = charts.movingAvg;
     if (!chart) return;
 
-    if (!selectedYears.length || (!showWeekday && !showWeekend) || !selectedCountries.length) {
+    if (!selectedYears.length || (!showWeekday && !showWeekend) || !country) {
         chart.setOption({ series: [], xAxis: { data: [] }, legend: { data: [] } }, true);
         return;
     }
@@ -662,7 +625,7 @@ function runMovingAvg() {
         setTimeout(() => {
             try {
                 const { xAxis, series, averages, changes } = computeMovingAvg(
-                    fullData.data, selectedYears, selectedCountries, showWeekday, showWeekend
+                    fullData.data, selectedYears, country, showWeekday, showWeekend
                 );
 
                 chart.setOption({
@@ -673,7 +636,9 @@ function runMovingAvg() {
                             let s = `<b>${params[0]?.axisValue}</b><br>`;
                             params.forEach(p => {
                                 if (p.value !== null && p.value !== undefined) {
-                                    s += `<span style="display:inline-block;width:10px;height:10px;background:${p.color};border-radius:50%;margin-right:4px;"></span>${p.seriesName}: ${(+p.value).toFixed(0)} MW<br>`;
+                                    s += `<span style="display:inline-block;width:10px;height:10px;
+                                        background:${p.color};border-radius:50%;margin-right:4px;">
+                                        </span>${p.seriesName}: ${(+p.value).toFixed(0)} MW<br>`;
                                 }
                             });
                             return s;
@@ -682,8 +647,7 @@ function runMovingAvg() {
                     },
                     legend: { data: series.map(s => s.name), top: 0 },
                     xAxis: {
-                        type: 'category',
-                        data: xAxis,
+                        type: 'category', data: xAxis,
                         axisLabel: { rotate: 45, interval: 29 },
                         axisPointer: { snap: false }
                     },
@@ -695,34 +659,27 @@ function runMovingAvg() {
                     series
                 }, true);
 
-                // ===== 右侧 summary =====
+                // Right-side summary panel
                 const avgDiv = document.getElementById('avgContent');
-
                 if (avgDiv) {
                     let html = '';
                     const sortedYears = Object.keys(averages).sort();
-
                     for (const year of sortedYears) {
                         const val = averages[year];
-
                         if (val != null) {
                             let line = `<div style="margin-bottom:6px;">
                                 <b>${year}</b>: ${val.toFixed(0)} MW`;
-
                             if (changes[year] != null) {
                                 const pct = (changes[year] * 100).toFixed(1);
                                 const color = changes[year] >= 0 ? '#28a745' : '#dc3545';
-
                                 line += ` <span style="color:${color}; font-size:12px;">
                                     ${changes[year] >= 0 ? '▲' : '▼'} ${Math.abs(pct)}%
                                 </span>`;
                             }
-
                             line += `</div>`;
                             html += line;
                         }
                     }
-
                     avgDiv.innerHTML = html || '–';
                 }
 
@@ -731,25 +688,29 @@ function runMovingAvg() {
             } finally {
                 movingAvgRunning = false;
                 document.getElementById('movingAvgMask').classList.remove('show');
-
-                if (movingAvgPending) {
-                    movingAvgPending = false;
-                    scheduleMovingAvg();
-                }
+                if (movingAvgPending) { movingAvgPending = false; scheduleMovingAvg(); }
             }
         }, 20);
     });
 }
 
 // ─────────────────────────────────────────────
-// 其他图表
+// Other charts — use multi-country selector
 // ─────────────────────────────────────────────
+function getSelectedCountries() {
+    return [...document.querySelectorAll('.country-cb-item')]
+        .filter(c => c.checked).map(c => c.value);
+}
+
 function drawHourly(year, countries) {
     const chart = charts.hourly;
     if (!chart || !countries.length || !year) { chart?.setOption({ series: [] }, true); return; }
 
     const pts = fullData.data.filter(d => d.year === year)
-        .sort((a, b) => new Date(Date.UTC(a.year, a.month-1, a.day, a.hour)) - new Date(Date.UTC(b.year, b.month-1, b.day, b.hour)));
+        .sort((a, b) =>
+            new Date(Date.UTC(a.year, a.month-1, a.day, a.hour)) -
+            new Date(Date.UTC(b.year, b.month-1, b.day, b.hour))
+        );
 
     const xData = pts.map(d =>
         `${d.year}/${String(d.month).padStart(2,'0')}/${String(d.day).padStart(2,'0')} ${String(d.hour).padStart(2,'0')}:00`
@@ -829,7 +790,7 @@ function drawHourlyAvg(year, month, countries) {
 }
 
 // ─────────────────────────────────────────────
-// 地图
+// Map
 // ─────────────────────────────────────────────
 const NAME2CODE = {
     "Germany":"DE","France":"FR","Italy":"IT","Spain":"ES","Greece":"GR","Romania":"RO",
@@ -910,7 +871,7 @@ async function drawMap(year, month) {
 }
 
 // ─────────────────────────────────────────────
-// 国家选择器
+// Country checkbox dropdown (multi-select)
 // ─────────────────────────────────────────────
 function buildCountryCheckboxes() {
     const container = document.getElementById('countryCheckboxes');
@@ -921,18 +882,13 @@ function buildCountryCheckboxes() {
         const cb = document.createElement('input');
         cb.type = 'checkbox'; cb.value = c;
         cb.className = 'country-cb-item';
-        cb.checked = (c === 'HU');
+        cb.checked = (c === 'HU');   // default: Hungary
         const sp = document.createElement('span');
         sp.textContent = c;
         item.appendChild(cb); item.appendChild(sp);
         container.appendChild(item);
     }
     updateCountryText();
-}
-
-function getSelectedCountries() {
-    return [...document.querySelectorAll('.country-cb-item')]
-        .filter(c => c.checked).map(c => c.value);
 }
 
 function updateCountryText() {
@@ -949,27 +905,28 @@ function setupCountryDropdown() {
     btn.addEventListener('click', e => { e.stopPropagation(); dd.classList.toggle('show'); });
     document.addEventListener('click', () => dd.classList.remove('show'));
     dd.addEventListener('click', e => e.stopPropagation());
+
     document.getElementById('countryCheckboxes').addEventListener('change', () => {
-        updateCountryText(); refresh();
+        updateCountryText();
+        refreshMultiCharts();
     });
     document.getElementById('selectAllBtn').addEventListener('click', () => {
         document.querySelectorAll('.country-cb-item').forEach(c => c.checked = true);
-        updateCountryText(); refresh();
+        updateCountryText(); refreshMultiCharts();
     });
     document.getElementById('clearAllBtn').addEventListener('click', () => {
         document.querySelectorAll('.country-cb-item').forEach(c => c.checked = false);
-        updateCountryText(); refresh();
+        updateCountryText(); refreshMultiCharts();
     });
 }
 
 // ─────────────────────────────────────────────
-// 主刷新
+// Refresh helpers (separated by section)
 // ─────────────────────────────────────────────
-function refresh() {
-    const year     = +document.getElementById('yearSelect').value  || null;
-    const month    = +document.getElementById('monthSelect').value || null;
+function refreshMultiCharts() {
+    const year    = +document.getElementById('yearSelect').value  || null;
+    const month   = +document.getElementById('monthSelect').value || null;
     const countries = getSelectedCountries();
-    scheduleMovingAvg();
     drawHourly(year, countries);
     drawMonthly(year, countries);
     drawHourlyAvg(year, month, countries);
@@ -977,7 +934,7 @@ function refresh() {
 }
 
 // ─────────────────────────────────────────────
-// 初始化
+// Init
 // ─────────────────────────────────────────────
 async function init() {
     try {
@@ -993,19 +950,19 @@ async function init() {
         return;
     }
 
-    document.getElementById('loadingMsg').style.display      = 'none';
-    document.getElementById('movingAvgSection').style.display = 'block';
-    document.getElementById('yearSelectSection').style.display = 'flex';
-    document.getElementById('chartGridBelow').style.display   = 'grid';
-    document.getElementById('footerInfo').style.display       = 'block';
+    // Show all sections
+    document.getElementById('loadingMsg').style.display       = 'none';
+    document.getElementById('movingAvgSection').style.display  = 'block';
+    document.getElementById('multiCountrySection').style.display = 'block';
+    document.getElementById('footerInfo').style.display        = 'block';
 
-    // 初始化图表
+    // Init ECharts instances
     charts.movingAvg = echarts.init(document.getElementById('movingAvgChart'));
     charts.hourly    = echarts.init(document.getElementById('hourlyChart'));
     charts.monthly   = echarts.init(document.getElementById('monthlyChart'));
     charts.hourlyAvg = echarts.init(document.getElementById('hourlyAvgChart'));
 
-    // 地图
+    // Init Leaflet map
     map = L.map('europeMap').setView([50, 10], 4);
     L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
         attribution: '&copy; OSM & CartoDB'
@@ -1016,31 +973,41 @@ async function init() {
         map?.invalidateSize();
     });
 
-    // 年份 / 月份控件
+    // ── Moving average country selector (single) ──
+    const movSel = document.getElementById('movingAvgCountry');
+    movSel.innerHTML = fullData.countries
+        .map(c => `<option value="${c}"${c === 'HU' ? ' selected' : ''}>${c}</option>`)
+        .join('');
+    movSel.addEventListener('change', scheduleMovingAvg);
+
+    // ── Year / month selectors (multi-country section) ──
     const yearSelect = document.getElementById('yearSelect');
     yearSelect.innerHTML = '<option value="">-- Select --</option>' +
         fullData.years.map(y => `<option value="${y}">${y}</option>`).join('');
     yearSelect.disabled = false;
     if (fullData.years.length) yearSelect.value = fullData.years[0];
-    document.getElementById('monthSelect').disabled = false;
-    document.getElementById('monthSelect').value = '1';
-    document.getElementById('refreshBtn').disabled = false;
 
-    // 事件绑定
-    buildCountryCheckboxes();
-    setupCountryDropdown();
+    const monthSelect = document.getElementById('monthSelect');
+    monthSelect.disabled = false;
+    monthSelect.value = '1';
 
-    yearSelect.addEventListener('change', refresh);
-    document.getElementById('monthSelect').addEventListener('change', refresh);
-    document.getElementById('refreshBtn').addEventListener('click', refresh);
+    yearSelect.addEventListener('change', refreshMultiCharts);
+    monthSelect.addEventListener('change', refreshMultiCharts);
 
+    // ── Moving average year/weekday checkboxes ──
     document.querySelectorAll('.year-cb').forEach(cb =>
         cb.addEventListener('change', scheduleMovingAvg)
     );
     document.getElementById('showWeekday').addEventListener('change', scheduleMovingAvg);
     document.getElementById('showWeekend').addEventListener('change', scheduleMovingAvg);
 
-    refresh();
+    // ── Build multi-country checkboxes ──
+    buildCountryCheckboxes();
+    setupCountryDropdown();
+
+    // ── Initial render ──
+    scheduleMovingAvg();
+    refreshMultiCharts();
 }
 
 init();

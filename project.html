@@ -733,7 +733,7 @@ function buildEuropeMap() {
         projects.forEach(p => {
             const [mx, my] = lonlatToXY(p.coord[0], p.coord[1]);
             const mc = TYPE_COLOR[p.type] || '#999';
-            html += `<circle cx="${mx.toFixed(1)}" cy="${my.toFixed(1)}" r="5"
+            html += `<circle cx="${mx.toFixed(1)}" cy="${my.toFixed(1)}" r="3.5"
                 fill="${mc}" stroke="#fff" stroke-width="1.2"
                 style="cursor:pointer;"
                 onmouseenter="onProjHover(event,'${escAttr(p.shortName)}','${p.type}','${p.capacity}','${p.status}')"
@@ -839,13 +839,13 @@ function renderLeafletMap(cn, projects) {
         const color = TYPE_COLOR[p.type] || '#999';
         const icon = L.divIcon({
             className: '',
-            html: `<div style="
-                width:28px;height:28px;border-radius:50%;
-                background:${color};border:3px solid white;
-                box-shadow:0 2px 6px rgba(0,0,0,0.3);
-            "></div>`,
-            iconSize: [14, 14],
-            iconAnchor: [7, 7]
+            html: `
+            <svg width="26" height="26" viewBox="0 0 24 24">
+                <path fill="#e53935" d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
+                <circle cx="12" cy="9" r="2.5" fill="white"/>
+            </svg>`,    
+            iconSize: [26, 26],
+            iconAnchor: [13, 13]
         });
 
         const marker = L.marker([p.coord[1], p.coord[0]], { icon }).addTo(map);

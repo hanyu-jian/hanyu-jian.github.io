@@ -241,7 +241,6 @@
         .proj-card-mw {
             font-size: 13px; font-weight: 700;
             color: #2c3e50;
-            font-family: 'IBM Plex Mono', monospace;
         }
         .proj-card-right {
             display: flex; flex-direction: column; align-items: flex-end; gap: 5px; flex-shrink: 0;
@@ -916,7 +915,7 @@ function renderProjectCards(projects) {
                 <div class="market-row">
                     <span class="market-label">结算货币 · 电力市场模式</span>
                     <span class="market-val">
-                        <span class="currency-tag">${p.currency}</span>
+                        <span class="market-val">${p.currency}</span>
                         &nbsp;<span class="market-val ${modeCls}">${p.marketMode}</span>
                     </span>
                 </div>

@@ -94,6 +94,13 @@
             background: #fafbfc;
             display: flex; flex-wrap: wrap; gap: 10px;
         }
+        .summary-title {
+            width: 100%;
+            font-size: 13px;
+            font-weight: 700;
+            color: #2c3e50;
+            margin-bottom: 6px;
+        }
         .summary-item {
             display: flex; align-items: center; gap: 6px;
             font-size: 12px;
@@ -290,8 +297,8 @@
             font-size: 12px;
         }
         .currency-tag {
-            display: inline-block; padding: 1px 7px; border-radius: 4px;
-            background: #e8f0fb; color: #3461c1; font-size: 11px; font-weight: 700;
+            display: inline-block; padding: 2px 8px; border-radius: 4px;
+            background: #e8f0fb; color: #3461c1; font-size: 11px; font-weight: 600;
         }
         .market-mode-tag {
             display: inline-block; padding: 2px 8px; border-radius: 4px;
@@ -367,6 +374,10 @@
                      preserveAspectRatio="xMidYMid meet"></svg>
             </div>
             <div class="summary-bar" id="summaryBar"></div>
+                <div class="summary-title">
+                    European Portfolio Installed Capacity Summary by Country
+                </div>
+           </div> 
         </div>
 
         <!-- ── Right panel ── -->
@@ -913,9 +924,9 @@ function renderProjectCards(projects) {
                 </div>
                 <div class="market-row">
                     <span class="market-label">结算货币 · 电力市场模式</span>
-                    <span class="currency-tag">
+                    <span class="market-val">
                         <span class="currency-tag">${p.currency}</span>
-                        &nbsp;<span class="market-val ${modeCls}">${p.marketMode}</span>
+                        &nbsp;<span class="market-mode-tag ${modeCls}">${p.marketMode}</span>
                     </span>
                 </div>
                 <div class="market-row full-width">
@@ -948,6 +959,9 @@ function buildSummaryBar() {
             <span class="summary-val">${v} MW</span>
         </div>`).join('');
     document.getElementById('summaryBar').innerHTML = `
+        <div class="summary-title">
+            European Portfolio Installed Capacity Summary by Country
+        </div>
         ${typeRows}
         <div class="summary-divider"></div>
         <div class="summary-item">

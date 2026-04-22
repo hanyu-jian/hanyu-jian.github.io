@@ -71,6 +71,20 @@
         .sub-nav-link:hover { color: #2c3e50; }
         .sub-nav-link.active { color: #2c3e50; border-bottom-color: #2c3e50; }
 
+        /* ── Section divider ── */
+        .section-divider {
+            background: #f8f9fa;
+            border-top: 2px solid #e6e9ed;
+            border-bottom: 1px solid #e6e9ed;
+            padding: 10px 30px;
+            font-size: 13px;
+            font-weight: 700;
+            color: #2c3e50;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            margin-top: 8px;
+        }
+
         /* ── Controls ── */
         .controls {
             padding: 16px 30px;
@@ -87,31 +101,6 @@
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         }
         select { min-width: 120px; height: 36px; }
-
-        /* ── Country radio grid (moving avg) ── */
-        .country-radio-grid {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 2px 0;
-            padding: 8px;
-            background: #f8f9fa;
-            border: 1px solid #e6e9ed;
-            border-radius: 6px;
-            max-height: 220px;
-            overflow-y: auto;
-            margin-bottom: 14px;
-        }
-        .country-radio-item {
-            display: flex; align-items: center; gap: 6px;
-            padding: 4px 6px; border-radius: 4px; cursor: pointer;
-            font-size: 13px;
-        }
-        .country-radio-item:hover { background: #ececec; }
-        .country-radio-item input[type="radio"] {
-            width: 14px; height: 14px; margin: 0;
-            flex-shrink: 0; cursor: pointer;
-            accent-color: #2c3e50;
-        }
 
         /* 国家下拉 */
         .country-select-wrapper { position: relative; display: inline-block; }
@@ -169,6 +158,15 @@
         }
         .btn-primary:hover { background: #1e2b38; }
 
+        /* 年份选择独立区块 */
+        .year-select-section {
+            padding: 14px 30px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #e6e9ed;
+            display: flex; align-items: center; gap: 12px;
+        }
+        .year-select-section label { font-size: 13px; font-weight: 600; color: #2c3e50; }
+
         /* ── Chart grid ── */
         .chart-grid {
             display: grid;
@@ -194,11 +192,11 @@
         }
         .card-control label { font-size: 14px; }
 
-        .weekday-check-group {
+        .year-check-group, .weekday-check-group {
             margin: 10px 0; display: flex;
             gap: 20px; align-items: center; flex-wrap: wrap;
         }
-        .weekday-check-group label {
+        .year-check-group label, .weekday-check-group label {
             display: inline-flex; align-items: center;
             gap: 6px; font-size: 14px; cursor: pointer;
         }
@@ -266,8 +264,6 @@
             .chart-grid { grid-template-columns: 1fr; }
             .controls { flex-direction: column; align-items: stretch; }
             .dual-panel { flex-direction: column; }
-            .country-radio-grid { grid-template-columns: repeat(2, 1fr); }
-            .country-list { grid-template-columns: repeat(2, 1fr); }
         }
     </style>
 </head>
@@ -303,37 +299,50 @@
     <!-- ════════════════════════════════════════
          SECTION 1 — Moving Average (single country)
          ════════════════════════════════════════ -->
-    <div id="movingAvgSection" style="display:none; padding: 24px 30px 0;">
-        <div class="chart-card">
-            <h3>7-Day Moving Average of Daily Load</h3>
+    <div id="movingAvgSection" style="display:none;">
 
-            <!-- Country radio grid -->
-            <div style="font-size:13px; font-weight:600; color:#2c3e50; margin-bottom:6px;">
-                🌍 Country
+
+        <!-- Controls for moving average -->
+        <div class="controls">
+            <div class="control-group">
+                <label>🌍 Country</label>
+                <select id="movingAvgCountry" style="min-width:140px;"></select>
             </div>
-            <div class="country-radio-grid" id="countryRadioGrid"></div>
+        </div>
 
-            <!-- Weekday filter -->
-            <div class="weekday-check-group">
-                <label><input type="checkbox" id="showWeekday" checked> Weekday (Mon–Fri)</label>
-                <label><input type="checkbox" id="showWeekend" checked> Weekend (Sat–Sun)</label>
-                <span class="hint-text">(Both checked = all days · Click legend to toggle years)</span>
-            </div>
-
-            <!-- Chart + summary -->
-            <div style="display:flex; gap:20px; margin-top:10px;">
-                <div class="chart-overlay" style="flex:1;">
-                    <div id="movingAvgChart" style="height:420px; width:100%;"></div>
-                    <div class="overlay-mask" id="movingAvgMask">⏳ Calculating...</div>
+        <!-- Chart card -->
+        <div style="padding: 20px 30px 0;">
+            <div class="chart-card" style="border-radius: 8px;">
+                <h3>7-Day Moving Average of Daily Load</h3>
+                <div class="year-check-group">
+                    <label><input type="checkbox" class="year-cb" value="2024" checked>
+                        <span style="background:#ffaa00;display:inline-block;width:20px;height:12px;border-radius:2px;"></span> 2024
+                    </label>
+                    <label><input type="checkbox" class="year-cb" value="2025" checked>
+                        <span style="background:#222222;display:inline-block;width:20px;height:12px;border-radius:2px;"></span> 2025
+                    </label>
+                    <label><input type="checkbox" class="year-cb" value="2026" checked>
+                        <span style="background:#cc0000;display:inline-block;width:20px;height:12px;border-radius:2px;"></span> 2026
+                    </label>
                 </div>
-                <div id="movingAvgSummary" style="
-                    width:180px; background:#f8f9fa; border-radius:8px;
-                    padding:14px; font-size:13px;
-                    display:flex; flex-direction:column; justify-content:flex-start;
-                    gap:4px;
-                ">
-                    <b style="margin-bottom:6px;">Annual Avg</b>
-                    <div id="avgContent">–</div>
+                <div class="weekday-check-group">
+                    <label><input type="checkbox" id="showWeekday" checked> Weekday (Mon–Fri)</label>
+                    <label><input type="checkbox" id="showWeekend" checked> Weekend (Sat–Sun)</label>
+                    <span class="hint-text">(Both checked = all days)</span>
+                </div>
+                <div style="display:flex; gap:20px;">
+                    <div class="chart-overlay" style="flex:1;">
+                        <div id="movingAvgChart" style="height:420px; width:100%;"></div>
+                        <div class="overlay-mask" id="movingAvgMask">⏳ Calculating...</div>
+                    </div>
+                    <div id="movingAvgSummary" style="
+                        width:180px; background:#f8f9fa; border-radius:8px;
+                        padding:14px; font-size:13px;
+                        display:flex; flex-direction:column; justify-content:center;
+                    ">
+                        <b style="margin-bottom:10px;">Annual Avg</b>
+                        <div id="avgContent">–</div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -345,7 +354,8 @@
     <div id="multiCountrySection" style="display:none;">
 
         <!-- Controls for multi-country charts -->
-        <div class="controls" style="margin-top:24px;">
+        <div class="controls">
+            <!-- Multi-country selector -->
             <div class="control-group">
                 <label>🌍 Countries</label>
                 <div class="country-select-wrapper">
@@ -361,6 +371,8 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Year selector -->
             <div class="control-group">
                 <label>📅 Year</label>
                 <select id="yearSelect" disabled></select>
@@ -406,7 +418,8 @@
     <!-- ══ Footer ══ -->
     <div class="info" id="footerInfo" style="display:none;">
         Data source: <a href="https://www.entsoe.eu/" target="_blank">ENTSO-E Transparency Platform</a>
-        &nbsp;|&nbsp; Unit: MW &nbsp;|&nbsp; Author: Hanyu Jian
+        &nbsp;|&nbsp; Unit: MW
+        &nbsp;|&nbsp; Author: Hanyu Jian
     </div>
 
 </div><!-- /container -->
@@ -422,10 +435,6 @@ let map = null, geojsonLayer = null;
 let movingAvgTimer = null;
 let movingAvgPending = false;
 let movingAvgRunning = false;
-
-// All years available for moving average
-const MA_YEARS  = [2024, 2025, 2026];
-const MA_COLORS = { 2024: '#ffaa00', 2025: '#222222', 2026: '#cc0000' };
 
 // ─────────────────────────────────────────────
 // CSV parsing
@@ -470,59 +479,39 @@ function transformData(rows) {
 }
 
 // ─────────────────────────────────────────────
-// Country radio grid (single-select for moving avg)
+// Moving average — uses SINGLE country selector
 // ─────────────────────────────────────────────
-function buildCountryRadioGrid() {
-    const grid = document.getElementById('countryRadioGrid');
-    grid.innerHTML = '';
-    for (const c of fullData.countries) {
-        const lbl = document.createElement('label');
-        lbl.className = 'country-radio-item';
-        const rb = document.createElement('input');
-        rb.type = 'radio';
-        rb.name = 'movingAvgCountry';
-        rb.value = c;
-        rb.checked = (c === 'HU');
-        rb.addEventListener('change', scheduleMovingAvg);
-        lbl.appendChild(rb);
-        lbl.appendChild(document.createTextNode(c));
-        grid.appendChild(lbl);
-    }
-}
-
 function getMovingAvgCountry() {
-    const checked = document.querySelector('input[name="movingAvgCountry"]:checked');
-    return checked ? checked.value : null;
+    return document.getElementById('movingAvgCountry').value;
 }
 
-// ─────────────────────────────────────────────
-// Moving average compute
-// ─────────────────────────────────────────────
-function computeMovingAvg(data, country, showWeekday, showWeekend) {
-    // Use all years from MA_YEARS that actually exist in the data
-    const availableYears = MA_YEARS.filter(y => fullData.years.includes(y));
+function computeMovingAvg(data, selectedYears, country, showWeekday, showWeekend) {
     const byYear = {};
-    availableYears.forEach(y => { byYear[y] = {}; });
+    selectedYears.forEach(y => { byYear[y] = {}; });
 
     const includeBoth = showWeekday && showWeekend;
 
+    // 1. Aggregate daily values for the single country
     for (const d of data) {
         if (!byYear[d.year]) continue;
+
         if (!includeBoth) {
             const dow = new Date(Date.UTC(d.year, d.month - 1, d.day)).getUTCDay();
             const isWD = dow >= 1 && dow <= 5;
             if (!showWeekday && isWD) continue;
             if (!showWeekend && !isWD) continue;
         }
+
         const v = d.values[country];
         if (v == null || isNaN(v)) continue;
+
         const key = `${d.month}-${d.day}`;
         const slot = byYear[d.year][key] || (byYear[d.year][key] = { total: 0, cnt: 0 });
         slot.total += v;
         slot.cnt++;
     }
 
-    // xAxis: 366 labels (Jan 1 – Dec 31, leap-year template)
+    // 2. Build xAxis (366 days using 2024 as leap-year template)
     const xAxis = [];
     for (let i = 1; i <= 366; i++) {
         const d = new Date(Date.UTC(2024, 0, i));
@@ -530,24 +519,22 @@ function computeMovingAvg(data, country, showWeekday, showWeekend) {
         xAxis.push(`${d.getUTCMonth() + 1}/${d.getUTCDate()}`);
     }
 
+    const COLORS = { 2024: '#ffaa00', 2025: '#222222', 2026: '#cc0000' };
     const series = [];
-    const averages = {};
-    const changes  = {};
 
-    for (const year of availableYears) {
+    // 3. Build 7-day moving average series per year
+    for (const year of selectedYears) {
         const isLeap = (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
         const days = isLeap ? 366 : 365;
 
-        // Raw daily averages
         const raw = new Array(366).fill(null);
         for (let i = 0; i < days; i++) {
-            const d   = new Date(Date.UTC(year, 0, i + 1));
+            const d = new Date(Date.UTC(year, 0, i + 1));
             const key = `${d.getUTCMonth() + 1}-${d.getUTCDate()}`;
             const slot = byYear[year][key];
             if (slot && slot.cnt > 0) raw[i] = slot.total / slot.cnt;
         }
 
-        // 7-day moving average
         const avg = new Array(366).fill(null);
         for (let i = 0; i < days; i++) {
             let s = 0, c = 0;
@@ -557,101 +544,45 @@ function computeMovingAvg(data, country, showWeekday, showWeekend) {
             if (c) avg[i] = s / c;
         }
 
-        // ── Find max & min indices (ignore nulls) ──
-        let maxIdx = -1, minIdx = -1;
-        for (let i = 0; i < days; i++) {
-            if (avg[i] == null) continue;
-            if (maxIdx === -1 || avg[i] > avg[maxIdx]) maxIdx = i;
-            if (minIdx === -1 || avg[i] < avg[minIdx]) minIdx = i;
-        }
-
-        const color = MA_COLORS[year];
-
-        // Main line series
         series.push({
             name: String(year),
             type: 'line',
             data: avg,
-            lineStyle: { width: 2, color },
-            itemStyle: { color },
+            lineStyle: { width: 2, color: COLORS[year] },
+            itemStyle: { color: COLORS[year] },
             symbol: 'none',
             connectNulls: false,
             animation: false,
             large: true,
             largeThreshold: 200,
-            sampling: 'lttb',
-            legendHoverLink: true
+            sampling: 'lttb'
         });
+    }
 
-        // ── Max marker series ──
-        if (maxIdx !== -1) {
-            series.push({
-                name: `${year}_max`,
-                type: 'scatter',
-                data: [{ value: [maxIdx, avg[maxIdx]], label: xAxis[maxIdx] }],
-                symbol: 'triangle',
-                symbolSize: 10,
-                itemStyle: { color },
-                label: {
-                    show: true,
-                    formatter: p => `▲${p.data.value[1].toFixed(0)}`,
-                    position: 'top',
-                    fontSize: 11,
-                    fontWeight: 'bold',
-                    color
-                },
-                tooltip: {
-                    formatter: p =>
-                        `<b>${year} Max</b><br>${xAxis[p.data.value[0]]}: ${p.data.value[1].toFixed(0)} MW`
-                },
-                legendHoverLink: false,
-                showInLegend: false,   // hide from legend
-                silent: false
-            });
-        }
-
-        // ── Min marker series ──
-        if (minIdx !== -1) {
-            series.push({
-                name: `${year}_min`,
-                type: 'scatter',
-                data: [{ value: [minIdx, avg[minIdx]], label: xAxis[minIdx] }],
-                symbol: 'triangle',
-                symbolSize: 10,
-                symbolRotate: 180,
-                itemStyle: { color },
-                label: {
-                    show: true,
-                    formatter: p => `▼${p.data.value[1].toFixed(0)}`,
-                    position: 'bottom',
-                    fontSize: 11,
-                    fontWeight: 'bold',
-                    color
-                },
-                tooltip: {
-                    formatter: p =>
-                        `<b>${year} Min</b><br>${xAxis[p.data.value[0]]}: ${p.data.value[1].toFixed(0)} MW`
-                },
-                legendHoverLink: false,
-                showInLegend: false,
-                silent: false
-            });
-        }
-
-        // Annual average
+    // 4. Annual averages (from raw daily values)
+    const averages = {};
+    for (const year of selectedYears) {
+        const isLeap = (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
+        const days = isLeap ? 366 : 365;
         let sum = 0, cnt = 0;
         for (let i = 0; i < days; i++) {
-            if (raw[i] != null) { sum += raw[i]; cnt++; }
+            const d = new Date(Date.UTC(year, 0, i + 1));
+            const key = `${d.getUTCMonth() + 1}-${d.getUTCDate()}`;
+            const slot = byYear[year][key];
+            if (slot && slot.cnt > 0) { sum += slot.total / slot.cnt; cnt++; }
         }
         averages[year] = cnt ? sum / cnt : null;
     }
 
-    // YoY changes
-    const sortedYears = [...availableYears].sort();
+    // 5. YoY changes
+    const changes = {};
+    const sortedYears = [...selectedYears].sort();
     for (let i = 1; i < sortedYears.length; i++) {
-        const prev = sortedYears[i - 1], curr = sortedYears[i];
-        const vp = averages[prev], vc = averages[curr];
-        changes[curr] = (vp != null && vc != null && vp !== 0) ? (vc - vp) / vp : null;
+        const prev = sortedYears[i - 1];
+        const curr = sortedYears[i];
+        const vPrev = averages[prev], vCurr = averages[curr];
+        changes[curr] = (vPrev != null && vCurr != null && vPrev !== 0)
+            ? (vCurr - vPrev) / vPrev : null;
     }
 
     return { xAxis, series, averages, changes };
@@ -668,13 +599,16 @@ function scheduleMovingAvg() {
 function runMovingAvg() {
     if (movingAvgRunning) { movingAvgPending = true; return; }
 
+    const yearCBs = document.querySelectorAll('.year-cb');
+    const selectedYears = [...yearCBs].filter(c => c.checked).map(c => +c.value);
     const showWeekday = document.getElementById('showWeekday').checked;
     const showWeekend = document.getElementById('showWeekend').checked;
-    const country     = getMovingAvgCountry();
-    const chart       = charts.movingAvg;
+    const country = getMovingAvgCountry();   // ← single country
+
+    const chart = charts.movingAvg;
     if (!chart) return;
 
-    if ((!showWeekday && !showWeekend) || !country) {
+    if (!selectedYears.length || (!showWeekday && !showWeekend) || !country) {
         chart.setOption({ series: [], xAxis: { data: [] }, legend: { data: [] } }, true);
         return;
     }
@@ -686,45 +620,29 @@ function runMovingAvg() {
         setTimeout(() => {
             try {
                 const { xAxis, series, averages, changes } = computeMovingAvg(
-                    fullData.data, country, showWeekday, showWeekend
+                    fullData.data, selectedYears, country, showWeekday, showWeekend
                 );
-
-                // Only the main line series names go to legend
-                const legendNames = series
-                    .filter(s => !s.name.includes('_max') && !s.name.includes('_min'))
-                    .map(s => s.name);
 
                 chart.setOption({
                     animation: false,
-                    legend: {
-                        data: legendNames,
-                        top: 0,
-                        // clicking a legend item hides/shows the line + its markers
-                        selected: Object.fromEntries(legendNames.map(n => [n, true]))
-                    },
                     tooltip: {
                         trigger: 'axis',
                         formatter(params) {
-                            // Filter out marker series from axis tooltip
-                            const lineParams = params.filter(p =>
-                                !p.seriesName.includes('_max') && !p.seriesName.includes('_min')
-                            );
-                            if (!lineParams.length) return '';
                             let s = `<b>${params[0]?.axisValue}</b><br>`;
-                            lineParams.forEach(p => {
+                            params.forEach(p => {
                                 if (p.value !== null && p.value !== undefined) {
                                     s += `<span style="display:inline-block;width:10px;height:10px;
-                                        background:${p.color};border-radius:50%;margin-right:4px;"></span>
-                                        ${p.seriesName}: ${(+p.value).toFixed(0)} MW<br>`;
+                                        background:${p.color};border-radius:50%;margin-right:4px;">
+                                        </span>${p.seriesName}: ${(+p.value).toFixed(0)} MW<br>`;
                                 }
                             });
                             return s;
                         },
                         axisPointer: { type: 'line', snap: false }
                     },
+                    legend: { data: series.map(s => s.name), top: 0 },
                     xAxis: {
-                        type: 'category',
-                        data: xAxis,
+                        type: 'category', data: xAxis,
                         axisLabel: { rotate: 45, interval: 29 },
                         axisPointer: { snap: false }
                     },
@@ -736,44 +654,22 @@ function runMovingAvg() {
                     series
                 }, true);
 
-                // ── Wire legend toggle to also hide/show marker series ──
-                chart.off('legendselectchanged');
-                chart.on('legendselectchanged', evt => {
-                    const yearStr = evt.name;               // e.g. "2024"
-                    const isOn    = evt.selected[yearStr];  // true = visible
-
-                    // Toggle the corresponding _max and _min scatter series
-                    const opt = chart.getOption();
-                    opt.series.forEach((s, idx) => {
-                        if (s.name === `${yearStr}_max` || s.name === `${yearStr}_min`) {
-                            chart.dispatchAction({
-                                type: isOn ? 'legendSelect' : 'legendUnSelect',
-                                seriesIndex: idx
-                            });
-                        }
-                    });
-                });
-
-                // ── Summary panel ──
+                // Right-side summary panel
                 const avgDiv = document.getElementById('avgContent');
                 if (avgDiv) {
                     let html = '';
-                    const sortedYears = Object.keys(averages)
-                        .map(Number).sort((a,b) => a-b);
+                    const sortedYears = Object.keys(averages).sort();
                     for (const year of sortedYears) {
                         const val = averages[year];
                         if (val != null) {
-                            const color = MA_COLORS[year];
-                            let line = `<div style="margin-bottom:8px;">
-                                <span style="display:inline-block;width:12px;height:12px;
-                                    background:${color};border-radius:2px;
-                                    vertical-align:middle;margin-right:4px;"></span>
+                            let line = `<div style="margin-bottom:6px;">
                                 <b>${year}</b>: ${val.toFixed(0)} MW`;
                             if (changes[year] != null) {
-                                const pct  = (changes[year] * 100).toFixed(1);
-                                const clr  = changes[year] >= 0 ? '#28a745' : '#dc3545';
-                                line += ` <span style="color:${clr};font-size:12px;">
-                                    ${changes[year] >= 0 ? '▲' : '▼'} ${Math.abs(pct)}%</span>`;
+                                const pct = (changes[year] * 100).toFixed(1);
+                                const color = changes[year] >= 0 ? '#28a745' : '#dc3545';
+                                line += ` <span style="color:${color}; font-size:12px;">
+                                    ${changes[year] >= 0 ? '▲' : '▼'} ${Math.abs(pct)}%
+                                </span>`;
                             }
                             line += `</div>`;
                             html += line;
@@ -810,6 +706,7 @@ function drawHourly(year, countries) {
             new Date(Date.UTC(a.year, a.month-1, a.day, a.hour)) -
             new Date(Date.UTC(b.year, b.month-1, b.day, b.hour))
         );
+
     const xData = pts.map(d =>
         `${d.year}/${String(d.month).padStart(2,'0')}/${String(d.day).padStart(2,'0')} ${String(d.hour).padStart(2,'0')}:00`
     );
@@ -897,18 +794,21 @@ const NAME2CODE = {
     "Finland":"FI","Ireland":"IE","Lithuania":"LT","Luxembourg":"LU","Norway":"NO",
     "Portugal":"PT","Slovenia":"SI","Sweden":"SE","Switzerland":"CH","United Kingdom":"GB"
 };
+
 function getCode(feature) {
     const code = feature.properties?.ISO_A2 || feature.properties?.iso_a2;
     if (code && code.length === 2) return code;
     const name = feature.properties?.ADMIN || feature.properties?.name;
     return name ? (NAME2CODE[name] || null) : null;
 }
+
 function loadColor(load, min, max) {
     if (load === null || isNaN(load)) return '#b0b0b0';
     if (min === max) return '#ffaa66';
     const t = Math.min(1, Math.max(0, (load - min) / (max - min)));
     return `rgb(255,${Math.round(247 - t*107)},${Math.round(230 - t*230)})`;
 }
+
 function updateMapLegend(min, max) {
     let el = document.querySelector('.map-legend');
     const parent = document.getElementById('europeMap').parentNode;
@@ -919,6 +819,7 @@ function updateMapLegend(min, max) {
             <span>${max != null ? max.toFixed(0) + ' MW' : 'N/A'}</span>
         </div>`;
 }
+
 async function drawMap(year, month) {
     if (!map) return;
     if (geojsonLayer) { map.removeLayer(geojsonLayer); geojsonLayer = null; }
@@ -965,7 +866,7 @@ async function drawMap(year, month) {
 }
 
 // ─────────────────────────────────────────────
-// Multi-country checkbox dropdown
+// Country checkbox dropdown (multi-select)
 // ─────────────────────────────────────────────
 function buildCountryCheckboxes() {
     const container = document.getElementById('countryCheckboxes');
@@ -976,7 +877,7 @@ function buildCountryCheckboxes() {
         const cb = document.createElement('input');
         cb.type = 'checkbox'; cb.value = c;
         cb.className = 'country-cb-item';
-        cb.checked = (c === 'HU');
+        cb.checked = (c === 'HU');   // default: Hungary
         const sp = document.createElement('span');
         sp.textContent = c;
         item.appendChild(cb); item.appendChild(sp);
@@ -987,7 +888,7 @@ function buildCountryCheckboxes() {
 
 function updateCountryText() {
     const sel = getSelectedCountries();
-    const el  = document.getElementById('countrySelectText');
+    const el = document.getElementById('countrySelectText');
     el.textContent = sel.length === 0 ? 'Select...'
         : sel.length <= 3 ? sel.join(', ')
         : `${sel.length} selected`;
@@ -1001,7 +902,8 @@ function setupCountryDropdown() {
     dd.addEventListener('click', e => e.stopPropagation());
 
     document.getElementById('countryCheckboxes').addEventListener('change', () => {
-        updateCountryText(); refreshMultiCharts();
+        updateCountryText();
+        refreshMultiCharts();
     });
     document.getElementById('selectAllBtn').addEventListener('click', () => {
         document.querySelectorAll('.country-cb-item').forEach(c => c.checked = true);
@@ -1014,11 +916,11 @@ function setupCountryDropdown() {
 }
 
 // ─────────────────────────────────────────────
-// Refresh multi-country charts
+// Refresh helpers (separated by section)
 // ─────────────────────────────────────────────
 function refreshMultiCharts() {
-    const year      = +document.getElementById('yearSelect').value  || null;
-    const month     = +document.getElementById('monthSelect').value || null;
+    const year    = +document.getElementById('yearSelect').value  || null;
+    const month   = +document.getElementById('monthSelect').value || null;
     const countries = getSelectedCountries();
     drawHourly(year, countries);
     drawMonthly(year, countries);
@@ -1043,18 +945,19 @@ async function init() {
         return;
     }
 
-    document.getElementById('loadingMsg').style.display          = 'none';
-    document.getElementById('movingAvgSection').style.display     = 'block';
-    document.getElementById('multiCountrySection').style.display  = 'block';
-    document.getElementById('footerInfo').style.display           = 'block';
+    // Show all sections
+    document.getElementById('loadingMsg').style.display       = 'none';
+    document.getElementById('movingAvgSection').style.display  = 'block';
+    document.getElementById('multiCountrySection').style.display = 'block';
+    document.getElementById('footerInfo').style.display        = 'block';
 
-    // Init ECharts
+    // Init ECharts instances
     charts.movingAvg = echarts.init(document.getElementById('movingAvgChart'));
     charts.hourly    = echarts.init(document.getElementById('hourlyChart'));
     charts.monthly   = echarts.init(document.getElementById('monthlyChart'));
     charts.hourlyAvg = echarts.init(document.getElementById('hourlyAvgChart'));
 
-    // Init map
+    // Init Leaflet map
     map = L.map('europeMap').setView([50, 10], 4);
     L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
         attribution: '&copy; OSM & CartoDB'
@@ -1065,10 +968,14 @@ async function init() {
         map?.invalidateSize();
     });
 
-    // Build country radio grid (single-select, moving avg)
-    buildCountryRadioGrid();
+    // ── Moving average country selector (single) ──
+    const movSel = document.getElementById('movingAvgCountry');
+    movSel.innerHTML = fullData.countries
+        .map(c => `<option value="${c}"${c === 'HU' ? ' selected' : ''}>${c}</option>`)
+        .join('');
+    movSel.addEventListener('change', scheduleMovingAvg);
 
-    // Year / month selectors
+    // ── Year / month selectors (multi-country section) ──
     const yearSelect = document.getElementById('yearSelect');
     yearSelect.innerHTML = '<option value="">-- Select --</option>' +
         fullData.years.map(y => `<option value="${y}">${y}</option>`).join('');
@@ -1082,15 +989,18 @@ async function init() {
     yearSelect.addEventListener('change', refreshMultiCharts);
     monthSelect.addEventListener('change', refreshMultiCharts);
 
-    // Weekday toggles
+    // ── Moving average year/weekday checkboxes ──
+    document.querySelectorAll('.year-cb').forEach(cb =>
+        cb.addEventListener('change', scheduleMovingAvg)
+    );
     document.getElementById('showWeekday').addEventListener('change', scheduleMovingAvg);
     document.getElementById('showWeekend').addEventListener('change', scheduleMovingAvg);
 
-    // Build multi-country checkbox dropdown
+    // ── Build multi-country checkboxes ──
     buildCountryCheckboxes();
     setupCountryDropdown();
 
-    // Initial render
+    // ── Initial render ──
     scheduleMovingAvg();
     refreshMultiCharts();
 }

@@ -373,7 +373,7 @@
                 <svg id="europeSvg" viewBox="0 0 420 320"
                      preserveAspectRatio="xMidYMid meet"></svg>
             </div>
-            <div class="summary-bar" id="summaryBar"></div>
+            <div class="map-panel-header" id="summaryBar"></div>
         </div>
 
         <!-- ── Right panel ── -->
@@ -919,7 +919,7 @@ function renderProjectCards(projects) {
                     <span class="market-val">${p.lifetime}年 运营期${p.ppaYears ? ' / ' + p.ppaYears + '年 协议' : ''}</span>
                 </div>
                 <div class="market-row">
-                    <span class="market-label">结算货币 · 电力市场模式</span>
+                    <span class="market-label">结算货币 / 电力市场模式</span>
                     <span class="market-val">
                         <span class="currency-tag">${p.currency}</span>
                         &nbsp;<span class="market-mode-tag ${modeCls}">${p.marketMode}</span>
@@ -956,7 +956,7 @@ function buildSummaryBar() {
         </div>`).join('');
     document.getElementById('summaryBar').innerHTML = `
         <div class="summary-title">
-            European Portfolio Installed Capacity Summary by Country
+            European Portfolio Installed Capacity Summary 
         </div>
         ${typeRows}
         <div class="summary-divider"></div>

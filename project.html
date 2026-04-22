@@ -512,7 +512,7 @@ const projectData = {
             name: '胡努特鲁火电站',
             shortName: '胡努特鲁',
             capacity: 1320,
-            type: 'Gas',
+            type: 'Fossil',
             status: 'Operating',
             cod: '2022/6',
             lifetime: 30,
@@ -522,7 +522,7 @@ const projectData = {
             marketModeKey: 'spot',
             ppa: '无中长期购电协议',
             spot: '参与日前、日内或平衡市场交易，土耳其无负电价',
-            coord: [36.8, 35.9]
+            coord: [35.9, 36.8]
         },
         {
             name: '胡努特鲁火电厂自发自用光伏电站',
@@ -538,7 +538,7 @@ const projectData = {
             marketModeKey: 'spot',
             ppa: '无中长期购电协议；由公司属地化营销团队直接参与市场报价申报',
             spot: '参与日前、日内或平衡市场交易，土耳其无负电价',
-            coord: [36.8, 35.9]
+            coord: [35.9, 36.8]
        },
         {
             name: '里克索斯酒店光伏项目',
@@ -554,7 +554,7 @@ const projectData = {
             marketModeKey: 'fixed',
             ppa: '7年，11美分/度，全额固定美元电价结算；由公司属地化营销团队直接参与市场电量申报',
             spot: '不涉及',
-            coord: [41.0, 35.9]
+            coord: [35.9, 41.0]
        }
     ],
     Malta: [
@@ -783,7 +783,7 @@ const COUNTRY_VIEW = {
     Romania:    { center: [45.9, 24.9], zoom: 6 },
     Serbia:     { center: [44.0, 21.0], zoom: 7 },
     Turkey:     { center: [39.0, 35.0], zoom: 5 },
-    Malta:      { center: [35.9, 14.4], zoom: 10 },
+    Malta:      { center: [35.9, 14.4], zoom: 11 },
     Montenegro: { center: [42.7, 19.4], zoom: 8 }
 };
 
@@ -917,7 +917,7 @@ function renderProjectCards(projects) {
                     <span class="market-label">结算货币 · 电力市场模式</span>
                     <span class="market-val">
                         <span class="currency-tag">${p.currency}</span>
-                        &nbsp;<span class="market-mode-tag ${modeCls}">${p.marketMode}</span>
+                        &nbsp;<span class="market-val ${modeCls}">${p.marketMode}</span>
                     </span>
                 </div>
                 <div class="market-row full-width">

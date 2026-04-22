@@ -569,9 +569,7 @@ const TYPE_COLOR = {
     Gas:    '#e07b6a',
     Fossil: '#9e9e9e'
 };
-const TYPE_ICON = {
-    Solar: '☀️', Wind: '💨', Gas: '🔥', Fossil: '⚡'
-};
+
 const TYPE_BG = {
     Solar: '#fffbeb', Wind: '#ecfeff', Gas: '#fff1f0', Fossil: '#f5f5f5'
 };
@@ -749,7 +747,7 @@ function moveTip(e, el) {
 
 /* ─── Country centre coordinates for Leaflet ─── */
 const COUNTRY_VIEW = {
-    Hungary:    { center: [47.2, 19.5], zoom: 7 },
+    Hungary:    { center: [47.2, 19.5], zoom: 6 },
     Romania:    { center: [45.9, 24.9], zoom: 6 },
     Serbia:     { center: [44.0, 21.0], zoom: 7 },
     Turkey:     { center: [39.0, 35.0], zoom: 5 },
@@ -816,9 +814,9 @@ function renderLeafletMap(cn, projects) {
                 box-shadow:0 2px 6px rgba(0,0,0,0.3);
                 display:flex;align-items:center;justify-content:center;
                 font-size:13px;cursor:pointer;
-            ">${TYPE_ICON[p.type]||'⚡'}</div>`,
-            iconSize: [28, 28],
-            iconAnchor: [14, 14]
+            "></div>`,
+            iconSize: [14, 14],
+            iconAnchor: [7, 7]
         });
 
         const marker = L.marker([p.coord[1], p.coord[0]], { icon }).addTo(map);
@@ -865,9 +863,6 @@ function renderProjectCards(projects) {
         <div class="proj-card">
             <!-- Top: core info -->
             <div class="proj-card-top">
-                <div class="proj-card-icon" style="background:${iconBg}; border:1.5px solid ${color}30;">
-                    <span style="font-size:16px;">${TYPE_ICON[p.type]||'⚡'}</span>
-                </div>
                 <div class="proj-card-main">
                     <div class="proj-card-name" title="${p.name}">${p.name}</div>
                     <div class="proj-card-meta">
@@ -886,7 +881,7 @@ function renderProjectCards(projects) {
             <div class="proj-card-bottom">
                 <div class="market-row">
                     <span class="market-label">运营期 / 核心协议年限</span>
-                    <span class="market-val mono">${p.lifetime}年 运营期${p.ppaYears ? ' · ' + p.ppaYears + '年 协议' : ''}</span>
+                    <span class="market-val">${p.lifetime}年 运营期${p.ppaYears ? ' / ' + p.ppaYears + '年 协议' : ''}</span>
                 </div>
                 <div class="market-row">
                     <span class="market-label">结算货币 · 电力市场模式</span>

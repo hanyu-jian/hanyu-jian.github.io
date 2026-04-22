@@ -320,16 +320,6 @@
             font-size: 11px; color: #6c757d; margin-top: 4px;
         }
 
-        /* Stats chips */
-        .stats-row { display: flex; gap: 10px; flex-wrap: wrap; }
-        .stat-chip {
-            flex: 1; min-width: 60px;
-            background: #f8f9fa; border: 1px solid #e6e9ed;
-            border-radius: 6px; padding: 7px 10px; text-align: center;
-        }
-        .stat-chip .stat-val { font-size: 14px; font-weight: 700; color: #2c3e50; }
-        .stat-chip .stat-lbl { font-size: 11px; color: #6c757d; margin-top: 2px; }
-
         /* Map card shared time-filter bar */
         .map-timefilter {
             display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
@@ -363,6 +353,34 @@
         }
         .popup-row { display: flex; justify-content: space-between; gap: 16px; color: #555; }
         .popup-val { font-weight: 600; color: #2c3e50; }
+
+        /* Country label on map */
+        .country-map-label {
+            background: transparent;
+            border: none;
+            pointer-events: none;
+        }
+        .country-map-label-inner {
+            font-family: 'Segoe UI', sans-serif;
+            font-size: 11px;
+            font-weight: 700;
+            color: #1a1a2e;
+            text-shadow: 0 0 3px rgba(255,255,255,0.9), 0 0 6px rgba(255,255,255,0.7);
+            white-space: nowrap;
+            text-align: center;
+            line-height: 1.3;
+        }
+        .country-map-label-inner .lbl-code {
+            display: block;
+            font-size: 11px;
+            font-weight: 700;
+        }
+        .country-map-label-inner .lbl-pct {
+            display: block;
+            font-size: 10px;
+            font-weight: 600;
+            color: #1565c0;
+        }
 
         /* Info footer */
         .info {
@@ -578,8 +596,6 @@
                                 <span id="capLegendMax" style="font-size:11px;color:#6c757d;min-width:36px;text-align:right;">100</span>
                             </div>
                         </div>
-
-                        <div class="stats-row" id="capStatsRow"></div>
                     </div>
 
                     <!-- Right: Negative Hours Map -->
@@ -590,7 +606,7 @@
                                 <label style="font-size:12px;font-weight:600;color:#2c3e50;">Threshold</label>
                                 <div class="btn-group-sm" id="negThreshGroup">
                                     <button class="active" data-thresh="negative">Price &lt; 0</button>
-                                    <button               data-thresh="zero"    >Price ≤ 0</button>
+                                    <button               data-thresh="zero_only">Price = 0</button>
                                 </div>
                             </div>
                         </div>
@@ -600,16 +616,15 @@
                         </div>
 
                         <div class="map-legend">
+                            <!-- FIX 3: Red gradient for negative hours legend -->
                             <div class="legend-title" id="negLegendTitle">Negative Price Hours – h</div>
                             <div class="legend-scale">
                                 <span id="negLegendMin" style="font-size:11px;color:#6c757d;min-width:36px;">0 h</span>
                                 <div class="legend-gradient" id="negLegendGrad"
-                                     style="background:linear-gradient(to right,#f0f4ff,#6baed6,#08306b);"></div>
+                                     style="background:linear-gradient(to right,#f5f5f5,#fc8d59,#d7301f);"></div>
                                 <span id="negLegendMax" style="font-size:11px;color:#6c757d;min-width:36px;text-align:right;">500 h</span>
                             </div>
                         </div>
-
-                        <div class="stats-row" id="negStatsRow"></div>
                     </div>
 
                 </div><!-- /map-panels -->
@@ -646,6 +661,23 @@ const GEO_NAME_TO_CODE = {
     'Germany':'DE','France':'FR','Hungary':'HU','Austria':'AT',
     'Bulgaria':'BG','Slovakia':'SK','Romania':'RO','Poland':'PL',
     'Croatia':'HR','Greece':'GR','Serbia':'RS','Italy':'IT','Spain':'ES'
+};
+
+/* Approximate label positions for each country on the map */
+const COUNTRY_LABEL_LATLNG = {
+    'DE': [51.2, 10.5],
+    'FR': [46.5,  2.5],
+    'HU': [47.2, 19.2],
+    'AT': [47.6, 14.2],
+    'BG': [42.8, 25.3],
+    'SK': [48.7, 19.5],
+    'RO': [45.8, 25.0],
+    'PL': [52.0, 19.5],
+    'HR': [45.2, 15.8],
+    'GR': [39.3, 22.0],
+    'RS': [44.0, 21.0],
+    'IT': [42.8, 12.8],
+    'ES': [40.0, -3.5]
 };
 
 const COLORS = {
@@ -744,7 +776,7 @@ async function loadAllData() {
 }
 
 /* ═══════════════════════════════════════════════════════════
-   COMPUTE HOURLY METRICS  (unchanged from original)
+   COMPUTE HOURLY METRICS
 ═══════════════════════════════════════════════════════════ */
 function computeHourly(country, source) {
     const prices = rawPrice[country] || [];
@@ -771,7 +803,7 @@ function computeHourly(country, source) {
 }
 
 /* ═══════════════════════════════════════════════════════════
-   AGGREGATE HELPERS  (unchanged)
+   AGGREGATE HELPERS
 ═══════════════════════════════════════════════════════════ */
 function getISOWeek(dateStr) {
     const d = new Date(dateStr + 'T00:00:00Z');
@@ -850,7 +882,16 @@ function mapCapPrice(country, source) {
     return sumGen > 0 ? sumRev / sumGen : null;
 }
 
-/* Negative / non-positive hours for one country in the map window */
+/* Curtailment rate: (gen_pre - gen_post) / gen_pre */
+function mapCurtailmentPct(country, source) {
+    const h = filterForMap(computeHourly(country, source));
+    let sumGen = 0, sumGenPost = 0;
+    h.forEach(r => { sumGen += r.gen; sumGenPost += r.genPost; });
+    if (sumGen <= 0) return null;
+    return ((sumGen - sumGenPost) / sumGen) * 100;
+}
+
+/* Negative / zero hours for one country in the map window */
 function mapNegHours(country) {
     const prices = rawPrice[country] || [];
     let total = 0;
@@ -860,8 +901,9 @@ function mapNegHours(country) {
         if (yr !== state.mapYear) return;
         if (state.mapFreq === 'quarterly' && Math.ceil(mo/3) !== state.mapQ)  return;
         if (state.mapFreq === 'monthly'   && mo !== state.mapMonth)            return;
-        if (state.negThresh === 'negative' && h.value < 0)  total++;
-        if (state.negThresh === 'zero'     && h.value <= 0) total++;
+        /* FIX 2: 'zero_only' counts only hours where price === 0 */
+        if (state.negThresh === 'negative'  && h.value < 0)   total++;
+        if (state.negThresh === 'zero_only' && h.value === 0)  total++;
     });
     return total;
 }
@@ -892,6 +934,11 @@ function allNegValues()  {
     COUNTRIES.forEach(c => { r[c.code] = mapNegHours(c.code); });
     return r;
 }
+function allCurtValues() {
+    const r = {};
+    COUNTRIES.forEach(c => { r[c.code] = mapCurtailmentPct(c.code, state.capSource); });
+    return r;
+}
 
 /* ═══════════════════════════════════════════════════════════
    COLOR SCALE
@@ -906,25 +953,23 @@ function colorRamp(t, palette) {
     return palette[lo].map((v, i) => Math.round(v + (palette[hi][i] - v) * s));
 }
 
-/* Solar capture price: white → orange → dark red */
 const CAP_PALETTE_SOLAR = [
-    [245, 245, 245],   // near white
-    [252, 141,  89],   // orange
-    [215,  48,  31]    // dark red
+    [245, 245, 245],
+    [252, 141,  89],
+    [215,  48,  31]
 ];
 
-/* Wind capture price: white → sky blue → dark navy */
 const CAP_PALETTE_WIND = [
-    [245, 245, 245],   // near white
-    [ 99, 172, 229],   // sky blue
-    [ 10,  74, 158]    // dark navy blue
+    [245, 245, 245],
+    [ 99, 172, 229],
+    [ 10,  74, 158]
 ];
 
-/* Negative hours: same as solar — white → orange → dark red */
+/* FIX 3: Red palette for negative hours (matching cap map) */
 const NEG_PALETTE = [
-    [245, 245, 245],   // near white
-    [252, 141,  89],   // orange
-    [215,  48,  31]    // dark red
+    [245, 245, 245],
+    [252, 141,  89],
+    [215,  48,  31]
 ];
 
 function toHex(rgb) {
@@ -937,20 +982,18 @@ function getColor(value, min, max, palette) {
     return toHex(colorRamp(Math.max(0, Math.min(1, t)), palette));
 }
 
-/* Stats helper */
 function statsOf(vals) {
     const arr = vals.filter(v => v !== null && v !== undefined);
     if (!arr.length) return { min: 0, max: 0, avg: 0, count: 0 };
     const min = Math.min(...arr), max = Math.max(...arr);
     return { min, max, avg: arr.reduce((a, b) => a + b, 0) / arr.length, count: arr.length };
 }
-    
-
 
 /* ═══════════════════════════════════════════════════════════
    LEAFLET MAPS
 ═══════════════════════════════════════════════════════════ */
 let capMap, negMap, capLayer, negLayer;
+let capLabelMarkers = [], negLabelMarkers = [];
 
 function initMaps() {
     const tileUrl = 'https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png';
@@ -964,10 +1007,37 @@ function initMaps() {
     L.tileLayer(tileUrl, tileOpt).addTo(negMap);
 }
 
+/* ── Add country code + curtailment % labels ── */
+function addCountryLabels(map, curtVals, existingMarkers) {
+    // Remove old label markers
+    existingMarkers.forEach(m => map.removeLayer(m));
+    existingMarkers.length = 0;
+
+    COUNTRIES.forEach(c => {
+        const latlng = COUNTRY_LABEL_LATLNG[c.code];
+        if (!latlng) return;
+        const pct = curtVals[c.code];
+        const pctStr = pct !== null && pct !== undefined ? Math.round(pct) + '%' : '';
+
+        const icon = L.divIcon({
+            className: 'country-map-label',
+            html: `<div class="country-map-label-inner">
+                <span class="lbl-code">${c.code}</span>
+                ${pctStr ? `<span class="lbl-pct">${pctStr}</span>` : ''}
+            </div>`,
+            iconAnchor: [20, 16]
+        });
+
+        const marker = L.marker(latlng, { icon, interactive: false }).addTo(map);
+        existingMarkers.push(marker);
+    });
+}
+
 /* ── Render Capture Price Map ── */
 function renderCapMap() {
     if (!geoData) return;
     const vals  = allCapValues();
+    const curtVals = allCurtValues();
     const vArr  = Object.values(vals).filter(v => v !== null);
     const stats = statsOf(vArr);
     const minV  = stats.min, maxV = stats.max;
@@ -981,7 +1051,7 @@ function renderCapMap() {
             const code = GEO_NAME_TO_CODE[feat.properties.NAME] ?? null;
             const val  = code ? vals[code] : null;
             return {
-                fillColor   : getColor(val, minV, maxV, palette),   
+                fillColor   : getColor(val, minV, maxV, palette),
                 fillOpacity : (code && val !== null) ? 0.82 : 0.12,
                 color       : '#aaa',
                 weight      : 0.8,
@@ -993,8 +1063,9 @@ function renderCapMap() {
             if (!code || vals[code] === null) return;
             const val  = vals[code];
             const base = mapBaseload(code);
+            const curt = curtVals[code];
             const cobj = COUNTRIES.find(c => c.code === code);
-    
+
             layer.on({
                 mouseover: e => {
                     e.target.setStyle({ weight:2, color:'#2c3e50', fillOpacity:0.95 });
@@ -1012,6 +1083,10 @@ function renderCapMap() {
                             <span class="popup-val">${base !== null ? base.toFixed(2)+' €/MWh' : 'N/A'}</span>
                         </div>
                         <div class="popup-row">
+                            <span>Curtailed Production</span>
+                            <span class="popup-val">${curt !== null ? curt.toFixed(1)+'%' : 'N/A'}</span>
+                        </div>
+                        <div class="popup-row">
                             <span>Source</span>
                             <span class="popup-val">${state.capSource === 'solar' ? '☀ Solar' : '💨 Wind'}</span>
                         </div>
@@ -1025,24 +1100,21 @@ function renderCapMap() {
 
     // Legend
     const capGrad = state.capSource === 'solar'
-    ? 'linear-gradient(to right, #f5f5f5, #fc8d59, #d7301f)'   // 橙红
-    : 'linear-gradient(to right, #f5f5f5, #63ace5, #0a4a9e)';  // 蓝色
+        ? 'linear-gradient(to right, #f5f5f5, #fc8d59, #d7301f)'
+        : 'linear-gradient(to right, #f5f5f5, #63ace5, #0a4a9e)';
     document.getElementById('capLegendGrad').style.background = capGrad;
+    document.getElementById('capLegendMin').textContent = minV.toFixed(0) + '€';
+    document.getElementById('capLegendMax').textContent = maxV.toFixed(0) + '€';
 
-
-    // Stats chips
-    renderStats('capStatsRow', [
-        { val: minV.toFixed(1)+'€', lbl:'Min' },
-        { val: stats.avg.toFixed(1)+'€', lbl:'Avg' },
-        { val: maxV.toFixed(1)+'€', lbl:'Max' },
-        { val: stats.count, lbl:'Countries' }
-    ]);
+    // Add country labels with curtailment %
+    addCountryLabels(capMap, curtVals, capLabelMarkers);
 }
 
 /* ── Render Negative Hours Map ── */
 function renderNegMap() {
     if (!geoData) return;
     const vals  = allNegValues();
+    const curtVals = allCurtValues();
     const vArr  = Object.values(vals);
     const stats = statsOf(vArr);
     const minV  = 0, maxV = stats.max || 1;
@@ -1066,8 +1138,9 @@ function renderNegMap() {
             if (code === null) return;
             const val  = vals[code] ?? 0;
             const pct  = stats.max > 0 ? (val / stats.max * 100).toFixed(1) : '0.0';
+            const curt = curtVals[code];
             const cobj = COUNTRIES.find(c => c.code === code);
-            const threshLbl = state.negThresh === 'negative' ? 'Price < 0' : 'Price ≤ 0';
+            const threshLbl = state.negThresh === 'negative' ? 'Price < 0' : 'Price = 0';
 
             layer.on({
                 mouseover: e => {
@@ -1085,6 +1158,10 @@ function renderNegMap() {
                             <span>% of max</span>
                             <span class="popup-val">${pct}%</span>
                         </div>
+                        <div class="popup-row">
+                            <span>Curtailed Production</span>
+                            <span class="popup-val">${curt !== null ? curt.toFixed(1)+'%' : 'N/A'}</span>
+                        </div>
                      `)
                      .openOn(negMap);
                 },
@@ -1093,28 +1170,17 @@ function renderNegMap() {
         }
     }).addTo(negMap);
 
-    // Legend
-    const threshLbl = state.negThresh === 'negative' ? 'Price < 0' : 'Price ≤ 0';
+    // FIX 3: Red gradient for legend
+    document.getElementById('negLegendGrad').style.background =
+        'linear-gradient(to right, #f5f5f5, #fc8d59, #d7301f)';
+
+    const threshLbl = state.negThresh === 'negative' ? 'Price < 0' : 'Price = 0';
     document.getElementById('negLegendTitle').textContent = `${threshLbl} – Cumulative Hours`;
     document.getElementById('negLegendMin').textContent   = '0 h';
     document.getElementById('negLegendMax').textContent   = maxV + ' h';
 
-    // Stats chips
-    renderStats('negStatsRow', [
-        { val:'0 h',                    lbl:'Min' },
-        { val:stats.avg.toFixed(0)+' h', lbl:'Avg' },
-        { val:maxV+' h',                lbl:'Max' },
-        { val:stats.count,              lbl:'Countries' }
-    ]);
-}
-
-function renderStats(id, chips) {
-    document.getElementById(id).innerHTML = chips.map(ch => `
-        <div class="stat-chip">
-            <div class="stat-val">${ch.val}</div>
-            <div class="stat-lbl">${ch.lbl}</div>
-        </div>
-    `).join('');
+    // Add country labels with curtailment %
+    addCountryLabels(negMap, curtVals, negLabelMarkers);
 }
 
 function renderBothMaps() {
@@ -1138,7 +1204,7 @@ function updateMapTitles() {
 }
 
 /* ═══════════════════════════════════════════════════════════
-             Chart 1 & 2,
+             Chart 1 & 2
 ═══════════════════════════════════════════════════════════ */
 let ec1, ec2d, ec2w, ec2m, ec2q, ec2y;
 
@@ -1511,7 +1577,6 @@ async function main() {
         negMap.invalidateSize();
     }, 150);
 }
-    
 
 main();
 </script>

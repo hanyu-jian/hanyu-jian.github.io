@@ -423,7 +423,7 @@
 const projectData = {
     Hungary: [
         {
-            name: '匈牙利 VICTOR 光伏电站',
+            name: 'VICTOR 光伏项目',
             shortName: 'VICTOR',
             capacity: 132,
             type: 'Solar',
@@ -439,7 +439,7 @@ const projectData = {
             coord: [19.04, 47.50]
         },
         {
-            name: '匈牙利 TOKAJ 光伏电站',
+            name: 'TOKAJ 光伏项目',
             shortName: 'TOKAJ',
             capacity: 197,
             type: 'Solar',
@@ -457,7 +457,7 @@ const projectData = {
     ],
     Romania: [
         {
-            name: '罗马尼亚 Prime 光伏项目 (CfD)',
+            name: 'Prime 光伏项目（CfD）',
             shortName: 'Prime (CfD)',
             capacity: 64,
             type: 'Solar',
@@ -473,7 +473,7 @@ const projectData = {
             coord: [24.0, 45.5]
         },
         {
-            name: '罗马尼亚 Prime 光伏项目 (现货)',
+            name: 'Prime 光伏项目（现货）',
             shortName: 'Prime (现货)',
             capacity: 64,
             type: 'Solar',
@@ -509,55 +509,87 @@ const projectData = {
     ],
     Turkey: [
         {
-            name: 'Turkey Gas Project',
-            shortName: 'xxx',
+            name: '胡努特鲁火电站',
+            shortName: '胡努特鲁',
             capacity: 1320,
             type: 'Gas',
             status: 'Operating',
-            cod: '—',
+            cod: '2022/6',
             lifetime: 30,
             ppaYears: null,
-            currency: '—',
-            marketMode: '—',
+            currency: '里拉',
+            marketMode: '现货市场交易',
+            marketModeKey: 'spot',
+            ppa: '无中长期购电协议',
+            spot: '参与日前、日内或平衡市场交易，土耳其无负电价',
+            coord: [36.8, 35.9]
+        },
+        {
+            name: '胡努特鲁火电厂自发自用光伏电站',
+            shortName: '胡努特鲁',
+            capacity: 46,
+            type: 'Solar',
+            status: 'Operating',
+            cod: '2023/11',
+            lifetime: 25,
+            ppaYears: null,
+            currency: '里拉',
+            marketMode: '现货市场交易',
+            marketModeKey: 'spot',
+            ppa: '无中长期购电协议；由公司属地化营销团队直接参与市场报价申报',
+            spot: '参与日前、日内或平衡市场交易，土耳其无负电价',
+            coord: [36.8, 35.9]
+       },
+        {
+            name: '里克索斯酒店光伏项目',
+            shortName: '里克索斯',
+            capacity: 65.8,
+            type: 'Solar',
+            status: 'Operating',
+            cod: '2025/1',
+            lifetime: 7,
+            ppaYears: 7,
+            currency: '美元',
+            marketMode: '全额固定电价',
             marketModeKey: 'fixed',
-            ppa: '—',
-            spot: '—',
-            coord: [32.8, 39.9]
-        }
+            ppa: '7年，11美分/度，全额固定美元电价结算；由公司属地化营销团队直接参与市场电量申报',
+            spot: '不涉及',
+            coord: [41.0, 35.9]
+       }
     ],
     Malta: [
         {
-            name: 'Malta Fossil Project',
-            shortName: 'xxx',
-            capacity: 152,
-            type: 'Fossil',
+            name: '马耳他燃气电厂',
+            shortName: 'Malta Project',
+            capacity: 152.76,
+            type: 'Gas',
             status: 'Operating',
-            cod: '—',
-            lifetime: 30,
-            ppaYears: null,
-            currency: '—',
-            marketMode: '—',
+            cod: '2017/8/27',
+            lifetime: 18,
+            ppaYears: 18,
+            currency: '欧元',
+            marketMode: '两部制电价',
             marketModeKey: 'fixed',
-            ppa: '—',
-            spot: '—',
+            ppa: '18年购售电协议，两部制电价；接受当地电网强制调度',
+            spot: '暂无现货市场',
             coord: [14.4, 35.9]
         }
     ],
     Montenegro: [
         {
-            name: 'Mozura Wind Farm',
+            name: '黑山莫祖拉风电',
             shortName: 'Mozura',
-            capacity: 48,
+            capacity: 46,
             type: 'Wind',
             status: 'Operating',
-            cod: '—',
-            lifetime: 30,
-            ppaYears: null,
-            currency: '—',
-            marketMode: '—',
+            cod: '2019/12/30',
+            lifetime: 17,
+            ppaYears: 12,
+            currency: '欧元',
+            marketMode: '全额固定电价',
             marketModeKey: 'fixed',
-            ppa: '—',
-            spot: '—',
+            ppa: '12年长期固定补贴电价，全额发电量电价0.096欧元/kwh；接受当地电网强制调度',
+            spot: '暂无现货市场',
             coord: [19.3, 42.4]
         }
     ]

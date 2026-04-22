@@ -292,7 +292,6 @@
         .currency-tag {
             display: inline-block; padding: 1px 7px; border-radius: 4px;
             background: #e8f0fb; color: #3461c1; font-size: 11px; font-weight: 700;
-            font-family: 'IBM Plex Mono', monospace;
         }
         .market-mode-tag {
             display: inline-block; padding: 2px 8px; border-radius: 4px;
@@ -914,8 +913,8 @@ function renderProjectCards(projects) {
                 </div>
                 <div class="market-row">
                     <span class="market-label">结算货币 · 电力市场模式</span>
-                    <span class="market-val">
-                        <span class="market-val">${p.currency}</span>
+                    <span class="currency-tag">
+                        <span class="currency-tag">${p.currency}</span>
                         &nbsp;<span class="market-val ${modeCls}">${p.marketMode}</span>
                     </span>
                 </div>

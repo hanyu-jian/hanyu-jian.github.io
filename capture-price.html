@@ -445,7 +445,7 @@
 
     <div id="mainContent" style="display:none;">
 
-        <!-- ══ Top controls: Country selector ══ -->
+        <!-- ══ Top controls: Country selector + Price/Ratio toggle ══ -->
         <div class="controls">
             <div class="control-group">
                 <label>🌍 Country</label>
@@ -458,6 +458,13 @@
                     </div>
                 </div>
             </div>
+            <div class="control-group">
+                <label>📊 Display Mode</label>
+                <div class="btn-group-inline" id="modeGroup">
+                    <button class="active" data-mode="price">Price (€/MWh)</button>
+                    <button               data-mode="ratio">Ratio (%)</button>
+                </div>
+            </div>
         </div>
 
         <div class="chart-grid">
@@ -467,7 +474,7 @@
                 <div class="chart-card-header">
                     <div>
                         <h3 id="card1Title">Capture Prices Overview – HU</h3>
-                        <div class="subtitle">Baseload (bar) · Solar capture price · Wind capture price (post-curtailment)</div>
+                        <div class="subtitle" id="card1Subtitle">Baseload (bar) · Solar capture price · Wind capture price (post-curtailment)</div>
                     </div>
                     <div class="chart-card-controls">
                         <label>Frequency</label>
@@ -604,7 +611,7 @@
                         <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;">
                             <div class="map-panel-title" id="negPanelTitle">Negative Price Hours</div>
                             <div class="map-panel-controls">
-                                <label style="font-size:12px;font-weight:600;color:#2c3e50;"></label>
+                                <label style="font-size:12px;font-weight:600;color:#2c3e50;">Threshold</label>
                                 <div class="btn-group-sm" id="negThreshGroup">
                                     <button class="active" data-thresh="negative">Price &lt; 0</button>
                                     <button               data-thresh="zero_only">Price = 0</button>
@@ -705,7 +712,8 @@ const state = {
     mapQ     : 1,
     mapMonth : 1,
     capSource: 'solar',
-    negThreshSet: new Set(['negative'])  // multi-select: 'negative' and/or 'zero_only'
+    negThreshSet: new Set(['negative']),  // multi-select: 'negative' and/or 'zero_only'
+    displayMode: 'price'  // 'price' | 'ratio'
 };
 
 /* ═══════════════════════════════════════════════════════════
@@ -854,7 +862,16 @@ function aggregateFromHourly(hours, freq) {
                 capPre          : g.sumGen     > 0 ? g.sumRevPre / g.sumGen     : null,
                 negHours        : g.sumNeg,
                 nonPosHours     : g.sumNonPos,
-                nonPosHoursPerDay: numDays > 0 ? g.sumNonPos / numDays : 0
+                nonPosHoursPerDay: numDays > 0 ? g.sumNonPos / numDays : 0,
+                // Capture ratio = capPost / baseload * 100
+                get capRatioPost() {
+                    const bl = this.baseload, cp = this.capPost;
+                    return (bl !== null && bl !== 0 && cp !== null) ? (cp / bl) * 100 : null;
+                },
+                get capRatioPre() {
+                    const bl = this.baseload, cp = this.capPre;
+                    return (bl !== null && bl !== 0 && cp !== null) ? (cp / bl) * 100 : null;
+                }
             };
         });
 }
@@ -930,6 +947,19 @@ function mapBaseload(country) {
 function allCapValues()  {
     const r = {};
     COUNTRIES.forEach(c => { r[c.code] = mapCapPrice(c.code, state.capSource); });
+    return r;
+}
+
+/* Capture ratio (post) = Capture Price (post) / Baseload * 100 */
+function mapCapRatio(country, source) {
+    const cp   = mapCapPrice(country, source);
+    const base = mapBaseload(country);
+    if (cp === null || base === null || base === 0) return null;
+    return (cp / base) * 100;
+}
+function allCapRatioValues() {
+    const r = {};
+    COUNTRIES.forEach(c => { r[c.code] = mapCapRatio(c.code, state.capSource); });
     return r;
 }
 function allNegValues()  {
@@ -1035,10 +1065,12 @@ function addCountryLabels(map, valFn, existingMarkers) {
     });
 }
 
-/* ── Render Capture Price Map ── */
+/* ── Render Capture Price / Ratio Map ── */
 function renderCapMap() {
     if (!geoData) return;
-    const vals  = allCapValues();
+
+    const isRatio = state.displayMode === 'ratio';
+    const vals  = isRatio ? allCapRatioValues() : allCapValues();
     const vArr  = Object.values(vals).filter(v => v !== null);
     const stats = statsOf(vArr);
     const minV  = stats.min, maxV = stats.max;
@@ -1064,6 +1096,7 @@ function renderCapMap() {
             if (!code || vals[code] === null) return;
             const val  = vals[code];
             const base = mapBaseload(code);
+            const cp   = mapCapPrice(code, state.capSource);
             const cobj = COUNTRIES.find(c => c.code === code);
 
             layer.on({
@@ -1074,10 +1107,21 @@ function renderCapMap() {
                      .setLatLng(e.latlng)
                      .setContent(`
                         <div class="popup-title">${cobj?.name ?? feat.properties.NAME} (${code})</div>
+                        ${isRatio ? `
+                        <div class="popup-row">
+                            <span>Capture Ratio (post)</span>
+                            <span class="popup-val">${val.toFixed(1)}%</span>
+                        </div>
+                        <div class="popup-row">
+                            <span>Capture Price (post)</span>
+                            <span class="popup-val">${cp !== null ? cp.toFixed(2)+' €/MWh' : 'N/A'}</span>
+                        </div>
+                        ` : `
                         <div class="popup-row">
                             <span>Capture Price (post)</span>
                             <span class="popup-val">${val.toFixed(2)} €/MWh</span>
                         </div>
+                        `}
                         <div class="popup-row">
                             <span>Baseload avg</span>
                             <span class="popup-val">${base !== null ? base.toFixed(2)+' €/MWh' : 'N/A'}</span>
@@ -1099,13 +1143,22 @@ function renderCapMap() {
         ? 'linear-gradient(to right, #f5f5f5, #fc8d59, #d7301f)'
         : 'linear-gradient(to right, #f5f5f5, #63ace5, #0a4a9e)';
     document.getElementById('capLegendGrad').style.background = capGrad;
-    document.getElementById('capLegendMin').textContent = minV.toFixed(0) + '€';
-    document.getElementById('capLegendMax').textContent = maxV.toFixed(0) + '€';
+    const srcLabel = state.capSource === 'solar' ? 'Solar' : 'Wind';
+    if (isRatio) {
+        document.getElementById('capLegendTitle').textContent = `${srcLabel} Capture Ratio – %`;
+        document.getElementById('capLegendMin').textContent = minV.toFixed(0) + '%';
+        document.getElementById('capLegendMax').textContent = maxV.toFixed(0) + '%';
+    } else {
+        document.getElementById('capLegendTitle').textContent = `${srcLabel} Capture Price – €/MWh`;
+        document.getElementById('capLegendMin').textContent = minV.toFixed(0) + '€';
+        document.getElementById('capLegendMax').textContent = maxV.toFixed(0) + '€';
+    }
 
-    // Labels: country code + capture price value
+    // Labels: country code + value
     addCountryLabels(capMap, code => {
         const v = vals[code];
-        return v !== null && v !== undefined ? v.toFixed(0) : '';
+        if (v === null || v === undefined) return '';
+        return isRatio ? v.toFixed(0) + '%' : v.toFixed(0) + '€';
     }, capLabelMarkers);
 }
 
@@ -1179,7 +1232,7 @@ function renderNegMap() {
     // Labels: country code + hours count
     addCountryLabels(negMap, code => {
         const v = vals[code];
-        return (v !== null && v !== undefined) ? v : '';
+        return (v !== null && v !== undefined) ? v + ' h' : '';
     }, negLabelMarkers);
 }
 
@@ -1199,7 +1252,9 @@ function getPeriodLabel() {
 function updateMapTitles() {
     const period = getPeriodLabel();
     const src    = state.capSource === 'solar' ? 'Solar' : 'Wind';
-    document.getElementById('capPanelTitle').textContent = `${src} Capture Price – ${period}`;
+    const isRatio = state.displayMode === 'ratio';
+    document.getElementById('capPanelTitle').textContent =
+        isRatio ? `${src} Capture Ratio – ${period}` : `${src} Capture Price – ${period}`;
     document.getElementById('negPanelTitle').textContent = `Negative Price Hours – ${period}`;
 }
 
@@ -1248,14 +1303,69 @@ const axisStyle = {
 /* ── Chart 1 ── */
 function renderChart1() {
     const freq = state.freq1, c = state.country;
+    const isRatio = state.displayMode === 'ratio';
     const aggS = aggregateFromHourly(computeHourly(c,'solar'), freq);
     const aggW = aggregateFromHourly(computeHourly(c,'wind'),  freq);
     const sMap = Object.fromEntries(aggS.map(d=>[d.date,d]));
     const wMap = Object.fromEntries(aggW.map(d=>[d.date,d]));
     const dates = [...new Set([...aggS.map(d=>d.date),...aggW.map(d=>d.date)])].sort();
 
+    const sPostKey = isRatio ? 'capRatioPost' : 'capPost';
+    const wPostKey = isRatio ? 'capRatioPost' : 'capPost';
+    const sLabel   = isRatio ? 'Solar CR (post)' : 'Solar CP (post)';
+    const wLabel   = isRatio ? 'Wind CR (post)'  : 'Wind CP (post)';
+
+    const yAxes = isRatio ? [
+        { type:'value', name:'€/MWh', nameTextStyle:{color:'#6c757d',fontSize:11}, ...axisStyle },
+        { type:'value', name:'%', nameTextStyle:{color:'#6c757d',fontSize:11}, position:'right',
+          axisLine:{lineStyle:{color:'#ccc'}}, axisLabel:{color:'#6c757d',fontSize:11,formatter:v=>v+'%'},
+          splitLine:{show:false} }
+    ] : [
+        { type:'value', name:'€/MWh', nameTextStyle:{color:'#6c757d',fontSize:11}, ...axisStyle }
+    ];
+
+    const series = isRatio ? [
+        { name:'Baseload', type:'bar', data:dates.map(d=>sMap[d]?.baseload??wMap[d]?.baseload??null),
+          barMaxWidth:12, itemStyle:{color:COLORS.baseload,borderWidth:0}, z:1,
+          yAxisIndex:0 },
+        { name:sLabel, type:'line', symbol:'none', smooth:false,
+          data:dates.map(d=>sMap[d]?.[sPostKey]??null),
+          lineStyle:{color:COLORS.solar,width:2}, itemStyle:{color:COLORS.solar}, z:3,
+          yAxisIndex:1 },
+        { name:wLabel, type:'line', symbol:'none', smooth:false,
+          data:dates.map(d=>wMap[d]?.[wPostKey]??null),
+          lineStyle:{color:COLORS.wind,width:2}, itemStyle:{color:COLORS.wind}, z:3,
+          yAxisIndex:1 }
+    ] : [
+        { name:'Baseload', type:'bar', data:dates.map(d=>sMap[d]?.baseload??wMap[d]?.baseload??null),
+          barMaxWidth:12, itemStyle:{color:COLORS.baseload,borderWidth:0}, z:1 },
+        { name:sLabel, type:'line', symbol:'none', smooth:false,
+          data:dates.map(d=>sMap[d]?.[sPostKey]??null),
+          lineStyle:{color:COLORS.solar,width:2}, itemStyle:{color:COLORS.solar}, z:3 },
+        { name:wLabel, type:'line', symbol:'none', smooth:false,
+          data:dates.map(d=>wMap[d]?.[wPostKey]??null),
+          lineStyle:{color:COLORS.wind,width:2}, itemStyle:{color:COLORS.wind}, z:3 }
+    ];
+
     ec1.setOption({
-        tooltip: { trigger:'axis', axisPointer:{type:'cross',lineStyle:{color:'#bbb'}}, formatter:tooltipFmt },
+        tooltip: { trigger:'axis', axisPointer:{type:'cross',lineStyle:{color:'#bbb'}},
+            formatter: params => {
+                let html = `<div style="font-weight:600;margin-bottom:5px;color:#2c3e50">${params[0]?.axisValue}</div>`;
+                params.forEach(p => {
+                    if (p.value == null) return;
+                    const isBar  = p.seriesName === 'Baseload';
+                    const isRat  = isRatio && !isBar;
+                    const unit   = isRat ? '%' : '€/MWh';
+                    const dec    = isRat ? 1 : 2;
+                    html += `<div style="display:flex;align-items:center;gap:8px;margin:2px 0;font-size:12px">
+                        <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${p.color}"></span>
+                        <span style="flex:1;color:#555">${p.seriesName}</span>
+                        <span style="font-weight:600;color:#2c3e50">${Number(p.value).toFixed(dec)} ${unit}</span>
+                    </div>`;
+                });
+                return html;
+            }
+        },
         legend: { top:4, right:8, type:'scroll', textStyle:{color:'#2c3e50',fontSize:12}, itemWidth:14 },
         dataZoom: [
             { type:'slider', xAxisIndex:0, bottom:10, height:22,
@@ -1263,27 +1373,18 @@ function renderChart1() {
               handleStyle:{color:'#2c3e50'}, textStyle:{color:'#6c757d',fontSize:10}, brushSelect:false },
             { type:'inside', xAxisIndex:0, zoomOnMouseWheel:true, moveOnMouseMove:true }
         ],
-        grid: { left:60, right:20, top:36, bottom:70 },
+        grid: { left:60, right: isRatio ? 50 : 20, top:36, bottom:70 },
         xAxis: { type:'category', data:dates, ...axisStyle,
                  axisLabel:{...axisStyle.axisLabel, rotate:dates.length>60?30:0, interval:'auto'} },
-        yAxis: { type:'value', name:'€/MWh', nameTextStyle:{color:'#6c757d',fontSize:11}, ...axisStyle },
-        series: [
-            { name:'Baseload', type:'bar', data:dates.map(d=>sMap[d]?.baseload??wMap[d]?.baseload??null),
-              barMaxWidth:12, itemStyle:{color:COLORS.baseload,borderWidth:0}, z:1 },
-            { name:'Solar CP (post)', type:'line', symbol:'none', smooth:false,
-              data:dates.map(d=>sMap[d]?.capPost??null),
-              lineStyle:{color:COLORS.solar,width:2}, itemStyle:{color:COLORS.solar}, z:3 },
-            { name:'Wind CP (post)', type:'line', symbol:'none', smooth:false,
-              data:dates.map(d=>wMap[d]?.capPost??null),
-              lineStyle:{color:COLORS.wind,width:2}, itemStyle:{color:COLORS.wind}, z:3 }
-        ]
+        yAxis: yAxes,
+        series
     }, true);
 }
 
 /* ── Chart 2 shared builder ── */
 function buildChart2Option({ xData, baseVals, postVals, preVals, barVals, lineColor, preColor,
     showDots=false, barMaxWidth=16, topGridBottom='42%', botGridTop='62%',
-    xRotate=0, xFontSize=11, barYMax=null, barYInterval=null }) {
+    xRotate=0, xFontSize=11, barYMax=null, barYInterval=null, isRatio=false }) {
 
     const sym = showDots ? 'circle' : 'none';
     const symSize = showDots ? 6 : 4;
@@ -1294,15 +1395,53 @@ function buildChart2Option({ xData, baseVals, postVals, preVals, barVals, lineCo
     if (barYMax      !== null) { yAxisBar.min=0; yAxisBar.max=barYMax; }
     if (barYInterval !== null) { yAxisBar.interval=barYInterval; }
 
+    const postLabel = isRatio ? 'Capture Ratio (post)' : 'Capture Price (post)';
+    const preLabel  = isRatio ? 'Capture Ratio (pre)'  : 'Capture Price (pre)';
+
+    // In ratio mode: left Y-axis = €/MWh (baseload only), right Y-axis = % (ratio lines)
+    const yAxesTop = isRatio ? [
+        { type:'value', name:'€/MWh', gridIndex:0,
+          nameTextStyle:{color:'#6c757d',fontSize:11}, ...axisStyle },
+        { type:'value', name:'%', gridIndex:0, position:'right',
+          nameTextStyle:{color:'#6c757d',fontSize:11},
+          axisLine:{lineStyle:{color:'#ccc'}},
+          axisLabel:{color:'#6c757d',fontSize:10,formatter:v=>v+'%'},
+          splitLine:{show:false} }
+    ] : [
+        { type:'value', name:'€/MWh', gridIndex:0,
+          nameTextStyle:{color:'#6c757d',fontSize:11}, ...axisStyle }
+    ];
+    const yAxesBot = [yAxisBar];
+    // yAxisIndex mapping: price mode: 0=price, 1=bar; ratio mode: 0=price(baseload), 1=ratio, 2=bar
+    const ratioYIdx = isRatio ? 1 : 0;
+    const barYIdx   = isRatio ? 2 : 1;
+
     return {
-        tooltip: { trigger:'axis', axisPointer:{type:'cross',lineStyle:{color:'#bbb'}}, formatter:tooltipFmt },
+        tooltip: { trigger:'axis', axisPointer:{type:'cross',lineStyle:{color:'#bbb'}},
+            formatter: params => {
+                let html = `<div style="font-weight:600;margin-bottom:5px;color:#2c3e50">${params[0]?.axisValue}</div>`;
+                params.forEach(p => {
+                    if (p.value == null) return;
+                    const isH   = p.seriesName.includes('Hours');
+                    const isRat = isRatio && (p.seriesName.includes('Ratio'));
+                    const unit  = isH ? 'h' : isRat ? '%' : '€/MWh';
+                    const dec   = isH ? 0 : isRat ? 1 : 2;
+                    html += `<div style="display:flex;align-items:center;gap:8px;margin:2px 0;font-size:12px">
+                        <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${p.color}"></span>
+                        <span style="flex:1;color:#555">${p.seriesName}</span>
+                        <span style="font-weight:600;color:#2c3e50">${Number(p.value).toFixed(dec)} ${unit}</span>
+                    </div>`;
+                });
+                return html;
+            }
+        },
         legend: { top:2, right:8, type:'scroll',
                   textStyle:{color:'#2c3e50',fontSize:11}, itemWidth:12,
-                  data:['Baseload','Capture Price (post)','Capture Price (pre)','Non-positive Hours'] },
+                  data:['Baseload', postLabel, preLabel, 'Non-positive Hours'] },
         axisPointer: { link:[{xAxisIndex:'all'}] },
         grid: [
-            { left:60, right:16, top:32, bottom:topGridBottom },
-            { left:60, right:16, top:botGridTop, bottom:36 }
+            { left:60, right: isRatio ? 50 : 16, top:32, bottom:topGridBottom },
+            { left:60, right: isRatio ? 50 : 16, top:botGridTop, bottom:36 }
         ],
         xAxis: [
             { type:'category', data:xData, gridIndex:0,
@@ -1311,31 +1450,32 @@ function buildChart2Option({ xData, baseVals, postVals, preVals, barVals, lineCo
               axisLabel:{color:'#6c757d',fontSize:xFontSize,rotate:xRotate,interval:'auto'},
               axisLine:{lineStyle:{color:'#ccc'}}, splitLine:{show:false} }
         ],
-        yAxis: [
-            { type:'value', name:'€/MWh', gridIndex:0,
-              nameTextStyle:{color:'#6c757d',fontSize:11}, ...axisStyle },
-            yAxisBar
-        ],
+        yAxis: [...yAxesTop, ...yAxesBot],
         series: [
             { name:'Baseload', type:'line', symbol:sym, symbolSize:symSize, data:baseVals, smooth:false,
-              lineStyle:{color:COLORS.baseload,width:2}, itemStyle:{color:COLORS.baseload}, xAxisIndex:0, yAxisIndex:0 },
-            { name:'Capture Price (post)', type:'line', symbol:sym, symbolSize:symSize, data:postVals, smooth:false,
-              lineStyle:{color:lineColor,width:2}, itemStyle:{color:lineColor}, xAxisIndex:0, yAxisIndex:0 },
-            { name:'Capture Price (pre)', type:'line', symbol:sym, symbolSize:symSize, data:preVals, smooth:false,
-              lineStyle:{color:preColor,width:1.5,type:'dashed'}, itemStyle:{color:preColor}, xAxisIndex:0, yAxisIndex:0 },
+              lineStyle:{color:COLORS.baseload,width:2}, itemStyle:{color:COLORS.baseload},
+              xAxisIndex:0, yAxisIndex:0 },
+            { name:postLabel, type:'line', symbol:sym, symbolSize:symSize, data:postVals, smooth:false,
+              lineStyle:{color:lineColor,width:2}, itemStyle:{color:lineColor},
+              xAxisIndex:0, yAxisIndex:ratioYIdx },
+            { name:preLabel, type:'line', symbol:sym, symbolSize:symSize, data:preVals, smooth:false,
+              lineStyle:{color:preColor,width:1.5,type:'dashed'}, itemStyle:{color:preColor},
+              xAxisIndex:0, yAxisIndex:ratioYIdx },
             { name:'Non-positive Hours', type:'bar', data:barVals, barMaxWidth,
-              itemStyle:{color:COLORS.bar,opacity:0.8}, xAxisIndex:1, yAxisIndex:1 }
+              itemStyle:{color:COLORS.bar,opacity:0.8}, xAxisIndex:1, yAxisIndex:barYIdx }
         ]
     };
 }
 
 function toArrays(agg) {
+    const isRatio = state.displayMode === 'ratio';
     return {
         xData    : agg.map(d=>d.date),
         baseVals : agg.map(d=>d.baseload),
-        postVals : agg.map(d=>d.capPost),
-        preVals  : agg.map(d=>d.capPre),
-        barVals  : agg.map(d=>d.nonPosHours)
+        postVals : isRatio ? agg.map(d=>d.capRatioPost) : agg.map(d=>d.capPost),
+        preVals  : isRatio ? agg.map(d=>d.capRatioPre)  : agg.map(d=>d.capPre),
+        barVals  : agg.map(d=>d.nonPosHours),
+        isRatio
     };
 }
 function getFullHourly(src) { return computeHourly(state.country, src); }
@@ -1349,50 +1489,50 @@ function sourceColors() {
 
 function renderChart2Daily() {
     const {lineColor,preColor} = sourceColors();
-    const {xData,baseVals,postVals,preVals,barVals} =
+    const {xData,baseVals,postVals,preVals,barVals,isRatio} =
         toArrays(aggregateFromHourly(getYearHourly(state.source2),'daily'));
     ec2d.setOption(buildChart2Option({
-        xData,baseVals,postVals,preVals,barVals,lineColor,preColor,
+        xData,baseVals,postVals,preVals,barVals,lineColor,preColor,isRatio,
         showDots:false,barMaxWidth:10,topGridBottom:'42%',botGridTop:'62%',
         xRotate:xData.length>60?30:0,xFontSize:10,barYMax:24,barYInterval:6
     }),true);
 }
 function renderChart2Weekly() {
     const {lineColor,preColor} = sourceColors();
-    const {xData,baseVals,postVals,preVals,barVals} =
+    const {xData,baseVals,postVals,preVals,barVals,isRatio} =
         toArrays(aggregateFromHourly(getFullHourly(state.source2),'weekly'));
     ec2w.setOption(buildChart2Option({
-        xData,baseVals,postVals,preVals,barVals,lineColor,preColor,
+        xData,baseVals,postVals,preVals,barVals,lineColor,preColor,isRatio,
         showDots:false,barMaxWidth:10,topGridBottom:'42%',botGridTop:'62%',
         xRotate:30,xFontSize:9
     }),true);
 }
 function renderChart2Monthly() {
     const {lineColor,preColor} = sourceColors();
-    const {xData,baseVals,postVals,preVals,barVals} =
+    const {xData,baseVals,postVals,preVals,barVals,isRatio} =
         toArrays(aggregateFromHourly(getFullHourly(state.source2),'monthly'));
     ec2m.setOption(buildChart2Option({
-        xData,baseVals,postVals,preVals,barVals,lineColor,preColor,
+        xData,baseVals,postVals,preVals,barVals,lineColor,preColor,isRatio,
         showDots:true,barMaxWidth:20,topGridBottom:'42%',botGridTop:'62%',
         xRotate:0,xFontSize:11
     }),true);
 }
 function renderChart2Quarterly() {
     const {lineColor,preColor} = sourceColors();
-    const {xData,baseVals,postVals,preVals,barVals} =
+    const {xData,baseVals,postVals,preVals,barVals,isRatio} =
         toArrays(aggregateFromHourly(getFullHourly(state.source2),'quarterly'));
     ec2q.setOption(buildChart2Option({
-        xData,baseVals,postVals,preVals,barVals,lineColor,preColor,
+        xData,baseVals,postVals,preVals,barVals,lineColor,preColor,isRatio,
         showDots:true,barMaxWidth:32,topGridBottom:'44%',botGridTop:'64%',
         xRotate:0,xFontSize:11
     }),true);
 }
 function renderChart2Yearly() {
     const {lineColor,preColor} = sourceColors();
-    const {xData,baseVals,postVals,preVals,barVals} =
+    const {xData,baseVals,postVals,preVals,barVals,isRatio} =
         toArrays(aggregateFromHourly(getFullHourly(state.source2),'yearly'));
     ec2y.setOption(buildChart2Option({
-        xData,baseVals,postVals,preVals,barVals,lineColor,preColor,
+        xData,baseVals,postVals,preVals,barVals,lineColor,preColor,isRatio,
         showDots:true,barMaxWidth:48,topGridBottom:'44%',botGridTop:'64%',
         xRotate:0,xFontSize:12
     }),true);
@@ -1401,8 +1541,16 @@ function renderChart2Yearly() {
 function updateTitles() {
     const cName = COUNTRIES.find(c=>c.code===state.country)?.name ?? state.country;
     const sName = state.source2==='solar' ? 'Solar' : 'Wind';
-    document.getElementById('card1Title').textContent = `Capture Prices Overview – ${cName}`;
-    document.getElementById('card2Title').textContent = `${sName} Capture Price – ${cName}`;
+    const isRatio = state.displayMode === 'ratio';
+    if (isRatio) {
+        document.getElementById('card1Title').textContent = `Capture Ratio Overview – ${cName}`;
+        document.getElementById('card1Subtitle').textContent = 'Baseload (bar) · Solar capture ratio · Wind capture ratio (post-curtailment)';
+        document.getElementById('card2Title').textContent = `${sName} Capture Ratio – ${cName}`;
+    } else {
+        document.getElementById('card1Title').textContent = `Capture Prices Overview – ${cName}`;
+        document.getElementById('card1Subtitle').textContent = 'Baseload (bar) · Solar capture price · Wind capture price (post-curtailment)';
+        document.getElementById('card2Title').textContent = `${sName} Capture Price – ${cName}`;
+    }
 }
 
 function renderAllChart2() {
@@ -1477,6 +1625,22 @@ function bindSourceToggle() {
 function bindYearSelect() {
     document.getElementById('yearSelect').addEventListener('change', e => {
         state.year2 = e.target.value; renderChart2Daily();
+    });
+}
+
+function bindModeGroup() {
+    document.querySelectorAll('#modeGroup button').forEach(btn => {
+        btn.addEventListener('click', () => {
+            state.displayMode = btn.dataset.mode;
+            document.querySelectorAll('#modeGroup button').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            // Re-render everything that depends on mode
+            updateTitles();
+            renderChart1();
+            renderAllChart2();
+            renderCapMap();
+            updateMapTitles();
+        });
     });
 }
 
@@ -1570,6 +1734,7 @@ async function main() {
     bindFreqGroup1();
     bindSourceToggle();
     bindYearSelect();
+    bindModeGroup();
     populateMapYearSelect();
     bindMapControls();
 

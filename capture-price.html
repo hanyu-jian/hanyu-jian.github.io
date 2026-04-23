@@ -1452,9 +1452,9 @@ function buildChart2Option({ xData, baseVals, postVals, preVals, barVals, lineCo
         ],
         yAxis: [...yAxesTop, ...yAxesBot],
         series: [
-            { name:'Baseload', type:'line', symbol:sym, symbolSize:symSize, data:baseVals, smooth:false,
-              lineStyle:{color:COLORS.baseload,width:2}, itemStyle:{color:COLORS.baseload},
-              xAxisIndex:0, yAxisIndex:0 },
+            { name:'Baseload', type:'bar', data:baseVals, barMaxWidth:barMaxWidth,
+             itemStyle:{color:COLORS.baseload, borderWidth:0},
+             xAxisIndex:0, yAxisIndex:0, z:1 },
             { name:postLabel, type:'line', symbol:sym, symbolSize:symSize, data:postVals, smooth:false,
               lineStyle:{color:lineColor,width:2}, itemStyle:{color:lineColor},
               xAxisIndex:0, yAxisIndex:ratioYIdx },

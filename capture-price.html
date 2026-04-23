@@ -1,7 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <!-- 🔐 Password Protection -->
     <script>
         (function() {
             if (localStorage.getItem('site_access') !== 'granted') {
@@ -32,91 +31,39 @@
             overflow: hidden;
         }
 
-        /* ── Top header ── */
         .header {
             background: #2c3e50;
             color: white;
             padding: 20px 30px 0 30px;
         }
-        .header-top {
-            padding-bottom: 16px;
-        }
-        .header-top h1 {
-            font-size: 24px;
-            font-weight: 500;
-            letter-spacing: 0.2px;
-        }
+        .header-top { padding-bottom: 16px; }
+        .header-top h1 { font-size: 24px; font-weight: 500; letter-spacing: 0.2px; }
 
-        /* ── Main nav (inside header) ── */
-        .main-nav {
-            display: flex;
-            gap: 2px;
-            margin-top: 4px;
-        }
+        .main-nav { display: flex; gap: 2px; margin-top: 4px; }
         .main-nav-link {
-            display: inline-flex;
-            align-items: center;
-            gap: 7px;
-            padding: 10px 24px;
-            font-size: 14px;
-            font-weight: 600;
-            color: rgba(255,255,255,0.65);
-            text-decoration: none;
-            border-radius: 6px 6px 0 0;
-            background: rgba(255,255,255,0.06);
-            border: 1px solid transparent;
-            border-bottom: none;
-            letter-spacing: 0.2px;
-            transition: background 0.2s, color 0.2s, border-color 0.2s;
-            white-space: nowrap;
-            position: relative;
-            top: 1px;
+            display: inline-flex; align-items: center; gap: 7px;
+            padding: 10px 24px; font-size: 14px; font-weight: 600;
+            color: rgba(255,255,255,0.65); text-decoration: none;
+            border-radius: 6px 6px 0 0; background: rgba(255,255,255,0.06);
+            border: 1px solid transparent; border-bottom: none;
+            letter-spacing: 0.2px; transition: background 0.2s, color 0.2s, border-color 0.2s;
+            white-space: nowrap; position: relative; top: 1px;
         }
-        .main-nav-link .nav-icon {
-            font-size: 15px;
-            line-height: 1;
-            opacity: 0.85;
-        }
-        .main-nav-link:hover {
-            color: rgba(255,255,255,0.95);
-            background: rgba(255,255,255,0.14);
-        }
-        .main-nav-link.active {
-            color: #2c3e50;
-            background: #f8f9fa;
-            border-color: #e6e9ed;
-            border-bottom-color: #f8f9fa;
-        }
-        .main-nav-link.active .nav-icon {
-            opacity: 1;
-        }
+        .main-nav-link:hover { color: rgba(255,255,255,0.95); background: rgba(255,255,255,0.14); }
+        .main-nav-link.active { color: #2c3e50; background: #f8f9fa; border-color: #e6e9ed; border-bottom-color: #f8f9fa; }
 
-        /* ── Sub-nav ── */
         .sub-nav {
-            background: #f8f9fa;
-            border-bottom: 2px solid #e6e9ed;
-            padding: 0 30px;
-            display: flex;
+            background: #f8f9fa; border-bottom: 2px solid #e6e9ed;
+            padding: 0 30px; display: flex;
         }
         .sub-nav-link {
-            display: inline-block;
-            padding: 14px 22px;
-            font-size: 14px;
-            font-weight: 600;
-            color: #6c757d;
-            text-decoration: none;
-            border-bottom: 3px solid transparent;
-            margin-bottom: -2px;
-            transition: color 0.2s, border-color 0.2s;
-            white-space: nowrap;
+            display: inline-block; padding: 14px 22px; font-size: 14px; font-weight: 600;
+            color: #6c757d; text-decoration: none; border-bottom: 3px solid transparent;
+            margin-bottom: -2px; transition: color 0.2s, border-color 0.2s; white-space: nowrap;
         }
         .sub-nav-link:hover { color: #2c3e50; }
-        .sub-nav-link.active {
-            color: #2c3e50;
-            border-bottom-color: #2c3e50;
-        }
+        .sub-nav-link.active { color: #2c3e50; border-bottom-color: #2c3e50; }
 
-        /* ── Controls (top bar) ── */
         .controls {
             padding: 20px 30px; display: flex; flex-wrap: wrap;
             gap: 24px; align-items: flex-end;
@@ -125,15 +72,12 @@
         .control-group { display: flex; flex-direction: column; gap: 6px; }
         .control-group label { font-size: 13px; font-weight: 600; color: #2c3e50; white-space: nowrap; }
 
-        /* Country dropdown */
         .country-select-wrapper { position: relative; display: inline-block; }
         .country-select-btn {
             min-width: 180px; height: 36px; padding: 0 12px;
-            border: 1px solid #ccc; border-radius: 6px;
-            font-size: 14px; font-family: inherit;
-            background: white; cursor: pointer;
-            display: flex; align-items: center; justify-content: space-between; gap: 8px;
-            white-space: nowrap;
+            border: 1px solid #ccc; border-radius: 6px; font-size: 14px; font-family: inherit;
+            background: white; cursor: pointer; display: flex; align-items: center;
+            justify-content: space-between; gap: 8px; white-space: nowrap;
         }
         .country-select-btn:hover { border-color: #999; }
         .country-select-btn::after { content: '▼'; font-size: 10px; color: #666; flex-shrink: 0; }
@@ -141,58 +85,38 @@
             position: absolute; top: calc(100% + 4px); left: 0;
             min-width: 300px; max-height: 320px; overflow-y: auto;
             background: white; border: 1px solid #ccc; border-radius: 6px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-            z-index: 9999; display: none; padding: 8px 0;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 9999; display: none; padding: 8px 0;
         }
         .country-dropdown.show { display: block; }
-        .country-list {
-            display: grid; grid-template-columns: repeat(4, 1fr);
-            gap: 2px 0; padding: 0 8px;
-        }
+        .country-list { display: grid; grid-template-columns: repeat(4, 1fr); gap: 2px 0; padding: 0 8px; }
         .country-item {
-            display: flex; align-items: center; gap: 6px;
-            padding: 6px 8px; border-radius: 4px; cursor: pointer;
-            transition: background 0.15s;
+            display: flex; align-items: center; gap: 6px; padding: 6px 8px;
+            border-radius: 4px; cursor: pointer; transition: background 0.15s;
         }
         .country-item:hover { background: #f5f5f5; }
-        .country-item input[type="checkbox"] {
-            width: 14px; height: 14px; margin: 0;
-            flex-shrink: 0; cursor: pointer; accent-color: #2c3e50;
-        }
-        .country-item span {
-            font-size: 13px;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }
+        .country-item input[type="checkbox"] { width: 14px; height: 14px; margin: 0; flex-shrink: 0; cursor: pointer; accent-color: #2c3e50; }
+        .country-item span { font-size: 13px; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+
         .ctrl-select {
-            font-family: inherit;
-            height: 36px; padding: 0 12px;
-            border: 1px solid #ccc; border-radius: 6px;
-            font-size: 14px; cursor: pointer; background: white;
+            font-family: inherit; height: 36px; padding: 0 12px;
+            border: 1px solid #ccc; border-radius: 6px; font-size: 14px; cursor: pointer; background: white;
         }
         .ctrl-select:focus { outline: none; border-color: #2c3e50; }
-        .btn-group-inline {
-            display: flex; border: 1px solid #ccc; border-radius: 6px; overflow: hidden;
-        }
+
+        .btn-group-inline { display: flex; border: 1px solid #ccc; border-radius: 6px; overflow: hidden; }
         .btn-group-inline button {
-            font-family: inherit;
-            height: 36px; padding: 0 14px;
-            background: white; border: none;
-            border-right: 1px solid #ccc;
-            font-size: 13px; font-weight: 500;
+            font-family: inherit; height: 36px; padding: 0 14px; background: white; border: none;
+            border-right: 1px solid #ccc; font-size: 13px; font-weight: 500;
             color: #6c757d; cursor: pointer; transition: all 0.15s;
         }
         .btn-group-inline button:last-child { border-right: none; }
         .btn-group-inline button:hover { background: #f0f2f5; color: #2c3e50; }
         .btn-group-inline button.active { background: #2c3e50; color: white; }
 
-        /* Source toggle */
-        .source-toggle {
-            display: flex; border: 1px solid #ccc; border-radius: 6px; overflow: hidden;
-        }
+        .source-toggle { display: flex; border: 1px solid #ccc; border-radius: 6px; overflow: hidden; }
         .source-btn {
-            font-family: inherit; height: 36px; padding: 0 18px;
-            background: white; border: none; border-right: 1px solid #ccc;
-            font-size: 13px; font-weight: 600; cursor: pointer;
+            font-family: inherit; height: 36px; padding: 0 18px; background: white; border: none;
+            border-right: 1px solid #ccc; font-size: 13px; font-weight: 600; cursor: pointer;
             transition: all 0.15s; display: flex; align-items: center; gap: 5px;
         }
         .source-btn:last-child { border-right: none; }
@@ -200,92 +124,50 @@
         .source-btn.solar.active { background: #fff8e1; color: #e65100; border-color: #e65100; }
         .source-btn.wind.active  { background: #e3f2fd; color: #0277bd; border-color: #0277bd; }
 
-        /* Chart grid */
-        .chart-grid {
-            display: flex; flex-direction: column;
-            gap: 24px; padding: 24px 30px;
-        }
+        .chart-grid { display: flex; flex-direction: column; gap: 24px; padding: 24px 30px; }
         .chart-card {
-            background: #fff; border-radius: 8px;
-            border: 1px solid #e6e9ed; padding: 16px;
+            background: #fff; border-radius: 8px; border: 1px solid #e6e9ed; padding: 16px;
         }
         .chart-card-header {
-            display: flex; align-items: flex-start;
-            justify-content: space-between; flex-wrap: wrap; gap: 10px;
-            margin-bottom: 14px;
+            display: flex; align-items: flex-start; justify-content: space-between;
+            flex-wrap: wrap; gap: 10px; margin-bottom: 14px;
         }
         .chart-card-header h3 {
             font-size: 18px; font-weight: 500; color: #2c3e50;
             border-left: 4px solid #2c3e50; padding-left: 12px; margin: 0;
         }
-        .chart-card-header .subtitle {
-            font-size: 12px; color: #6c757d; padding-left: 16px; margin-top: 3px;
-        }
-        .chart-card-controls {
-            display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
-        }
-        .chart-card-controls label {
-            font-size: 13px; font-weight: 600; color: #2c3e50; white-space: nowrap;
-        }
+        .chart-card-header .subtitle { font-size: 12px; color: #6c757d; padding-left: 16px; margin-top: 3px; }
+        .chart-card-controls { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+        .chart-card-controls label { font-size: 13px; font-weight: 600; color: #2c3e50; white-space: nowrap; }
         .card-divider { border: none; border-top: 1px solid #e6e9ed; margin: 18px 0 16px; }
         .card-section-title {
             font-size: 13px; font-weight: 600; color: #6c757d;
             margin-bottom: 10px; display: flex; align-items: center; gap: 6px;
         }
-        .card-section-title::before {
-            content: ''; display: block; width: 3px; height: 14px;
-            background: #2c3e50; border-radius: 2px;
-        }
+        .card-section-title::before { content: ''; display: block; width: 3px; height: 14px; background: #2c3e50; border-radius: 2px; }
 
-        /* ══════════════════════════════════════
-           CHART 3 – MAP CARD SPECIFIC STYLES
-        ══════════════════════════════════════ */
-
-        /* Map card inner layout */
-        .map-panels {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 20px;
-        }
+        /* Map styles */
+        .map-panels { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
         .map-panel { display: flex; flex-direction: column; gap: 10px; }
-        .map-panel-title {
-            font-size: 13px; font-weight: 600; color: #2c3e50;
-            display: flex; align-items: center; gap: 6px;
-        }
-        .map-panel-title::before {
-            content: ''; display: block; width: 3px; height: 14px;
-            background: #2c3e50; border-radius: 2px;
-        }
-        .map-panel-controls {
-            display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
-            margin-bottom: 2px;
-        }
-        .map-panel-controls label {
-            font-size: 12px; font-weight: 600; color: #2c3e50;
-        }
+        .map-panel-title { font-size: 13px; font-weight: 600; color: #2c3e50; display: flex; align-items: center; gap: 6px; }
+        .map-panel-title::before { content: ''; display: block; width: 3px; height: 14px; background: #2c3e50; border-radius: 2px; }
+        .map-panel-controls { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 2px; }
+        .map-panel-controls label { font-size: 12px; font-weight: 600; color: #2c3e50; }
 
-        /* Small btn-group for map panels */
-        .btn-group-sm {
-            display: flex; border: 1px solid #ccc; border-radius: 6px; overflow: hidden;
-        }
+        .btn-group-sm { display: flex; border: 1px solid #ccc; border-radius: 6px; overflow: hidden; }
         .btn-group-sm button {
-            font-family: inherit; height: 30px; padding: 0 10px;
-            background: white; border: none; border-right: 1px solid #ccc;
-            font-size: 12px; font-weight: 500; color: #6c757d;
+            font-family: inherit; height: 30px; padding: 0 10px; background: white; border: none;
+            border-right: 1px solid #ccc; font-size: 12px; font-weight: 500; color: #6c757d;
             cursor: pointer; transition: all 0.15s;
         }
         .btn-group-sm button:last-child { border-right: none; }
         .btn-group-sm button:hover { background: #f0f2f5; color: #2c3e50; }
         .btn-group-sm button.active { background: #2c3e50; color: white; }
 
-        /* Small source toggle for map */
-        .source-toggle-sm {
-            display: flex; border: 1px solid #ccc; border-radius: 6px; overflow: hidden;
-        }
+        .source-toggle-sm { display: flex; border: 1px solid #ccc; border-radius: 6px; overflow: hidden; }
         .source-btn-sm {
-            font-family: inherit; height: 30px; padding: 0 12px;
-            background: white; border: none; border-right: 1px solid #ccc;
-            font-size: 12px; font-weight: 600; cursor: pointer;
+            font-family: inherit; height: 30px; padding: 0 12px; background: white; border: none;
+            border-right: 1px solid #ccc; font-size: 12px; font-weight: 600; cursor: pointer;
             transition: all 0.15s; display: flex; align-items: center; gap: 4px;
         }
         .source-btn-sm:last-child { border-right: none; }
@@ -293,108 +175,134 @@
         .source-btn-sm.solar.active { background: #fff8e1; color: #e65100; }
         .source-btn-sm.wind.active  { background: #e3f2fd; color: #0277bd; }
 
-        /* Leaflet map container */
-        .map-wrap {
-            position: relative;
-            height: 400px;
-            border-radius: 6px;
-            overflow: hidden;
-            border: 1px solid #e6e9ed;
-        }
+        .map-wrap { position: relative; height: 400px; border-radius: 6px; overflow: hidden; border: 1px solid #e6e9ed; }
         .leaflet-map { width: 100%; height: 100%; }
 
-        /* Legend */
-        .map-legend {
-            padding: 10px 14px;
-            background: #f8f9fa;
-            border-radius: 6px;
-            border: 1px solid #e6e9ed;
-        }
-        .legend-title {
-            font-size: 12px; font-weight: 600; color: #2c3e50; margin-bottom: 8px;
-        }
+        .map-legend { padding: 10px 14px; background: #f8f9fa; border-radius: 6px; border: 1px solid #e6e9ed; }
+        .legend-title { font-size: 12px; font-weight: 600; color: #2c3e50; margin-bottom: 8px; }
         .legend-scale { display: flex; align-items: center; gap: 6px; }
         .legend-gradient { flex: 1; height: 14px; border-radius: 3px; }
-        .legend-labels {
-            display: flex; justify-content: space-between;
-            font-size: 11px; color: #6c757d; margin-top: 4px;
-        }
+        .legend-labels { display: flex; justify-content: space-between; font-size: 11px; color: #6c757d; margin-top: 4px; }
 
-        /* Map card shared time-filter bar */
         .map-timefilter {
             display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
-            padding: 12px 0 4px;
-            border-top: 1px solid #e6e9ed;
-            margin-top: 4px;
+            padding: 12px 0 4px; border-top: 1px solid #e6e9ed; margin-top: 4px;
         }
-        .map-timefilter label {
-            font-size: 13px; font-weight: 600; color: #2c3e50;
-        }
+        .map-timefilter label { font-size: 13px; font-weight: 600; color: #2c3e50; }
         .ctrl-select-sm {
-            font-family: inherit; height: 30px; padding: 0 8px;
-            border: 1px solid #ccc; border-radius: 6px;
-            font-size: 12px; cursor: pointer; background: white;
+            font-family: inherit; height: 30px; padding: 0 8px; border: 1px solid #ccc;
+            border-radius: 6px; font-size: 12px; cursor: pointer; background: white;
         }
         .ctrl-select-sm:focus { outline: none; border-color: #2c3e50; }
 
-        /* Leaflet popup */
-        .leaflet-popup-content-wrapper {
-            border-radius: 6px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-        }
-        .leaflet-popup-content {
-            margin: 10px 14px;
-            font-family: 'Segoe UI', sans-serif;
-            font-size: 13px; line-height: 1.6;
-        }
-        .popup-title {
-            font-weight: 700; font-size: 14px; color: #2c3e50;
-            margin-bottom: 6px; border-bottom: 1px solid #e6e9ed; padding-bottom: 4px;
-        }
+        .leaflet-popup-content-wrapper { border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+        .leaflet-popup-content { margin: 10px 14px; font-family: 'Segoe UI', sans-serif; font-size: 13px; line-height: 1.6; }
+        .popup-title { font-weight: 700; font-size: 14px; color: #2c3e50; margin-bottom: 6px; border-bottom: 1px solid #e6e9ed; padding-bottom: 4px; }
         .popup-row { display: flex; justify-content: space-between; gap: 16px; color: #555; }
         .popup-val { font-weight: 600; color: #2c3e50; }
 
-        /* Country label on map */
-        .country-map-label {
-            background: transparent;
-            border: none;
-            pointer-events: none;
-        }
-        .country-map-label-inner {
-            font-family: 'Segoe UI', sans-serif;
-            font-size: 11px;
-            font-weight: 700;
-            color: #1a1a2e;
-            white-space: nowrap;
-            text-align: center;
-            line-height: 1.3;
-        }
-        .country-map-label-inner .lbl-code {
-            display: block;
-            font-size: 11px;
-            font-weight: 700;
-            color: #1a1a2e;
-        }
-        .country-map-label-inner .lbl-val {
-            display: block;
-            font-size: 10px;
-            font-weight: 600;
-            color: #1a1a2e;
-        }
+        .country-map-label { background: transparent; border: none; pointer-events: none; }
+        .country-map-label-inner { font-family: 'Segoe UI', sans-serif; font-size: 11px; font-weight: 700; color: #1a1a2e; white-space: nowrap; text-align: center; line-height: 1.3; }
+        .country-map-label-inner .lbl-code { display: block; font-size: 11px; font-weight: 700; color: #1a1a2e; }
+        .country-map-label-inner .lbl-val  { display: block; font-size: 10px; font-weight: 600; color: #1a1a2e; }
 
-        /* Info footer */
+        /* ══ Summary Table Styles ══ */
+        .summary-table-wrap { overflow-x: auto; }
+        #summaryTable {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            font-size: 12px;
+            font-family: 'Segoe UI', sans-serif;
+        }
+        #summaryTable th, #summaryTable td {
+            padding: 5px 8px;
+            text-align: right;
+            border-bottom: 1px solid #e6e9ed;
+            white-space: nowrap;
+        }
+        /* Row label column (leftmost) */
+        #summaryTable td.row-label, #summaryTable th.row-label {
+            text-align: left;
+            font-weight: 700;
+            color: #2c3e50;
+            background: #f8f9fa;
+            position: sticky;
+            left: 0;
+            z-index: 2;
+            min-width: 52px;
+            border-right: 2px solid #dee2e6;
+        }
+        /* Section header row */
+        #summaryTable tr.section-header th {
+            background: #2c3e50;
+            color: white;
+            font-size: 12px;
+            font-weight: 600;
+            text-align: center;
+            padding: 8px 6px;
+            border-bottom: none;
+        }
+        #summaryTable tr.section-header th.row-label {
+            background: #2c3e50;
+            color: white;
+            border-right-color: #435a6e;
+        }
+        /* Year sub-header row */
+        #summaryTable tr.year-header th {
+            background: #f0f2f5;
+            color: #2c3e50;
+            font-size: 11px;
+            font-weight: 700;
+            text-align: center;
+            border-bottom: 2px solid #dee2e6;
+        }
+        #summaryTable tr.year-header th.row-label {
+            background: #f0f2f5;
+            border-right-color: #dee2e6;
+        }
+        /* Section divider (left border on first col of each group) */
+        #summaryTable td.sec-start, #summaryTable th.sec-start {
+            border-left: 2px solid #dee2e6;
+        }
+        /* Highlight rows */
+        #summaryTable tr.row-yearly td { background: #fafbfc; font-weight: 700; border-top: 2px solid #dee2e6; }
+        #summaryTable tr.row-half td  { background: #fafbfc; font-weight: 600; }
+        #summaryTable tr.row-quarter td { font-style: italic; color: #555; }
+        #summaryTable tr.row-monthly:hover td, #summaryTable tr.row-yearly:hover td,
+        #summaryTable tr.row-half:hover td, #summaryTable tr.row-quarter:hover td {
+            background: #eef1f5;
+        }
+        /* Sticky row label on hover */
+        #summaryTable tr:hover td.row-label { background: #e8ecf0; }
+        /* Null value */
+        .tbl-null { color: #bbb; font-style: italic; }
+        /* Value coloring for capture ratio */
+        .val-high  { color: #1a7a3c; font-weight: 600; }
+        .val-med   { color: #2c3e50; }
+        .val-low   { color: #c0392b; font-weight: 600; }
+
+        /* Table source toggle */
+        .table-source-toggle { display: flex; border: 1px solid #ccc; border-radius: 6px; overflow: hidden; }
+        .table-source-btn {
+            font-family: inherit; height: 32px; padding: 0 16px; background: white; border: none;
+            border-right: 1px solid #ccc; font-size: 13px; font-weight: 600; cursor: pointer;
+            transition: all 0.15s; display: flex; align-items: center; gap: 5px;
+        }
+        .table-source-btn:last-child { border-right: none; }
+        .table-source-btn:hover { background: #f0f2f5; }
+        .table-source-btn.solar.active { background: #fff8e1; color: #e65100; border-color: #e65100; }
+        .table-source-btn.wind.active  { background: #e3f2fd; color: #0277bd; border-color: #0277bd; }
+
         .info {
             padding: 12px 30px 20px; font-size: 13px; color: #6c757d;
             text-align: center; border-top: 1px solid #e6e9ed; margin-top: 10px;
         }
         .info a { color: #5a8fc2; text-decoration: none; }
         .info a:hover { text-decoration: underline; }
-
         .loading { text-align: center; padding: 40px 20px; color: #666; font-size: 15px; }
 
-        @media (max-width: 1100px) {
-            .map-panels { grid-template-columns: 1fr; }
-        }
+        @media (max-width: 1100px) { .map-panels { grid-template-columns: 1fr; } }
         @media (max-width: 700px) {
             .header { padding: 16px 16px 0 16px; }
             .header-top h1 { font-size: 20px; }
@@ -411,40 +319,28 @@
 <body>
 <div class="container">
 
-    <!-- ══ Header ══ -->
     <div class="header">
         <div class="header-top">
             <h1>European Electricity Dashboard</h1>
         </div>
         <div class="main-nav">
-            <a href="project.html" class="main-nav-link">
-                <span class="nav-icon">Projects
-            </a>
-            <a href="price-overview.html" class="main-nav-link active">
-                <span class="nav-icon">Price
-            </a>
-            <a href="load.html" class="main-nav-link">
-                <span class="nav-icon">Load
-            </a>
-            <a href="capacity.html" class="main-nav-link">
-                <span class="nav-icon">Installed Capacity
-            </a>
+            <a href="project.html" class="main-nav-link"><span class="nav-icon">Projects</span></a>
+            <a href="price-overview.html" class="main-nav-link active"><span class="nav-icon">Price</span></a>
+            <a href="load.html" class="main-nav-link"><span class="nav-icon">Load</span></a>
+            <a href="capacity.html" class="main-nav-link"><span class="nav-icon">Installed Capacity</span></a>
         </div>
     </div>
 
-    <!-- ══ Sub-nav ══ -->
     <div class="sub-nav">
         <a class="sub-nav-link" href="price-overview.html">Price Overview</a>
         <a class="sub-nav-link active" href="capture-price.html">Capture Prices</a>
         <a class="sub-nav-link" href="price-spread.html">Price Spread</a>
     </div>
 
-    <!-- ══ Loading ══ -->
     <div id="loadingMsg" class="loading">⏳ Loading data...</div>
 
     <div id="mainContent" style="display:none;">
 
-        <!-- ══ Top controls: Country selector + Price/Ratio toggle ══ -->
         <div class="controls">
             <div class="control-group">
                 <label>🌍 Country</label>
@@ -468,7 +364,7 @@
 
         <div class="chart-grid">
 
-            <!-- ══ Card 1: Overview ══ -->
+            <!-- Card 1: Overview -->
             <div class="chart-card">
                 <div class="chart-card-header">
                     <div>
@@ -489,12 +385,10 @@
                 <div id="chart1" style="width:100%; height:420px;"></div>
             </div>
 
-            <!-- ══ Card 2: Deep Dive ══ -->
+            <!-- Card 2: Deep Dive -->
             <div class="chart-card">
                 <div class="chart-card-header">
-                    <div>
-                        <h3 id="card2Title">Solar Capture Price – HU</h3>
-                    </div>
+                    <div><h3 id="card2Title">Solar Capture Price – HU</h3></div>
                     <div class="chart-card-controls">
                         <div class="source-toggle">
                             <button class="source-btn solar active" id="btnSolar">☀ Solar</button>
@@ -508,12 +402,9 @@
                         </select>
                     </div>
                 </div>
-
                 <div class="card-section-title">Daily</div>
                 <div id="chart2Daily" style="width:100%; height:480px;"></div>
-
                 <hr class="card-divider">
-
                 <div style="display:flex; gap:16px; align-items:flex-start;">
                     <div style="flex:1; min-width:0;">
                         <div class="card-section-title">Weekly</div>
@@ -524,9 +415,7 @@
                         <div id="chart2Monthly" style="width:100%; height:340px;"></div>
                     </div>
                 </div>
-
                 <hr class="card-divider">
-
                 <div style="display:flex; gap:16px; align-items:flex-start;">
                     <div style="flex:1; min-width:0;">
                         <div class="card-section-title">Quarterly</div>
@@ -537,9 +426,9 @@
                         <div id="chart2Yearly" style="width:100%; height:300px;"></div>
                     </div>
                 </div>
-            </div><!-- /card 2 -->
+            </div>
 
-            <!-- ══ Card 3: European Maps ══ -->
+            <!-- Card 3: European Maps -->
             <div class="chart-card">
                 <div class="chart-card-header">
                     <div>
@@ -547,8 +436,6 @@
                         <div class="subtitle">Cross-country comparison · hover over a country for details</div>
                     </div>
                 </div>
-
-                <!-- Shared time filter row -->
                 <div class="map-timefilter">
                     <label>📅 Time Range</label>
                     <div class="btn-group-inline" id="mapFreqGroup">
@@ -558,10 +445,8 @@
                     </div>
                     <select class="ctrl-select-sm" id="mapYear"></select>
                     <select class="ctrl-select-sm" id="mapQuarter" style="display:none;">
-                        <option value="1">Q1</option>
-                        <option value="2">Q2</option>
-                        <option value="3">Q3</option>
-                        <option value="4">Q4</option>
+                        <option value="1">Q1</option><option value="2">Q2</option>
+                        <option value="3">Q3</option><option value="4">Q4</option>
                     </select>
                     <select class="ctrl-select-sm" id="mapMonth" style="display:none;">
                         <option value="1">Jan</option><option value="2">Feb</option>
@@ -572,13 +457,8 @@
                         <option value="11">Nov</option><option value="12">Dec</option>
                     </select>
                 </div>
-
                 <hr class="card-divider">
-
-                <!-- Two map panels side by side -->
                 <div class="map-panels">
-
-                    <!-- Left: Capture Price Map -->
                     <div class="map-panel">
                         <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;">
                             <div class="map-panel-title" id="capPanelTitle">Capture Price Map</div>
@@ -589,23 +469,16 @@
                                 </div>
                             </div>
                         </div>
-
-                        <div class="map-wrap">
-                            <div id="capMap" class="leaflet-map"></div>
-                        </div>
-
+                        <div class="map-wrap"><div id="capMap" class="leaflet-map"></div></div>
                         <div class="map-legend">
                             <div class="legend-title" id="capLegendTitle">Solar Capture Price – €/MWh</div>
                             <div class="legend-scale">
                                 <span id="capLegendMin" style="font-size:11px;color:#6c757d;min-width:36px;">0</span>
-                                <div class="legend-gradient" id="capLegendGrad"
-                                     style="background:linear-gradient(to right,#fff5f5,#fc8d59,#d73027);"></div>
+                                <div class="legend-gradient" id="capLegendGrad" style="background:linear-gradient(to right,#fff5f5,#fc8d59,#d73027);"></div>
                                 <span id="capLegendMax" style="font-size:11px;color:#6c757d;min-width:36px;text-align:right;">100</span>
                             </div>
                         </div>
                     </div>
-
-                    <!-- Right: Negative Hours Map -->
                     <div class="map-panel">
                         <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;">
                             <div class="map-panel-title" id="negPanelTitle">Negative Price Hours</div>
@@ -617,37 +490,50 @@
                                 </div>
                             </div>
                         </div>
-
-                        <div class="map-wrap">
-                            <div id="negMap" class="leaflet-map"></div>
-                        </div>
-
+                        <div class="map-wrap"><div id="negMap" class="leaflet-map"></div></div>
                         <div class="map-legend">
-                            <!-- FIX 3: Red gradient for negative hours legend -->
                             <div class="legend-title" id="negLegendTitle">Negative Price Hours – h</div>
                             <div class="legend-scale">
                                 <span id="negLegendMin" style="font-size:11px;color:#6c757d;min-width:36px;">0 h</span>
-                                <div class="legend-gradient" id="negLegendGrad"
-                                     style="background:linear-gradient(to right,#f5f5f5,#fc8d59,#d7301f);"></div>
+                                <div class="legend-gradient" id="negLegendGrad" style="background:linear-gradient(to right,#f5f5f5,#fc8d59,#d7301f);"></div>
                                 <span id="negLegendMax" style="font-size:11px;color:#6c757d;min-width:36px;text-align:right;">500 h</span>
                             </div>
                         </div>
                     </div>
+                </div>
+            </div>
 
-                </div><!-- /map-panels -->
-            </div><!-- /card 3 -->
+            <!-- ══ Card 4: Summary Table ══ -->
+            <div class="chart-card">
+                <div class="chart-card-header">
+                    <div>
+                        <h3 id="card4Title">Capture Price Summary Table – HU</h3>
+                        <div class="subtitle">Monthly · Quarterly · Half-yearly · Yearly breakdown across all available years</div>
+                    </div>
+                    <div class="chart-card-controls">
+                        <label>Country</label>
+                        <select class="ctrl-select" id="tableCountrySelect"></select>
+                        <div class="table-source-toggle">
+                            <button class="table-source-btn solar active" id="tableBtnSolar">☀ Solar</button>
+                            <button class="table-source-btn wind"         id="tableBtnWind">💨 Wind</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="summary-table-wrap">
+                    <table id="summaryTable"></table>
+                </div>
+            </div>
 
-        </div><!-- /chart-grid -->
+        </div>
 
-        <!-- ══ Footer ══ -->
         <div class="info">
             Data source: <a href="https://www.entsoe.eu/" target="_blank">ENTSO-E Transparency Platform</a>
             &nbsp;|&nbsp; Unit: €/MWh
             &nbsp;|&nbsp; Author: Hanyu Jian
         </div>
 
-    </div><!-- /mainContent -->
-</div><!-- /container -->
+    </div>
+</div>
 
 <script>
 /* ═══════════════════════════════════════════════════════════
@@ -663,64 +549,48 @@ const COUNTRIES = [
     { code: 'ES', name: 'ES' }
 ];
 
-/* GeoJSON country name → ISO code (null = not in our dataset, still render grey) */
 const GEO_NAME_TO_CODE = {
     'Germany':'DE','France':'FR','Hungary':'HU','Austria':'AT',
     'Bulgaria':'BG','Slovakia':'SK','Romania':'RO','Poland':'PL',
     'Croatia':'HR','Greece':'GR','Serbia':'RS','Italy':'IT','Spain':'ES'
 };
 
-/* Approximate label positions for each country on the map */
 const COUNTRY_LABEL_LATLNG = {
-    'DE': [51.2, 10.5],
-    'FR': [46.5,  2.5],
-    'HU': [47.2, 19.2],
-    'AT': [47.6, 14.2],
-    'BG': [42.8, 25.3],
-    'SK': [48.7, 19.5],
-    'RO': [45.8, 25.0],
-    'PL': [52.0, 19.5],
-    'HR': [45.2, 15.8],
-    'GR': [39.3, 22.0],
-    'RS': [44.0, 21.0],
-    'IT': [42.8, 12.8],
+    'DE': [51.2, 10.5], 'FR': [46.5,  2.5], 'HU': [47.2, 19.2],
+    'AT': [47.6, 14.2], 'BG': [42.8, 25.3], 'SK': [48.7, 19.5],
+    'RO': [45.8, 25.0], 'PL': [52.0, 19.5], 'HR': [45.2, 15.8],
+    'GR': [39.3, 22.0], 'RS': [44.0, 21.0], 'IT': [42.8, 12.8],
     'ES': [40.0, -3.5]
 };
 
 const COLORS = {
-    baseload : '#d0d4d8',
-    solar    : '#f39c12',
-    wind     : '#2980b9',
-    post_s   : '#e67e22',
-    post_w   : '#3498db',
-    bar      : '#e74c3c'
+    baseload: '#d0d4d8', solar: '#f39c12', wind: '#2980b9',
+    post_s: '#e67e22', post_w: '#3498db', bar: '#e74c3c'
 };
 
 /* ═══════════════════════════════════════════════════════════
    STATE
 ═══════════════════════════════════════════════════════════ */
 const state = {
-    /* Chart 1 & 2 */
-    country  : 'HU',
-    freq1    : 'daily',
-    source2  : 'solar',
-    year2    : '2025',
-    /* Map (Card 3) */
-    mapFreq  : 'yearly',
-    mapYear  : null,      // filled after data loads
-    mapQ     : 1,
-    mapMonth : 1,
-    capSource: 'solar',
-    negThreshSet: new Set(['negative']),  // multi-select: 'negative' and/or 'zero_only'
-    displayMode: 'price'  // 'price' | 'ratio'
+    country     : 'HU',
+    freq1       : 'daily',
+    source2     : 'solar',
+    year2       : '2025',
+    mapFreq     : 'yearly',
+    mapYear     : null,
+    mapQ        : 1,
+    mapMonth    : 1,
+    capSource   : 'solar',
+    negThreshSet: new Set(['negative']),
+    displayMode : 'price',
+    tableCountry: 'HU',
+    tableSource : 'solar'
 };
 
 /* ═══════════════════════════════════════════════════════════
    RAW DATA STORE
 ═══════════════════════════════════════════════════════════ */
-let rawPrice = {};
-let rawSolar = {};
-let rawWind  = {};
+let rawPrice = {}, rawSolar = {}, rawWind = {};
 
 /* ═══════════════════════════════════════════════════════════
    CSV PARSER
@@ -774,8 +644,7 @@ async function loadAllData() {
         fetch('data/price.csv').then(r => r.text()),
         fetch('data/solar.csv').then(r => r.text()),
         fetch('data/wind.csv' ).then(r => r.text()),
-        fetch('https://raw.githubusercontent.com/leakyMirror/map-of-europe/master/GeoJSON/europe.geojson')
-            .then(r => r.json())
+        fetch('https://raw.githubusercontent.com/leakyMirror/map-of-europe/master/GeoJSON/europe.geojson').then(r => r.json())
     ]);
     buildStore(parseCSV(priceText), rawPrice);
     buildStore(parseCSV(solarText), rawSolar);
@@ -792,13 +661,10 @@ function computeHourly(country, source) {
     const n = Math.min(prices.length, gens.length);
     const hours = [];
     for (let i = 0; i < n; i++) {
-        const date  = prices[i].date;
-        const pr    = prices[i].value;
-        const gen   = gens[i].value;
+        const date = prices[i].date, pr = prices[i].value, gen = gens[i].value;
         const isPos = pr > 0;
         hours.push({
-            date,
-            pr, gen,
+            date, pr, gen,
             genPost  : gen * (isPos ? 1 : 0),
             rev      : gen * (isPos ? 1 : 0) * pr,
             revPre   : gen * pr,
@@ -817,19 +683,14 @@ function getISOWeek(dateStr) {
     const d = new Date(dateStr + 'T00:00:00Z');
     d.setUTCDate(d.getUTCDate() + 3 - (d.getUTCDay() + 6) % 7);
     const week1 = new Date(Date.UTC(d.getUTCFullYear(), 0, 4));
-    const wk = 1 + Math.round(
-        ((d - week1) / 86400000 - 3 + (week1.getUTCDay() + 6) % 7) / 7
-    );
+    const wk = 1 + Math.round(((d - week1) / 86400000 - 3 + (week1.getUTCDay() + 6) % 7) / 7);
     return `${d.getUTCFullYear()}-W${String(wk).padStart(2,'0')}`;
 }
 function groupKey(date, freq) {
     if (freq === 'daily')     return date;
     if (freq === 'weekly')    return getISOWeek(date);
     if (freq === 'monthly')   return date.slice(0, 7);
-    if (freq === 'quarterly') {
-        const m = parseInt(date.slice(5, 7));
-        return `${date.slice(0,4)}-Q${Math.ceil(m/3)}`;
-    }
+    if (freq === 'quarterly') { const m = parseInt(date.slice(5,7)); return `${date.slice(0,4)}-Q${Math.ceil(m/3)}`; }
     return date.slice(0, 4);
 }
 function aggregateFromHourly(hours, freq) {
@@ -839,67 +700,57 @@ function aggregateFromHourly(hours, freq) {
         const key = groupKey(h.date, freq);
         if (!groups[key]) groups[key] = {
             sumPr:0, cntPr:0, sumGen:0, sumGenPost:0,
-            sumRev:0, sumRevPre:0,
-            sumNeg:0, sumZero:0, sumNonPos:0, cntDays: new Set()
+            sumRev:0, sumRevPre:0, sumNeg:0, sumZero:0, sumNonPos:0, cntDays: new Set()
         };
         const g = groups[key];
-        g.sumPr      += h.pr;     g.cntPr      += 1;
-        g.sumGen     += h.gen;    g.sumGenPost += h.genPost;
-        g.sumRev     += h.rev;    g.sumRevPre  += h.revPre;
-        g.sumNeg     += h.isNeg;  g.sumZero    += h.isZero;
-        g.sumNonPos  += h.isNonPos;
+        g.sumPr += h.pr; g.cntPr++;
+        g.sumGen += h.gen; g.sumGenPost += h.genPost;
+        g.sumRev += h.rev; g.sumRevPre += h.revPre;
+        g.sumNeg += h.isNeg; g.sumZero += h.isZero; g.sumNonPos += h.isNonPos;
         g.cntDays.add(h.date);
     });
-    return Object.entries(groups)
-        .sort((a,b) => a[0] < b[0] ? -1 : 1)
-        .map(([key, g]) => {
-            const numDays = g.cntDays.size;
-            return {
-                date            : key,
-                baseload        : g.cntPr > 0     ? g.sumPr     / g.cntPr      : null,
-                capPost         : g.sumGenPost > 0 ? g.sumRev    / g.sumGenPost : null,
-                capPre          : g.sumGen     > 0 ? g.sumRevPre / g.sumGen     : null,
-                negHours        : g.sumNeg,
-                nonPosHours     : g.sumNonPos,
-                nonPosHoursPerDay: numDays > 0 ? g.sumNonPos / numDays : 0,
-                // Capture ratio = capPost / baseload * 100
-                get capRatioPost() {
-                    const bl = this.baseload, cp = this.capPost;
-                    return (bl !== null && bl !== 0 && cp !== null) ? (cp / bl) * 100 : null;
-                },
-                get capRatioPre() {
-                    const bl = this.baseload, cp = this.capPre;
-                    return (bl !== null && bl !== 0 && cp !== null) ? (cp / bl) * 100 : null;
-                }
-            };
-        });
+    return Object.entries(groups).sort((a,b) => a[0] < b[0] ? -1 : 1).map(([key, g]) => {
+        const numDays = g.cntDays.size;
+        return {
+            date            : key,
+            baseload        : g.cntPr > 0     ? g.sumPr     / g.cntPr      : null,
+            capPost         : g.sumGenPost > 0 ? g.sumRev    / g.sumGenPost : null,
+            capPre          : g.sumGen     > 0 ? g.sumRevPre / g.sumGen     : null,
+            negHours        : g.sumNeg,
+            nonPosHours     : g.sumNonPos,
+            nonPosHoursPerDay: numDays > 0 ? g.sumNonPos / numDays : 0,
+            // Curtailment rate
+            curtailPct: g.sumGen > 0 ? (g.sumGen - g.sumGenPost) / g.sumGen * 100 : null,
+            get capRatioPost() {
+                const bl = this.baseload, cp = this.capPost;
+                return (bl !== null && bl !== 0 && cp !== null) ? (cp / bl) * 100 : null;
+            },
+            get capRatioPre() {
+                const bl = this.baseload, cp = this.capPre;
+                return (bl !== null && bl !== 0 && cp !== null) ? (cp / bl) * 100 : null;
+            }
+        };
+    });
 }
 
 /* ═══════════════════════════════════════════════════════════
    MAP-SPECIFIC COMPUTE
 ═══════════════════════════════════════════════════════════ */
-
-/* Filter hourly rows to the map's selected time window */
 function filterForMap(hours) {
     return hours.filter(h => {
-        const yr = parseInt(h.date.slice(0,4));
-        const mo = parseInt(h.date.slice(5,7));
+        const yr = parseInt(h.date.slice(0,4)), mo = parseInt(h.date.slice(5,7));
         if (yr !== state.mapYear) return false;
-        if (state.mapFreq === 'quarterly' && Math.ceil(mo/3) !== state.mapQ)    return false;
-        if (state.mapFreq === 'monthly'   && mo !== state.mapMonth)             return false;
+        if (state.mapFreq === 'quarterly' && Math.ceil(mo/3) !== state.mapQ)  return false;
+        if (state.mapFreq === 'monthly'   && mo !== state.mapMonth)            return false;
         return true;
     });
 }
-
-/* Capture price (post-curtailment) for one country in the map window */
 function mapCapPrice(country, source) {
     const h = filterForMap(computeHourly(country, source));
     let sumRev = 0, sumGen = 0;
     h.forEach(r => { sumRev += r.rev; sumGen += r.genPost; });
     return sumGen > 0 ? sumRev / sumGen : null;
 }
-
-/* Curtailment rate: (gen_pre - gen_post) / gen_pre */
 function mapCurtailmentPct(country, source) {
     const h = filterForMap(computeHourly(country, source));
     let sumGen = 0, sumGenPost = 0;
@@ -907,32 +758,25 @@ function mapCurtailmentPct(country, source) {
     if (sumGen <= 0) return null;
     return ((sumGen - sumGenPost) / sumGen) * 100;
 }
-
-/* Negative / zero hours for one country in the map window */
 function mapNegHours(country) {
     const prices = rawPrice[country] || [];
     let total = 0;
-    const hasNeg  = state.negThreshSet.has('negative');
-    const hasZero = state.negThreshSet.has('zero_only');
+    const hasNeg = state.negThreshSet.has('negative'), hasZero = state.negThreshSet.has('zero_only');
     prices.forEach(h => {
-        const yr = parseInt(h.date.slice(0,4));
-        const mo = parseInt(h.date.slice(5,7));
+        const yr = parseInt(h.date.slice(0,4)), mo = parseInt(h.date.slice(5,7));
         if (yr !== state.mapYear) return;
         if (state.mapFreq === 'quarterly' && Math.ceil(mo/3) !== state.mapQ)  return;
         if (state.mapFreq === 'monthly'   && mo !== state.mapMonth)            return;
-        if (hasNeg && hasZero && h.value <= 0) total++;       // both: price ≤ 0
-        else if (hasNeg  && !hasZero && h.value < 0)  total++;  // only negative
-        else if (!hasNeg && hasZero  && h.value === 0) total++;  // only zero
+        if (hasNeg && hasZero && h.value <= 0) total++;
+        else if (hasNeg  && !hasZero && h.value < 0)  total++;
+        else if (!hasNeg && hasZero  && h.value === 0) total++;
     });
     return total;
 }
-
-/* Baseload for one country in the map window (for popup) */
 function mapBaseload(country) {
     const prices = rawPrice[country] || [];
     const filtered = prices.filter(h => {
-        const yr = parseInt(h.date.slice(0,4));
-        const mo = parseInt(h.date.slice(5,7));
+        const yr = parseInt(h.date.slice(0,4)), mo = parseInt(h.date.slice(5,7));
         if (yr !== state.mapYear) return false;
         if (state.mapFreq === 'quarterly' && Math.ceil(mo/3) !== state.mapQ)  return false;
         if (state.mapFreq === 'monthly'   && mo !== state.mapMonth)            return false;
@@ -941,36 +785,15 @@ function mapBaseload(country) {
     if (!filtered.length) return null;
     return filtered.reduce((s,h) => s + h.value, 0) / filtered.length;
 }
-
-/* Compute values for all countries */
-function allCapValues()  {
-    const r = {};
-    COUNTRIES.forEach(c => { r[c.code] = mapCapPrice(c.code, state.capSource); });
-    return r;
-}
-
-/* Capture ratio (post) = Capture Price (post) / Baseload * 100 */
+function allCapValues()  { const r={}; COUNTRIES.forEach(c=>{r[c.code]=mapCapPrice(c.code,state.capSource);}); return r; }
 function mapCapRatio(country, source) {
-    const cp   = mapCapPrice(country, source);
-    const base = mapBaseload(country);
-    if (cp === null || base === null || base === 0) return null;
+    const cp = mapCapPrice(country, source), base = mapBaseload(country);
+    if (cp===null || base===null || base===0) return null;
     return (cp / base) * 100;
 }
-function allCapRatioValues() {
-    const r = {};
-    COUNTRIES.forEach(c => { r[c.code] = mapCapRatio(c.code, state.capSource); });
-    return r;
-}
-function allNegValues()  {
-    const r = {};
-    COUNTRIES.forEach(c => { r[c.code] = mapNegHours(c.code); });
-    return r;
-}
-function allCurtValues() {
-    const r = {};
-    COUNTRIES.forEach(c => { r[c.code] = mapCurtailmentPct(c.code, state.capSource); });
-    return r;
-}
+function allCapRatioValues() { const r={}; COUNTRIES.forEach(c=>{r[c.code]=mapCapRatio(c.code,state.capSource);}); return r; }
+function allNegValues()  { const r={}; COUNTRIES.forEach(c=>{r[c.code]=mapNegHours(c.code);}); return r; }
+function allCurtValues() { const r={}; COUNTRIES.forEach(c=>{r[c.code]=mapCurtailmentPct(c.code,state.capSource);}); return r; }
 
 /* ═══════════════════════════════════════════════════════════
    COLOR SCALE
@@ -978,47 +801,23 @@ function allCurtValues() {
 function colorRamp(t, palette) {
     if (t <= 0) return palette[0];
     if (t >= 1) return palette[palette.length - 1];
-    const seg = (palette.length - 1) * t;
-    const lo  = Math.floor(seg);
-    const hi  = Math.min(lo + 1, palette.length - 1);
-    const s   = seg - lo;
+    const seg = (palette.length - 1) * t, lo = Math.floor(seg), hi = Math.min(lo+1, palette.length-1), s = seg-lo;
     return palette[lo].map((v, i) => Math.round(v + (palette[hi][i] - v) * s));
 }
-
-const CAP_PALETTE_SOLAR = [
-    [245, 245, 245],
-    [252, 141,  89],
-    [215,  48,  31]
-];
-
-const CAP_PALETTE_WIND = [
-    [245, 245, 245],
-    [ 99, 172, 229],
-    [ 10,  74, 158]
-];
-
-/* FIX 3: Red palette for negative hours (matching cap map) */
-const NEG_PALETTE = [
-    [245, 245, 245],
-    [252, 141,  89],
-    [215,  48,  31]
-];
-
-function toHex(rgb) {
-    return '#' + rgb.map(v => v.toString(16).padStart(2, '0')).join('');
-}
-
+const CAP_PALETTE_SOLAR = [[245,245,245],[252,141,89],[215,48,31]];
+const CAP_PALETTE_WIND  = [[245,245,245],[99,172,229],[10,74,158]];
+const NEG_PALETTE       = [[245,245,245],[252,141,89],[215,48,31]];
+function toHex(rgb) { return '#' + rgb.map(v => v.toString(16).padStart(2,'0')).join(''); }
 function getColor(value, min, max, palette) {
     if (value === null || value === undefined) return '#e0e0e0';
     const t = max > min ? (value - min) / (max - min) : 0;
     return toHex(colorRamp(Math.max(0, Math.min(1, t)), palette));
 }
-
 function statsOf(vals) {
     const arr = vals.filter(v => v !== null && v !== undefined);
-    if (!arr.length) return { min: 0, max: 0, avg: 0, count: 0 };
+    if (!arr.length) return { min:0, max:0, avg:0, count:0 };
     const min = Math.min(...arr), max = Math.max(...arr);
-    return { min, max, avg: arr.reduce((a, b) => a + b, 0) / arr.length, count: arr.length };
+    return { min, max, avg: arr.reduce((a,b)=>a+b,0)/arr.length, count: arr.length };
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -1030,26 +829,19 @@ let capLabelMarkers = [], negLabelMarkers = [];
 function initMaps() {
     const tileUrl = 'https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png';
     const tileOpt = { attribution:'© OpenStreetMap © CartoDB', subdomains:'abcd', maxZoom:19 };
-    const view    = [51, 13];
-    const zoom    = 4;
-
-    capMap = L.map('capMap', { zoomControl:true,  scrollWheelZoom:false }).setView(view, zoom);
-    negMap = L.map('negMap', { zoomControl:true,  scrollWheelZoom:false }).setView(view, zoom);
+    capMap = L.map('capMap', {zoomControl:true, scrollWheelZoom:false}).setView([51,13], 4);
+    negMap = L.map('negMap', {zoomControl:true, scrollWheelZoom:false}).setView([51,13], 4);
     L.tileLayer(tileUrl, tileOpt).addTo(capMap);
     L.tileLayer(tileUrl, tileOpt).addTo(negMap);
 }
 
-/* ── Add country code + value labels on map ── */
-/* valFn(code) → string to display below the code, or '' */
 function addCountryLabels(map, valFn, existingMarkers) {
     existingMarkers.forEach(m => map.removeLayer(m));
     existingMarkers.length = 0;
-
     COUNTRIES.forEach(c => {
         const latlng = COUNTRY_LABEL_LATLNG[c.code];
         if (!latlng) return;
         const valStr = valFn(c.code);
-
         const icon = L.divIcon({
             className: 'country-map-label',
             html: `<div class="country-map-label-inner">
@@ -1058,207 +850,292 @@ function addCountryLabels(map, valFn, existingMarkers) {
             </div>`,
             iconAnchor: [20, 16]
         });
-
-        const marker = L.marker(latlng, { icon, interactive: false }).addTo(map);
-        existingMarkers.push(marker);
+        existingMarkers.push(L.marker(latlng, {icon, interactive:false}).addTo(map));
     });
 }
 
-/* ── Render Capture Price / Ratio Map ── */
 function renderCapMap() {
     if (!geoData) return;
-
     const isRatio = state.displayMode === 'ratio';
-    const vals  = isRatio ? allCapRatioValues() : allCapValues();
-    const vArr  = Object.values(vals).filter(v => v !== null);
+    const vals = isRatio ? allCapRatioValues() : allCapValues();
+    const vArr = Object.values(vals).filter(v => v!==null);
     const stats = statsOf(vArr);
-    const minV  = stats.min, maxV = stats.max;
-
+    const minV = stats.min, maxV = stats.max;
     const palette = state.capSource === 'solar' ? CAP_PALETTE_SOLAR : CAP_PALETTE_WIND;
-
     if (capLayer) { capMap.removeLayer(capLayer); capLayer = null; }
-
     capLayer = L.geoJSON(geoData, {
         style: feat => {
             const code = GEO_NAME_TO_CODE[feat.properties.NAME] ?? null;
             const val  = code ? vals[code] : null;
-            return {
-                fillColor   : getColor(val, minV, maxV, palette),
-                fillOpacity : (code && val !== null) ? 0.82 : 0.12,
-                color       : '#aaa',
-                weight      : 0.8,
-                dashArray   : (code && val !== null) ? '' : '3'
-            };
+            return { fillColor: getColor(val,minV,maxV,palette), fillOpacity:(code&&val!==null)?0.82:0.12, color:'#aaa', weight:0.8, dashArray:(code&&val!==null)?'':'3' };
         },
         onEachFeature: (feat, layer) => {
             const code = GEO_NAME_TO_CODE[feat.properties.NAME] ?? null;
-            if (!code || vals[code] === null) return;
-            const val  = vals[code];
-            const base = mapBaseload(code);
-            const cp   = mapCapPrice(code, state.capSource);
-            const cobj = COUNTRIES.find(c => c.code === code);
-
+            if (!code || vals[code]===null) return;
+            const val = vals[code], base = mapBaseload(code), cp = mapCapPrice(code, state.capSource);
+            const cobj = COUNTRIES.find(c => c.code===code);
             layer.on({
                 mouseover: e => {
-                    e.target.setStyle({ weight:2, color:'#2c3e50', fillOpacity:0.95 });
+                    e.target.setStyle({weight:2,color:'#2c3e50',fillOpacity:0.95});
                     e.target.bringToFront();
-                    L.popup({ closeButton:false, offset:[0,-4] })
+                    L.popup({closeButton:false,offset:[0,-4]})
                      .setLatLng(e.latlng)
-                     .setContent(`
-                        <div class="popup-title">${cobj?.name ?? feat.properties.NAME} (${code})</div>
-                        ${isRatio ? `
-                        <div class="popup-row">
-                            <span>Capture Ratio (post)</span>
-                            <span class="popup-val">${val.toFixed(1)}%</span>
-                        </div>
-                        <div class="popup-row">
-                            <span>Capture Price (post)</span>
-                            <span class="popup-val">${cp !== null ? cp.toFixed(2)+' €/MWh' : 'N/A'}</span>
-                        </div>
-                        ` : `
-                        <div class="popup-row">
-                            <span>Capture Price (post)</span>
-                            <span class="popup-val">${val.toFixed(2)} €/MWh</span>
-                        </div>
-                        `}
-                        <div class="popup-row">
-                            <span>Baseload avg</span>
-                            <span class="popup-val">${base !== null ? base.toFixed(2)+' €/MWh' : 'N/A'}</span>
-                        </div>
-                        <div class="popup-row">
-                            <span>Source</span>
-                            <span class="popup-val">${state.capSource === 'solar' ? '☀ Solar' : '💨 Wind'}</span>
-                        </div>
-                     `)
+                     .setContent(`<div class="popup-title">${cobj?.name??feat.properties.NAME} (${code})</div>
+                        ${isRatio?`<div class="popup-row"><span>Capture Ratio (post)</span><span class="popup-val">${val.toFixed(1)}%</span></div>
+                        <div class="popup-row"><span>Capture Price (post)</span><span class="popup-val">${cp!==null?cp.toFixed(2)+' €/MWh':'N/A'}</span></div>`
+                        :`<div class="popup-row"><span>Capture Price (post)</span><span class="popup-val">${val.toFixed(2)} €/MWh</span></div>`}
+                        <div class="popup-row"><span>Baseload avg</span><span class="popup-val">${base!==null?base.toFixed(2)+' €/MWh':'N/A'}</span></div>
+                        <div class="popup-row"><span>Source</span><span class="popup-val">${state.capSource==='solar'?'☀ Solar':'💨 Wind'}</span></div>`)
                      .openOn(capMap);
                 },
                 mouseout: e => { capLayer.resetStyle(e.target); capMap.closePopup(); }
             });
         }
     }).addTo(capMap);
-
-    // Legend
-    const capGrad = state.capSource === 'solar'
-        ? 'linear-gradient(to right, #f5f5f5, #fc8d59, #d7301f)'
-        : 'linear-gradient(to right, #f5f5f5, #63ace5, #0a4a9e)';
+    const capGrad = state.capSource==='solar' ? 'linear-gradient(to right,#f5f5f5,#fc8d59,#d7301f)' : 'linear-gradient(to right,#f5f5f5,#63ace5,#0a4a9e)';
     document.getElementById('capLegendGrad').style.background = capGrad;
-    const srcLabel = state.capSource === 'solar' ? 'Solar' : 'Wind';
+    const srcLabel = state.capSource==='solar' ? 'Solar' : 'Wind';
     if (isRatio) {
         document.getElementById('capLegendTitle').textContent = `${srcLabel} Capture Ratio – %`;
-        document.getElementById('capLegendMin').textContent = minV.toFixed(0) + '%';
-        document.getElementById('capLegendMax').textContent = maxV.toFixed(0) + '%';
+        document.getElementById('capLegendMin').textContent = minV.toFixed(0)+'%';
+        document.getElementById('capLegendMax').textContent = maxV.toFixed(0)+'%';
     } else {
         document.getElementById('capLegendTitle').textContent = `${srcLabel} Capture Price – €/MWh`;
-        document.getElementById('capLegendMin').textContent = minV.toFixed(0) + '€';
-        document.getElementById('capLegendMax').textContent = maxV.toFixed(0) + '€';
+        document.getElementById('capLegendMin').textContent = minV.toFixed(0)+'€';
+        document.getElementById('capLegendMax').textContent = maxV.toFixed(0)+'€';
     }
-
-    // Labels: country code + value
     addCountryLabels(capMap, code => {
         const v = vals[code];
-        if (v === null || v === undefined) return '';
-        return isRatio ? v.toFixed(0) + '%' : v.toFixed(0) + '€';
+        if (v===null||v===undefined) return '';
+        return isRatio ? v.toFixed(0)+'%' : v.toFixed(0)+'€';
     }, capLabelMarkers);
 }
 
-/* ── Render Negative Hours Map ── */
 function renderNegMap() {
     if (!geoData) return;
-    const vals  = allNegValues();
-    const vArr  = Object.values(vals);
-    const stats = statsOf(vArr);
-    const minV  = 0, maxV = stats.max || 1;
-
+    const vals = allNegValues();
+    const stats = statsOf(Object.values(vals));
+    const minV = 0, maxV = stats.max || 1;
     if (negLayer) { negMap.removeLayer(negLayer); negLayer = null; }
-
-    // Determine threshold label for multi-select
-    const hasNeg  = state.negThreshSet.has('negative');
-    const hasZero = state.negThreshSet.has('zero_only');
-    const threshLbl = (hasNeg && hasZero) ? 'Price ≤ 0'
-                    : hasNeg  ? 'Price < 0'
-                    : hasZero ? 'Price = 0'
-                    : 'None';
-
+    const hasNeg = state.negThreshSet.has('negative'), hasZero = state.negThreshSet.has('zero_only');
+    const threshLbl = (hasNeg&&hasZero)?'Price ≤ 0':hasNeg?'Price < 0':hasZero?'Price = 0':'None';
     negLayer = L.geoJSON(geoData, {
         style: feat => {
             const code = GEO_NAME_TO_CODE[feat.properties.NAME] ?? null;
-            const val  = code !== null ? vals[code] : null;
-            return {
-                fillColor   : getColor(val, minV, maxV, NEG_PALETTE),
-                fillOpacity : code !== null ? 0.82 : 0.12,
-                color       : '#aaa',
-                weight      : 0.8,
-                dashArray   : code !== null ? '' : '3'
-            };
+            const val  = code!==null ? vals[code] : null;
+            return { fillColor:getColor(val,minV,maxV,NEG_PALETTE), fillOpacity:code!==null?0.82:0.12, color:'#aaa', weight:0.8, dashArray:code!==null?'':'3' };
         },
         onEachFeature: (feat, layer) => {
             const code = GEO_NAME_TO_CODE[feat.properties.NAME] ?? null;
-            if (code === null) return;
-            const val  = vals[code] ?? 0;
-            const pct  = stats.max > 0 ? (val / stats.max * 100).toFixed(1) : '0.0';
-            const cobj = COUNTRIES.find(c => c.code === code);
-
+            if (code===null) return;
+            const val = vals[code]??0, pct = stats.max>0?(val/stats.max*100).toFixed(1):'0.0';
+            const cobj = COUNTRIES.find(c => c.code===code);
             layer.on({
                 mouseover: e => {
-                    e.target.setStyle({ weight:2, color:'#2c3e50', fillOpacity:0.95 });
+                    e.target.setStyle({weight:2,color:'#2c3e50',fillOpacity:0.95});
                     e.target.bringToFront();
-                    L.popup({ closeButton:false, offset:[0,-4] })
+                    L.popup({closeButton:false,offset:[0,-4]})
                      .setLatLng(e.latlng)
-                     .setContent(`
-                        <div class="popup-title">${cobj?.name ?? feat.properties.NAME} (${code})</div>
-                        <div class="popup-row">
-                            <span>${threshLbl} hours</span>
-                            <span class="popup-val">${val} h</span>
-                        </div>
-                        <div class="popup-row">
-                            <span>% of max</span>
-                            <span class="popup-val">${pct}%</span>
-                        </div>
-                     `)
+                     .setContent(`<div class="popup-title">${cobj?.name??feat.properties.NAME} (${code})</div>
+                        <div class="popup-row"><span>${threshLbl} hours</span><span class="popup-val">${val} h</span></div>
+                        <div class="popup-row"><span>% of max</span><span class="popup-val">${pct}%</span></div>`)
                      .openOn(negMap);
                 },
                 mouseout: e => { negLayer.resetStyle(e.target); negMap.closePopup(); }
             });
         }
     }).addTo(negMap);
-
-    document.getElementById('negLegendGrad').style.background =
-        'linear-gradient(to right, #f5f5f5, #fc8d59, #d7301f)';
+    document.getElementById('negLegendGrad').style.background = 'linear-gradient(to right,#f5f5f5,#fc8d59,#d7301f)';
     document.getElementById('negLegendTitle').textContent = `${threshLbl} – Cumulative Hours`;
-    document.getElementById('negLegendMin').textContent   = '0 h';
-    document.getElementById('negLegendMax').textContent   = maxV + ' h';
-
-    // Labels: country code + hours count
+    document.getElementById('negLegendMin').textContent = '0 h';
+    document.getElementById('negLegendMax').textContent = maxV + ' h';
     addCountryLabels(negMap, code => {
         const v = vals[code];
-        return (v !== null && v !== undefined) ? v + ' h' : '';
+        return (v!==null&&v!==undefined) ? v+' h' : '';
     }, negLabelMarkers);
 }
 
-function renderBothMaps() {
-    updateMapTitles();
-    renderCapMap();
-    renderNegMap();
-}
-
+function renderBothMaps() { updateMapTitles(); renderCapMap(); renderNegMap(); }
 function getPeriodLabel() {
-    if (state.mapFreq === 'yearly')    return `${state.mapYear}`;
-    if (state.mapFreq === 'quarterly') return `${state.mapYear} Q${state.mapQ}`;
-    const mn = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    if (state.mapFreq==='yearly')    return `${state.mapYear}`;
+    if (state.mapFreq==='quarterly') return `${state.mapYear} Q${state.mapQ}`;
+    const mn=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
     return `${state.mapYear} ${mn[state.mapMonth-1]}`;
 }
-
 function updateMapTitles() {
-    const period = getPeriodLabel();
-    const src    = state.capSource === 'solar' ? 'Solar' : 'Wind';
-    const isRatio = state.displayMode === 'ratio';
-    document.getElementById('capPanelTitle').textContent =
-        isRatio ? `${src} Capture Ratio – ${period}` : `${src} Capture Price – ${period}`;
+    const period = getPeriodLabel(), src = state.capSource==='solar'?'Solar':'Wind', isRatio = state.displayMode==='ratio';
+    document.getElementById('capPanelTitle').textContent = isRatio ? `${src} Capture Ratio – ${period}` : `${src} Capture Price – ${period}`;
     document.getElementById('negPanelTitle').textContent = `Negative Price Hours – ${period}`;
 }
 
 /* ═══════════════════════════════════════════════════════════
-             Chart 1 & 2
+   SUMMARY TABLE
+═══════════════════════════════════════════════════════════ */
+
+/*
+  Columns (matching the screenshot):
+    1. Row label
+    2. Curtailed Production (%) — per year col
+    3. Capture Price post-curtailment (EUR/MWh) — per year col
+    4. Capture Price pre-curtailment (EUR/MWh) — per year col
+    5. Baseload (EUR/MWh) — per year col
+    6. Capture Ratio post Curtailment (%) — per year col
+    7. Capture Ratio pre Curtailment (%) — per year col
+    8. Negative price hours — per year col
+*/
+
+function getTableYears() {
+    const years = new Set();
+    (rawPrice[state.tableCountry] || []).forEach(h => years.add(parseInt(h.date.slice(0,4))));
+    return [...years].sort();
+}
+
+/* Aggregate full hourly data for a given year-filter function */
+function tableAggregate(hours, filterFn) {
+    const filtered = hours.filter(filterFn);
+    if (!filtered.length) return null;
+    let sumPr=0, cntPr=0, sumGen=0, sumGenPost=0, sumRev=0, sumRevPre=0, sumNeg=0;
+    filtered.forEach(h => {
+        sumPr += h.pr; cntPr++;
+        sumGen += h.gen; sumGenPost += h.genPost;
+        sumRev += h.rev; sumRevPre += h.revPre;
+        sumNeg += h.isNeg;
+    });
+    const baseload  = cntPr > 0     ? sumPr     / cntPr      : null;
+    const capPost   = sumGenPost > 0 ? sumRev    / sumGenPost : null;
+    const capPre    = sumGen     > 0 ? sumRevPre / sumGen     : null;
+    const curtPct   = sumGen     > 0 ? (sumGen - sumGenPost) / sumGen * 100 : null;
+    const ratioPost = (baseload && capPost !== null) ? capPost / baseload * 100 : null;
+    const ratioPre  = (baseload && capPre  !== null) ? capPre  / baseload * 100 : null;
+    return { baseload, capPost, capPre, curtPct, ratioPost, ratioPre, negHours: sumNeg };
+}
+
+/* Build all row data for the table */
+function buildTableData() {
+    const country = state.tableCountry, source = state.tableSource;
+    const hours   = computeHourly(country, source);
+    const years   = getTableYears();
+
+    /* Row definitions: each row has a label and a filter */
+    const rows = [];
+
+    /* Monthly rows: 1–12 */
+    for (let m = 1; m <= 12; m++) {
+        rows.push({
+            label   : String(m),
+            rowClass: 'row-monthly',
+            filter  : (h, yr) => {
+                const hyr = parseInt(h.date.slice(0,4)), hmo = parseInt(h.date.slice(5,7));
+                return hyr === yr && hmo === m;
+            }
+        });
+    }
+    /* Yearly */
+    rows.push({
+        label: 'Yearly', rowClass: 'row-yearly',
+        filter: (h, yr) => parseInt(h.date.slice(0,4)) === yr
+    });
+    /* Half-years */
+    rows.push({
+        label: '1H', rowClass: 'row-half',
+        filter: (h, yr) => parseInt(h.date.slice(0,4))===yr && parseInt(h.date.slice(5,7))<=6
+    });
+    rows.push({
+        label: '2H', rowClass: 'row-half',
+        filter: (h, yr) => parseInt(h.date.slice(0,4))===yr && parseInt(h.date.slice(5,7))>6
+    });
+    /* Quarters */
+    for (let q = 1; q <= 4; q++) {
+        const qStart = (q-1)*3+1, qEnd = q*3;
+        rows.push({
+            label: `Q${q}`, rowClass: 'row-quarter',
+            filter: (h, yr) => {
+                const hyr = parseInt(h.date.slice(0,4)), hmo = parseInt(h.date.slice(5,7));
+                return hyr===yr && hmo>=qStart && hmo<=qEnd;
+            }
+        });
+    }
+
+    /* For each row, compute metrics per year */
+    return { rows, years, data: rows.map(row => ({
+        ...row,
+        byYear: years.map(yr => tableAggregate(hours, h => row.filter(h, yr)))
+    }))};
+}
+
+/* Format helpers */
+function fmtPct(v)   { return v===null ? '<span class="tbl-null">–</span>' : v.toFixed(0)+'%'; }
+function fmtEur(v)   { return v===null ? '<span class="tbl-null">–</span>' : v.toFixed(0); }
+function fmtHours(v) { return v===null ? '<span class="tbl-null">–</span>' : v===0 ? '<span class="tbl-null">–</span>' : Math.round(v).toString(); }
+
+/* Color capture ratio cells */
+function ratioCellClass(v) {
+    if (v === null) return '';
+    if (v >= 85) return 'val-high';
+    if (v < 60)  return 'val-low';
+    return 'val-med';
+}
+
+function renderSummaryTable() {
+    const tbl = document.getElementById('summaryTable');
+    const { rows, years, data } = buildTableData();
+
+    /* Section definitions */
+    const sections = [
+        { key: 'curtPct',   label: 'Curtailed Production (%)',              fmt: fmtPct,   colorFn: null,          span: years.length },
+        { key: 'capPost',   label: 'Capture Price post-curtailment (EUR/MWh)', fmt: fmtEur, colorFn: null,          span: years.length },
+        { key: 'capPre',    label: 'Capture Price pre Curtailment (EUR/MWh)',  fmt: fmtEur, colorFn: null,          span: years.length },
+        { key: 'baseload',  label: 'Baseload (EUR/MWh)',                     fmt: fmtEur,   colorFn: null,          span: years.length },
+        { key: 'ratioPost', label: 'Capture Ratio post Curtailment (%)',     fmt: fmtPct,   colorFn: ratioCellClass, span: years.length },
+        { key: 'ratioPre',  label: 'Capture Ratio pre Curtailment (%)',      fmt: fmtPct,   colorFn: ratioCellClass, span: years.length },
+        { key: 'negHours',  label: 'Negative price hours',                   fmt: fmtHours, colorFn: null,          span: years.length }
+    ];
+
+    let html = '<thead>';
+
+    /* Row 1: Section headers */
+    html += '<tr class="section-header">';
+    html += '<th class="row-label">Period</th>';
+    sections.forEach((s, si) => {
+        html += `<th colspan="${s.span}" class="${si>0?'sec-start':''}">${s.label}</th>`;
+    });
+    html += '</tr>';
+
+    /* Row 2: Year sub-headers */
+    html += '<tr class="year-header">';
+    html += '<th class="row-label"></th>';
+    sections.forEach((s, si) => {
+        years.forEach((yr, yi) => {
+            html += `<th class="${si>0&&yi===0?'sec-start':''}">${yr}</th>`;
+        });
+    });
+    html += '</tr>';
+    html += '</thead><tbody>';
+
+    /* Data rows */
+    data.forEach(row => {
+        html += `<tr class="${row.rowClass}">`;
+        html += `<td class="row-label">${row.label}</td>`;
+        sections.forEach((s, si) => {
+            row.byYear.forEach((d, yi) => {
+                const val   = d ? d[s.key] : null;
+                const fmted = s.fmt(val);
+                const cls   = [
+                    si > 0 && yi === 0 ? 'sec-start' : '',
+                    s.colorFn ? s.colorFn(val) : ''
+                ].filter(Boolean).join(' ');
+                html += `<td class="${cls}">${fmted}</td>`;
+            });
+        });
+        html += '</tr>';
+    });
+
+    html += '</tbody>';
+    tbl.innerHTML = html;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   CHARTS
 ═══════════════════════════════════════════════════════════ */
 let ec1, ec2d, ec2w, ec2m, ec2q, ec2y;
 
@@ -1272,69 +1149,43 @@ function initCharts() {
     window.addEventListener('resize', () => {
         ec1.resize(); ec2d.resize(); ec2w.resize();
         ec2m.resize(); ec2q.resize(); ec2y.resize();
-        capMap.invalidateSize();
-        negMap.invalidateSize();
+        capMap.invalidateSize(); negMap.invalidateSize();
     });
 }
 
-/* ── Shared tooltip + axis style ── */
-function tooltipFmt(params) {
-    let html = `<div style="font-weight:600;margin-bottom:5px;color:#2c3e50">${params[0]?.axisValue}</div>`;
-    params.forEach(p => {
-        if (p.value == null) return;
-        const isHours = p.seriesName.includes('Hours');
-        const unit  = isHours ? 'h' : '€/MWh';
-        const dec   = isHours ? 0 : 2;
-        html += `<div style="display:flex;align-items:center;gap:8px;margin:2px 0;font-size:12px">
-            <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${p.color}"></span>
-            <span style="flex:1;color:#555">${p.seriesName}</span>
-            <span style="font-weight:600;color:#2c3e50">${Number(p.value).toFixed(dec)} ${unit}</span>
-        </div>`;
-    });
-    return html;
-}
 const axisStyle = {
     axisLine  : { lineStyle:{ color:'#ccc' } },
     axisLabel : { color:'#6c757d', fontSize:11 },
     splitLine : { lineStyle:{ color:'#f0f2f5' } }
 };
 
-/* ── Chart 1 ── */
 function renderChart1() {
-    const freq = state.freq1, c = state.country;
-    const isRatio = state.displayMode === 'ratio';
+    const freq = state.freq1, c = state.country, isRatio = state.displayMode==='ratio';
     const aggS = aggregateFromHourly(computeHourly(c,'solar'), freq);
     const aggW = aggregateFromHourly(computeHourly(c,'wind'),  freq);
     const sMap = Object.fromEntries(aggS.map(d=>[d.date,d]));
     const wMap = Object.fromEntries(aggW.map(d=>[d.date,d]));
     const dates = [...new Set([...aggS.map(d=>d.date),...aggW.map(d=>d.date)])].sort();
-
     const sPostKey = isRatio ? 'capRatioPost' : 'capPost';
     const wPostKey = isRatio ? 'capRatioPost' : 'capPost';
     const sLabel   = isRatio ? 'Solar CR (post)' : 'Solar CP (post)';
     const wLabel   = isRatio ? 'Wind CR (post)'  : 'Wind CP (post)';
-
     const yAxes = isRatio ? [
         { type:'value', name:'€/MWh', nameTextStyle:{color:'#6c757d',fontSize:11}, ...axisStyle },
         { type:'value', name:'%', nameTextStyle:{color:'#6c757d',fontSize:11}, position:'right',
-          axisLine:{lineStyle:{color:'#ccc'}}, axisLabel:{color:'#6c757d',fontSize:11,formatter:v=>v+'%'},
-          splitLine:{show:false} }
+          axisLine:{lineStyle:{color:'#ccc'}}, axisLabel:{color:'#6c757d',fontSize:11,formatter:v=>v+'%'}, splitLine:{show:false} }
     ] : [
         { type:'value', name:'€/MWh', nameTextStyle:{color:'#6c757d',fontSize:11}, ...axisStyle }
     ];
-
     const series = isRatio ? [
         { name:'Baseload', type:'bar', data:dates.map(d=>sMap[d]?.baseload??wMap[d]?.baseload??null),
-          barMaxWidth:12, itemStyle:{color:COLORS.baseload,borderWidth:0}, z:1,
-          yAxisIndex:0 },
+          barMaxWidth:12, itemStyle:{color:COLORS.baseload,borderWidth:0}, z:1, yAxisIndex:0 },
         { name:sLabel, type:'line', symbol:'none', smooth:false,
           data:dates.map(d=>sMap[d]?.[sPostKey]??null),
-          lineStyle:{color:COLORS.solar,width:2}, itemStyle:{color:COLORS.solar}, z:3,
-          yAxisIndex:1 },
+          lineStyle:{color:COLORS.solar,width:2}, itemStyle:{color:COLORS.solar}, z:3, yAxisIndex:1 },
         { name:wLabel, type:'line', symbol:'none', smooth:false,
           data:dates.map(d=>wMap[d]?.[wPostKey]??null),
-          lineStyle:{color:COLORS.wind,width:2}, itemStyle:{color:COLORS.wind}, z:3,
-          yAxisIndex:1 }
+          lineStyle:{color:COLORS.wind,width:2}, itemStyle:{color:COLORS.wind}, z:3, yAxisIndex:1 }
     ] : [
         { name:'Baseload', type:'bar', data:dates.map(d=>sMap[d]?.baseload??wMap[d]?.baseload??null),
           barMaxWidth:12, itemStyle:{color:COLORS.baseload,borderWidth:0}, z:1 },
@@ -1345,17 +1196,14 @@ function renderChart1() {
           data:dates.map(d=>wMap[d]?.[wPostKey]??null),
           lineStyle:{color:COLORS.wind,width:2}, itemStyle:{color:COLORS.wind}, z:3 }
     ];
-
     ec1.setOption({
         tooltip: { trigger:'axis', axisPointer:{type:'cross',lineStyle:{color:'#bbb'}},
             formatter: params => {
                 let html = `<div style="font-weight:600;margin-bottom:5px;color:#2c3e50">${params[0]?.axisValue}</div>`;
                 params.forEach(p => {
-                    if (p.value == null) return;
-                    const isBar  = p.seriesName === 'Baseload';
-                    const isRat  = isRatio && !isBar;
-                    const unit   = isRat ? '%' : '€/MWh';
-                    const dec    = isRat ? 1 : 2;
+                    if (p.value==null) return;
+                    const isBar = p.seriesName==='Baseload', isRat = isRatio&&!isBar;
+                    const unit = isRat?'%':'€/MWh', dec = isRat?1:2;
                     html += `<div style="display:flex;align-items:center;gap:8px;margin:2px 0;font-size:12px">
                         <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${p.color}"></span>
                         <span style="flex:1;color:#555">${p.seriesName}</span>
@@ -1367,64 +1215,44 @@ function renderChart1() {
         },
         legend: { top:4, right:8, type:'scroll', textStyle:{color:'#2c3e50',fontSize:12}, itemWidth:14 },
         dataZoom: [
-            { type:'slider', xAxisIndex:0, bottom:10, height:22,
-              borderColor:'#e6e9ed', fillerColor:'rgba(44,62,80,0.08)',
-              handleStyle:{color:'#2c3e50'}, textStyle:{color:'#6c757d',fontSize:10}, brushSelect:false },
+            { type:'slider', xAxisIndex:0, bottom:10, height:22, borderColor:'#e6e9ed',
+              fillerColor:'rgba(44,62,80,0.08)', handleStyle:{color:'#2c3e50'},
+              textStyle:{color:'#6c757d',fontSize:10}, brushSelect:false },
             { type:'inside', xAxisIndex:0, zoomOnMouseWheel:true, moveOnMouseMove:true }
         ],
-        grid: { left:60, right: isRatio ? 50 : 20, top:36, bottom:70 },
+        grid: { left:60, right:isRatio?50:20, top:36, bottom:70 },
         xAxis: { type:'category', data:dates, ...axisStyle,
-                 axisLabel:{...axisStyle.axisLabel, rotate:dates.length>60?30:0, interval:'auto'} },
+                 axisLabel:{...axisStyle.axisLabel,rotate:dates.length>60?30:0,interval:'auto'} },
         yAxis: yAxes,
         series
     }, true);
 }
 
-/* ── Chart 2 shared builder ── */
 function buildChart2Option({ xData, baseVals, postVals, preVals, barVals, lineColor, preColor,
     showDots=false, barMaxWidth=16, topGridBottom='42%', botGridTop='62%',
     xRotate=0, xFontSize=11, barYMax=null, barYInterval=null, isRatio=false }) {
-
-    const sym = showDots ? 'circle' : 'none';
-    const symSize = showDots ? 6 : 4;
-    const yAxisBar = {
-        type:'value', name:'Hours', gridIndex:1,
-        nameTextStyle:{color:'#6c757d',fontSize:11}, ...axisStyle
-    };
-    if (barYMax      !== null) { yAxisBar.min=0; yAxisBar.max=barYMax; }
-    if (barYInterval !== null) { yAxisBar.interval=barYInterval; }
-
+    const sym = showDots ? 'circle' : 'none', symSize = showDots ? 6 : 4;
+    const yAxisBar = { type:'value', name:'Hours', gridIndex:1, nameTextStyle:{color:'#6c757d',fontSize:11}, ...axisStyle };
+    if (barYMax!==null) { yAxisBar.min=0; yAxisBar.max=barYMax; }
+    if (barYInterval!==null) { yAxisBar.interval=barYInterval; }
     const postLabel = isRatio ? 'Capture Ratio (post)' : 'Capture Price (post)';
     const preLabel  = isRatio ? 'Capture Ratio (pre)'  : 'Capture Price (pre)';
-
-    // In ratio mode: left Y-axis = €/MWh (baseload only), right Y-axis = % (ratio lines)
     const yAxesTop = isRatio ? [
-        { type:'value', name:'€/MWh', gridIndex:0,
-          nameTextStyle:{color:'#6c757d',fontSize:11}, ...axisStyle },
-        { type:'value', name:'%', gridIndex:0, position:'right',
-          nameTextStyle:{color:'#6c757d',fontSize:11},
-          axisLine:{lineStyle:{color:'#ccc'}},
-          axisLabel:{color:'#6c757d',fontSize:10,formatter:v=>v+'%'},
-          splitLine:{show:false} }
+        { type:'value', name:'€/MWh', gridIndex:0, nameTextStyle:{color:'#6c757d',fontSize:11}, ...axisStyle },
+        { type:'value', name:'%', gridIndex:0, position:'right', nameTextStyle:{color:'#6c757d',fontSize:11},
+          axisLine:{lineStyle:{color:'#ccc'}}, axisLabel:{color:'#6c757d',fontSize:10,formatter:v=>v+'%'}, splitLine:{show:false} }
     ] : [
-        { type:'value', name:'€/MWh', gridIndex:0,
-          nameTextStyle:{color:'#6c757d',fontSize:11}, ...axisStyle }
+        { type:'value', name:'€/MWh', gridIndex:0, nameTextStyle:{color:'#6c757d',fontSize:11}, ...axisStyle }
     ];
-    const yAxesBot = [yAxisBar];
-    // yAxisIndex mapping: price mode: 0=price, 1=bar; ratio mode: 0=price(baseload), 1=ratio, 2=bar
-    const ratioYIdx = isRatio ? 1 : 0;
-    const barYIdx   = isRatio ? 2 : 1;
-
+    const ratioYIdx = isRatio ? 1 : 0, barYIdx = isRatio ? 2 : 1;
     return {
         tooltip: { trigger:'axis', axisPointer:{type:'cross',lineStyle:{color:'#bbb'}},
             formatter: params => {
                 let html = `<div style="font-weight:600;margin-bottom:5px;color:#2c3e50">${params[0]?.axisValue}</div>`;
                 params.forEach(p => {
-                    if (p.value == null) return;
-                    const isH   = p.seriesName.includes('Hours');
-                    const isRat = isRatio && (p.seriesName.includes('Ratio'));
-                    const unit  = isH ? 'h' : isRat ? '%' : '€/MWh';
-                    const dec   = isH ? 0 : isRat ? 1 : 2;
+                    if (p.value==null) return;
+                    const isH=p.seriesName.includes('Hours'), isRat=isRatio&&p.seriesName.includes('Ratio');
+                    const unit=isH?'h':isRat?'%':'€/MWh', dec=isH?0:isRat?1:2;
                     html += `<div style="display:flex;align-items:center;gap:8px;margin:2px 0;font-size:12px">
                         <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${p.color}"></span>
                         <span style="flex:1;color:#555">${p.seriesName}</span>
@@ -1434,13 +1262,12 @@ function buildChart2Option({ xData, baseVals, postVals, preVals, barVals, lineCo
                 return html;
             }
         },
-        legend: { top:2, right:8, type:'scroll',
-                  textStyle:{color:'#2c3e50',fontSize:11}, itemWidth:12,
+        legend: { top:2, right:8, type:'scroll', textStyle:{color:'#2c3e50',fontSize:11}, itemWidth:12,
                   data:['Baseload', postLabel, preLabel, 'Non-positive Hours'] },
         axisPointer: { link:[{xAxisIndex:'all'}] },
         grid: [
-            { left:60, right: isRatio ? 50 : 16, top:32, bottom:topGridBottom },
-            { left:60, right: isRatio ? 50 : 16, top:botGridTop, bottom:36 }
+            { left:60, right:isRatio?50:16, top:32, bottom:topGridBottom },
+            { left:60, right:isRatio?50:16, top:botGridTop, bottom:36 }
         ],
         xAxis: [
             { type:'category', data:xData, gridIndex:0,
@@ -1449,25 +1276,20 @@ function buildChart2Option({ xData, baseVals, postVals, preVals, barVals, lineCo
               axisLabel:{color:'#6c757d',fontSize:xFontSize,rotate:xRotate,interval:'auto'},
               axisLine:{lineStyle:{color:'#ccc'}}, splitLine:{show:false} }
         ],
-        yAxis: [...yAxesTop, ...yAxesBot],
+        yAxis: [...yAxesTop, yAxisBar],
         series: [
-            { name:'Baseload', type:'bar', data:baseVals, barMaxWidth:barMaxWidth,
-             itemStyle:{color:COLORS.baseload, borderWidth:0},
-             xAxisIndex:0, yAxisIndex:0, z:1 },
+            { name:'Baseload', type:'bar', data:baseVals, barMaxWidth, itemStyle:{color:COLORS.baseload,borderWidth:0}, xAxisIndex:0, yAxisIndex:0, z:1 },
             { name:postLabel, type:'line', symbol:sym, symbolSize:symSize, data:postVals, smooth:false,
-              lineStyle:{color:lineColor,width:2}, itemStyle:{color:lineColor},
-              xAxisIndex:0, yAxisIndex:ratioYIdx },
+              lineStyle:{color:lineColor,width:2}, itemStyle:{color:lineColor}, xAxisIndex:0, yAxisIndex:ratioYIdx },
             { name:preLabel, type:'line', symbol:sym, symbolSize:symSize, data:preVals, smooth:false,
-              lineStyle:{color:preColor,width:1.5,type:'dashed'}, itemStyle:{color:preColor},
-              xAxisIndex:0, yAxisIndex:ratioYIdx },
-            { name:'Non-positive Hours', type:'bar', data:barVals, barMaxWidth,
-              itemStyle:{color:COLORS.bar,opacity:0.8}, xAxisIndex:1, yAxisIndex:barYIdx }
+              lineStyle:{color:preColor,width:1.5,type:'dashed'}, itemStyle:{color:preColor}, xAxisIndex:0, yAxisIndex:ratioYIdx },
+            { name:'Non-positive Hours', type:'bar', data:barVals, barMaxWidth, itemStyle:{color:COLORS.bar,opacity:0.8}, xAxisIndex:1, yAxisIndex:barYIdx }
         ]
     };
 }
 
 function toArrays(agg) {
-    const isRatio = state.displayMode === 'ratio';
+    const isRatio = state.displayMode==='ratio';
     return {
         xData    : agg.map(d=>d.date),
         baseVals : agg.map(d=>d.baseload),
@@ -1480,67 +1302,39 @@ function toArrays(agg) {
 function getFullHourly(src) { return computeHourly(state.country, src); }
 function getYearHourly(src) { return computeHourly(state.country, src).filter(h=>h.date.startsWith(state.year2)); }
 function sourceColors() {
-    return {
-        lineColor : state.source2==='solar' ? COLORS.solar  : COLORS.wind,
-        preColor  : state.source2==='solar' ? COLORS.post_s : COLORS.post_w
-    };
+    return { lineColor: state.source2==='solar'?COLORS.solar:COLORS.wind, preColor: state.source2==='solar'?COLORS.post_s:COLORS.post_w };
 }
 
 function renderChart2Daily() {
     const {lineColor,preColor} = sourceColors();
-    const {xData,baseVals,postVals,preVals,barVals,isRatio} =
-        toArrays(aggregateFromHourly(getYearHourly(state.source2),'daily'));
-    ec2d.setOption(buildChart2Option({
-        xData,baseVals,postVals,preVals,barVals,lineColor,preColor,isRatio,
-        showDots:false,barMaxWidth:10,topGridBottom:'42%',botGridTop:'62%',
-        xRotate:xData.length>60?30:0,xFontSize:10,barYMax:24,barYInterval:6
-    }),true);
+    const {xData,baseVals,postVals,preVals,barVals,isRatio} = toArrays(aggregateFromHourly(getYearHourly(state.source2),'daily'));
+    ec2d.setOption(buildChart2Option({xData,baseVals,postVals,preVals,barVals,lineColor,preColor,isRatio,showDots:false,barMaxWidth:10,topGridBottom:'42%',botGridTop:'62%',xRotate:xData.length>60?30:0,xFontSize:10,barYMax:24,barYInterval:6}),true);
 }
 function renderChart2Weekly() {
     const {lineColor,preColor} = sourceColors();
-    const {xData,baseVals,postVals,preVals,barVals,isRatio} =
-        toArrays(aggregateFromHourly(getFullHourly(state.source2),'weekly'));
-    ec2w.setOption(buildChart2Option({
-        xData,baseVals,postVals,preVals,barVals,lineColor,preColor,isRatio,
-        showDots:false,barMaxWidth:10,topGridBottom:'42%',botGridTop:'62%',
-        xRotate:30,xFontSize:9
-    }),true);
+    const {xData,baseVals,postVals,preVals,barVals,isRatio} = toArrays(aggregateFromHourly(getFullHourly(state.source2),'weekly'));
+    ec2w.setOption(buildChart2Option({xData,baseVals,postVals,preVals,barVals,lineColor,preColor,isRatio,showDots:false,barMaxWidth:10,topGridBottom:'42%',botGridTop:'62%',xRotate:30,xFontSize:9}),true);
 }
 function renderChart2Monthly() {
     const {lineColor,preColor} = sourceColors();
-    const {xData,baseVals,postVals,preVals,barVals,isRatio} =
-        toArrays(aggregateFromHourly(getFullHourly(state.source2),'monthly'));
-    ec2m.setOption(buildChart2Option({
-        xData,baseVals,postVals,preVals,barVals,lineColor,preColor,isRatio,
-        showDots:true,barMaxWidth:20,topGridBottom:'42%',botGridTop:'62%',
-        xRotate:0,xFontSize:11
-    }),true);
+    const {xData,baseVals,postVals,preVals,barVals,isRatio} = toArrays(aggregateFromHourly(getFullHourly(state.source2),'monthly'));
+    ec2m.setOption(buildChart2Option({xData,baseVals,postVals,preVals,barVals,lineColor,preColor,isRatio,showDots:true,barMaxWidth:20,topGridBottom:'42%',botGridTop:'62%',xRotate:0,xFontSize:11}),true);
 }
 function renderChart2Quarterly() {
     const {lineColor,preColor} = sourceColors();
-    const {xData,baseVals,postVals,preVals,barVals,isRatio} =
-        toArrays(aggregateFromHourly(getFullHourly(state.source2),'quarterly'));
-    ec2q.setOption(buildChart2Option({
-        xData,baseVals,postVals,preVals,barVals,lineColor,preColor,isRatio,
-        showDots:true,barMaxWidth:32,topGridBottom:'44%',botGridTop:'64%',
-        xRotate:0,xFontSize:11
-    }),true);
+    const {xData,baseVals,postVals,preVals,barVals,isRatio} = toArrays(aggregateFromHourly(getFullHourly(state.source2),'quarterly'));
+    ec2q.setOption(buildChart2Option({xData,baseVals,postVals,preVals,barVals,lineColor,preColor,isRatio,showDots:true,barMaxWidth:32,topGridBottom:'44%',botGridTop:'64%',xRotate:0,xFontSize:11}),true);
 }
 function renderChart2Yearly() {
     const {lineColor,preColor} = sourceColors();
-    const {xData,baseVals,postVals,preVals,barVals,isRatio} =
-        toArrays(aggregateFromHourly(getFullHourly(state.source2),'yearly'));
-    ec2y.setOption(buildChart2Option({
-        xData,baseVals,postVals,preVals,barVals,lineColor,preColor,isRatio,
-        showDots:true,barMaxWidth:48,topGridBottom:'44%',botGridTop:'64%',
-        xRotate:0,xFontSize:12
-    }),true);
+    const {xData,baseVals,postVals,preVals,barVals,isRatio} = toArrays(aggregateFromHourly(getFullHourly(state.source2),'yearly'));
+    ec2y.setOption(buildChart2Option({xData,baseVals,postVals,preVals,barVals,lineColor,preColor,isRatio,showDots:true,barMaxWidth:48,topGridBottom:'44%',botGridTop:'64%',xRotate:0,xFontSize:12}),true);
 }
 
 function updateTitles() {
     const cName = COUNTRIES.find(c=>c.code===state.country)?.name ?? state.country;
-    const sName = state.source2==='solar' ? 'Solar' : 'Wind';
-    const isRatio = state.displayMode === 'ratio';
+    const sName = state.source2==='solar'?'Solar':'Wind';
+    const isRatio = state.displayMode==='ratio';
     if (isRatio) {
         document.getElementById('card1Title').textContent = `Capture Ratio Overview – ${cName}`;
         document.getElementById('card1Subtitle').textContent = 'Baseload (bar) · Solar capture ratio · Wind capture ratio (post-curtailment)';
@@ -1550,15 +1344,14 @@ function updateTitles() {
         document.getElementById('card1Subtitle').textContent = 'Baseload (bar) · Solar capture price · Wind capture price (post-curtailment)';
         document.getElementById('card2Title').textContent = `${sName} Capture Price – ${cName}`;
     }
+    // Update table card title
+    const tName = COUNTRIES.find(c=>c.code===state.tableCountry)?.name ?? state.tableCountry;
+    const tSrc  = state.tableSource==='solar' ? 'Solar' : 'Wind';
+    document.getElementById('card4Title').textContent = `Capture Price Summary Table – ${tName} · ${tSrc}`;
 }
 
-function renderAllChart2() {
-    renderChart2Daily(); renderChart2Weekly(); renderChart2Monthly();
-    renderChart2Quarterly(); renderChart2Yearly();
-}
-function renderAll() {
-    updateTitles(); renderChart1(); renderAllChart2();
-}
+function renderAllChart2() { renderChart2Daily(); renderChart2Weekly(); renderChart2Monthly(); renderChart2Quarterly(); renderChart2Yearly(); }
+function renderAll() { updateTitles(); renderChart1(); renderAllChart2(); }
 
 /* ═══════════════════════════════════════════════════════════
    UI SETUP
@@ -1566,20 +1359,10 @@ function renderAll() {
 function buildCountryRadios() {
     const list = document.getElementById('countryRadioList');
     COUNTRIES.forEach(c => {
-        const item  = document.createElement('div');
-        item.className = 'country-item';
-        const radio = document.createElement('input');
-        radio.type='radio'; radio.name='countryRadio';
-        radio.value=c.code; radio.id=`cr_${c.code}`;
-        radio.checked = (c.code===state.country);
-        const span = document.createElement('span');
-        span.textContent = c.name;
-        const sel = () => {
-            state.country = c.code; radio.checked = true;
-            document.getElementById('countrySelectText').textContent = c.name;
-            document.getElementById('countryDropdown').classList.remove('show');
-            renderAll();
-        };
+        const item  = document.createElement('div'); item.className='country-item';
+        const radio = document.createElement('input'); radio.type='radio'; radio.name='countryRadio'; radio.value=c.code; radio.id=`cr_${c.code}`; radio.checked=(c.code===state.country);
+        const span  = document.createElement('span'); span.textContent=c.name;
+        const sel = () => { state.country=c.code; radio.checked=true; document.getElementById('countrySelectText').textContent=c.name; document.getElementById('countryDropdown').classList.remove('show'); renderAll(); };
         radio.addEventListener('change', sel);
         item.addEventListener('click', e => { if(e.target!==radio) sel(); });
         item.appendChild(radio); item.appendChild(span); list.appendChild(item);
@@ -1587,21 +1370,17 @@ function buildCountryRadios() {
 }
 
 function initDropdown() {
-    const btn  = document.getElementById('countrySelectBtn');
-    const drop = document.getElementById('countryDropdown');
+    const btn=document.getElementById('countrySelectBtn'), drop=document.getElementById('countryDropdown');
     btn.addEventListener('click', e => { e.stopPropagation(); drop.classList.toggle('show'); });
-    document.addEventListener('click', e => {
-        if(!drop.contains(e.target) && e.target!==btn) drop.classList.remove('show');
-    });
+    document.addEventListener('click', e => { if(!drop.contains(e.target)&&e.target!==btn) drop.classList.remove('show'); });
 }
 
 function bindFreqGroup1() {
     document.querySelectorAll('#freqGroup1 button').forEach(btn => {
         btn.addEventListener('click', () => {
-            state.freq1 = btn.dataset.freq;
+            state.freq1=btn.dataset.freq;
             document.querySelectorAll('#freqGroup1 button').forEach(b=>b.classList.remove('active'));
-            btn.classList.add('active');
-            renderChart1();
+            btn.classList.add('active'); renderChart1();
         });
     });
 }
@@ -1610,106 +1389,102 @@ function bindSourceToggle() {
     document.getElementById('btnSolar').addEventListener('click', () => {
         state.source2='solar';
         document.getElementById('btnSolar').classList.add('active');
-        document.getElementById('btnWind' ).classList.remove('active');
+        document.getElementById('btnWind').classList.remove('active');
         updateTitles(); renderAllChart2();
     });
     document.getElementById('btnWind').addEventListener('click', () => {
         state.source2='wind';
-        document.getElementById('btnWind' ).classList.add('active');
+        document.getElementById('btnWind').classList.add('active');
         document.getElementById('btnSolar').classList.remove('active');
         updateTitles(); renderAllChart2();
     });
 }
 
 function bindYearSelect() {
-    document.getElementById('yearSelect').addEventListener('change', e => {
-        state.year2 = e.target.value; renderChart2Daily();
-    });
+    document.getElementById('yearSelect').addEventListener('change', e => { state.year2=e.target.value; renderChart2Daily(); });
 }
 
 function bindModeGroup() {
     document.querySelectorAll('#modeGroup button').forEach(btn => {
         btn.addEventListener('click', () => {
-            state.displayMode = btn.dataset.mode;
-            document.querySelectorAll('#modeGroup button').forEach(b => b.classList.remove('active'));
+            state.displayMode=btn.dataset.mode;
+            document.querySelectorAll('#modeGroup button').forEach(b=>b.classList.remove('active'));
             btn.classList.add('active');
-            // Re-render everything that depends on mode
-            updateTitles();
-            renderChart1();
-            renderAllChart2();
-            renderCapMap();
-            updateMapTitles();
+            updateTitles(); renderChart1(); renderAllChart2(); renderCapMap(); updateMapTitles();
         });
     });
 }
 
-/* ── Map controls ── */
 function populateMapYearSelect() {
     const years = new Set();
-    COUNTRIES.forEach(c => {
-        (rawPrice[c.code]||[]).forEach(h => years.add(parseInt(h.date.slice(0,4))));
-    });
+    COUNTRIES.forEach(c => { (rawPrice[c.code]||[]).forEach(h => years.add(parseInt(h.date.slice(0,4)))); });
     const sorted = [...years].sort();
     state.mapYear = sorted[sorted.length-1] ?? new Date().getFullYear();
-
     const sel = document.getElementById('mapYear');
-    sel.innerHTML = sorted.map(y =>
-        `<option value="${y}" ${y===state.mapYear?'selected':''}>${y}</option>`
-    ).join('');
+    sel.innerHTML = sorted.map(y => `<option value="${y}" ${y===state.mapYear?'selected':''}>${y}</option>`).join('');
 }
 
 function bindMapControls() {
-    /* Frequency toggle */
     document.querySelectorAll('#mapFreqGroup button').forEach(btn => {
         btn.addEventListener('click', () => {
-            state.mapFreq = btn.dataset.freq;
+            state.mapFreq=btn.dataset.freq;
             document.querySelectorAll('#mapFreqGroup button').forEach(b=>b.classList.remove('active'));
             btn.classList.add('active');
-            document.getElementById('mapQuarter').style.display = state.mapFreq==='quarterly' ? '' : 'none';
-            document.getElementById('mapMonth'  ).style.display = state.mapFreq==='monthly'   ? '' : 'none';
+            document.getElementById('mapQuarter').style.display=state.mapFreq==='quarterly'?'':'none';
+            document.getElementById('mapMonth').style.display=state.mapFreq==='monthly'?'':'none';
             renderBothMaps();
         });
     });
-    document.getElementById('mapYear').addEventListener('change', e => {
-        state.mapYear = parseInt(e.target.value); renderBothMaps();
-    });
-    document.getElementById('mapQuarter').addEventListener('change', e => {
-        state.mapQ = parseInt(e.target.value); renderBothMaps();
-    });
-    document.getElementById('mapMonth').addEventListener('change', e => {
-        state.mapMonth = parseInt(e.target.value); renderBothMaps();
-    });
-
-    /* Capture source toggle */
+    document.getElementById('mapYear').addEventListener('change', e => { state.mapYear=parseInt(e.target.value); renderBothMaps(); });
+    document.getElementById('mapQuarter').addEventListener('change', e => { state.mapQ=parseInt(e.target.value); renderBothMaps(); });
+    document.getElementById('mapMonth').addEventListener('change', e => { state.mapMonth=parseInt(e.target.value); renderBothMaps(); });
     document.getElementById('capBtnSolar').addEventListener('click', () => {
         state.capSource='solar';
         document.getElementById('capBtnSolar').classList.add('active');
-        document.getElementById('capBtnWind' ).classList.remove('active');
+        document.getElementById('capBtnWind').classList.remove('active');
         renderCapMap(); updateMapTitles();
     });
     document.getElementById('capBtnWind').addEventListener('click', () => {
         state.capSource='wind';
-        document.getElementById('capBtnWind' ).classList.add('active');
+        document.getElementById('capBtnWind').classList.add('active');
         document.getElementById('capBtnSolar').classList.remove('active');
         renderCapMap(); updateMapTitles();
     });
-
-    /* Negative threshold toggle – multi-select: click toggles on/off, at least one must stay on */
     document.querySelectorAll('#negThreshGroup button').forEach(btn => {
         btn.addEventListener('click', () => {
-            const t = btn.dataset.thresh;
-            if (state.negThreshSet.has(t)) {
-                // Only deselect if the other is already selected
-                if (state.negThreshSet.size > 1) {
-                    state.negThreshSet.delete(t);
-                    btn.classList.remove('active');
-                }
-            } else {
-                state.negThreshSet.add(t);
-                btn.classList.add('active');
-            }
+            const t=btn.dataset.thresh;
+            if (state.negThreshSet.has(t)) { if(state.negThreshSet.size>1){state.negThreshSet.delete(t);btn.classList.remove('active');} }
+            else { state.negThreshSet.add(t); btn.classList.add('active'); }
             renderNegMap(); updateMapTitles();
         });
+    });
+}
+
+/* Table controls */
+function populateTableCountrySelect() {
+    const sel = document.getElementById('tableCountrySelect');
+    sel.innerHTML = COUNTRIES.map(c =>
+        `<option value="${c.code}" ${c.code===state.tableCountry?'selected':''}>${c.name}</option>`
+    ).join('');
+}
+
+function bindTableControls() {
+    document.getElementById('tableCountrySelect').addEventListener('change', e => {
+        state.tableCountry = e.target.value;
+        updateTitles();
+        renderSummaryTable();
+    });
+    document.getElementById('tableBtnSolar').addEventListener('click', () => {
+        state.tableSource='solar';
+        document.getElementById('tableBtnSolar').classList.add('active');
+        document.getElementById('tableBtnWind').classList.remove('active');
+        updateTitles(); renderSummaryTable();
+    });
+    document.getElementById('tableBtnWind').addEventListener('click', () => {
+        state.tableSource='wind';
+        document.getElementById('tableBtnWind').classList.add('active');
+        document.getElementById('tableBtnSolar').classList.remove('active');
+        updateTitles(); renderSummaryTable();
     });
 }
 
@@ -1717,16 +1492,11 @@ function bindMapControls() {
    BOOTSTRAP
 ═══════════════════════════════════════════════════════════ */
 async function main() {
-    try {
-        await loadAllData();
-    } catch(e) {
-        document.getElementById('loadingMsg').textContent =
-            '⚠ Failed to load data. ';
-        console.error(e); return;
-    }
+    try { await loadAllData(); }
+    catch(e) { document.getElementById('loadingMsg').textContent='⚠ Failed to load data.'; console.error(e); return; }
 
-    document.getElementById('loadingMsg').style.display = 'none';
-    document.getElementById('mainContent').style.display = 'block';
+    document.getElementById('loadingMsg').style.display='none';
+    document.getElementById('mainContent').style.display='block';
 
     buildCountryRadios();
     initDropdown();
@@ -1736,18 +1506,17 @@ async function main() {
     bindModeGroup();
     populateMapYearSelect();
     bindMapControls();
+    populateTableCountrySelect();
+    bindTableControls();
 
     initCharts();
     initMaps();
 
     renderAll();
     renderBothMaps();
+    renderSummaryTable();
 
-    /* Leaflet needs a moment after the container becomes visible */
-    setTimeout(() => {
-        capMap.invalidateSize();
-        negMap.invalidateSize();
-    }, 150);
+    setTimeout(() => { capMap.invalidateSize(); negMap.invalidateSize(); }, 150);
 }
 
 main();

@@ -1105,7 +1105,7 @@ function renderCapMap() {
     // Labels: country code + capture price value
     addCountryLabels(capMap, code => {
         const v = vals[code];
-        return v !== null && v !== undefined ? v.toFixed(0) + '€' : '';
+        return v !== null && v !== undefined ? v.toFixed(0) : '';
     }, capLabelMarkers);
 }
 
@@ -1179,7 +1179,7 @@ function renderNegMap() {
     // Labels: country code + hours count
     addCountryLabels(negMap, code => {
         const v = vals[code];
-        return (v !== null && v !== undefined) ? v + ' h' : '';
+        return (v !== null && v !== undefined) ? v : '';
     }, negLabelMarkers);
 }
 

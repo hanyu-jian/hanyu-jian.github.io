@@ -11,6 +11,7 @@ ENTSOE Intraday Price 数据更新脚本
     --mode full         全量拉取 FULL_START_DATE → yesterday
 """
 
+import os
 import argparse
 import time
 import xml.etree.ElementTree as ET

@@ -10,7 +10,7 @@ ENTSOE API 数据更新脚本（增量更新版）
     --mode incremental  仅更新最近7天（默认）
     --mode full         全量拉取 FULL_START_DATE → yesterday
 """
-
+import os
 import argparse
 import time
 import xml.etree.ElementTree as ET

@@ -33,19 +33,19 @@ ENTSOE_TOKEN = os.environ["ENTSOE_TOKEN"]
 API_URL      = "https://web-api.tp.entsoe.eu/api"
 
 COUNTRY_CONFIG = {
-    "de": {"tz": "Europe/Berlin",     "bzn_eic": "10Y1001A1001A82H", "ca_eic": "10Y1001A1001A83F"},
-    "fr": {"tz": "Europe/Paris",      "bzn_eic": "10YFR-RTE------C", "ca_eic": "10YFR-RTE------C"},
-    "es": {"tz": "Europe/Madrid",     "bzn_eic": "10YES-REE------0", "ca_eic": "10YES-REE------0"},
-    "it": {"tz": "Europe/Rome",       "bzn_eic": "10YIT-GRTN-----B", "ca_eic": "10YIT-GRTN-----B"},
-    "gr": {"tz": "Europe/Athens",     "bzn_eic": "10YGR-HTSO-----Y", "ca_eic": "10YGR-HTSO-----Y"},
-    "ro": {"tz": "Europe/Bucharest",  "bzn_eic": "10YRO-TEL------P", "ca_eic": "10YRO-TEL------P"},
-    "hu": {"tz": "Europe/Budapest",   "bzn_eic": "10YHU-MAVIR----U", "ca_eic": "10YHU-MAVIR----U"},
-    "at": {"tz": "Europe/Vienna",     "bzn_eic": "10YAT-APG------L", "ca_eic": "10YAT-APG------L"},
-    "pl": {"tz": "Europe/Warsaw",     "bzn_eic": "10YPL-AREA-----S", "ca_eic": "10YPL-AREA-----S"},
-    "sk": {"tz": "Europe/Bratislava", "bzn_eic": "10YSK-SEPS-----K", "ca_eic": "10YSK-SEPS-----K"},
-    "rs": {"tz": "Europe/Belgrade",   "bzn_eic": "10YCS-SERBIATSOV", "ca_eic": "10YCS-SERBIATSOV"},
-    "hr": {"tz": "Europe/Zagreb",     "bzn_eic": "10YHR-HEP------M", "ca_eic": "10YHR-HEP------M"},
-    "bg": {"tz": "Europe/Sofia",      "bzn_eic": "10YCA-BULGARIA-R", "ca_eic": "10YCA-BULGARIA-R"},
+    "de": {"tz": "Europe/Berlin",     "bzn_eic": "10Y1001A1001A82H"},
+    "fr": {"tz": "Europe/Paris",      "bzn_eic": "10YFR-RTE------C"},
+    "es": {"tz": "Europe/Madrid",     "bzn_eic": "10YES-REE------0"},
+    "it": {"tz": "Europe/Rome",       "bzn_eic": "10YIT-GRTN-----B"},
+    "gr": {"tz": "Europe/Athens",     "bzn_eic": "10YGR-HTSO-----Y"},
+    "ro": {"tz": "Europe/Bucharest",  "bzn_eic": "10YRO-TEL------P"},
+    "hu": {"tz": "Europe/Budapest",   "bzn_eic": "10YHU-MAVIR----U"},
+    "at": {"tz": "Europe/Vienna",     "bzn_eic": "10YAT-APG------L"},
+    "pl": {"tz": "Europe/Warsaw",     "bzn_eic": "10YPL-AREA-----S"},
+    "sk": {"tz": "Europe/Bratislava", "bzn_eic": "10YSK-SEPS-----K"},
+    "rs": {"tz": "Europe/Belgrade",   "bzn_eic": "10YCS-SERBIATSOV"},
+    "hr": {"tz": "Europe/Zagreb",     "bzn_eic": "10YHR-HEP------M"},
+    "bg": {"tz": "Europe/Sofia",      "bzn_eic": "10YCA-BULGARIA-R"},
 }
 
 PSR_TYPE_MAP = {
@@ -77,6 +77,8 @@ LOOKBACK_DAYS   = 7
 REQUEST_DELAY   = 1.5      # 每次请求后等待（秒）
 CHUNK_DAYS      = 365      # 每段最多天数（ENTSOE 限制1年）
 PAGE_SIZE       = 100      # ENTSOE 每页最多 TimeSeries 数
+DEFAULT_TIMEOUT = 90       # price/load 超时（秒）
+GEN_TIMEOUT     = 120      # A75 per-psrType 超时（单类型数据量小，120秒足够）
 DATA_DIR        = Path("data")
 ENTSOE_FMT      = "%Y%m%d%H%M"
 
@@ -85,16 +87,17 @@ ENTSOE_FMT      = "%Y%m%d%H%M"
 # 日期分段
 # ─────────────────────────────────────────────────────────────
 
-def date_chunks(start: str, end_inclusive: str) -> list[tuple[str, str]]:
+def date_chunks(start: str, end_inclusive: str,
+                chunk_days: int = CHUNK_DAYS) -> list[tuple[str, str]]:
     """
-    将 [start, end_inclusive] 切成最多 CHUNK_DAYS 天的子区间。
+    将 [start, end_inclusive] 切成最多 chunk_days 天的子区间。
     返回 [(chunk_start, chunk_end_exclusive), ...]，end 已 +1 天（ENTSOE 左闭右开）。
     """
     s = datetime.strptime(start,         "%Y-%m-%d")
     e = datetime.strptime(end_inclusive, "%Y-%m-%d")
     chunks, cur = [], s
     while cur <= e:
-        nxt = min(cur + timedelta(days=CHUNK_DAYS), e + timedelta(days=1))
+        nxt = min(cur + timedelta(days=chunk_days), e + timedelta(days=1))
         chunks.append((cur.strftime("%Y-%m-%d"), nxt.strftime("%Y-%m-%d")))
         cur = nxt
     return chunks
@@ -108,8 +111,12 @@ def _to_entsoe_dt(date_str: str) -> str:
     return datetime.strptime(date_str, "%Y-%m-%d").strftime(ENTSOE_FMT)
 
 
-def _get_all_timeseries(base_params: dict, label: str) -> list[ET.Element]:
-
+def _get_all_timeseries(base_params: dict, label: str,
+                        timeout: int = DEFAULT_TIMEOUT) -> list[ET.Element]:
+    """
+    翻页拉取所有 TimeSeries 元素（offset=0, 100, 200, ...）。
+    返回所有页的 <TimeSeries> 列表合并结果。
+    """
     all_ts = []
     offset = 0
 
@@ -119,7 +126,7 @@ def _get_all_timeseries(base_params: dict, label: str) -> list[ET.Element]:
             params["offset"] = offset
 
         try:
-            resp = requests.get(API_URL, params=params, timeout=90)
+            resp = requests.get(API_URL, params=params, timeout=timeout)
             resp.raise_for_status()
         except requests.RequestException as e:
             print(f"      [ERROR] {label} offset={offset}: {e}")
@@ -175,11 +182,12 @@ def _load_params(bzn_eic: str, start: str, end: str) -> dict:
     }
 
 
-def _gen_params(ca_eic: str, start: str, end: str) -> dict:
+def _gen_params(in_domain: str, start: str, end: str, psr_type: str) -> dict:
     return {
         "documentType": "A75",
         "processType":  "A16",
-        "in_Domain":    ca_eic,
+        "in_Domain":    in_domain,   # Control Area / Bidding Zone / Country
+        "psrType":      psr_type,    # 按能源类型单独请求，避免大数据量 timeout
         "periodStart":  _to_entsoe_dt(start),
         "periodEnd":    _to_entsoe_dt(end),
     }
@@ -284,37 +292,43 @@ def fetch_load(bzn_eic: str, start: str, end_inclusive: str, tz: str) -> pd.Seri
     return combined[~combined.index.duplicated(keep="last")].resample("h").mean()
 
 
-def fetch_generation(ca_eic: str, start: str, end_inclusive: str,
+def fetch_generation(in_domain: str, start: str, end_inclusive: str,
                      tz: str) -> dict[str, pd.Series]:
     """
-    按年分段 + 翻页获取 A75，按 psrType 聚合返回 {psr_name: pd.Series}。
+    按 psrType 逐一请求 A75，每种类型再按年分段。
+    单次请求只含一种能源类型，数据量小，彻底避免 timeout。
+    返回 {psr_name: pd.Series}。
     """
     type_series: dict[str, list[pd.Series]] = {}
-    chunks = date_chunks(start, end_inclusive)
+    chunks = date_chunks(start, end_inclusive, chunk_days=CHUNK_DAYS)
 
-    for i, (cs, ce) in enumerate(chunks, 1):
-        print(f"     chunk {i}/{len(chunks)}: {cs} → {ce}")
-        ts_list = _get_all_timeseries(_gen_params(ca_eic, cs, ce),
-                                      f"gen {ca_eic}")
-        time.sleep(REQUEST_DELAY)
+    for psr_code, psr_name in PSR_TYPE_MAP.items():
+        psr_parts: list[pd.Series] = []
 
-        for ts in ts_list:
-            psr_el = ts.find(".//{*}MktPSRType/{*}psrType")
-            if psr_el is None:
-                continue
-            psr_name = PSR_TYPE_MAP.get(psr_el.text.strip(), psr_el.text.strip())
-            for period in ts.findall(".//{*}Period"):
-                s = _parse_period(period, tz, value_tag="quantity")
-                if not s.empty:
-                    type_series.setdefault(psr_name, []).append(s)
+        for i, (cs, ce) in enumerate(chunks, 1):
+            ts_list = _get_all_timeseries(
+                _gen_params(in_domain, cs, ce, psr_code),
+                f"gen {in_domain} {psr_code}",
+                timeout=GEN_TIMEOUT,
+            )
+            time.sleep(REQUEST_DELAY)
 
-    gen_dict: dict[str, pd.Series] = {}
-    for name, series_list in type_series.items():
-        combined = pd.concat(series_list).sort_index()
-        combined = combined[~combined.index.duplicated(keep="last")]
-        gen_dict[name] = combined.resample("h").mean()
+            for ts in ts_list:
+                for period in ts.findall(".//{*}Period"):
+                    s = _parse_period(period, tz, value_tag="quantity")
+                    if not s.empty:
+                        psr_parts.append(s)
 
-    return gen_dict
+        if psr_parts:
+            combined = pd.concat(psr_parts).sort_index()
+            combined = combined[~combined.index.duplicated(keep="last")]
+            type_series[psr_name] = combined.resample("h").mean()
+            print(f"     ✓ {psr_name:<35} {type_series[psr_name].notna().sum()} 有效值")
+        else:
+            # 该国不存在此能源类型，静默跳过
+            pass
+
+    return type_series
 
 
 def build_generation_result(gen_dict: dict[str, pd.Series]) -> dict:
@@ -455,7 +469,6 @@ def main():
         cfg     = COUNTRY_CONFIG[cc]
         tz      = cfg["tz"]
         bzn_eic = cfg["bzn_eic"]
-        ca_eic  = cfg["ca_eic"]
         col     = cc.upper()
 
         print(f"[{col}]")
@@ -479,8 +492,8 @@ def main():
             print(f"     [WARN] 无负荷数据")
 
         # ── 发电结构 A75 ────────────────────────────────────
-        print(f"  → A75 gen    eic={ca_eic}")
-        gen_dict = fetch_generation(ca_eic, start_date, end_date, tz)
+        print(f"  → A75 gen    in_Domain={bzn_eic}")
+        gen_dict = fetch_generation(bzn_eic, start_date, end_date, tz)
         result   = build_generation_result(gen_dict)
 
         for field, target_dict, lbl in [
@@ -540,3 +553,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+    

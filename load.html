@@ -530,7 +530,7 @@ function computeMovingAvg(data, country, showWeekday, showWeekend) {
             for (let j = i - 6; j <= i; j++) {
                 if (raw[j] != null) { s += raw[j]; validCnt++; }
             }
-            if (validCnt >= 3) avg[i] = s / validCnt; 
+            if (validCnt >= 1) avg[i] = s / validCnt; 
         }
 
         

@@ -299,7 +299,7 @@
                         padding:14px; font-size:13px;
                         display:flex; flex-direction:column; justify-content:center;align-items:center;text-align:left;
                     ">
-                        <b style="margin-bottom:10px; font-size:14px;">Annual Avg</b>
+                        <b style="margin-bottom:10px; font-size:14px;">Annual Avg (all hrs)</b>
                         <div id="avgContent">–</div>
                     </div>
                 </div>
@@ -526,16 +526,13 @@ function computeMovingAvg(data, country, showWeekday, showWeekend) {
         // 7-day average
         const avg = new Array(366).fill(null);
         for (let i = 6; i < days; i++) {
-            let s = 0;
+            let s = 0, validCnt = 0;
             for (let j = i - 6; j <= i; j++) {
-                if (raw[j] == null) {
-                    s = null;
-                    break;
-                }
-                s += raw[j];
+                if (raw[j] != null) { s += raw[j]; validCnt++; }
             }
-            if (s != null) avg[i] = s / 7;
+            if (validCnt >= 3) avg[i] = s / validCnt; 
         }
+
         
         // max/min
         let maxIdx = -1, minIdx = -1;
@@ -694,7 +691,7 @@ function runMovingAvg() {
                     });
                 });
 
-                // Annual Avg 面板（只显示2024、2025）
+                // Annual Avg 
                 const avgDiv = document.getElementById('avgContent');
                 if (avgDiv) {
                     let html = '';

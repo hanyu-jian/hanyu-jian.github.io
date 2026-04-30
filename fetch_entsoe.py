@@ -208,10 +208,7 @@ def _gen_params(in_domain: str, start: str, end: str, psr_type: str) -> dict:
 # ─────────────────────────────────────────────────────────────
 
 def _parse_period(period_el: ET.Element, tz: str, value_tag: str = "quantity") -> pd.Series:
-    """
-    解析单个 <Period>，支持 PT15M / PT30M / PT60M 分辨率。
-    value_tag: "price.amount"（A44）或 "quantity"（A65 / A75）
-    """
+
     start_el = period_el.find(".//{*}start")
     res_el   = period_el.find(".//{*}resolution")
     points   = period_el.findall(".//{*}Point")
@@ -236,7 +233,10 @@ def _parse_period(period_el: ET.Element, tz: str, value_tag: str = "quantity") -
         if pos_el is None or val_el is None:
             continue
         try:
-            records[start_utc + (int(pos_el.text) - 1) * delta] = float(val_el.text)
+            raw = val_el.text
+            if raw is None:
+                continue
+            records[start_utc + (int(pos_el.text) - 1) * delta] = float(str(raw).strip())
         except (TypeError, ValueError):
             pass
 

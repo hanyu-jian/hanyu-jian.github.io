@@ -10,7 +10,7 @@ on:
         type: boolean
         default: false
       full_mode:
-        description: "全量拉取（初始化用，从 2023-01-01 开始）"
+        description: "全量拉取（初始化）"
         type: boolean
         default: false
       script:
@@ -21,7 +21,11 @@ on:
           - entsoe_only
           - intraday_only
         default: both
-
+      update_only:
+        description: "手动更新"
+        type: boolean
+        default: false
+        
 jobs:
   update:
     runs-on: ubuntu-latest
@@ -49,14 +53,18 @@ jobs:
         env:
           ENTSOE_TOKEN: ${{ secrets.ENTSOE_TOKEN }}
         run: |
-          MODE=${{ github.event.inputs.full_mode == 'true' && 'full' || 'incremental' }}
-          SCRIPT=${{ github.event.inputs.script || 'both' }}
-
-          if [ "$SCRIPT" != "intraday_only" ]; then
-            python fetch_entsoe.py --mode $MODE
-          fi
-          if [ "$SCRIPT" != "entsoe_only" ]; then
-            python fetch_intraday.py --mode $MODE
+          if [ "${{ github.event.inputs.update_only }}" == "true" ]; then
+            python fetch_entsoe.py --mode incremental
+            python fetch_intraday.py --mode incremental
+          else
+            MODE=${{ github.event.inputs.full_mode == 'true' && 'full' || 'incremental' }}
+            SCRIPT=${{ github.event.inputs.script || 'both' }}
+            if [ "$SCRIPT" != "intraday_only" ]; then
+              python fetch_entsoe.py --mode $MODE
+            fi
+            if [ "$SCRIPT" != "entsoe_only" ]; then
+              python fetch_intraday.py --mode $MODE
+            fi
           fi
 
       # ────────────────────────────────────

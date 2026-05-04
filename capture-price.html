@@ -1083,12 +1083,12 @@ function renderSummaryTable() {
     /* Section definitions */
     const sections = [
         { key: 'curtPct',   label: 'Curtailed Production (%)',              fmt: fmtPct,   colorFn: null,          span: years.length },
-        { key: 'capPost',   label: 'Capture Price post-curtailment (EUR/MWh)', fmt: fmtEur, colorFn: null,          span: years.length },
-        { key: 'capPre',    label: 'Capture Price pre Curtailment (EUR/MWh)',  fmt: fmtEur, colorFn: null,          span: years.length },
-        { key: 'baseload',  label: 'Baseload (EUR/MWh)',                     fmt: fmtEur,   colorFn: null,          span: years.length },
-        { key: 'ratioPost', label: 'Capture Ratio post Curtailment (%)',     fmt: fmtPct,   colorFn: ratioCellClass, span: years.length },
-        { key: 'ratioPre',  label: 'Capture Ratio pre Curtailment (%)',      fmt: fmtPct,   colorFn: ratioCellClass, span: years.length },
-        { key: 'negHours',  label: 'Negative price hours',                   fmt: fmtHours, colorFn: null,          span: years.length }
+        { key: 'capPost',   label: 'post-Curtailment (EUR/MWh)',            fmt: fmtEur,   colorFn: null,          span: years.length },
+        { key: 'capPre',    label: 'pre-Curtailment (EUR/MWh)',             fmt: fmtEur,   colorFn: null,          span: years.length },
+        { key: 'baseload',  label: 'Baseload (EUR/MWh)',                    fmt: fmtEur,   colorFn: null,          span: years.length },
+        { key: 'ratioPost', label: 'post-Curtailment (%)',                  fmt: fmtPct,   colorFn: ratioCellClass, span: years.length },
+        { key: 'ratioPre',  label: 'pre-Curtailment (%)',                   fmt: fmtPct,   colorFn: ratioCellClass, span: years.length },
+        { key: 'negHours',  label: 'Negative price hours',                  fmt: fmtHours, colorFn: null,          span: years.length }
     ];
 
     let html = '<thead>';

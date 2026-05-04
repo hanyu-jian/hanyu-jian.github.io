@@ -82,7 +82,7 @@ PSR_TYPE_MAP = {
 }
 
 COUNTRIES        = list(COUNTRY_CONFIG.keys())
-FULL_START_DATE  = "2024-01-01"
+FULL_START_DATE  = "2026-04-25"
 LOOKBACK_DAYS    = 7
 REQUEST_DELAY    = 1.5      # 每次请求后等待（秒）
 CHUNK_DAYS       = 365      # 每段最多天数（ENTSOE 限制1年）

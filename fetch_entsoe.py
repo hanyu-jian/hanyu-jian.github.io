@@ -221,15 +221,12 @@ RES_MINUTES = {
 
 def _parse_period_raw(period_el: ET.Element, tz: str,
                       value_tag: str = "quantity") -> tuple[pd.Series, int]:
-    """
-    解析单个 <Period>，返回 (Series[本地时间 → float], 分辨率分钟数)。
-    分辨率来自 <resolution> 标签（PT15M=15, PT30M=30, PT60M=60）。
-    """
     start_el = period_el.find(".//{*}start")
+    end_el   = period_el.find(".//{*}end")      # ← 新增：读取 end 时间
     res_el   = period_el.find(".//{*}resolution")
     points   = period_el.findall(".//{*}Point")
 
-    if start_el is None or res_el is None or not points:
+    if start_el is None or res_el is None:
         return pd.Series(dtype=float), 60
 
     start_utc = datetime.strptime(start_el.text.strip(), "%Y-%m-%dT%H:%MZ")
@@ -237,22 +234,47 @@ def _parse_period_raw(period_el: ET.Element, tz: str,
     delta     = DELTA_MAP.get(res_str, timedelta(hours=1))
     res_min   = RES_MINUTES.get(res_str, 60)
 
-    records = {}
+    # ── 先从 <Point> 读取已有值 ──────────────────────────
+    point_values: dict[int, float] = {}   # position(1-based) → value
     for pt in points:
         pos_el = pt.find(".//{*}position")
         val_el = pt.find(f"./{{*}}{value_tag}")
         if val_el is None:
             fallback = "quantity" if value_tag == "price.amount" else "price.amount"
             val_el = pt.find(f"./{{*}}{fallback}")
-        if pos_el is None or val_el is None:
+        if pos_el is None:
             continue
         try:
-            raw = val_el.text
-            if raw is None:
-                continue
-            records[start_utc + (int(pos_el.text) - 1) * delta] = float(str(raw).strip())
+            pos = int(pos_el.text)
+            raw = val_el.text.strip() if (val_el is not None and val_el.text) else None
+            if raw is not None:
+                point_values[pos] = float(raw)
+            # raw is None → 该 position 有记录但值为空，暂不填，后续用 ffill
         except (TypeError, ValueError):
             pass
+
+    # ── 推算 Period 完整长度 ─────────────────────────────
+    if end_el is not None:
+        end_utc = datetime.strptime(end_el.text.strip(), "%Y-%m-%dT%H:%MZ")
+        total_slots = int((end_utc - start_utc) / delta)
+    elif point_values:
+        total_slots = max(point_values.keys())
+    else:
+        return pd.Series(dtype=float), res_min
+
+    if total_slots <= 0:
+        return pd.Series(dtype=float), res_min
+
+    # ── 构建完整时间轴，缺失 position 用前向填充 ────────────
+    records: dict = {}
+    last_val = None
+    for pos in range(1, total_slots + 1):
+        ts = start_utc + (pos - 1) * delta
+        if pos in point_values:
+            last_val = point_values[pos]
+        # 缺失的 position 沿用上一个值（ENTSOE 规范：未变化的值省略）
+        if last_val is not None:
+            records[ts] = last_val
 
     if not records:
         return pd.Series(dtype=float), res_min
@@ -260,7 +282,6 @@ def _parse_period_raw(period_el: ET.Element, tz: str,
     s = pd.Series(records)
     s.index = pd.DatetimeIndex(s.index, tz="UTC").tz_convert(tz).tz_localize(None)
     return s, res_min
-
 
 # ─────────────────────────────────────────────────────────────
 # 原始 Series 构建（保留原始分辨率，无 resample 到 1h）
@@ -573,9 +594,12 @@ def merge_and_save_wide(new_cols: dict[str, pd.Series], path: Path, label: str):
         new_df   = new_df.reindex(columns=all_cols)
         old_df.update(new_df)
         merged = old_df.combine_first(new_df)
-        merged.index.name = "Date"
+        merged.index = pd.to_datetime(merged.index, format="%Y/%m/%d %H:%M", errors="coerce")
         merged.sort_index(inplace=True)
+        merged.index = [dt.strftime("%Y/%-m/%-d %-H:%M") for dt in merged.index]
+        merged.index.name = "Date"
         merged.to_csv(path)
+
         print(f"  ✓ {path.name}: 合并后 {len(merged)} 行 × {len(merged.columns)} 列")
     else:
         new_df.index = fmt_index(new_df.index)
@@ -656,9 +680,8 @@ def merge_and_save_raw_wide(new_raw_cols: dict[str, pd.Series],
         return
 
     # 构建新 DataFrame（统一 15min 索引）
-    all_idx = pd.DatetimeIndex(
-        sorted(set().union(*[s.index for s in normalized.values()]))
-    )
+    all_idx = pd.concat([s.rename("v") for s in normalized.values()]).index.unique().sort_values()
+                                
     new_df = pd.DataFrame({col: s.reindex(all_idx) for col, s in normalized.items()})
     new_df.index = [dt.strftime("%Y/%-m/%-d %-H:%M") for dt in all_idx]
     new_df.index.name = "Date"
@@ -673,9 +696,12 @@ def merge_and_save_raw_wide(new_raw_cols: dict[str, pd.Series],
         new_df   = new_df.reindex(columns=all_cols)
         old_df.update(new_df)
         merged = old_df.combine_first(new_df)
-        merged.index.name = "Date"
+        merged.index = pd.to_datetime(merged.index, format="%Y/%m/%d %H:%M", errors="coerce")
         merged.sort_index(inplace=True)
+        merged.index = [dt.strftime("%Y/%-m/%-d %-H:%M") for dt in merged.index]
+        merged.index.name = "Date"
         merged.to_csv(path)
+
         print(f"  ✓ RAW {path.name}: 合并后 {len(merged)} 行 × {len(merged.columns)} 列")
     else:
         new_df.sort_index(inplace=True)
@@ -722,17 +748,29 @@ def merge_and_save_raw_generation(raw_gen_by_country: dict[str, dict[str, pd.Ser
         path = raw_gen_dir / f"{cc_upper}.csv"
         if path.exists():
             df_old = pd.read_csv(path)
-            df_old["value"] = pd.to_numeric(df_old["value"], errors="coerce")
+            df_old["value"] = pd.to_numeric(df_old["value"], errors="coerce")            
             merged = (
                 pd.concat([df_old, df_new])
                   .drop_duplicates(subset=["date", "category"], keep="last")
-                  .sort_values(["date", "category"])
-                  .reset_index(drop=True)
+            )
+            merged["_dt"] = pd.to_datetime(merged["date"], format="%Y/%m/%d %H:%M", errors="coerce")
+            merged = (
+                merged[merged["_dt"].notna()]
+                .sort_values(["_dt", "category"])
+                .drop(columns="_dt")
+                .reset_index(drop=True)
             )
             merged.to_csv(path, index=False)
             print(f"  ✓ RAW generation/{cc_upper}.csv: 合并后 {len(merged)} 行")
         else:
-            df_new.sort_values(["date", "category"]).to_csv(path, index=False)
+            df_new["_dt"] = pd.to_datetime(df_new["date"], format="%Y/%m/%d %H:%M", errors="coerce")
+            df_new = (
+                df_new[df_new["_dt"].notna()]
+                .sort_values(["_dt", "category"])
+                .drop(columns="_dt")
+                .reset_index(drop=True)
+            )
+            df_new.to_csv(path, index=False)
             print(f"  ✓ RAW generation/{cc_upper}.csv: 新建 {len(df_new)} 行")
 
 

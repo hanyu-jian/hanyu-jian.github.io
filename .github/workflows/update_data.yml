@@ -1,37 +1,19 @@
 name: Daily Energy Data Update
-
 on:
   schedule:
     - cron: "0 6 * * *"   # 每天 UTC 06:00
   workflow_dispatch:
     inputs:
-      fix_only:
-        description: "只跑数据修复（fix_csv.py），不更新新数据"
-        type: boolean
-        default: false
       full_mode:
         description: "全量拉取（初始化）"
         type: boolean
         default: false
-      script:
-        description: "运行哪个脚本"
-        type: choice
-        options:
-          - both
-          - entsoe_only
-          - intraday_only
-        default: both
-      update_only:
-        description: "手动更新"
-        type: boolean
-        default: false
-        
+
 jobs:
   update:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -47,29 +29,12 @@ jobs:
       - name: Install dependencies
         run: pip install pandas requests lxml
 
-      # ─────────────────────────────────────────────
       - name: Run update script
-        if: ${{ github.event.inputs.fix_only != 'true' }}
         env:
           ENTSOE_TOKEN: ${{ secrets.ENTSOE_TOKEN }}
         run: |
-          if [ "${{ github.event.inputs.update_only }}" == "true" ]; then
-            python fetch_entsoe.py --mode incremental
-            python fetch_intraday.py --mode incremental
-          else
-            MODE=${{ github.event.inputs.full_mode == 'true' && 'full' || 'incremental' }}
-            SCRIPT=${{ github.event.inputs.script || 'both' }}
-            if [ "$SCRIPT" != "intraday_only" ]; then
-              python fetch_entsoe.py --mode $MODE
-            fi
-            if [ "$SCRIPT" != "entsoe_only" ]; then
-              python fetch_intraday.py --mode $MODE
-            fi
-          fi
-
-      # ────────────────────────────────────
-      - name: Fix CSV precision & types
-        run: python fix_csv.py
+          MODE=${{ github.event.inputs.full_mode == 'true' && 'full' || 'incremental' }}
+          python fetch_entsoe.py --mode $MODE
 
       - name: Commit and push updated data
         run: |
@@ -78,4 +43,4 @@ jobs:
           git add data/ raw_data/
           git diff --cached --quiet || \
             git commit -m "chore: auto update energy data $(date -u +'%Y-%m-%d')"
-          git push
+          git push --force-with-lease

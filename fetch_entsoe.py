@@ -373,7 +373,7 @@ def normalize_raw_series_to_15min(s: pd.Series) -> pd.Series:
 
 def _sort_index_by_time(df: pd.DataFrame) -> pd.DataFrame:
     """字符串 index → datetime 排序 → 返回带 datetime index 的 df（调用方负责转回字符串）。"""
-    dt_idx = pd.to_datetime(df.index, infer_datetime_format=True, errors="coerce")
+    dt_idx = pd.to_datetime(df.index, errors="coerce")
     df = df[dt_idx.notna()].copy()
     df.index = dt_idx[dt_idx.notna()]
     df.sort_index(inplace=True)
@@ -384,7 +384,7 @@ def _sort_col_by_time(df: pd.DataFrame, date_col: str,
                       secondary: str | None = None) -> pd.DataFrame:
     """长表按时间列排序，避免字符串排序错误。"""
     df = df.copy()
-    df["_dt"] = pd.to_datetime(df[date_col], infer_datetime_format=True, errors="coerce")
+    df["_dt"] = pd.to_datetime(df[date_col], errors="coerce")
     sort_cols = ["_dt"] + ([secondary] if secondary else [])
     df = df[df["_dt"].notna()].sort_values(sort_cols).drop(columns="_dt").reset_index(drop=True)
     return df

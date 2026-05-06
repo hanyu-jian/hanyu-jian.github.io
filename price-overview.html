@@ -776,11 +776,12 @@ function drawDiff() {
             ...axisStyle
         },
         series: [{
-            name: 'HU – DE', type: 'line', showSymbol: false,
+            name: 'HU – DE',
+            type: 'scatter',
             data: pts.map(d => d.values['HU'] - d.values['DE']),
-            lineStyle: { width: 1.5, color: '#e74c3c' },
-            itemStyle: { color: '#e74c3c' },
-            areaStyle: { opacity: 0.08, color: '#e74c3c' }
+            symbolSize: 6,
+            itemStyle: { color: '#e74c3c', opacity: 0.8 },
+            emphasis: { scale: 1.2 }
         }]
     }, true);
 }

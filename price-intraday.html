@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <script>
+        (function() {
+            if (localStorage.getItem('site_access') !== 'granted') {
+                window.location.replace('/password.html');
+            }
+        })();
+    </script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Intraday – European Electricity Dashboard</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f0f2f5;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: #2c3e50;
+            color: white;
+            padding: 20px 30px 0 30px;
+        }
+        .header-top { padding-bottom: 16px; }
+        .header-top h1 { font-size: 24px; font-weight: 500; letter-spacing: 0.2px; }
+
+        .main-nav { display: flex; gap: 2px; margin-top: 4px; }
+        .main-nav-link {
+            display: inline-flex; align-items: center; gap: 7px;
+            padding: 10px 24px; font-size: 14px; font-weight: 600;
+            color: rgba(255,255,255,0.65); text-decoration: none;
+            border-radius: 6px 6px 0 0; background: rgba(255,255,255,0.06);
+            border: 1px solid transparent; border-bottom: none;
+            letter-spacing: 0.2px;
+            transition: background 0.2s, color 0.2s, border-color 0.2s;
+            white-space: nowrap; position: relative; top: 1px;
+        }
+        .main-nav-link:hover { color: rgba(255,255,255,0.95); background: rgba(255,255,255,0.14); }
+        .main-nav-link.active { color: #2c3e50; background: #f8f9fa; border-color: #e6e9ed; border-bottom-color: #f8f9fa; }
+
+        .sub-nav {
+            background: #f8f9fa; border-bottom: 2px solid #e6e9ed;
+            padding: 0 30px; display: flex;
+        }
+        .sub-nav-link {
+            display: inline-block; padding: 14px 22px; font-size: 14px;
+            font-weight: 600; color: #6c757d; text-decoration: none;
+            border-bottom: 3px solid transparent; margin-bottom: -2px;
+            transition: color 0.2s, border-color 0.2s; white-space: nowrap;
+        }
+        .sub-nav-link:hover { color: #2c3e50; }
+        .sub-nav-link.active { color: #2c3e50; border-bottom-color: #2c3e50; }
+
+        .controls {
+            padding: 20px 30px;
+            display: flex; flex-wrap: wrap; gap: 20px;
+            align-items: flex-start;
+            background: #fff;
+            border-bottom: 1px solid #e6e9ed;
+        }
+        .control-group { display: flex; flex-direction: column; gap: 6px; }
+        .control-group > label {
+            font-size: 13px; font-weight: 600; color: #2c3e50;
+        }
+        .country-static {
+            height: 36px; padding: 0 12px;
+            border: 1px solid #ccc; border-radius: 6px;
+            font-size: 14px; font-family: inherit;
+            background: #f8f9fa; color: #2c3e50; font-weight: 600;
+            display: flex; align-items: center;
+        }
+
+        .content-area { padding: 24px 30px 10px; }
+
+        .section-card {
+            background: #fff; border-radius: 8px;
+            border: 1px solid #e6e9ed;
+            margin-bottom: 24px; overflow: hidden;
+        }
+        .section-head {
+            padding: 16px 20px 12px;
+            border-bottom: 1px solid #e6e9ed;
+        }
+        .section-head h2 {
+            font-size: 18px; font-weight: 500; color: #2c3e50;
+            border-left: 4px solid #2c3e50; padding-left: 12px;
+        }
+        .section-head p {
+            font-size: 12px; color: #868e96; margin-top: 6px; padding-left: 16px;
+        }
+        .section-body { padding: 16px 20px; }
+
+        .heatmap-outer { overflow-x: auto; }
+        .three-year-hm { display: flex; gap: 20px; min-width: 600px; }
+        .year-hm-block { flex: 1; min-width: 0; }
+        .year-hm-title {
+            text-align: center; font-size: 13px; font-weight: 700;
+            margin-bottom: 6px; letter-spacing: 0.5px; color: #2c3e50;
+        }
+        .hm-row { display: flex; align-items: center; margin-bottom: 0px; }
+        .hm-ylabel {
+            width: 30px; flex-shrink: 0; font-size: 9px; color: #868e96;
+            text-align: right; padding-right: 5px; white-space: nowrap; line-height: 1;
+        }
+        .hm-cells-row {
+            display: grid; grid-template-columns: repeat(12, 1fr);
+            gap: 0;
+            flex: 1;
+        }
+        .hm-cell {
+            height: 16px; border-radius: 0; cursor: default;
+            transition: outline 0.1s;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 7px; font-weight: 700; color: rgba(0, 0, 0, 0.65); overflow: hidden;
+        }
+        .hm-cell:hover { outline: 2px solid rgba(44,62,80,0.7); z-index: 5; position: relative; }
+        .hm-month-header { display: flex; margin-bottom: 3px; }
+        .hm-month-spacer { width: 30px; flex-shrink: 0; }
+        .hm-month-labels { display: grid; grid-template-columns: repeat(12, 1fr); gap: 0px; flex: 1; }
+        .hm-month-label { font-size: 9px; color: #495057; font-weight: 600; text-align: center; }
+        .hm-year-legend {
+            display: flex; align-items: center; gap: 6px;
+            margin-top: 6px; font-size: 10px; color: #6c757d; padding-left: 30px;
+        }
+        .hm-legend-bar { flex: 1; height: 7px; border-radius: 4px; }
+        .hm-legend-val { white-space: nowrap; font-size: 10px; color: #495057; }
+
+        .hm-tooltip {
+            position: fixed; background: rgba(44,62,80,0.93); color: white;
+            padding: 6px 11px; border-radius: 6px; font-size: 12px;
+            pointer-events: none; z-index: 9999; display: none;
+            white-space: nowrap; box-shadow: 0 3px 10px rgba(0,0,0,0.25);
+        }
+
+        .spinner-wrap {
+            display: none; justify-content: center; align-items: center;
+            padding: 36px; gap: 12px; color: #6c757d; font-size: 13px;
+        }
+        .spinner-wrap.show { display: flex; }
+        .spinner {
+            width: 24px; height: 24px;
+            border: 3px solid #dee2e6; border-top-color: #5a8fc2;
+            border-radius: 50%; animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .no-data { text-align: center; padding: 40px 20px; color: #adb5bd; }
+        .no-data .nd-icon { font-size: 36px; margin-bottom: 8px; }
+        .no-data p { font-size: 13px; color: #6c757d; }
+
+        .info {
+            padding: 12px 30px 20px; font-size: 13px; color: #6c757d;
+            text-align: center; border-top: 1px solid #e6e9ed; margin-top: 10px;
+        }
+        .info a { color: #5a8fc2; text-decoration: none; }
+        .info a:hover { text-decoration: underline; }
+
+        @media (max-width: 800px) {
+            .content-area { padding: 14px; }
+            .header { padding: 16px 16px 0 16px; }
+            .sub-nav { padding: 0 10px; overflow-x: auto; }
+            .controls { padding: 14px; }
+            .three-year-hm { flex-direction: column; }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+
+    <div class="header">
+        <div class="header-top"><h1>European Electricity Dashboard</h1></div>
+        <div class="main-nav">
+            <a href="project.html" class="main-nav-link"><span>Projects</span></a>
+            <a href="price-overview.html" class="main-nav-link active"><span>Price</span></a>
+            <a href="load.html" class="main-nav-link"><span>Load</span></a>
+            <a href="capacity.html" class="main-nav-link"><span>Installed Capacity</span></a>
+        </div>
+    </div>
+
+    <div class="sub-nav">
+        <a class="sub-nav-link" href="price-overview.html">Price Overview</a>
+        <a class="sub-nav-link" href="capture-price.html">Capture Prices</a>
+        <a class="sub-nav-link" href="price-spread.html">Price Spread</a>
+        <a class="sub-nav-link active" href="price-intraday.html">Intraday</a>
+    </div>
+
+    <div class="controls">
+        <div class="control-group">
+            <label>🌍 Country</label>
+            <div class="country-static">HU</div>
+        </div>
+    </div>
+
+    <div class="content-area">
+
+        <div class="section-card">
+            <div class="section-head">
+                <h2>Intraday vs Day-Ahead Price Spread Heatmap (H01–H24)</h2>
+                <p>Spread = ID3 (intraday) − HU day-ahead price &nbsp;|&nbsp; Hourly average of 15-min data &nbsp;|&nbsp; Unit: €/MWh</p>
+            </div>
+            <div class="section-body">
+                <div class="spinner-wrap show" id="hmSpinner"><div class="spinner"></div> Loading data…</div>
+                <div id="hmContent">
+                    <div class="no-data" id="hmNoData" style="display:none">
+                        <div class="nd-icon">🗺️</div>
+                        <p>Failed to load data.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <div class="info">
+        Data source:
+        <a href="https://www.entsoe.eu/" target="_blank">ENTSO-E Transparency Platform</a>
+        &nbsp;|&nbsp; Intraday: ID3 &nbsp;|&nbsp; Unit: €/MWh &nbsp;|&nbsp; Author: Hanyu Jian
+    </div>
+</div>
+
+<div class="hm-tooltip" id="hmTooltip"></div>
+
+<script>
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun',
+                'Jul','Aug','Sep','Oct','Nov','Dec'];
+const YEARS  = [2024, 2025, 2026];
+
+// heatmap data: [year][hour 0-23][month 0-11] = avg spread
+const hmData = {};
+
+window.addEventListener('DOMContentLoaded', () => {
+    loadData();
+});
+
+async function loadData() {
+    try {
+        const [intradayText, daText] = await Promise.all([
+            fetch('data/intraday/HU.csv').then(r => { if (!r.ok) throw new Error(`ID3 HTTP ${r.status}`); return r.text(); }),
+            fetch('data/price.csv').then(r => { if (!r.ok) throw new Error(`DA HTTP ${r.status}`); return r.text(); })
+        ]);
+        await processData(intradayText, daText);
+    } catch(e) {
+        console.error('Failed to load:', e.message);
+        document.getElementById('hmSpinner').classList.remove('show');
+        document.getElementById('hmNoData').style.display = 'block';
+    }
+}
+
+function parseDate15min(str) {
+    // Handles "01/01/2024 00:00" or "2024/01/01 00:00"
+    str = str.trim();
+    let m;
+    // DD/MM/YYYY HH:MM
+    m = str.match(/^(\d{2})\/(\d{2})\/(\d{4})\s+(\d{1,2}):(\d{2})/);
+    if (m) return { year:+m[3], month:+m[2], day:+m[1], hour:+m[4], min:+m[5] };
+    // YYYY/MM/DD HH:MM
+    m = str.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})\s+(\d{1,2}):(\d{2})/);
+    if (m) return { year:+m[1], month:+m[2], day:+m[3], hour:+m[4], min:+m[5] };
+    return null;
+}
+
+function timeKey(year, month, day, hour, min) {
+    return `${year}/${String(month).padStart(2,'0')}/${String(day).padStart(2,'0')} ${String(hour).padStart(2,'0')}:${String(min).padStart(2,'0')}`;
+}
+
+async function processData(intradayText, daText) {
+    await yieldFrame();
+
+    // ── Parse ID3 intraday (15-min) ──────────────────────────────
+    const id3Map = {}; // key -> price
+    {
+        const lines = intradayText.trim().split(/\r?\n/);
+        const header = lines[0].split(',').map(s => s.trim());
+        // Find ID3 column index
+        let id3Col = header.findIndex(h => h === 'ID3');
+        if (id3Col < 0) id3Col = 1; // fallback: second column
+
+        for (let i = 1; i < lines.length; i++) {
+            const cols = lines[i].split(',');
+            if (cols.length < 2) continue;
+            const dt = parseDate15min(cols[0]);
+            if (!dt) continue;
+            if (!YEARS.includes(dt.year)) continue;
+            const price = parseFloat((cols[id3Col] || '').trim());
+            if (isNaN(price)) continue;
+            id3Map[timeKey(dt.year, dt.month, dt.day, dt.hour, dt.min)] = price;
+        }
+    }
+
+    // ── Parse DA price.csv ──────────────────────────────────────
+    // Find HU column; data is hourly (one row per hour, timestamp = start of hour)
+    // We'll map each hourly DA price to 4 x 15-min slots
+    const daHourMap = {}; // key like "2024/01/01 00" -> price
+    let huColIdx = -1;
+    {
+        const lines = daText.trim().split(/\r?\n/);
+        const header = lines[0].split(',').map(s => s.trim());
+        huColIdx = header.findIndex(h => h === 'HU');
+        if (huColIdx < 0) {
+            // try case-insensitive
+            huColIdx = header.findIndex(h => h.toLowerCase() === 'hu');
+        }
+        if (huColIdx < 0) huColIdx = 1; // fallback
+
+        for (let i = 1; i < lines.length; i++) {
+            const cols = lines[i].split(',');
+            if (cols.length < 2) continue;
+            const raw = cols[0].trim();
+            const m = raw.match(/(\d{4})\/(\d{1,2})\/(\d{1,2})\s+(\d{1,2}):(\d{2})/);
+            if (!m) continue;
+            const year = +m[1], month = +m[2], day = +m[3], hour = +m[4];
+            if (!YEARS.includes(year)) continue;
+            const price = parseFloat((cols[huColIdx] || '').trim());
+            if (isNaN(price)) continue;
+            const k = `${year}/${String(month).padStart(2,'0')}/${String(day).padStart(2,'0')} ${String(hour).padStart(2,'0')}`;
+            daHourMap[k] = price;
+        }
+    }
+
+    // ── Compute spread per 15-min slot, then aggregate to hm ────
+    // hm: acc[year][hour 0-23][month 0-11] = {sum, cnt}
+    const acc = {};
+    YEARS.forEach(yr => {
+        acc[yr] = Array.from({length:24}, () =>
+            Array.from({length:12}, () => ({sum:0, cnt:0})));
+    });
+
+    // Iterate over all id3Map entries
+    for (const [key, id3Price] of Object.entries(id3Map)) {
+        const dt = parseDate15min(key.replace(/\//g, '/'));
+        if (!dt) continue;
+        if (!YEARS.includes(dt.year)) continue;
+
+        const daKey = `${dt.year}/${String(dt.month).padStart(2,'0')}/${String(dt.day).padStart(2,'0')} ${String(dt.hour).padStart(2,'0')}`;
+        const daPrice = daHourMap[daKey];
+        if (daPrice === undefined || isNaN(daPrice)) continue;
+
+        const spread = id3Price - daPrice;
+        acc[dt.year][dt.hour][dt.month - 1].sum += spread;
+        acc[dt.year][dt.hour][dt.month - 1].cnt += 1;
+    }
+
+    YEARS.forEach(yr => {
+        hmData[yr] = acc[yr].map(hourRow =>
+            hourRow.map(b => b.cnt > 0 ? b.sum / b.cnt : null));
+    });
+
+    renderHeatmap();
+    document.getElementById('hmSpinner').classList.remove('show');
+}
+
+function renderHeatmap() {
+    const content = document.getElementById('hmContent');
+    document.getElementById('hmNoData').style.display = 'none';
+
+    const tooltip  = document.getElementById('hmTooltip');
+    const outerDiv = document.createElement('div');
+    outerDiv.className = 'heatmap-outer';
+    const threeYear = document.createElement('div');
+    threeYear.className = 'three-year-hm';
+
+    // ── collect all values for global mid ───────────────────────
+    const allVals = [];
+    YEARS.forEach(yr => {
+        const avg = hmData[yr] || null;
+        if (!avg) return;
+        for (let h = 0; h < 24; h++)
+            for (let mo = 0; mo < 12; mo++)
+                if (avg[h][mo] !== null && isFinite(avg[h][mo]))
+                    allVals.push(avg[h][mo]);
+    });
+    allVals.sort((a, b) => a - b);
+    const gmn  = allVals[0];
+    const gmx  = allVals[allVals.length - 1];
+    const gmid = allVals[Math.floor(allVals.length / 2)];
+
+    YEARS.forEach(yr => {
+        const avg    = hmData[yr] || null;
+        const hasData = avg !== null;
+        let ymn = Infinity, ymx = -Infinity;
+        if (hasData) avg.forEach(row => row.forEach(v => {
+            if (v !== null && isFinite(v)) { ymn = Math.min(ymn, v); ymx = Math.max(ymx, v); }
+        }));
+
+        const yVals = [];
+        if (hasData) avg.forEach(row => row.forEach(v => {
+            if (v !== null && isFinite(v)) yVals.push(v);
+        }));
+        yVals.sort((a, b) => a - b);
+        const ymid = yVals[Math.floor(yVals.length / 2)];
+
+        const block = document.createElement('div');
+        block.className = 'year-hm-block';
+
+        const title = document.createElement('div');
+        title.className = 'year-hm-title';
+        title.textContent = String(yr);
+        block.appendChild(title);
+
+        // Month header
+        const mhWrap = document.createElement('div');
+        mhWrap.className = 'hm-month-header';
+        mhWrap.appendChild(Object.assign(document.createElement('div'), {className:'hm-month-spacer'}));
+        const mlabels = document.createElement('div');
+        mlabels.className = 'hm-month-labels';
+        MONTHS.forEach(m => {
+            mlabels.appendChild(Object.assign(document.createElement('div'),
+                {className:'hm-month-label', textContent: m}));
+        });
+        mhWrap.appendChild(mlabels);
+        block.appendChild(mhWrap);
+
+        // 24 rows
+        for (let h = 0; h < 24; h++) {
+            const row = document.createElement('div');
+            row.className = 'hm-row';
+
+            const yl = document.createElement('div');
+            yl.className = 'hm-ylabel';
+            yl.textContent = `H${String(h+1).padStart(2,'0')}`;
+            row.appendChild(yl);
+
+            const cellsRow = document.createElement('div');
+            cellsRow.className = 'hm-cells-row';
+
+            for (let mo = 0; mo < 12; mo++) {
+                const cell = document.createElement('div');
+                cell.className = 'hm-cell';
+                const v = hasData ? avg[h][mo] : null;
+
+                cell.style.background = v !== null
+                    ? priceColor(v, ymn, ymx, ymid)
+                    : '#e9ecef';
+
+                cell.textContent = v !== null ? v.toFixed(1) : '';
+
+                cell.dataset.tip = v !== null
+                    ? `${yr} · ${MONTHS[mo]} · H${String(h+1).padStart(2,'0')} · ${v.toFixed(2)} €/MWh`
+                    : `${yr} · ${MONTHS[mo]} · H${String(h+1).padStart(2,'0')} · no data`;
+
+                cellsRow.appendChild(cell);
+            }
+
+            cellsRow.addEventListener('mousemove', e => {
+                const cell = e.target.closest('.hm-cell');
+                if (!cell) { tooltip.style.display = 'none'; return; }
+                tooltip.style.display = 'block';
+                tooltip.style.left = (e.clientX + 14) + 'px';
+                tooltip.style.top  = (e.clientY + 14) + 'px';
+                const p = cell.dataset.tip.split(' · ');
+                tooltip.innerHTML = `<b>${p[0]}</b> · ${p[1]} · ${p[2]}&nbsp;&nbsp;<span style="color:#f1c40f">${p[3]}</span>`;
+            });
+            cellsRow.addEventListener('mouseleave', () => { tooltip.style.display = 'none'; });
+
+            row.appendChild(cellsRow);
+            block.appendChild(row);
+        }
+
+        // Legend
+        const legend = document.createElement('div');
+        legend.className = 'hm-year-legend';
+        if (hasData && isFinite(ymn)) {
+            const minS = Object.assign(document.createElement('span'),
+                {className:'hm-legend-val', textContent: ymn.toFixed(1)});
+            const bar = document.createElement('div');
+            bar.className = 'hm-legend-bar';
+            bar.style.background =
+                `linear-gradient(to right,
+                    rgb(44,123,182),
+                    rgb(171,217,233),
+                    rgb(255,255,191),
+                    rgb(253,174,97),
+                    rgb(215,25,28))`;
+            const maxS = Object.assign(document.createElement('span'),
+                {className:'hm-legend-val', textContent: ymx.toFixed(1) + ' €/MWh'});
+            legend.appendChild(minS);
+            legend.appendChild(bar);
+            legend.appendChild(maxS);
+        } else {
+            legend.textContent = 'No data';
+            legend.style.color = '#ced4da';
+        }
+        block.appendChild(legend);
+        threeYear.appendChild(block);
+    });
+
+    outerDiv.appendChild(threeYear);
+    content.appendChild(outerDiv);
+}
+
+/* Color scale identical to price-spread.html */
+function priceColor(v, mn, mx, mid) {
+    if (!isFinite(mn) || !isFinite(mx) || mx === mn) return 'rgb(255,255,255)';
+    const stops = [
+        [  0.00, [ 44, 123, 182]],
+        [  0.25, [171, 217, 233]],
+        [  0.50, [255, 255, 191]],
+        [  0.75, [253, 174,  97]],
+        [  1.00, [215,  25,  28]],
+    ];
+
+    let t;
+    if (v <= mid) {
+        t = 0.5 * Math.max(0, Math.min(1, (v - mn) / (mid - mn || 1)));
+    } else {
+        t = 0.5 + 0.5 * Math.max(0, Math.min(1, (v - mid) / (mx - mid || 1)));
+    }
+
+    let i = 0;
+    while (i < stops.length - 2 && t > stops[i + 1][0]) i++;
+    const [t0, c0] = stops[i];
+    const [t1, c1] = stops[i + 1];
+    const f = (t1 === t0) ? 0 : (t - t0) / (t1 - t0);
+
+    const r = Math.round(c0[0] + f * (c1[0] - c0[0]));
+    const g = Math.round(c0[1] + f * (c1[1] - c0[1]));
+    const b = Math.round(c0[2] + f * (c1[2] - c0[2]));
+    return `rgb(${r},${g},${b})`;
+}
+
+function yieldFrame() {
+    return new Promise(res => requestAnimationFrame(() => requestAnimationFrame(res)));
+}
+</script>
+</body>
+</html>

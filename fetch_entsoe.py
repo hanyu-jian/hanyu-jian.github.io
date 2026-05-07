@@ -1,21 +1,32 @@
 #!/usr/bin/env python3
 """
 ENTSOE API 数据更新脚本（增量更新版）
+- 替换原 Energy Charts API
+- 数据输出格式与原脚本完全一致
+- 每次获取最近 LOOKBACK_DAYS 天数据（默认7天）
+- 数据更新截止到 today-1（避免当天数据不完整）
+- 与现有 CSV 合并，重叠部分以新数据覆盖
+- 支持两种模式：
+    --mode incremental  仅更新最近7天（默认）
+    --mode full         全量拉取 FULL_START_DATE → yesterday
 
-变更说明（v2）：
-1. 每个数据类型只爬取一次（raw），hourly 全部从 raw 派生，不重复请求。
-2. 宽表时间轴以各国本地挂钟时间（wall-clock）对齐：
-   DE 的 08:00 和 RO 的 08:00 落在同一行，
-   不做 UTC 统一，避免时区不同的国家出现行偏移。
-3. residual_load 计算时先把 solar/wind resample 到 1h 再做减法，
-   避免 15min 数据 reindex 到 hourly index 后大量 NaN。
+原始数据额外保存至 /raw_data/：
+  - /raw_data/A44.csv          价格原始数据（宽表，列=国家）
+  - /raw_data/A65.csv          负荷原始数据（宽表，列=国家）
+  - /raw_data/generation/{CC}.csv  发电结构原始数据（长表）
+  时间轴规则：
+  - 原始 15min 数据 → 保持 15min，index 格式 "YYYY/M/D H:MM"
+  - 原始 1h 数据    → 展开为 15min（:00/:15/:30/:45 四点值相同）
+  - 历史上如果某时段只有 1h 精度，则仍保留 1h 粒度，
+    只对真实存在 15min 原始点的时段用 15min 轴。
 
-运行模式：
-  --mode incremental  仅更新最近 LOOKBACK_DAYS 天（默认）
-  --mode full         全量拉取 FULL_START_DATE → yesterday
+ENTSOE API 限制：
+- 每次请求时间跨度 ≤ 1 年 → 按年分段请求
+- 每次响应最多 100 条 TimeSeries → 用 offset 参数翻页
 """
 
 import argparse
+import re
 import os
 import time
 import xml.etree.ElementTree as ET
@@ -83,11 +94,8 @@ GEN_TIMEOUT      = 120
 DATA_DIR         = Path("data")
 RAW_DIR          = Path("raw_data")
 ENTSOE_FMT       = "%Y%m%d%H%M"
+HOURLY_ROUND_DECIMALS = 6
 
-
-# ─────────────────────────────────────────────────────────────
-# 日期分段
-# ─────────────────────────────────────────────────────────────
 
 def date_chunks(start: str, end_inclusive: str,
                 chunk_days: int = CHUNK_DAYS) -> list[tuple[str, str]]:
@@ -100,10 +108,6 @@ def date_chunks(start: str, end_inclusive: str,
         cur = nxt
     return chunks
 
-
-# ─────────────────────────────────────────────────────────────
-# 底层 API 请求（含 offset 翻页）
-# ─────────────────────────────────────────────────────────────
 
 def _to_entsoe_dt(date_str: str) -> str:
     return datetime.strptime(date_str, "%Y-%m-%d").strftime(ENTSOE_FMT)
@@ -157,10 +161,6 @@ def _get_all_timeseries(base_params: dict, label: str,
     return all_ts
 
 
-# ─────────────────────────────────────────────────────────────
-# 各类型请求参数
-# ─────────────────────────────────────────────────────────────
-
 def _price_params(bzn_eic: str, start: str, end: str) -> dict:
     return {
         "documentType": "A44",
@@ -192,10 +192,6 @@ def _gen_params(in_domain: str, start: str, end: str, psr_type: str) -> dict:
     }
 
 
-# ─────────────────────────────────────────────────────────────
-# XML Period 解析
-# ─────────────────────────────────────────────────────────────
-
 DELTA_MAP = {
     "PT15M": timedelta(minutes=15),
     "PT30M": timedelta(minutes=30),
@@ -210,11 +206,6 @@ RES_MINUTES = {
 
 def _parse_period_raw(period_el: ET.Element, tz: str,
                       value_tag: str = "quantity") -> tuple[pd.Series, int]:
-    """
-    解析单个 <Period>，返回 (Series[本地挂钟时间 → float], 分辨率分钟数)。
-    index 是 tz_localize(None) 后的本地时间——即各国自己的挂钟时间，
-    不同国家的"08:00"在宽表里对齐到同一行，而不是换算成同一 UTC 时刻。
-    """
     start_el = period_el.find(".//{*}start")
     end_el   = period_el.find(".//{*}end")
     res_el   = period_el.find(".//{*}resolution")
@@ -269,46 +260,38 @@ def _parse_period_raw(period_el: ET.Element, tz: str,
         return pd.Series(dtype=float), res_min
 
     s = pd.Series(records)
-    # UTC → 各国本地挂钟时间，去掉 tz 信息
-    # 这样 DE 的 08:00 local 和 RO 的 08:00 local 在宽表里对齐到同一行
     s.index = pd.DatetimeIndex(s.index, tz="UTC").tz_convert(tz).tz_localize(None)
     return s, res_min
 
 
-# ─────────────────────────────────────────────────────────────
-# 从 TimeSeries 列表构建原始 Series（不 resample）
-# ─────────────────────────────────────────────────────────────
-
 def _ts_list_to_raw_series(ts_list: list[ET.Element], tz: str,
                            value_tag: str = "quantity") -> pd.Series | None:
-    """合并所有 Period 为原始分辨率 Series，不做任何 resample。"""
     parts = []
     for ts in ts_list:
         for period in ts.findall(".//{*}Period"):
-            s, _ = _parse_period_raw(period, tz, value_tag)
+            s, _res = _parse_period_raw(period, tz, value_tag)
             if not s.empty:
                 parts.append(s)
     if not parts:
         return None
     combined = pd.concat(parts).sort_index()
-    return combined[~combined.index.duplicated(keep="last")]
+    combined = combined[~combined.index.duplicated(keep="last")]
+    return combined
 
 
-def _raw_to_hourly(raw: pd.Series) -> pd.Series:
-    """原始分辨率 Series → 1h resample（mean）。所有 hourly 均从 raw 派生。"""
-    return raw.resample("h").mean()
+def _detect_resolution_minutes(s: pd.Series) -> int:
+    if len(s) < 2:
+        return 60
+    diffs = pd.Series(s.index).diff().dropna()
+    min_minutes = int(diffs.min().total_seconds() / 60)
+    if min_minutes <= 15:
+        return 15
+    if min_minutes <= 30:
+        return 30
+    return 60
 
-
-# ─────────────────────────────────────────────────────────────
-# 统一到 15min 轴（用于 raw_data/ 写入）
-# ─────────────────────────────────────────────────────────────
 
 def normalize_raw_series_to_15min(s: pd.Series) -> pd.Series:
-    """
-    混合分辨率 Series → 统一 15min 轴。
-    - 与前一点间隔 ≤ 15min → 直接保留（真实 15min 数据）
-    - 与前一点间隔 > 15min → 展开为 :00/:15/:30/:45（值相同）
-    """
     if s.empty:
         return s
 
@@ -338,10 +321,6 @@ def normalize_raw_series_to_15min(s: pd.Series) -> pd.Series:
     return result[~result.index.duplicated(keep="last")]
 
 
-# ─────────────────────────────────────────────────────────────
-# 时間索引排序工具
-# ─────────────────────────────────────────────────────────────
-
 def _sort_index_by_time(df: pd.DataFrame) -> pd.DataFrame:
     dt_idx = pd.to_datetime(df.index, errors="coerce")
     df = df[dt_idx.notna()].copy()
@@ -359,9 +338,29 @@ def _sort_col_by_time(df: pd.DataFrame, date_col: str,
     return df
 
 
-# ─────────────────────────────────────────────────────────────
-# 时间戳格式化
-# ─────────────────────────────────────────────────────────────
+def _clean_numeric_text(x):
+    if pd.isna(x):
+        return x
+    if isinstance(x, str):
+        y = x.strip().lstrip("'").strip()
+        y = re.sub(r"[^0-9eE+\-.]", "", y)
+        return y if y != "" else None
+    return x
+
+
+def _coerce_df_numeric(df: pd.DataFrame) -> pd.DataFrame:
+    out = df.copy()
+    for col in out.columns:
+        out[col] = out[col].map(_clean_numeric_text)
+        out[col] = pd.to_numeric(out[col], errors="coerce")
+    return out
+
+
+def _hourly_wall_clock_index(start_date: str, end_date: str) -> pd.DatetimeIndex:
+    start_dt = pd.Timestamp(start_date)
+    end_dt = pd.Timestamp(end_date) + pd.Timedelta(days=1) - pd.Timedelta(hours=1)
+    return pd.date_range(start=start_dt, end=end_dt, freq="h")
+
 
 def _fmt_dt_hourly(dt: pd.Timestamp) -> str:
     return f"{dt.year}/{dt.month}/{dt.day} {dt.hour}:00"
@@ -379,62 +378,57 @@ def fmt_index_15min(index: pd.DatetimeIndex) -> list[str]:
     return [_fmt_dt_15min(dt) for dt in index]
 
 
-# ─────────────────────────────────────────────────────────────
-# fetch：每类数据只爬取一次，返回 raw Series
-# hourly 由调用方从 raw 派生
-# ─────────────────────────────────────────────────────────────
-
-def fetch_price_raw(bzn_eic: str, start: str, end_inclusive: str,
-                    tz: str) -> pd.Series | None:
-    """爬取价格原始数据，返回原始分辨率 Series（不 resample）。"""
-    parts = []
+def fetch_price(bzn_eic: str, start: str, end_inclusive: str,
+                tz: str) -> tuple[pd.Series | None, pd.Series | None]:
+    raw_parts = []
     chunks = date_chunks(start, end_inclusive, chunk_days=PRICE_CHUNK_DAYS)
     for i, (cs, ce) in enumerate(chunks, 1):
         print(f"     chunk {i}/{len(chunks)}: {cs} → {ce}")
-        ts_list = _get_all_timeseries(_price_params(bzn_eic, cs, ce),
-                                      f"price {bzn_eic}")
+        ts_list = _get_all_timeseries(_price_params(bzn_eic, cs, ce), f"price {bzn_eic}")
         time.sleep(REQUEST_DELAY)
-        s = _ts_list_to_raw_series(ts_list, tz, value_tag="price.amount")
-        if s is not None:
-            parts.append(s)
+        raw = _ts_list_to_raw_series(ts_list, tz, value_tag="price.amount")
+        if raw is not None:
+            raw_parts.append(raw)
 
-    if not parts:
-        return None
-    combined = pd.concat(parts).sort_index()
-    return combined[~combined.index.duplicated(keep="last")]
+    if not raw_parts:
+        return None, None
+
+    raw_combined = pd.concat(raw_parts).sort_index()
+    raw_combined = raw_combined[~raw_combined.index.duplicated(keep="last")]
+    hourly = raw_combined.resample("h").mean()
+    return hourly, raw_combined
 
 
-def fetch_load_raw(bzn_eic: str, start: str, end_inclusive: str,
-                   tz: str) -> pd.Series | None:
-    """爬取负荷原始数据，返回原始分辨率 Series（不 resample）。"""
-    parts = []
+def fetch_load(bzn_eic: str, start: str, end_inclusive: str,
+               tz: str) -> tuple[pd.Series | None, pd.Series | None]:
+    raw_parts = []
     chunks = date_chunks(start, end_inclusive)
     for i, (cs, ce) in enumerate(chunks, 1):
         print(f"     chunk {i}/{len(chunks)}: {cs} → {ce}")
-        ts_list = _get_all_timeseries(_load_params(bzn_eic, cs, ce),
-                                      f"load {bzn_eic}")
+        ts_list = _get_all_timeseries(_load_params(bzn_eic, cs, ce), f"load {bzn_eic}")
         time.sleep(REQUEST_DELAY)
-        s = _ts_list_to_raw_series(ts_list, tz, value_tag="quantity")
-        if s is not None:
-            parts.append(s)
+        raw = _ts_list_to_raw_series(ts_list, tz, value_tag="quantity")
+        if raw is not None:
+            raw_parts.append(raw)
 
-    if not parts:
-        return None
-    combined = pd.concat(parts).sort_index()
-    return combined[~combined.index.duplicated(keep="last")]
+    if not raw_parts:
+        return None, None
+
+    raw_combined = pd.concat(raw_parts).sort_index()
+    raw_combined = raw_combined[~raw_combined.index.duplicated(keep="last")]
+    hourly = raw_combined.resample("h").mean()
+    return hourly, raw_combined
 
 
-def fetch_generation_raw(in_domain: str, start: str, end_inclusive: str,
-                         tz: str) -> dict[str, pd.Series]:
-    """
-    爬取发电结构原始数据，返回 {psr_name: raw_series}（不 resample）。
-    每个 psr_type 只请求一次。
-    """
-    raw_series: dict[str, pd.Series] = {}
+def fetch_generation(in_domain: str, start: str, end_inclusive: str,
+                     tz: str) -> tuple[dict[str, pd.Series], dict[str, pd.Series]]:
+    hourly_series: dict[str, pd.Series] = {}
+    raw_series:    dict[str, pd.Series] = {}
     chunks = date_chunks(start, end_inclusive, chunk_days=CHUNK_DAYS)
 
     for psr_code, psr_name in PSR_TYPE_MAP.items():
-        parts = []
+        r_parts = []
+
         for cs, ce in chunks:
             ts_list = _get_all_timeseries(
                 _gen_params(in_domain, cs, ce, psr_code),
@@ -442,110 +436,74 @@ def fetch_generation_raw(in_domain: str, start: str, end_inclusive: str,
                 timeout=GEN_TIMEOUT,
             )
             time.sleep(REQUEST_DELAY)
-            s = _ts_list_to_raw_series(ts_list, tz, value_tag="quantity")
-            if s is not None:
-                parts.append(s)
+            for ts in ts_list:
+                for period in ts.findall(".//{*}Period"):
+                    s, _res = _parse_period_raw(period, tz, value_tag="quantity")
+                    if not s.empty:
+                        r_parts.append(s)
 
-        if parts:
-            combined = pd.concat(parts).sort_index()
-            combined = combined[~combined.index.duplicated(keep="last")]
-            raw_series[psr_name] = combined
-            # 仅做统计日志，不重新爬取
-            hourly_count = _raw_to_hourly(combined).notna().sum()
-            print(f"     ✓ {psr_name:<35} {hourly_count} 有效值(1h) | "
-                  f"{combined.notna().sum()} 原始点")
+        if r_parts:
+            raw_c = pd.concat(r_parts).sort_index()
+            raw_c = raw_c[~raw_c.index.duplicated(keep="last")]
+            raw_series[psr_name] = raw_c
 
-    return raw_series
+            h_c = raw_c.resample("h").mean()
+            hourly_series[psr_name] = h_c
+            print(f"     ✓ {psr_name:<35} {h_c.notna().sum()} 有效值(1h) | "
+                  f"{raw_c.notna().sum()} 原始点")
+
+    return hourly_series, raw_series
 
 
-# ─────────────────────────────────────────────────────────────
-# 从 raw 发电结构构建 solar / wind / generation_df
-# ─────────────────────────────────────────────────────────────
-
-def build_generation_result_from_raw(
-        raw_gen_dict: dict[str, pd.Series]
-) -> dict:
-    """
-    输入：{psr_name: raw_series}
-    输出：{
-        "solar":      hourly_series | None,
-        "wind":       hourly_series | None,
-        "generation": hourly_df（含所有类型，Wind = Offshore + Onshore）,
-        "raw_solar":  raw_series | None,
-        "raw_wind":   raw_series | None,
-    }
-    所有 hourly 均从 raw resample，不重复爬取。
-    """
-    if not raw_gen_dict:
+def build_generation_result(gen_dict: dict[str, pd.Series]) -> dict:
+    if not gen_dict:
         return {}
 
-    # ── raw wind 合并 ──────────────────────────────────────
-    raw_wind_off = raw_gen_dict.get("Wind Offshore")
-    raw_wind_on  = raw_gen_dict.get("Wind Onshore")
-    if raw_wind_off is not None and raw_wind_on is not None:
-        # 对齐到共同 index 后相加
-        raw_wind = raw_wind_off.add(raw_wind_on, fill_value=0)
-    elif raw_wind_off is not None:
-        raw_wind = raw_wind_off
-    elif raw_wind_on is not None:
-        raw_wind = raw_wind_on
+    solar_s  = gen_dict.get("Solar")
+    wind_off = gen_dict.get("Wind Offshore")
+    wind_on  = gen_dict.get("Wind Onshore")
+
+    if wind_off is not None and wind_on is not None:
+        wind_s = wind_off.add(wind_on, fill_value=0)
+    elif wind_off is not None:
+        wind_s = wind_off
+    elif wind_on is not None:
+        wind_s = wind_on
     else:
-        raw_wind = None
+        wind_s = None
 
-    raw_solar = raw_gen_dict.get("Solar")
+    gen_df = pd.DataFrame(gen_dict)
+    cols_to_drop = [c for c in ["Wind Offshore", "Wind Onshore"] if c in gen_df.columns]
+    if cols_to_drop:
+        gen_df = gen_df.drop(columns=cols_to_drop)
+    if wind_s is not None:
+        gen_df["Wind"] = wind_s
 
-    # ── hourly（从 raw resample）──────────────────────────
-    solar_hourly = _raw_to_hourly(raw_solar) if raw_solar is not None else None
-    wind_hourly  = _raw_to_hourly(raw_wind)  if raw_wind  is not None else None
+    return {"solar": solar_s, "wind": wind_s, "generation": gen_df}
 
-    # ── generation 宽表（hourly，Wind = Offshore+Onshore）──
-    hourly_dict: dict[str, pd.Series] = {}
-    for psr_name, raw_s in raw_gen_dict.items():
-        if psr_name in ("Wind Offshore", "Wind Onshore"):
-            continue
-        hourly_dict[psr_name] = _raw_to_hourly(raw_s)
-    if wind_hourly is not None:
-        hourly_dict["Wind"] = wind_hourly
-
-    gen_df = pd.DataFrame(hourly_dict) if hourly_dict else pd.DataFrame()
-
-    return {
-        "solar":      solar_hourly,
-        "wind":       wind_hourly,
-        "generation": gen_df,
-        "raw_solar":  raw_solar,
-        "raw_wind":   raw_wind,
-    }
-
-
-# ─────────────────────────────────────────────────────────────
-# CSV 合并写入（data/ 目录）
-# ─────────────────────────────────────────────────────────────
 
 def merge_and_save_wide(new_cols: dict[str, pd.Series], path: Path, label: str):
     if not new_cols:
         print(f"  [SKIP] {label}: 无新数据")
         return
 
-    # 构建时立即 astype(float)，防止整数 resample 结果写出无小数点
-    new_df = pd.DataFrame(new_cols).astype(float)
+    new_df = pd.DataFrame(new_cols)
+    new_df = _coerce_df_numeric(new_df)
+    new_df = new_df.round(HOURLY_ROUND_DECIMALS)
 
     if path.exists():
         old_df = pd.read_csv(path, index_col=0)
-        # astype(float)：强制 int64 列（历史数据全整数时 read_csv 推断）→ float64，
-        # 否则 update 时 float 写入 int 列在新版 pandas 报 TypeError 或产生 object dtype
-        old_df = old_df.astype(float)
+        old_df = _coerce_df_numeric(old_df)
         new_df.index = fmt_index(new_df.index)
         all_cols = old_df.columns.union(new_df.columns)
         old_df   = old_df.reindex(columns=all_cols)
         new_df   = new_df.reindex(columns=all_cols)
         old_df.update(new_df)
         merged = old_df.combine_first(new_df)
+        merged = _coerce_df_numeric(merged)
+        merged = merged.round(HOURLY_ROUND_DECIMALS)
         merged.index.name = "Date"
         merged = _sort_index_by_time(merged)
-        # to_csv 前再 astype(float)：保证写出 '100.0' 而非 '100'，
-        # 读回时 pandas 才会推断为 float64 而非 int64
-        merged = merged.astype(float)
         merged.index = fmt_index(merged.index)
         merged.index.name = "Date"
         merged.to_csv(path)
@@ -554,7 +512,8 @@ def merge_and_save_wide(new_cols: dict[str, pd.Series], path: Path, label: str):
         new_df.index = fmt_index(new_df.index)
         new_df.index.name = "Date"
         new_df = _sort_index_by_time(new_df)
-        new_df = new_df.astype(float)
+        new_df = _coerce_df_numeric(new_df)
+        new_df = new_df.round(HOURLY_ROUND_DECIMALS)
         new_df.index = fmt_index(new_df.index)
         new_df.index.name = "Date"
         new_df.to_csv(path)
@@ -590,10 +549,6 @@ def merge_and_save_generation(new_rows: list[dict], gen_dir: Path):
             print(f"  ✓ generation/{country}.csv: 新建 {len(grp_new)} 行")
 
 
-# ─────────────────────────────────────────────────────────────
-# 原始数据写入 raw_data/
-# ─────────────────────────────────────────────────────────────
-
 def merge_and_save_raw_wide(new_raw_cols: dict[str, pd.Series],
                             path: Path, label: str):
     if not new_raw_cols:
@@ -614,7 +569,9 @@ def merge_and_save_raw_wide(new_raw_cols: dict[str, pd.Series],
         [s.rename("v") for s in normalized.values()]
     ).index.unique().sort_values()
 
-    new_df = pd.DataFrame({col: s.reindex(all_idx) for col, s in normalized.items()}).astype(float)
+    new_df = pd.DataFrame({col: s.reindex(all_idx) for col, s in normalized.items()})
+    new_df = _coerce_df_numeric(new_df)
+    new_df = new_df.round(HOURLY_ROUND_DECIMALS)
     new_df.index = fmt_index_15min(all_idx)
     new_df.index.name = "Date"
 
@@ -622,22 +579,24 @@ def merge_and_save_raw_wide(new_raw_cols: dict[str, pd.Series],
 
     if path.exists():
         old_df = pd.read_csv(path, index_col=0)
-        old_df = old_df.astype(float)
+        old_df = _coerce_df_numeric(old_df)
         all_cols = old_df.columns.union(new_df.columns)
         old_df   = old_df.reindex(columns=all_cols)
         new_df   = new_df.reindex(columns=all_cols)
         old_df.update(new_df)
         merged = old_df.combine_first(new_df)
+        merged = _coerce_df_numeric(merged)
+        merged = merged.round(HOURLY_ROUND_DECIMALS)
         merged.index.name = "Date"
         merged = _sort_index_by_time(merged)
-        merged = merged.astype(float)
         merged.index = fmt_index_15min(merged.index)
         merged.index.name = "Date"
         merged.to_csv(path)
         print(f"  ✓ RAW {path.name}: 合并后 {len(merged)} 行 × {len(merged.columns)} 列")
     else:
         new_df = _sort_index_by_time(new_df)
-        new_df = new_df.astype(float)
+        new_df = _coerce_df_numeric(new_df)
+        new_df = new_df.round(HOURLY_ROUND_DECIMALS)
         new_df.index = fmt_index_15min(new_df.index)
         new_df.index.name = "Date"
         new_df.to_csv(path)
@@ -691,10 +650,6 @@ def merge_and_save_raw_generation(raw_gen_by_country: dict[str, dict[str, pd.Ser
             print(f"  ✓ RAW generation/{cc_upper}.csv: 新建 {len(df_new)} 行")
 
 
-# ─────────────────────────────────────────────────────────────
-# 主流程
-# ─────────────────────────────────────────────────────────────
-
 def main():
     parser = argparse.ArgumentParser(description="ENTSOE 数据更新")
     parser.add_argument(
@@ -715,6 +670,7 @@ def main():
         mode_label = f"增量模式（最近 {LOOKBACK_DAYS} 天）"
 
     cutoff = datetime.strptime(end_date, "%Y-%m-%d") + timedelta(days=1)
+    wall_clock_hourly_idx = _hourly_wall_clock_index(start_date, end_date)
 
     print("=" * 62)
     print(f"ENTSOE 数据更新  [{mode_label}]")
@@ -726,7 +682,6 @@ def main():
     DATA_DIR.mkdir(exist_ok=True)
     RAW_DIR.mkdir(exist_ok=True)
 
-    # ── 收集各国数据（hourly & raw）──────────────────────────
     price_cols:    dict[str, pd.Series] = {}
     load_cols:     dict[str, pd.Series] = {}
     solar_cols:    dict[str, pd.Series] = {}
@@ -746,44 +701,36 @@ def main():
 
         print(f"[{col}]")
 
-        # ── 价格 A44：只爬一次 raw，hourly 从 raw 派生 ───────
         print(f"  → A44 price  eic={bzn_eic}")
-        raw_price = fetch_price_raw(bzn_eic, start_date, end_date, tz)
-        if raw_price is not None:
-            raw_price = raw_price[raw_price.index < cutoff]
-            raw_price_cols[col] = raw_price
-            hourly_price = _raw_to_hourly(raw_price)
-            price_cols[col] = hourly_price
-            print(f"     ✓ {hourly_price.notna().sum()} 有效值(1h) | "
-                  f"{raw_price.notna().sum()} 原始点")
+        s_hourly, s_raw = fetch_price(bzn_eic, start_date, end_date, tz)
+        if s_hourly is not None:
+            s_hourly = s_hourly[s_hourly.index < cutoff].reindex(wall_clock_hourly_idx)
+            price_cols[col]     = s_hourly
+            raw_price_cols[col] = s_raw[s_raw.index < cutoff]
+            print(f"     ✓ {price_cols[col].notna().sum()} 有效值(1h) | "
+                  f"{raw_price_cols[col].notna().sum()} 原始点")
         else:
             print(f"     [WARN] 无价格数据")
 
-        # ── 负荷 A65：只爬一次 raw，hourly 从 raw 派生 ───────
         print(f"  → A65 load   eic={bzn_eic}")
-        raw_load = fetch_load_raw(bzn_eic, start_date, end_date, tz)
-        if raw_load is not None:
-            raw_load = raw_load[raw_load.index < cutoff]
-            raw_load_cols[col] = raw_load
-            hourly_load = _raw_to_hourly(raw_load)
-            load_cols[col] = hourly_load
-            print(f"     ✓ {hourly_load.notna().sum()} 有效值(1h) | "
-                  f"{raw_load.notna().sum()} 原始点")
+        s_hourly, s_raw = fetch_load(bzn_eic, start_date, end_date, tz)
+        if s_hourly is not None:
+            s_hourly = s_hourly[s_hourly.index < cutoff].reindex(wall_clock_hourly_idx)
+            load_cols[col]     = s_hourly
+            raw_load_cols[col] = s_raw[s_raw.index < cutoff]
+            print(f"     ✓ {load_cols[col].notna().sum()} 有效值(1h) | "
+                  f"{raw_load_cols[col].notna().sum()} 原始点")
         else:
             print(f"     [WARN] 无负荷数据")
 
-        # ── 发电结构 A75：只爬一次 raw，所有衍生量从 raw 计算 ─
         print(f"  → A75 gen    in_Domain={bzn_eic}")
-        raw_gen_dict = fetch_generation_raw(bzn_eic, start_date, end_date, tz)
+        hourly_dict, raw_dict = fetch_generation(bzn_eic, start_date, end_date, tz)
+        result = build_generation_result(hourly_dict)
 
-        # 截断到 cutoff
-        raw_gen_dict_cut = {
-            k: v[v.index < cutoff] for k, v in raw_gen_dict.items()
-        }
-        if raw_gen_dict_cut:
-            raw_gen_by_country[col] = raw_gen_dict_cut
-
-        result = build_generation_result_from_raw(raw_gen_dict_cut)
+        if raw_dict:
+            raw_gen_by_country[col] = {
+                k: v[v.index < cutoff] for k, v in raw_dict.items()
+            }
 
         for field, target_dict, lbl in [
             ("solar", solar_cols, "solar"),
@@ -791,13 +738,11 @@ def main():
         ]:
             s = result.get(field)
             if s is not None:
-                target_dict[col] = s
-                print(f"     ✓ {lbl:<8} {s.notna().sum()} 有效值")
+                target_dict[col] = s[s.index < cutoff].reindex(wall_clock_hourly_idx)
+                print(f"     ✓ {lbl:<8} {target_dict[col].notna().sum()} 有效值")
             else:
                 print(f"     [WARN] {lbl} 无数据")
 
-        # residual load = load − (solar + wind)
-        # 注意：solar/wind 已是 hourly，load 也是 hourly，直接相减即可
         load_s  = load_cols.get(col)
         solar_s = solar_cols.get(col)
         wind_s  = wind_cols.get(col)
@@ -805,15 +750,14 @@ def main():
             renewables = pd.Series(0.0, index=load_s.index)
             for rs in [solar_s, wind_s]:
                 if rs is not None:
-                    # 两者均为 hourly，index 结构相同，reindex 仅处理边缘缺失
                     renewables = renewables.add(
                         rs.reindex(load_s.index, fill_value=0), fill_value=0)
             residual_cols[col] = load_s - renewables
             print(f"     ✓ residual  {residual_cols[col].notna().sum()} 有效值（计算值）")
 
-        # generation 明细 → 长表（data/generation/）
         gen_df: pd.DataFrame = result.get("generation", pd.DataFrame())
         if not gen_df.empty:
+            gen_df = gen_df[gen_df.index < cutoff]
             for cat in gen_df.columns:
                 for dt, val in gen_df[cat].items():
                     gen_rows.append({
@@ -826,7 +770,6 @@ def main():
 
         print()
 
-    # ── 写 data/ 文件 ─────────────────────────────────────────
     print("保存/合并文件 [data/]...")
     merge_and_save_wide(price_cols,    DATA_DIR / "price.csv",         "price")
     merge_and_save_wide(load_cols,     DATA_DIR / "load.csv",          "load")
@@ -836,7 +779,6 @@ def main():
     merge_and_save_generation(gen_rows, DATA_DIR / "generation")
     print()
 
-    # ── 写 raw_data/ 文件 ─────────────────────────────────────
     print("保存/合并原始数据 [raw_data/]...")
     merge_and_save_raw_wide(raw_price_cols, RAW_DIR / "A44.csv", "A44 price")
     merge_and_save_raw_wide(raw_load_cols,  RAW_DIR / "A65.csv", "A65 load")

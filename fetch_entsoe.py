@@ -16,6 +16,7 @@ ENTSOE API 数据更新脚本（增量更新版）
   - /raw_data/generation/{CC}.csv  发电结构原始数据（长表）
   时间轴规则：
   - 原始 15min 数据 → 保持 15min，index 格式 "YYYY/M/D H:MM"
+  - 原始 1h 数据    → 展开为 15min（:00/:15/:30/:45 四点值相同）
   - 历史上如果某时段只有 1h 精度，则仍保留 1h 粒度，
     只对真实存在 15min 原始点的时段用 15min 轴。
 
@@ -112,6 +113,16 @@ def _to_entsoe_dt(date_str: str) -> str:
     return datetime.strptime(date_str, "%Y-%m-%d").strftime(ENTSOE_FMT)
 
 
+def _local_date_to_entsoe_utc_dt(date_str: str, tz: str) -> str:
+    """
+    把“国家本地日期的 00:00”转换为 ENTSOE 需要的 UTC 时间字符串。
+    这样每个国家请求到的都是本地挂钟日，而不是统一 UTC 日。
+    """
+    local_midnight = pd.Timestamp(date_str).tz_localize(tz)
+    utc_dt = local_midnight.tz_convert("UTC")
+    return utc_dt.strftime(ENTSOE_FMT)
+
+
 def _get_all_timeseries(base_params: dict, label: str,
                         timeout: int = DEFAULT_TIMEOUT) -> list[ET.Element]:
     all_ts = []
@@ -160,34 +171,34 @@ def _get_all_timeseries(base_params: dict, label: str,
     return all_ts
 
 
-def _price_params(bzn_eic: str, start: str, end: str) -> dict:
+def _price_params(bzn_eic: str, start: str, end: str, tz: str) -> dict:
     return {
         "documentType": "A44",
         "out_Domain":   bzn_eic,
         "in_Domain":    bzn_eic,
-        "periodStart":  _to_entsoe_dt(start),
-        "periodEnd":    _to_entsoe_dt(end),
+        "periodStart":  _local_date_to_entsoe_utc_dt(start, tz),
+        "periodEnd":    _local_date_to_entsoe_utc_dt(end, tz),
     }
 
 
-def _load_params(bzn_eic: str, start: str, end: str) -> dict:
+def _load_params(bzn_eic: str, start: str, end: str, tz: str) -> dict:
     return {
         "documentType":          "A65",
         "processType":           "A16",
         "outBiddingZone_Domain": bzn_eic,
-        "periodStart":           _to_entsoe_dt(start),
-        "periodEnd":             _to_entsoe_dt(end),
+        "periodStart":           _local_date_to_entsoe_utc_dt(start, tz),
+        "periodEnd":             _local_date_to_entsoe_utc_dt(end, tz),
     }
 
 
-def _gen_params(in_domain: str, start: str, end: str, psr_type: str) -> dict:
+def _gen_params(in_domain: str, start: str, end: str, psr_type: str, tz: str) -> dict:
     return {
         "documentType": "A75",
         "processType":  "A16",
         "in_Domain":    in_domain,
         "psrType":      psr_type,
-        "periodStart":  _to_entsoe_dt(start),
-        "periodEnd":    _to_entsoe_dt(end),
+        "periodStart":  _local_date_to_entsoe_utc_dt(start, tz),
+        "periodEnd":    _local_date_to_entsoe_utc_dt(end, tz),
     }
 
 
@@ -383,7 +394,7 @@ def fetch_price(bzn_eic: str, start: str, end_inclusive: str,
     chunks = date_chunks(start, end_inclusive, chunk_days=PRICE_CHUNK_DAYS)
     for i, (cs, ce) in enumerate(chunks, 1):
         print(f"     chunk {i}/{len(chunks)}: {cs} → {ce}")
-        ts_list = _get_all_timeseries(_price_params(bzn_eic, cs, ce), f"price {bzn_eic}")
+        ts_list = _get_all_timeseries(_price_params(bzn_eic, cs, ce, tz), f"price {bzn_eic}")
         time.sleep(REQUEST_DELAY)
         raw = _ts_list_to_raw_series(ts_list, tz, value_tag="price.amount")
         if raw is not None:
@@ -404,7 +415,7 @@ def fetch_load(bzn_eic: str, start: str, end_inclusive: str,
     chunks = date_chunks(start, end_inclusive)
     for i, (cs, ce) in enumerate(chunks, 1):
         print(f"     chunk {i}/{len(chunks)}: {cs} → {ce}")
-        ts_list = _get_all_timeseries(_load_params(bzn_eic, cs, ce), f"load {bzn_eic}")
+        ts_list = _get_all_timeseries(_load_params(bzn_eic, cs, ce, tz), f"load {bzn_eic}")
         time.sleep(REQUEST_DELAY)
         raw = _ts_list_to_raw_series(ts_list, tz, value_tag="quantity")
         if raw is not None:
@@ -430,7 +441,7 @@ def fetch_generation(in_domain: str, start: str, end_inclusive: str,
 
         for cs, ce in chunks:
             ts_list = _get_all_timeseries(
-                _gen_params(in_domain, cs, ce, psr_code),
+                _gen_params(in_domain, cs, ce, psr_code, tz),
                 f"gen {in_domain} {psr_code}",
                 timeout=GEN_TIMEOUT,
             )

@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
     <script>
@@ -10,7 +10,7 @@
     </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Intraday – European Electricity Dashboard</title>
+    <title>Intraday 鈥?European Electricity Dashboard</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -26,6 +26,7 @@
             box-shadow: 0 4px 12px rgba(0,0,0,0.1);
             overflow: hidden;
         }
+
         .header {
             background: #2c3e50;
             color: white;
@@ -33,6 +34,7 @@
         }
         .header-top { padding-bottom: 16px; }
         .header-top h1 { font-size: 24px; font-weight: 500; letter-spacing: 0.2px; }
+
         .main-nav { display: flex; gap: 2px; margin-top: 4px; }
         .main-nav-link {
             display: inline-flex; align-items: center; gap: 7px;
@@ -46,6 +48,7 @@
         }
         .main-nav-link:hover { color: rgba(255,255,255,0.95); background: rgba(255,255,255,0.14); }
         .main-nav-link.active { color: #2c3e50; background: #f8f9fa; border-color: #e6e9ed; border-bottom-color: #f8f9fa; }
+
         .sub-nav {
             background: #f8f9fa; border-bottom: 2px solid #e6e9ed;
             padding: 0 30px; display: flex;
@@ -58,6 +61,7 @@
         }
         .sub-nav-link:hover { color: #2c3e50; }
         .sub-nav-link.active { color: #2c3e50; border-bottom-color: #2c3e50; }
+
         .controls {
             padding: 20px 30px;
             display: flex; flex-wrap: wrap; gap: 20px;
@@ -66,7 +70,9 @@
             border-bottom: 1px solid #e6e9ed;
         }
         .control-group { display: flex; flex-direction: column; gap: 6px; }
-        .control-group > label { font-size: 13px; font-weight: 600; color: #2c3e50; }
+        .control-group > label {
+            font-size: 13px; font-weight: 600; color: #2c3e50;
+        }
         .country-static {
             height: 36px; padding: 0 12px;
             border: 1px solid #ccc; border-radius: 6px;
@@ -74,7 +80,9 @@
             background: #f8f9fa; color: #2c3e50; font-weight: 600;
             display: flex; align-items: center;
         }
+
         .content-area { padding: 24px 30px 10px; }
+
         .section-card {
             background: #fff; border-radius: 8px;
             border: 1px solid #e6e9ed;
@@ -92,6 +100,8 @@
             font-size: 12px; color: #868e96; margin-top: 6px; padding-left: 16px;
         }
         .section-body { padding: 16px 20px; }
+        .section-body.chart2-wrap { padding-top: 10px; }
+
         .heatmap-outer { overflow-x: auto; }
         .three-year-hm { display: flex; gap: 20px; min-width: 600px; }
         .year-hm-block { flex: 1; min-width: 0; }
@@ -99,25 +109,26 @@
             text-align: center; font-size: 13px; font-weight: 700;
             margin-bottom: 6px; letter-spacing: 0.5px; color: #2c3e50;
         }
-        .hm-row { display: flex; align-items: center; }
+        .hm-row { display: flex; align-items: center; margin-bottom: 0px; }
         .hm-ylabel {
             width: 30px; flex-shrink: 0; font-size: 9px; color: #868e96;
             text-align: right; padding-right: 5px; white-space: nowrap; line-height: 1;
         }
         .hm-cells-row {
             display: grid; grid-template-columns: repeat(12, 1fr);
-            gap: 0; flex: 1;
+            gap: 0;
+            flex: 1;
         }
         .hm-cell {
-            height: 16px; cursor: default;
+            height: 16px; border-radius: 0; cursor: default;
             transition: outline 0.1s;
             display: flex; align-items: center; justify-content: center;
-            font-size: 7px; font-weight: 700; color: rgba(0,0,0,0.65); overflow: hidden;
+            font-size: 7px; font-weight: 700; color: rgba(0, 0, 0, 0.65); overflow: hidden;
         }
         .hm-cell:hover { outline: 2px solid rgba(44,62,80,0.7); z-index: 5; position: relative; }
         .hm-month-header { display: flex; margin-bottom: 3px; }
         .hm-month-spacer { width: 30px; flex-shrink: 0; }
-        .hm-month-labels { display: grid; grid-template-columns: repeat(12, 1fr); flex: 1; }
+        .hm-month-labels { display: grid; grid-template-columns: repeat(12, 1fr); gap: 0px; flex: 1; }
         .hm-month-label { font-size: 9px; color: #495057; font-weight: 600; text-align: center; }
         .hm-year-legend {
             display: flex; align-items: center; gap: 6px;
@@ -125,12 +136,31 @@
         }
         .hm-legend-bar { flex: 1; height: 7px; border-radius: 4px; }
         .hm-legend-val { white-space: nowrap; font-size: 10px; color: #495057; }
+
+        
+        .chart2-area { width: 100%; }
+        .chart2-svg {
+            width: 100%;
+            height: 380px;
+            display: block;
+            background: #fff;
+            border: 1px solid #edf0f2;
+            border-radius: 8px;
+        }
+        .chart2-legend {
+            display: flex; gap: 14px; flex-wrap: wrap;
+            margin-top: 10px; font-size: 12px; color: #495057;
+        }
+        .legend-item { display: inline-flex; align-items: center; gap: 6px; }
+        .legend-line { width: 18px; height: 0; border-top-width: 2px; border-top-style: solid; }
+        .legend-line.dash { border-top-style: dashed; }
         .hm-tooltip {
             position: fixed; background: rgba(44,62,80,0.93); color: white;
             padding: 6px 11px; border-radius: 6px; font-size: 12px;
             pointer-events: none; z-index: 9999; display: none;
             white-space: nowrap; box-shadow: 0 3px 10px rgba(0,0,0,0.25);
         }
+
         .spinner-wrap {
             display: none; justify-content: center; align-items: center;
             padding: 36px; gap: 12px; color: #6c757d; font-size: 13px;
@@ -142,15 +172,18 @@
             border-radius: 50%; animation: spin 0.8s linear infinite;
         }
         @keyframes spin { to { transform: rotate(360deg); } }
-        .no-data { text-align: center; padding: 40px 20px; }
+
+        .no-data { text-align: center; padding: 40px 20px; color: #adb5bd; }
         .no-data .nd-icon { font-size: 36px; margin-bottom: 8px; }
         .no-data p { font-size: 13px; color: #6c757d; }
+
         .info {
             padding: 12px 30px 20px; font-size: 13px; color: #6c757d;
             text-align: center; border-top: 1px solid #e6e9ed; margin-top: 10px;
         }
         .info a { color: #5a8fc2; text-decoration: none; }
         .info a:hover { text-decoration: underline; }
+
         @media (max-width: 800px) {
             .content-area { padding: 14px; }
             .header { padding: 16px 16px 0 16px; }
@@ -182,44 +215,52 @@
 
     <div class="controls">
         <div class="control-group">
-            <label>🌍 Country</label>
+            <label>馃實 Country</label>
             <div class="country-static">HU</div>
         </div>
     </div>
 
     <div class="content-area">
+
         <div class="section-card">
             <div class="section-head">
-                <h2>Intraday vs Day-Ahead Price Spread Heatmap (H01–H24)</h2>
-                <p>Spread = ID3 − DA &nbsp;|&nbsp; Hourly average of 15-min data &nbsp;|&nbsp; Unit: €/MWh</p>
+                <h2>Intraday vs Day-Ahead Price Spread Heatmap (H01鈥揌24)</h2>
+                <p>Spread = ID3 (intraday) 鈭?HU day-ahead price &nbsp;|&nbsp; Hourly average of 15-min data &nbsp;|&nbsp; Unit: 鈧?MWh</p>
             </div>
             <div class="section-body">
-                <div class="spinner-wrap show" id="hmSpinner"><div class="spinner"></div> Loading data…</div>
+                <div class="spinner-wrap show" id="hmSpinner"><div class="spinner"></div> Loading data鈥?/div>
                 <div id="hmContent">
                     <div class="no-data" id="hmNoData" style="display:none">
-                        <div class="nd-icon">🗺️</div>
+                        <div class="nd-icon">馃椇锔?/div>
                         <p>Failed to load data.</p>
                     </div>
                 </div>
             </div>
         </div>
+
     </div>
 
     <div class="info">
         Data source:
         <a href="https://www.entsoe.eu/" target="_blank">ENTSO-E Transparency Platform</a>
-        &nbsp;|&nbsp; Intraday: ID3 &nbsp;|&nbsp; Unit: €/MWh &nbsp;|&nbsp; Author: Hanyu Jian
+        &nbsp;|&nbsp; Intraday: ID3 &nbsp;|&nbsp; Unit: 鈧?MWh &nbsp;|&nbsp; Author: Hanyu Jian
     </div>
 </div>
 
 <div class="hm-tooltip" id="hmTooltip"></div>
 
 <script>
-const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun',
+                'Jul','Aug','Sep','Oct','Nov','Dec'];
 const YEARS  = [2024, 2025, 2026];
-const hmData = {};
 
-window.addEventListener('DOMContentLoaded', loadData);
+// heatmap data: [year][hour 0-23][month 0-11] = avg spread
+const hmData = {};
+let chart2Data = [];
+
+window.addEventListener('DOMContentLoaded', () => {
+    loadData();
+});
 
 async function loadData() {
     try {
@@ -236,13 +277,12 @@ async function loadData() {
 }
 
 function parseDate15min(str) {
-    str = str.trim();
     // DD/MM/YYYY HH:MM
     let m = str.match(/^(\d{2})\/(\d{2})\/(\d{4})\s+(\d{1,2}):(\d{2})/);
-    if (m) return { year:+m[3], month:+m[2], day:+m[1], hour:+m[4] };
+    if (m) return { year:+m[3], month:+m[2], day:+m[1], hour:+m[4], min:+m[5] };
     // YYYY/MM/DD HH:MM
     m = str.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})\s+(\d{1,2}):(\d{2})/);
-    if (m) return { year:+m[1], month:+m[2], day:+m[3], hour:+m[4] };
+    if (m) return { year:+m[1], month:+m[2], day:+m[3], hour:+m[4], min:+m[5] };
     return null;
 }
 
@@ -250,39 +290,49 @@ async function processData(text) {
     await yieldFrame();
 
     const lines  = text.trim().split(/\r?\n/);
-    const sep    = lines[0].includes('\t') ? /\t/ : /,/;
-    const header = lines[0].split(sep).map(s => s.trim());
+    const header = lines[0].split(/[,\t]/).map(s => s.trim());
+
+    // Support comma or tab delimited
+    const sep = lines[0].includes('\t') ? /\t/ : /,/;
 
     const id3Col = header.findIndex(h => h === 'ID3');
     const daCol  = header.findIndex(h => h === 'DA');
 
     if (id3Col < 0 || daCol < 0) {
-        console.error('Cannot find ID3 or DA columns. Header:', header);
-        document.getElementById('hmSpinner').classList.remove('show');
+        console.error('Could not find ID3 or DA columns. Header:', header);
         document.getElementById('hmNoData').style.display = 'block';
         return;
     }
 
-    // acc[year][hour 0-23][month 0-11]
+    // acc[year][hour 0-23][month 0-11] = {sum, cnt}
     const acc = {};
     YEARS.forEach(yr => {
         acc[yr] = Array.from({length:24}, () =>
             Array.from({length:12}, () => ({sum:0, cnt:0})));
     });
 
-    const CHUNK = 5000;
     for (let i = 1; i < lines.length; i++) {
-        if (i % CHUNK === 0) await yieldFrame();
         const cols = lines[i].split(sep);
-        if (cols.length < Math.max(id3Col, daCol) + 1) continue;
-        const dt = parseDate15min(cols[0]);
+        if (cols.length < 3) continue;
+        const dt = parseDate15min(cols[0].trim());
         if (!dt || !YEARS.includes(dt.year)) continue;
-        const id3 = parseFloat(cols[id3Col].trim());
-        const da  = parseFloat(cols[daCol].trim());
+
+        const id3 = parseFloat((cols[id3Col] || '').trim());
+        const da  = parseFloat((cols[daCol]  || '').trim());
         if (isNaN(id3) || isNaN(da)) continue;
+
         const spread = id3 - da;
         acc[dt.year][dt.hour][dt.month - 1].sum += spread;
         acc[dt.year][dt.hour][dt.month - 1].cnt += 1;
+
+        if (dt.hour >= 17 && dt.hour <= 21) {
+            const key = `${dt.year}-${String(dt.month).padStart(2,'0')}-${String(dt.day).padStart(2,'0')}`;
+            if (!dayMap.has(key)) dayMap.set(key, {daSum: 0, id3Sum: 0, cnt: 0});
+            const b = dayMap.get(key);
+            b.daSum += da;
+            b.id3Sum += id3;
+            b.cnt += 1;
+        }
     }
 
     YEARS.forEach(yr => {
@@ -297,36 +347,39 @@ async function processData(text) {
 function renderHeatmap() {
     const content = document.getElementById('hmContent');
     document.getElementById('hmNoData').style.display = 'none';
-    const tooltip = document.getElementById('hmTooltip');
 
+    const tooltip  = document.getElementById('hmTooltip');
     const outerDiv = document.createElement('div');
     outerDiv.className = 'heatmap-outer';
     const threeYear = document.createElement('div');
     threeYear.className = 'three-year-hm';
 
-    // global mid for consistent coloring
+    // 鈹€鈹€ collect all values for global mid 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
     const allVals = [];
     YEARS.forEach(yr => {
-        const avg = hmData[yr];
+        const avg = hmData[yr] || null;
         if (!avg) return;
-        avg.forEach(row => row.forEach(v => {
-            if (v !== null && isFinite(v)) allVals.push(v);
-        }));
+        for (let h = 0; h < 24; h++)
+            for (let mo = 0; mo < 12; mo++)
+                if (avg[h][mo] !== null && isFinite(avg[h][mo]))
+                    allVals.push(avg[h][mo]);
     });
     allVals.sort((a, b) => a - b);
+    const gmn  = allVals[0];
+    const gmx  = allVals[allVals.length - 1];
+    const gmid = allVals[Math.floor(allVals.length / 2)];
 
     YEARS.forEach(yr => {
-        const avg     = hmData[yr] || null;
-        const hasData = !!avg;
-
+        const avg    = hmData[yr] || null;
+        const hasData = avg !== null;
         let ymn = Infinity, ymx = -Infinity;
+        if (hasData) avg.forEach(row => row.forEach(v => {
+            if (v !== null && isFinite(v)) { ymn = Math.min(ymn, v); ymx = Math.max(ymx, v); }
+        }));
+
         const yVals = [];
         if (hasData) avg.forEach(row => row.forEach(v => {
-            if (v !== null && isFinite(v)) {
-                ymn = Math.min(ymn, v);
-                ymx = Math.max(ymx, v);
-                yVals.push(v);
-            }
+            if (v !== null && isFinite(v)) yVals.push(v);
         }));
         yVals.sort((a, b) => a - b);
         const ymid = yVals[Math.floor(yVals.length / 2)];
@@ -345,9 +398,10 @@ function renderHeatmap() {
         mhWrap.appendChild(Object.assign(document.createElement('div'), {className:'hm-month-spacer'}));
         const mlabels = document.createElement('div');
         mlabels.className = 'hm-month-labels';
-        MONTHS.forEach(m => mlabels.appendChild(
-            Object.assign(document.createElement('div'), {className:'hm-month-label', textContent: m})
-        ));
+        MONTHS.forEach(m => {
+            mlabels.appendChild(Object.assign(document.createElement('div'),
+                {className:'hm-month-label', textContent: m}));
+        });
         mhWrap.appendChild(mlabels);
         block.appendChild(mhWrap);
 
@@ -368,11 +422,17 @@ function renderHeatmap() {
                 const cell = document.createElement('div');
                 cell.className = 'hm-cell';
                 const v = hasData ? avg[h][mo] : null;
-                cell.style.background = v !== null ? priceColor(v, ymn, ymx, ymid) : '#e9ecef';
+
+                cell.style.background = v !== null
+                    ? priceColor(v, ymn, ymx, ymid)
+                    : '#e9ecef';
+
                 cell.textContent = v !== null ? v.toFixed(1) : '';
+
                 cell.dataset.tip = v !== null
-                    ? `${yr} · ${MONTHS[mo]} · H${String(h+1).padStart(2,'0')} · ${v.toFixed(2)} €/MWh`
-                    : `${yr} · ${MONTHS[mo]} · H${String(h+1).padStart(2,'0')} · no data`;
+                    ? `${yr} 路 ${MONTHS[mo]} 路 H${String(h+1).padStart(2,'0')} 路 ${v.toFixed(2)} 鈧?MWh`
+                    : `${yr} 路 ${MONTHS[mo]} 路 H${String(h+1).padStart(2,'0')} 路 no data`;
+
                 cellsRow.appendChild(cell);
             }
 
@@ -382,8 +442,8 @@ function renderHeatmap() {
                 tooltip.style.display = 'block';
                 tooltip.style.left = (e.clientX + 14) + 'px';
                 tooltip.style.top  = (e.clientY + 14) + 'px';
-                const p = cell.dataset.tip.split(' · ');
-                tooltip.innerHTML = `<b>${p[0]}</b> · ${p[1]} · ${p[2]}&nbsp;&nbsp;<span style="color:#f1c40f">${p[3]}</span>`;
+                const p = cell.dataset.tip.split(' 路 ');
+                tooltip.innerHTML = `<b>${p[0]}</b> 路 ${p[1]} 路 ${p[2]}&nbsp;&nbsp;<span style="color:#f1c40f">${p[3]}</span>`;
             });
             cellsRow.addEventListener('mouseleave', () => { tooltip.style.display = 'none'; });
 
@@ -395,16 +455,22 @@ function renderHeatmap() {
         const legend = document.createElement('div');
         legend.className = 'hm-year-legend';
         if (hasData && isFinite(ymn)) {
-            legend.appendChild(Object.assign(document.createElement('span'),
-                {className:'hm-legend-val', textContent: ymn.toFixed(1)}));
+            const minS = Object.assign(document.createElement('span'),
+                {className:'hm-legend-val', textContent: ymn.toFixed(1)});
             const bar = document.createElement('div');
             bar.className = 'hm-legend-bar';
-            bar.style.background = `linear-gradient(to right,
-                rgb(44,123,182), rgb(171,217,233), rgb(255,255,191),
-                rgb(253,174,97), rgb(215,25,28))`;
+            bar.style.background =
+                `linear-gradient(to right,
+                    rgb(44,123,182),
+                    rgb(171,217,233),
+                    rgb(255,255,191),
+                    rgb(253,174,97),
+                    rgb(215,25,28))`;
+            const maxS = Object.assign(document.createElement('span'),
+                {className:'hm-legend-val', textContent: ymx.toFixed(1) + ' 鈧?MWh'});
+            legend.appendChild(minS);
             legend.appendChild(bar);
-            legend.appendChild(Object.assign(document.createElement('span'),
-                {className:'hm-legend-val', textContent: ymx.toFixed(1) + ' €/MWh'}));
+            legend.appendChild(maxS);
         } else {
             legend.textContent = 'No data';
             legend.style.color = '#ced4da';
@@ -417,32 +483,173 @@ function renderHeatmap() {
     content.appendChild(outerDiv);
 }
 
+/* Color scale identical to price-spread.html */
 function priceColor(v, mn, mx, mid) {
     if (!isFinite(mn) || !isFinite(mx) || mx === mn) return 'rgb(255,255,255)';
     const stops = [
-        [0.00, [44,  123, 182]],
-        [0.25, [171, 217, 233]],
-        [0.50, [255, 255, 191]],
-        [0.75, [253, 174,  97]],
-        [1.00, [215,  25,  28]],
+        [  0.00, [ 44, 123, 182]],
+        [  0.25, [171, 217, 233]],
+        [  0.50, [255, 255, 191]],
+        [  0.75, [253, 174,  97]],
+        [  1.00, [215,  25,  28]],
     ];
+
     let t;
     if (v <= mid) {
         t = 0.5 * Math.max(0, Math.min(1, (v - mn) / (mid - mn || 1)));
     } else {
         t = 0.5 + 0.5 * Math.max(0, Math.min(1, (v - mid) / (mx - mid || 1)));
     }
+
     let i = 0;
-    while (i < stops.length - 2 && t > stops[i+1][0]) i++;
+    while (i < stops.length - 2 && t > stops[i + 1][0]) i++;
     const [t0, c0] = stops[i];
-    const [t1, c1] = stops[i+1];
-    const f = t1 === t0 ? 0 : (t - t0) / (t1 - t0);
-    return `rgb(${Math.round(c0[0]+f*(c1[0]-c0[0]))},${Math.round(c0[1]+f*(c1[1]-c0[1]))},${Math.round(c0[2]+f*(c1[2]-c0[2]))})`;
+    const [t1, c1] = stops[i + 1];
+    const f = (t1 === t0) ? 0 : (t - t0) / (t1 - t0);
+
+    const r = Math.round(c0[0] + f * (c1[0] - c0[0]));
+    const g = Math.round(c0[1] + f * (c1[1] - c0[1]));
+    const b = Math.round(c0[2] + f * (c1[2] - c0[2]));
+    return `rgb(${r},${g},${b})`;
 }
 
+
+function buildChart2Data(dayMap) {
+    const days = Array.from(dayMap.entries())
+        .map(([date, v]) => {
+            if (!v.cnt) return null;
+            const daAvg = v.daSum / v.cnt;
+            const id3Avg = v.id3Sum / v.cnt;
+            if (!isFinite(daAvg) || !isFinite(id3Avg)) return null;
+            const diff = daAvg - id3Avg;
+            const pct = Math.abs(id3Avg) > 1e-9 ? (diff / id3Avg) * 100 : null;
+            return { date, daAvg, id3Avg, diff, pct };
+        })
+        .filter(Boolean)
+        .sort((a,b) => a.date.localeCompare(b.date));
+
+    const monthMap = new Map();
+    days.forEach(d => {
+        const m = d.date.slice(0, 7);
+        if (!monthMap.has(m)) monthMap.set(m, {diffSum: 0, pctSum: 0, diffCnt: 0, pctCnt: 0});
+        const t = monthMap.get(m);
+        if (isFinite(d.diff)) { t.diffSum += d.diff; t.diffCnt += 1; }
+        if (d.pct !== null && isFinite(d.pct)) { t.pctSum += d.pct; t.pctCnt += 1; }
+    });
+
+    const months = Array.from(monthMap.entries()).map(([month, v]) => ({
+        month,
+        diff: v.diffCnt ? (v.diffSum / v.diffCnt) : null,
+        pct: v.pctCnt ? (v.pctSum / v.pctCnt) : null
+    }));
+
+    return { days, months };
+}
+
+function renderChart2() {
+    const area = document.getElementById('chart2Area');
+    if (!area) return;
+    area.innerHTML = '';
+
+    const days = (chart2Data && chart2Data.days) ? chart2Data.days : [];
+    if (!days.length) {
+        area.innerHTML = '<div class="no-data"><div class="nd-icon">📉</div><p>No valid 17:00-21:00 data for chart2.</p></div>';
+        return;
+    }
+
+    const monthsByKey = new Map((chart2Data.months || []).map(m => [m.month, m]));
+    const mDiffSeries = days.map(d => {
+        const m = monthsByKey.get(d.date.slice(0,7));
+        return m ? m.diff : null;
+    });
+    const mPctSeries = days.map(d => {
+        const m = monthsByKey.get(d.date.slice(0,7));
+        return m ? m.pct : null;
+    });
+
+    const W = 1400, H = 380;
+    const mm = {top: 18, right: 78, bottom: 42, left: 76};
+    const iw = W - mm.left - mm.right, ih = H - mm.top - mm.bottom;
+
+    const diffs = days.map(d => d.diff).filter(v => isFinite(v));
+    const pcts = days.map(d => d.pct).filter(v => v !== null && isFinite(v));
+    const ext = (arr, pad) => {
+        let mn = Math.min(...arr), mx = Math.max(...arr);
+        if (!isFinite(mn) || !isFinite(mx)) { mn = -1; mx = 1; }
+        if (mn === mx) { mn -= 1; mx += 1; }
+        const r = mx - mn;
+        return { mn: mn - r * pad, mx: mx + r * pad };
+    };
+    const dy = ext(diffs, 0.08);
+    const py = ext(pcts.length ? pcts : [0], 0.08);
+
+    const x = i => mm.left + (i / Math.max(1, days.length - 1)) * iw;
+    const yL = v => mm.top + (1 - ((v - dy.mn) / (dy.mx - dy.mn))) * ih;
+    const yR = v => mm.top + (1 - ((v - py.mn) / (py.mx - py.mn))) * ih;
+
+    const linePath = (arr, yFn) => {
+        let p = '';
+        arr.forEach((v, i) => {
+            if (v === null || !isFinite(v)) return;
+            p += (p ? ' L ' : 'M ') + x(i).toFixed(2) + ' ' + yFn(v).toFixed(2);
+        });
+        return p;
+    };
+
+    const xTicks = [];
+    let lastMonth = '';
+    days.forEach((d, i) => {
+        const mon = d.date.slice(0, 7);
+        if (mon !== lastMonth) {
+            xTicks.push({i, mon});
+            lastMonth = mon;
+        }
+    });
+
+    const grid = [];
+    for (let i = 0; i <= 5; i++) {
+        const yy = mm.top + (ih * i / 5);
+        const lv = (dy.mx - (dy.mx - dy.mn) * i / 5).toFixed(1);
+        const rv = (py.mx - (py.mx - py.mn) * i / 5).toFixed(1);
+        grid.push(`<line x1="${mm.left}" y1="${yy}" x2="${W-mm.right}" y2="${yy}" stroke="#eef1f4"/>`);
+        grid.push(`<text x="${mm.left-8}" y="${yy+4}" font-size="11" text-anchor="end" fill="#495057">${lv}</text>`);
+        grid.push(`<text x="${W-mm.right+8}" y="${yy+4}" font-size="11" text-anchor="start" fill="#495057">${rv}%</text>`);
+    }
+
+    const xLabels = xTicks.map(t => {
+        const xx = x(t.i);
+        return `<g><line x1="${xx}" y1="${mm.top}" x2="${xx}" y2="${H-mm.bottom}" stroke="#f3f5f7"/><text x="${xx}" y="${H-mm.bottom+16}" font-size="11" text-anchor="middle" fill="#6c757d">${t.mon}</text></g>`;
+    }).join('');
+
+    const svg = `
+<svg class="chart2-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
+  <rect x="${mm.left}" y="${mm.top}" width="${iw}" height="${ih}" fill="#fcfdff"/>
+  ${grid.join('')}
+  ${xLabels}
+  <line x1="${mm.left}" y1="${yL(0)}" x2="${W-mm.right}" y2="${yL(0)}" stroke="#b8c2cc" stroke-dasharray="4 3"/>
+  <path d="${linePath(days.map(d => d.diff), yL)}" fill="none" stroke="#0b7285" stroke-width="1.4" opacity="0.8"/>
+  <path d="${linePath(mDiffSeries, yL)}" fill="none" stroke="#0b7285" stroke-width="2.8"/>
+  <path d="${linePath(days.map(d => d.pct), yR)}" fill="none" stroke="#e8590c" stroke-width="1.4" opacity="0.8"/>
+  <path d="${linePath(mPctSeries, yR)}" fill="none" stroke="#e8590c" stroke-width="2.8"/>
+  <line x1="${mm.left}" y1="${mm.top}" x2="${mm.left}" y2="${H-mm.bottom}" stroke="#adb5bd"/>
+  <line x1="${W-mm.right}" y1="${mm.top}" x2="${W-mm.right}" y2="${H-mm.bottom}" stroke="#adb5bd"/>
+  <line x1="${mm.left}" y1="${H-mm.bottom}" x2="${W-mm.right}" y2="${H-mm.bottom}" stroke="#adb5bd"/>
+  <text x="${mm.left}" y="${mm.top-6}" font-size="12" fill="#0b7285">DA-ID3 (EUR/MWh, left axis)</text>
+  <text x="${W-mm.right}" y="${mm.top-6}" font-size="12" text-anchor="end" fill="#e8590c">(DA-ID3)/ID3 %, right axis</text>
+</svg>`;
+
+    area.innerHTML = svg + `
+<div class="chart2-legend">
+  <span class="legend-item"><span class="legend-line dash" style="border-top-color:#0b7285"></span>Daily DA-ID3</span>
+  <span class="legend-item"><span class="legend-line" style="border-top-color:#0b7285;border-top-width:3px"></span>Monthly Avg DA-ID3</span>
+  <span class="legend-item"><span class="legend-line dash" style="border-top-color:#e8590c"></span>Daily % (DA-ID3)/ID3</span>
+  <span class="legend-item"><span class="legend-line" style="border-top-color:#e8590c;border-top-width:3px"></span>Monthly Avg %</span>
+</div>`;
+}
 function yieldFrame() {
     return new Promise(res => requestAnimationFrame(() => requestAnimationFrame(res)));
 }
 </script>
 </body>
 </html>
+

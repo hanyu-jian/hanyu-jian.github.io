@@ -145,12 +145,36 @@
         .no-data { text-align: center; padding: 40px 20px; }
         .no-data .nd-icon { font-size: 36px; margin-bottom: 8px; }
         .no-data p { font-size: 13px; color: #6c757d; }
+
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(180px, 1fr));
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+        .kpi {
+            border: 1px solid #e6e9ed;
+            border-radius: 8px;
+            padding: 10px 12px;
+            background: #fafbfc;
+        }
+        .kpi-label { font-size: 12px; color: #6c757d; }
+        .kpi-value { font-size: 20px; color: #2c3e50; font-weight: 700; margin-top: 2px; }
+
+        .chart-wrap { border: 1px solid #e6e9ed; border-radius: 8px; padding: 10px; margin-bottom: 12px; }
+        .chart-title { font-size: 13px; color: #2c3e50; font-weight: 700; margin-bottom: 8px; }
+        .chart-svg { width: 100%; height: 280px; display: block; }
+        .chart-note { font-size: 11px; color: #868e96; margin-top: 6px; }
+
         .info {
             padding: 12px 30px 20px; font-size: 13px; color: #6c757d;
             text-align: center; border-top: 1px solid #e6e9ed; margin-top: 10px;
         }
         .info a { color: #5a8fc2; text-decoration: none; }
         .info a:hover { text-decoration: underline; }
+        @media (max-width: 900px) {
+            .kpi-grid { grid-template-columns: 1fr; }
+        }
         @media (max-width: 800px) {
             .content-area { padding: 14px; }
             .header { padding: 16px 16px 0 16px; }
@@ -203,6 +227,41 @@
                 </div>
             </div>
         </div>
+
+        <div class="section-card">
+            <div class="section-head">
+                <h2>17:00–21:00 Intraday Uplift vs Day-Ahead</h2>
+                <p>Window uplift = Σ(ID3 − DA) for hours 17:00–21:00 &nbsp;|&nbsp; Unit: €/MWh</p>
+            </div>
+            <div class="section-body">
+                <div class="kpi-grid">
+                    <div class="kpi">
+                        <div class="kpi-label">Cumulative Uplift</div>
+                        <div class="kpi-value" id="kpiCum">-</div>
+                    </div>
+                    <div class="kpi">
+                        <div class="kpi-label">Positive-Day Ratio</div>
+                        <div class="kpi-value" id="kpiPos">-</div>
+                    </div>
+                    <div class="kpi">
+                        <div class="kpi-label">Avg Daily Uplift</div>
+                        <div class="kpi-value" id="kpiAvg">-</div>
+                    </div>
+                </div>
+
+                <div class="chart-wrap">
+                    <div class="chart-title">Monthly Average Daily Uplift (17:00–21:00)</div>
+                    <svg id="monthlyChart" class="chart-svg" viewBox="0 0 1200 280" preserveAspectRatio="none"></svg>
+                    <div class="chart-note">Each bar = average of daily 17:00–21:00 uplift in that month.</div>
+                </div>
+
+                <div class="chart-wrap">
+                    <div class="chart-title">Daily Uplift Distribution (17:00–21:00)</div>
+                    <svg id="distChart" class="chart-svg" viewBox="0 0 1200 280" preserveAspectRatio="none"></svg>
+                    <div class="chart-note">Histogram of daily uplift values to show stability/risk.</div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <div class="info">
@@ -218,6 +277,9 @@
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 const YEARS  = [2024, 2025, 2026];
 const hmData = {};
+const windowHours = new Set([17, 18, 19, 20, 21]); // 17:00-21:00
+const dailyUplift = []; // [{date:'YYYY-MM-DD', year, month, value}]
+const monthlyUplift = {}; // key=YYYY-MM -> {sum, cnt}
 
 window.addEventListener('DOMContentLoaded', loadData);
 
@@ -237,10 +299,8 @@ async function loadData() {
 
 function parseDate15min(str) {
     str = str.trim();
-    // DD/MM/YYYY HH:MM
     let m = str.match(/^(\d{2})\/(\d{2})\/(\d{4})\s+(\d{1,2}):(\d{2})/);
     if (m) return { year:+m[3], month:+m[2], day:+m[1], hour:+m[4] };
-    // YYYY/MM/DD HH:MM
     m = str.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})\s+(\d{1,2}):(\d{2})/);
     if (m) return { year:+m[1], month:+m[2], day:+m[3], hour:+m[4] };
     return null;
@@ -263,14 +323,15 @@ async function processData(text) {
         return;
     }
 
-    // acc[year][hour 0-23][month 0-11]
     const acc = {};
     YEARS.forEach(yr => {
         acc[yr] = Array.from({length:24}, () =>
             Array.from({length:12}, () => ({sum:0, cnt:0})));
     });
 
+    const dayHourAcc = {}; // dayHourAcc['YYYY-MM-DD'][hour] = {sum,cnt}
     const CHUNK = 5000;
+
     for (let i = 1; i < lines.length; i++) {
         if (i % CHUNK === 0) await yieldFrame();
         const cols = lines[i].split(sep);
@@ -280,9 +341,18 @@ async function processData(text) {
         const id3 = parseFloat(cols[id3Col].trim());
         const da  = parseFloat(cols[daCol].trim());
         if (isNaN(id3) || isNaN(da)) continue;
+
         const spread = id3 - da;
         acc[dt.year][dt.hour][dt.month - 1].sum += spread;
         acc[dt.year][dt.hour][dt.month - 1].cnt += 1;
+
+        if (windowHours.has(dt.hour)) {
+            const dKey = `${dt.year}-${String(dt.month).padStart(2,'0')}-${String(dt.day).padStart(2,'0')}`;
+            if (!dayHourAcc[dKey]) dayHourAcc[dKey] = {};
+            if (!dayHourAcc[dKey][dt.hour]) dayHourAcc[dKey][dt.hour] = {sum:0, cnt:0, year:dt.year, month:dt.month};
+            dayHourAcc[dKey][dt.hour].sum += spread;
+            dayHourAcc[dKey][dt.hour].cnt += 1;
+        }
     }
 
     YEARS.forEach(yr => {
@@ -290,8 +360,177 @@ async function processData(text) {
             hourRow.map(b => b.cnt > 0 ? b.sum / b.cnt : null));
     });
 
+    buildUpliftSeries(dayHourAcc);
     renderHeatmap();
+    renderUpliftPanel();
+
     document.getElementById('hmSpinner').classList.remove('show');
+}
+
+function buildUpliftSeries(dayHourAcc) {
+    dailyUplift.length = 0;
+    Object.keys(monthlyUplift).forEach(k => delete monthlyUplift[k]);
+
+    Object.entries(dayHourAcc).forEach(([date, hourMap]) => {
+        let daySum = 0;
+        let usedHours = 0;
+
+        for (let h = 17; h <= 21; h++) {
+            const b = hourMap[h];
+            if (!b || b.cnt === 0) continue;
+            daySum += b.sum / b.cnt; // hourly mean spread
+            usedHours++;
+        }
+
+        if (usedHours > 0) {
+            const y = hourMap[17]?.year || hourMap[18]?.year || hourMap[19]?.year || hourMap[20]?.year || hourMap[21]?.year;
+            const m = hourMap[17]?.month || hourMap[18]?.month || hourMap[19]?.month || hourMap[20]?.month || hourMap[21]?.month;
+            dailyUplift.push({ date, year: y, month: m, value: daySum });
+
+            const mk = `${y}-${String(m).padStart(2,'0')}`;
+            if (!monthlyUplift[mk]) monthlyUplift[mk] = {sum:0, cnt:0, year:y, month:m};
+            monthlyUplift[mk].sum += daySum;
+            monthlyUplift[mk].cnt += 1;
+        }
+    });
+
+    dailyUplift.sort((a,b) => a.date.localeCompare(b.date));
+}
+
+function renderUpliftPanel() {
+    renderKPIs();
+    renderMonthlyBarChart();
+    renderDistributionChart();
+}
+
+function renderKPIs() {
+    if (!dailyUplift.length) return;
+
+    const cum = dailyUplift.reduce((s, d) => s + d.value, 0);
+    const pos = dailyUplift.filter(d => d.value > 0).length;
+    const avg = cum / dailyUplift.length;
+
+    document.getElementById('kpiCum').textContent = `${cum.toFixed(1)} €/MWh`;
+    document.getElementById('kpiPos').textContent = `${(100 * pos / dailyUplift.length).toFixed(1)}%`;
+    document.getElementById('kpiAvg').textContent = `${avg.toFixed(2)} €/MWh`;
+}
+
+function renderMonthlyBarChart() {
+    const svg = document.getElementById('monthlyChart');
+    svg.innerHTML = '';
+
+    const arr = Object.values(monthlyUplift)
+        .map(x => ({key:`${x.year}-${String(x.month).padStart(2,'0')}`, val:x.sum / x.cnt}))
+        .sort((a,b) => a.key.localeCompare(b.key));
+
+    if (!arr.length) return;
+
+    const W = 1200, H = 280;
+    const m = {l:50, r:10, t:10, b:38};
+    const cw = W - m.l - m.r, ch = H - m.t - m.b;
+
+    let vMin = Math.min(0, ...arr.map(d => d.val));
+    let vMax = Math.max(0, ...arr.map(d => d.val));
+    if (vMax === vMin) { vMax += 1; vMin -= 1; }
+
+    const y = v => m.t + (vMax - v) / (vMax - vMin) * ch;
+    const zeroY = y(0);
+    const bw = Math.max(4, cw / arr.length - 2);
+
+    const axis = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    axis.setAttribute('x1', m.l); axis.setAttribute('x2', W - m.r);
+    axis.setAttribute('y1', zeroY); axis.setAttribute('y2', zeroY);
+    axis.setAttribute('stroke', '#adb5bd'); axis.setAttribute('stroke-width', '1');
+    svg.appendChild(axis);
+
+    arr.forEach((d, i) => {
+        const cx = m.l + i * (cw / arr.length) + (cw / arr.length - bw) / 2;
+        const yv = y(d.val);
+        const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        rect.setAttribute('x', cx);
+        rect.setAttribute('y', Math.min(zeroY, yv));
+        rect.setAttribute('width', bw);
+        rect.setAttribute('height', Math.max(1, Math.abs(zeroY - yv)));
+        rect.setAttribute('fill', d.val >= 0 ? '#e76f51' : '#457b9d');
+        svg.appendChild(rect);
+
+        if (i % Math.ceil(arr.length / 12) === 0 || arr.length <= 12) {
+            const tx = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            tx.setAttribute('x', cx + bw / 2);
+            tx.setAttribute('y', H - 16);
+            tx.setAttribute('text-anchor', 'middle');
+            tx.setAttribute('font-size', '10');
+            tx.setAttribute('fill', '#6c757d');
+            tx.textContent = d.key.slice(2);
+            svg.appendChild(tx);
+        }
+    });
+}
+
+function renderDistributionChart() {
+    const svg = document.getElementById('distChart');
+    svg.innerHTML = '';
+
+    const vals = dailyUplift.map(d => d.value).filter(Number.isFinite);
+    if (!vals.length) return;
+
+    const W = 1200, H = 280;
+    const m = {l:50, r:10, t:10, b:30};
+    const cw = W - m.l - m.r, ch = H - m.t - m.b;
+
+    let vMin = Math.min(...vals), vMax = Math.max(...vals);
+    if (vMax === vMin) { vMax += 1; vMin -= 1; }
+
+    const binsN = Math.min(30, Math.max(10, Math.round(Math.sqrt(vals.length))));
+    const step = (vMax - vMin) / binsN;
+    const bins = Array.from({length: binsN}, (_, i) => ({x0:vMin + i*step, x1:vMin + (i+1)*step, c:0}));
+
+    vals.forEach(v => {
+        let idx = Math.floor((v - vMin) / step);
+        if (idx < 0) idx = 0;
+        if (idx >= binsN) idx = binsN - 1;
+        bins[idx].c++;
+    });
+
+    const maxC = Math.max(...bins.map(b => b.c), 1);
+    const y = c => m.t + (maxC - c) / maxC * ch;
+    const bw = cw / binsN - 1;
+
+    bins.forEach((b, i) => {
+        const x = m.l + i * (cw / binsN);
+        const top = y(b.c);
+        const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        rect.setAttribute('x', x);
+        rect.setAttribute('y', top);
+        rect.setAttribute('width', Math.max(1, bw));
+        rect.setAttribute('height', Math.max(1, m.t + ch - top));
+        const mid = (b.x0 + b.x1) / 2;
+        rect.setAttribute('fill', mid >= 0 ? '#f4a261' : '#8ecae6');
+        svg.appendChild(rect);
+    });
+
+    const zeroIn = vMin <= 0 && vMax >= 0;
+    if (zeroIn) {
+        const x0 = m.l + (0 - vMin) / (vMax - vMin) * cw;
+        const l = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        l.setAttribute('x1', x0); l.setAttribute('x2', x0);
+        l.setAttribute('y1', m.t); l.setAttribute('y2', m.t + ch);
+        l.setAttribute('stroke', '#495057'); l.setAttribute('stroke-dasharray', '3 3');
+        svg.appendChild(l);
+    }
+
+    const t1 = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    t1.setAttribute('x', m.l); t1.setAttribute('y', H - 8);
+    t1.setAttribute('font-size', '10'); t1.setAttribute('fill', '#6c757d');
+    t1.textContent = `${vMin.toFixed(1)} €/MWh`;
+    svg.appendChild(t1);
+
+    const t2 = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    t2.setAttribute('x', W - m.r); t2.setAttribute('y', H - 8);
+    t2.setAttribute('text-anchor', 'end');
+    t2.setAttribute('font-size', '10'); t2.setAttribute('fill', '#6c757d');
+    t2.textContent = `${vMax.toFixed(1)} €/MWh`;
+    svg.appendChild(t2);
 }
 
 function renderHeatmap() {
@@ -304,7 +543,6 @@ function renderHeatmap() {
     const threeYear = document.createElement('div');
     threeYear.className = 'three-year-hm';
 
-    // global mid for consistent coloring
     const allVals = [];
     YEARS.forEach(yr => {
         const avg = hmData[yr];
@@ -339,7 +577,6 @@ function renderHeatmap() {
         title.textContent = String(yr);
         block.appendChild(title);
 
-        // Month header
         const mhWrap = document.createElement('div');
         mhWrap.className = 'hm-month-header';
         mhWrap.appendChild(Object.assign(document.createElement('div'), {className:'hm-month-spacer'}));
@@ -351,7 +588,6 @@ function renderHeatmap() {
         mhWrap.appendChild(mlabels);
         block.appendChild(mhWrap);
 
-        // 24 rows
         for (let h = 0; h < 24; h++) {
             const row = document.createElement('div');
             row.className = 'hm-row';
@@ -391,7 +627,6 @@ function renderHeatmap() {
             block.appendChild(row);
         }
 
-        // Legend
         const legend = document.createElement('div');
         legend.className = 'hm-year-legend';
         if (hasData && isFinite(ymn)) {

@@ -308,6 +308,42 @@
             .chart-card { margin: 0 14px; }
             .forecast-table-wrap { margin: 16px 14px 0 14px; }
         }
+
+            /* info icon */
+        .info-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #e0e6ed;
+            color: #2c3e50;
+            font-size: 11px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .info-icon:hover {
+            background: #2c3e50;
+            color: #fff;
+        }
+        
+        .info-tooltip {
+            position: absolute;
+            max-width: 280px;
+            background: rgba(44,62,80,0.96);
+            color: #fff;
+            padding: 10px 12px;
+            border-radius: 6px;
+            font-size: 11px;
+            line-height: 1.5;
+            display: none;
+            z-index: 9999;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+        }
+        
     </style>
 </head>
 <body>
@@ -332,9 +368,11 @@
         <!-- ── Left: Map panel ── -->
         <div class="map-panel">
             <div class="map-panel-header">
-                <h3 style="font-size:15px;font-weight:600;color:#2c3e50;">
+                <h3 style="font-size:15px;font-weight:600;color:#2c3e50; display:flex; align-items:center; gap:6px;">
                     Installed Capacity by Country
+                    <span class="info-icon" id="infoBtn">i</span>
                 </h3>
+                    
                 <p style="font-size:11px;color:#888;margin-top:3px;">
                     Click a country to explore
                 </p>
@@ -400,6 +438,7 @@
 </div>
 
 <div class="map-tooltip" id="mapTip"></div>
+<div class="info-tooltip" id="infoTooltip"></div>
 
 <script>
 // ═══════════════════════════════════════
@@ -430,6 +469,44 @@ function typeToColor(t) {
     return '#90a4ae';
 }
 
+const infoText = `
+<b>Data Disclaimer</b><br/>
+Data sourced from ENTSO-E Transparency Platform.<br/><br/>
+For their control areas, TSOs calculate and provide 
+the total installed generation capacity (MW) 
+for all existing production units with a capacity 
+equal to or exceeding 1 MW, aggregated by production type.
+`;
+
+function initInfoTooltip() {
+    const btn = document.getElementById('infoBtn');
+    const tip = document.getElementById('infoTooltip');
+
+    btn.addEventListener('mouseenter', (e) => {
+        tip.innerHTML = infoText;
+        tip.style.display = 'block';
+        moveInfoTip(e);
+    });
+
+    btn.addEventListener('mouseleave', () => {
+        tip.style.display = 'none';
+    });
+
+    btn.addEventListener('mousemove', (e) => {
+        moveInfoTip(e);
+    });
+}
+
+function moveInfoTip(e) {
+    const tip = document.getElementById('infoTooltip');
+    tip.style.left = (e.clientX + 12) + 'px';
+    tip.style.top  = (e.clientY + 12) + 'px';
+}
+
+
+
+
+    
 const TARGET = ['AT','BG','DE','ES','FR','GR','HR','HU','IT','PL','RO','RS','SK'];
 const COUNTRY_LABEL = {
     AT:'Austria', BG:'Bulgaria', DE:'Germany', ES:'Spain', FR:'France',
@@ -1127,6 +1204,7 @@ async function init() {
         document.getElementById('footerInfo').style.display  = 'block';
 
         requestAnimationFrame(() => buildMap());
+        initInfoTooltip();
         window.addEventListener('resize', () => {
             buildMap();
             barInst && barInst.resize();

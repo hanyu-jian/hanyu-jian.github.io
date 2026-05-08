@@ -66,8 +66,7 @@
             border-bottom: 1px solid #e6e9ed;
         }
         .control-group { display: flex; flex-direction: column; gap: 6px; }
-        .control-group > label { font-size: 13px; font-weight: 600; color: #2c3e50; white-space: nowrap; }
-
+        .control-group > label { font-size: 13px; font-weight: 600; color: #2c3e50; }
         .country-static {
             height: 36px; padding: 0 12px;
             border: 1px solid #ccc; border-radius: 6px;
@@ -75,18 +74,6 @@
             background: #f8f9fa; color: #2c3e50; font-weight: 600;
             display: flex; align-items: center;
         }
-
-        .btn-group-inline { display: flex; border: 1px solid #ccc; border-radius: 6px; overflow: hidden; }
-        .btn-group-inline button {
-            font-family: inherit; height: 36px; padding: 0 14px;
-            background: white; border: none; border-right: 1px solid #ccc;
-            font-size: 13px; font-weight: 500; color: #6c757d; cursor: pointer;
-            transition: all 0.15s;
-        }
-        .btn-group-inline button:last-child { border-right: none; }
-        .btn-group-inline button:hover { background: #f0f2f5; color: #2c3e50; }
-        .btn-group-inline button.active { background: #2c3e50; color: white; }
-
         .content-area { padding: 24px 30px 10px; }
         .section-card {
             background: #fff; border-radius: 8px;
@@ -198,21 +185,13 @@
             <label>🌍 Country</label>
             <div class="country-static">HU</div>
         </div>
-
-        <div class="control-group">
-            <label>📊 Display Mode</label>
-            <div class="btn-group-inline" id="modeGroup">
-                <button class="active" data-mode="spread">€/MWh (ID-DA)</button>
-                <button data-mode="ratio">% [(ID-DA)/DA]</button>
-            </div>
-        </div>
     </div>
 
     <div class="content-area">
         <div class="section-card">
             <div class="section-head">
-                <h2 id="hmTitle">Intraday vs Day-Ahead Price Spread Heatmap (H01–H24)</h2>
-                <p id="hmSubtitle">Spread = ID3 − DA &nbsp;|&nbsp; Hourly average of 15-min data &nbsp;|&nbsp; Unit: €/MWh</p>
+                <h2>Intraday vs Day-Ahead Price Spread Heatmap (H01–H24)</h2>
+                <p>Spread = ID3 − DA &nbsp;|&nbsp; Hourly average of 15-min data &nbsp;|&nbsp; Unit: €/MWh</p>
             </div>
             <div class="section-body">
                 <div class="spinner-wrap show" id="hmSpinner"><div class="spinner"></div> Loading data…</div>
@@ -238,49 +217,9 @@
 <script>
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 const YEARS  = [2024, 2025, 2026];
+const hmData = {};
 
-const hmData = {
-    spread: {}, // €/MWh
-    ratio: {}   // %
-};
-
-let currentMode = 'spread';
-
-window.addEventListener('DOMContentLoaded', () => {
-    bindModeSwitch();
-    loadData();
-});
-
-function bindModeSwitch() {
-    const modeGroup = document.getElementById('modeGroup');
-    modeGroup.addEventListener('click', (e) => {
-        const btn = e.target.closest('button[data-mode]');
-        if (!btn) return;
-        const mode = btn.dataset.mode;
-        if (mode === currentMode) return;
-        currentMode = mode;
-
-        modeGroup.querySelectorAll('button').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-
-        updateTitles();
-        renderHeatmap();
-    });
-    updateTitles();
-}
-
-function updateTitles() {
-    const title = document.getElementById('hmTitle');
-    const subtitle = document.getElementById('hmSubtitle');
-
-    if (currentMode === 'spread') {
-        title.textContent = 'Intraday vs Day-Ahead Price Spread Heatmap (H01–H24)';
-        subtitle.innerHTML = 'Spread = ID3 − DA &nbsp;|&nbsp; Hourly average of 15-min data &nbsp;|&nbsp; Unit: €/MWh';
-    } else {
-        title.textContent = 'Intraday vs Day-Ahead Relative Spread Heatmap (H01–H24)';
-        subtitle.innerHTML = 'Ratio = (ID3 − DA) / DA &nbsp;|&nbsp; Hourly average of 15-min data &nbsp;|&nbsp; Unit: %';
-    }
-}
+window.addEventListener('DOMContentLoaded', loadData);
 
 async function loadData() {
     try {
@@ -298,9 +237,11 @@ async function loadData() {
 
 function parseDate15min(str) {
     str = str.trim();
-    let m = str.match(/^(\d{2})\/(\d{2})\/(\d{4})\s+(\d{1,2}):(\d{2})/); // DD/MM/YYYY HH:MM
+    // DD/MM/YYYY HH:MM
+    let m = str.match(/^(\d{2})\/(\d{2})\/(\d{4})\s+(\d{1,2}):(\d{2})/);
     if (m) return { year:+m[3], month:+m[2], day:+m[1], hour:+m[4] };
-    m = str.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})\s+(\d{1,2}):(\d{2})/); // YYYY/MM/DD HH:MM
+    // YYYY/MM/DD HH:MM
+    m = str.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})\s+(\d{1,2}):(\d{2})/);
     if (m) return { year:+m[1], month:+m[2], day:+m[3], hour:+m[4] };
     return null;
 }
@@ -322,13 +263,10 @@ async function processData(text) {
         return;
     }
 
-    const accSpread = {};
-    const accRatio = {};
-
+    // acc[year][hour 0-23][month 0-11]
+    const acc = {};
     YEARS.forEach(yr => {
-        accSpread[yr] = Array.from({length:24}, () =>
-            Array.from({length:12}, () => ({sum:0, cnt:0})));
-        accRatio[yr] = Array.from({length:24}, () =>
+        acc[yr] = Array.from({length:24}, () =>
             Array.from({length:12}, () => ({sum:0, cnt:0})));
     });
 
@@ -337,34 +275,18 @@ async function processData(text) {
         if (i % CHUNK === 0) await yieldFrame();
         const cols = lines[i].split(sep);
         if (cols.length < Math.max(id3Col, daCol) + 1) continue;
-
         const dt = parseDate15min(cols[0]);
         if (!dt || !YEARS.includes(dt.year)) continue;
-
         const id3 = parseFloat(cols[id3Col].trim());
         const da  = parseFloat(cols[daCol].trim());
-        if (!isFinite(id3) || !isFinite(da)) continue;
-
+        if (isNaN(id3) || isNaN(da)) continue;
         const spread = id3 - da;
-        accSpread[dt.year][dt.hour][dt.month - 1].sum += spread;
-        accSpread[dt.year][dt.hour][dt.month - 1].cnt += 1;
-
-
-
-        if (da !== 0) {
-            const ratio = ((id3 - da) / Math.abs(da)) * 100;
-            if (isFinite(ratio)) {
-                accRatio[dt.year][dt.hour][dt.month - 1].sum += ratio;
-                accRatio[dt.year][dt.hour][dt.month - 1].cnt += 1;
-            }
-        }
+        acc[dt.year][dt.hour][dt.month - 1].sum += spread;
+        acc[dt.year][dt.hour][dt.month - 1].cnt += 1;
     }
 
     YEARS.forEach(yr => {
-        hmData.spread[yr] = accSpread[yr].map(hourRow =>
-            hourRow.map(b => b.cnt > 0 ? b.sum / b.cnt : null));
-
-        hmData.ratio[yr] = accRatio[yr].map(hourRow =>
+        hmData[yr] = acc[yr].map(hourRow =>
             hourRow.map(b => b.cnt > 0 ? b.sum / b.cnt : null));
     });
 
@@ -377,23 +299,37 @@ function renderHeatmap() {
     document.getElementById('hmNoData').style.display = 'none';
     const tooltip = document.getElementById('hmTooltip');
 
-    content.querySelectorAll('.heatmap-outer').forEach(el => el.remove());
-
     const outerDiv = document.createElement('div');
     outerDiv.className = 'heatmap-outer';
     const threeYear = document.createElement('div');
     threeYear.className = 'three-year-hm';
 
+    // global mid for consistent coloring
+    const allVals = [];
     YEARS.forEach(yr => {
-        const avg = hmData[currentMode][yr] || null;
+        const avg = hmData[yr];
+        if (!avg) return;
+        avg.forEach(row => row.forEach(v => {
+            if (v !== null && isFinite(v)) allVals.push(v);
+        }));
+    });
+    allVals.sort((a, b) => a - b);
+
+    YEARS.forEach(yr => {
+        const avg     = hmData[yr] || null;
         const hasData = !!avg;
 
-        let maxAbs = 0;
-        if (hasData) {
-            avg.forEach(row => row.forEach(v => {
-                if (v !== null && isFinite(v)) maxAbs = Math.max(maxAbs, Math.abs(v));
-            }));
-        }
+        let ymn = Infinity, ymx = -Infinity;
+        const yVals = [];
+        if (hasData) avg.forEach(row => row.forEach(v => {
+            if (v !== null && isFinite(v)) {
+                ymn = Math.min(ymn, v);
+                ymx = Math.max(ymx, v);
+                yVals.push(v);
+            }
+        }));
+        yVals.sort((a, b) => a - b);
+        const ymid = yVals[Math.floor(yVals.length / 2)];
 
         const block = document.createElement('div');
         block.className = 'year-hm-block';
@@ -403,6 +339,7 @@ function renderHeatmap() {
         title.textContent = String(yr);
         block.appendChild(title);
 
+        // Month header
         const mhWrap = document.createElement('div');
         mhWrap.className = 'hm-month-header';
         mhWrap.appendChild(Object.assign(document.createElement('div'), {className:'hm-month-spacer'}));
@@ -414,6 +351,7 @@ function renderHeatmap() {
         mhWrap.appendChild(mlabels);
         block.appendChild(mhWrap);
 
+        // 24 rows
         for (let h = 0; h < 24; h++) {
             const row = document.createElement('div');
             row.className = 'hm-row';
@@ -430,18 +368,11 @@ function renderHeatmap() {
                 const cell = document.createElement('div');
                 cell.className = 'hm-cell';
                 const v = hasData ? avg[h][mo] : null;
-
-                cell.style.background = v !== null
-                    ? priceColorSymmetric(v, maxAbs)
-                    : '#e9ecef';
-
+                cell.style.background = v !== null ? priceColor(v, ymn, ymx, ymid) : '#e9ecef';
                 cell.textContent = v !== null ? v.toFixed(1) : '';
-
-                const unit = currentMode === 'spread' ? '€/MWh' : '%';
                 cell.dataset.tip = v !== null
-                    ? `${yr} · ${MONTHS[mo]} · H${String(h+1).padStart(2,'0')} · ${v.toFixed(2)} ${unit}`
+                    ? `${yr} · ${MONTHS[mo]} · H${String(h+1).padStart(2,'0')} · ${v.toFixed(2)} €/MWh`
                     : `${yr} · ${MONTHS[mo]} · H${String(h+1).padStart(2,'0')} · no data`;
-
                 cellsRow.appendChild(cell);
             }
 
@@ -460,35 +391,24 @@ function renderHeatmap() {
             block.appendChild(row);
         }
 
+        // Legend
         const legend = document.createElement('div');
         legend.className = 'hm-year-legend';
-        if (hasData && isFinite(maxAbs) && maxAbs > 0) {
-            const unit = currentMode === 'spread' ? '€/MWh' : '%';
-
+        if (hasData && isFinite(ymn)) {
             legend.appendChild(Object.assign(document.createElement('span'),
-                {className:'hm-legend-val', textContent: (-maxAbs).toFixed(1)}));
-
+                {className:'hm-legend-val', textContent: ymn.toFixed(1)}));
             const bar = document.createElement('div');
             bar.className = 'hm-legend-bar';
             bar.style.background = `linear-gradient(to right,
                 rgb(44,123,182), rgb(171,217,233), rgb(255,255,191),
                 rgb(253,174,97), rgb(215,25,28))`;
             legend.appendChild(bar);
-
             legend.appendChild(Object.assign(document.createElement('span'),
-                {className:'hm-legend-val', textContent: '0'}));
-
-            const spacer = document.createElement('div');
-            spacer.style.width = '6px';
-            legend.appendChild(spacer);
-
-            legend.appendChild(Object.assign(document.createElement('span'),
-                {className:'hm-legend-val', textContent: `+${maxAbs.toFixed(1)} ${unit}`}));
+                {className:'hm-legend-val', textContent: ymx.toFixed(1) + ' €/MWh'}));
         } else {
             legend.textContent = 'No data';
             legend.style.color = '#ced4da';
         }
-
         block.appendChild(legend);
         threeYear.appendChild(block);
     });
@@ -497,28 +417,27 @@ function renderHeatmap() {
     content.appendChild(outerDiv);
 }
 
-function priceColorSymmetric(v, maxAbs) {
-    if (!isFinite(maxAbs) || maxAbs === 0) return 'rgb(255,255,255)';
-
-    // Symmetric mapping around zero:
-    // negative -> blue, zero -> yellow, positive -> red
-    const t = Math.max(0, Math.min(1, (v + maxAbs) / (2 * maxAbs)));
-
+function priceColor(v, mn, mx, mid) {
+    if (!isFinite(mn) || !isFinite(mx) || mx === mn) return 'rgb(255,255,255)';
     const stops = [
-        [0.00, [44,  123, 182]],  // blue
-        [0.25, [171, 217, 233]],  // light blue
-        [0.50, [255, 255, 191]],  // yellow (same midpoint RGB)
-        [0.75, [253, 174,  97]],  // orange
-        [1.00, [215,  25,  28]]   // red
+        [0.00, [44,  123, 182]],
+        [0.25, [171, 217, 233]],
+        [0.50, [255, 255, 191]],
+        [0.75, [253, 174,  97]],
+        [1.00, [215,  25,  28]],
     ];
-
+    let t;
+    if (v <= mid) {
+        t = 0.5 * Math.max(0, Math.min(1, (v - mn) / (mid - mn || 1)));
+    } else {
+        t = 0.5 + 0.5 * Math.max(0, Math.min(1, (v - mid) / (mx - mid || 1)));
+    }
     let i = 0;
-    while (i < stops.length - 2 && t > stops[i + 1][0]) i++;
+    while (i < stops.length - 2 && t > stops[i+1][0]) i++;
     const [t0, c0] = stops[i];
-    const [t1, c1] = stops[i + 1];
+    const [t1, c1] = stops[i+1];
     const f = t1 === t0 ? 0 : (t - t0) / (t1 - t0);
-
-    return `rgb(${Math.round(c0[0] + f * (c1[0] - c0[0]))},${Math.round(c0[1] + f * (c1[1] - c0[1]))},${Math.round(c0[2] + f * (c1[2] - c0[2]))})`;
+    return `rgb(${Math.round(c0[0]+f*(c1[0]-c0[0]))},${Math.round(c0[1]+f*(c1[1]-c0[1]))},${Math.round(c0[2]+f*(c1[2]-c0[2]))})`;
 }
 
 function yieldFrame() {

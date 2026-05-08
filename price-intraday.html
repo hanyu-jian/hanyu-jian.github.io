@@ -245,11 +245,11 @@ window.addEventListener('DOMContentLoaded', () => {
 
 async function loadData() {
     try {
-        const [intradayText, daText] = await Promise.all([
-            fetch('data/intraday/HU.csv').then(r => { if (!r.ok) throw new Error(`ID3 HTTP ${r.status}`); return r.text(); }),
-            fetch('data/price.csv').then(r => { if (!r.ok) throw new Error(`DA HTTP ${r.status}`); return r.text(); })
-        ]);
-        await processData(intradayText, daText);
+        const text = await fetch('data/intraday/HU.csv').then(r => {
+            if (!r.ok) throw new Error(`HTTP ${r.status}`);
+            return r.text();
+        });
+        await processData(text);
     } catch(e) {
         console.error('Failed to load:', e.message);
         document.getElementById('hmSpinner').classList.remove('show');
@@ -258,11 +258,8 @@ async function loadData() {
 }
 
 function parseDate15min(str) {
-    // Handles "01/01/2024 00:00" or "2024/01/01 00:00"
-    str = str.trim();
-    let m;
     // DD/MM/YYYY HH:MM
-    m = str.match(/^(\d{2})\/(\d{2})\/(\d{4})\s+(\d{1,2}):(\d{2})/);
+    let m = str.match(/^(\d{2})\/(\d{2})\/(\d{4})\s+(\d{1,2}):(\d{2})/);
     if (m) return { year:+m[3], month:+m[2], day:+m[1], hour:+m[4], min:+m[5] };
     // YYYY/MM/DD HH:MM
     m = str.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})\s+(\d{1,2}):(\d{2})/);
@@ -270,83 +267,42 @@ function parseDate15min(str) {
     return null;
 }
 
-function timeKey(year, month, day, hour, min) {
-    return `${year}/${String(month).padStart(2,'0')}/${String(day).padStart(2,'0')} ${String(hour).padStart(2,'0')}:${String(min).padStart(2,'0')}`;
-}
-
-async function processData(intradayText, daText) {
+async function processData(text) {
     await yieldFrame();
 
-    // ── Parse ID3 intraday (15-min) ──────────────────────────────
-    const id3Map = {}; // key -> price
-    {
-        const lines = intradayText.trim().split(/\r?\n/);
-        const header = lines[0].split(',').map(s => s.trim());
-        // Find ID3 column index
-        let id3Col = header.findIndex(h => h === 'ID3');
-        if (id3Col < 0) id3Col = 1; // fallback: second column
+    const lines  = text.trim().split(/\r?\n/);
+    const header = lines[0].split(/[,\t]/).map(s => s.trim());
 
-        for (let i = 1; i < lines.length; i++) {
-            const cols = lines[i].split(',');
-            if (cols.length < 2) continue;
-            const dt = parseDate15min(cols[0]);
-            if (!dt) continue;
-            if (!YEARS.includes(dt.year)) continue;
-            const price = parseFloat((cols[id3Col] || '').trim());
-            if (isNaN(price)) continue;
-            id3Map[timeKey(dt.year, dt.month, dt.day, dt.hour, dt.min)] = price;
-        }
+    // Support comma or tab delimited
+    const sep = lines[0].includes('\t') ? /\t/ : /,/;
+
+    const id3Col = header.findIndex(h => h === 'ID3');
+    const daCol  = header.findIndex(h => h === 'DA');
+
+    if (id3Col < 0 || daCol < 0) {
+        console.error('Could not find ID3 or DA columns. Header:', header);
+        document.getElementById('hmNoData').style.display = 'block';
+        return;
     }
 
-    // ── Parse DA price.csv ──────────────────────────────────────
-    // Find HU column; data is hourly (one row per hour, timestamp = start of hour)
-    // We'll map each hourly DA price to 4 x 15-min slots
-    const daHourMap = {}; // key like "2024/01/01 00" -> price
-    let huColIdx = -1;
-    {
-        const lines = daText.trim().split(/\r?\n/);
-        const header = lines[0].split(',').map(s => s.trim());
-        huColIdx = header.findIndex(h => h === 'HU');
-        if (huColIdx < 0) {
-            // try case-insensitive
-            huColIdx = header.findIndex(h => h.toLowerCase() === 'hu');
-        }
-        if (huColIdx < 0) huColIdx = 1; // fallback
-
-        for (let i = 1; i < lines.length; i++) {
-            const cols = lines[i].split(',');
-            if (cols.length < 2) continue;
-            const raw = cols[0].trim();
-            const m = raw.match(/(\d{4})\/(\d{1,2})\/(\d{1,2})\s+(\d{1,2}):(\d{2})/);
-            if (!m) continue;
-            const year = +m[1], month = +m[2], day = +m[3], hour = +m[4];
-            if (!YEARS.includes(year)) continue;
-            const price = parseFloat((cols[huColIdx] || '').trim());
-            if (isNaN(price)) continue;
-            const k = `${year}/${String(month).padStart(2,'0')}/${String(day).padStart(2,'0')} ${String(hour).padStart(2,'0')}`;
-            daHourMap[k] = price;
-        }
-    }
-
-    // ── Compute spread per 15-min slot, then aggregate to hm ────
-    // hm: acc[year][hour 0-23][month 0-11] = {sum, cnt}
+    // acc[year][hour 0-23][month 0-11] = {sum, cnt}
     const acc = {};
     YEARS.forEach(yr => {
         acc[yr] = Array.from({length:24}, () =>
             Array.from({length:12}, () => ({sum:0, cnt:0})));
     });
 
-    // Iterate over all id3Map entries
-    for (const [key, id3Price] of Object.entries(id3Map)) {
-        const dt = parseDate15min(key.replace(/\//g, '/'));
-        if (!dt) continue;
-        if (!YEARS.includes(dt.year)) continue;
+    for (let i = 1; i < lines.length; i++) {
+        const cols = lines[i].split(sep);
+        if (cols.length < 3) continue;
+        const dt = parseDate15min(cols[0].trim());
+        if (!dt || !YEARS.includes(dt.year)) continue;
 
-        const daKey = `${dt.year}/${String(dt.month).padStart(2,'0')}/${String(dt.day).padStart(2,'0')} ${String(dt.hour).padStart(2,'0')}`;
-        const daPrice = daHourMap[daKey];
-        if (daPrice === undefined || isNaN(daPrice)) continue;
+        const id3 = parseFloat((cols[id3Col] || '').trim());
+        const da  = parseFloat((cols[daCol]  || '').trim());
+        if (isNaN(id3) || isNaN(da)) continue;
 
-        const spread = id3Price - daPrice;
+        const spread = id3 - da;
         acc[dt.year][dt.hour][dt.month - 1].sum += spread;
         acc[dt.year][dt.hour][dt.month - 1].cnt += 1;
     }

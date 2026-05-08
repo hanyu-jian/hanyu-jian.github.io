@@ -349,8 +349,10 @@ async function processData(text) {
         accSpread[dt.year][dt.hour][dt.month - 1].sum += spread;
         accSpread[dt.year][dt.hour][dt.month - 1].cnt += 1;
 
+
+
         if (da !== 0) {
-            const ratio = ((id3 - da) / da) * 100;
+            const ratio = ((id3 - da) / Math.abs(da)) * 100;
             if (isFinite(ratio)) {
                 accRatio[dt.year][dt.hour][dt.month - 1].sum += ratio;
                 accRatio[dt.year][dt.hour][dt.month - 1].cnt += 1;

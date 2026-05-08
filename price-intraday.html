@@ -11,6 +11,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>Intraday – European Electricity Dashboard</title>
+
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -32,152 +33,117 @@
             padding: 20px 30px 0 30px;
         }
         .header-top { padding-bottom: 16px; }
-        .header-top h1 { font-size: 24px; font-weight: 500; letter-spacing: 0.2px; }
+        .header-top h1 { font-size: 24px; font-weight: 500; }
         .main-nav { display: flex; gap: 2px; margin-top: 4px; }
         .main-nav-link {
-            display: inline-flex; align-items: center; gap: 7px;
-            padding: 10px 24px; font-size: 14px; font-weight: 600;
-            color: rgba(255,255,255,0.65); text-decoration: none;
-            border-radius: 6px 6px 0 0; background: rgba(255,255,255,0.06);
-            border: 1px solid transparent; border-bottom: none;
-            letter-spacing: 0.2px;
-            transition: background 0.2s, color 0.2s, border-color 0.2s;
-            white-space: nowrap; position: relative; top: 1px;
+            padding: 10px 24px;
+            font-size: 14px;
+            font-weight: 600;
+            color: rgba(255,255,255,0.65);
+            text-decoration: none;
+            border-radius: 6px 6px 0 0;
+            background: rgba(255,255,255,0.06);
         }
-        .main-nav-link:hover { color: rgba(255,255,255,0.95); background: rgba(255,255,255,0.14); }
-        .main-nav-link.active { color: #2c3e50; background: #f8f9fa; border-color: #e6e9ed; border-bottom-color: #f8f9fa; }
+        .main-nav-link.active {
+            color: #2c3e50;
+            background: #f8f9fa;
+        }
+
         .sub-nav {
-            background: #f8f9fa; border-bottom: 2px solid #e6e9ed;
-            padding: 0 30px; display: flex;
+            background: #f8f9fa;
+            border-bottom: 2px solid #e6e9ed;
+            padding: 0 30px;
+            display: flex;
         }
         .sub-nav-link {
-            display: inline-block; padding: 14px 22px; font-size: 14px;
-            font-weight: 600; color: #6c757d; text-decoration: none;
-            border-bottom: 3px solid transparent; margin-bottom: -2px;
-            transition: color 0.2s, border-color 0.2s; white-space: nowrap;
+            padding: 14px 22px;
+            font-size: 14px;
+            font-weight: 600;
+            color: #6c757d;
+            text-decoration: none;
         }
-        .sub-nav-link:hover { color: #2c3e50; }
-        .sub-nav-link.active { color: #2c3e50; border-bottom-color: #2c3e50; }
+        .sub-nav-link.active {
+            color: #2c3e50;
+            border-bottom: 3px solid #2c3e50;
+        }
+
         .controls {
             padding: 20px 30px;
-            display: flex; flex-wrap: wrap; gap: 20px;
-            align-items: flex-start;
-            background: #fff;
+            display: flex;
+            gap: 20px;
             border-bottom: 1px solid #e6e9ed;
         }
+
         .control-group { display: flex; flex-direction: column; gap: 6px; }
-        .control-group > label { font-size: 13px; font-weight: 600; color: #2c3e50; }
+        .control-group label { font-size: 13px; font-weight: 600; color: #2c3e50; }
+
         .country-static {
-            height: 36px; padding: 0 12px;
-            border: 1px solid #ccc; border-radius: 6px;
-            font-size: 14px; font-family: inherit;
-            background: #f8f9fa; color: #2c3e50; font-weight: 600;
-            display: flex; align-items: center;
+            height: 36px;
+            padding: 0 12px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            font-weight: 600;
+            background: #f8f9fa;
         }
-        .content-area { padding: 24px 30px 10px; }
-        .section-card {
-            background: #fff; border-radius: 8px;
-            border: 1px solid #e6e9ed;
-            margin-bottom: 24px; overflow: hidden;
+
+        /* 按钮 */
+        .btn-group-inline {
+            display: flex;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            overflow: hidden;
         }
-        .section-head {
-            padding: 16px 20px 12px;
-            border-bottom: 1px solid #e6e9ed;
+        .btn-group-inline button {
+            height: 36px;
+            padding: 0 14px;
+            background: white;
+            border: none;
+            border-right: 1px solid #ccc;
+            font-size: 13px;
+            cursor: pointer;
+            color: #6c757d;
         }
-        .section-head h2 {
-            font-size: 18px; font-weight: 500; color: #2c3e50;
-            border-left: 4px solid #2c3e50; padding-left: 12px;
+        .btn-group-inline button.active {
+            background: #2c3e50;
+            color: white;
         }
-        .section-head p {
-            font-size: 12px; color: #868e96; margin-top: 6px; padding-left: 16px;
-        }
-        .section-body { padding: 16px 20px; }
-        .heatmap-outer { overflow-x: auto; }
-        .three-year-hm { display: flex; gap: 20px; min-width: 600px; }
-        .year-hm-block { flex: 1; min-width: 0; }
-        .year-hm-title {
-            text-align: center; font-size: 13px; font-weight: 700;
-            margin-bottom: 6px; letter-spacing: 0.5px; color: #2c3e50;
-        }
-        .hm-row { display: flex; align-items: center; }
-        .hm-ylabel {
-            width: 30px; flex-shrink: 0; font-size: 9px; color: #868e96;
-            text-align: right; padding-right: 5px; white-space: nowrap; line-height: 1;
-        }
-        .hm-cells-row {
-            display: grid; grid-template-columns: repeat(12, 1fr);
-            gap: 0; flex: 1;
-        }
+
+        .content-area { padding: 24px 30px; }
+
         .hm-cell {
-            height: 16px; cursor: default;
-            transition: outline 0.1s;
-            display: flex; align-items: center; justify-content: center;
-            font-size: 7px; font-weight: 700; color: rgba(0,0,0,0.65); overflow: hidden;
+            height: 16px;
+            font-size: 7px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
-        .hm-cell:hover { outline: 2px solid rgba(44,62,80,0.7); z-index: 5; position: relative; }
-        .hm-month-header { display: flex; margin-bottom: 3px; }
-        .hm-month-spacer { width: 30px; flex-shrink: 0; }
-        .hm-month-labels { display: grid; grid-template-columns: repeat(12, 1fr); flex: 1; }
-        .hm-month-label { font-size: 9px; color: #495057; font-weight: 600; text-align: center; }
-        .hm-year-legend {
-            display: flex; align-items: center; gap: 6px;
-            margin-top: 6px; font-size: 10px; color: #6c757d; padding-left: 30px;
+
+        .hm-cells-row {
+            display: grid;
+            grid-template-columns: repeat(12, 1fr);
         }
-        .hm-legend-bar { flex: 1; height: 7px; border-radius: 4px; }
-        .hm-legend-val { white-space: nowrap; font-size: 10px; color: #495057; }
-        .hm-tooltip {
-            position: fixed; background: rgba(44,62,80,0.93); color: white;
-            padding: 6px 11px; border-radius: 6px; font-size: 12px;
-            pointer-events: none; z-index: 9999; display: none;
-            white-space: nowrap; box-shadow: 0 3px 10px rgba(0,0,0,0.25);
-        }
-        .spinner-wrap {
-            display: none; justify-content: center; align-items: center;
-            padding: 36px; gap: 12px; color: #6c757d; font-size: 13px;
-        }
-        .spinner-wrap.show { display: flex; }
-        .spinner {
-            width: 24px; height: 24px;
-            border: 3px solid #dee2e6; border-top-color: #5a8fc2;
-            border-radius: 50%; animation: spin 0.8s linear infinite;
-        }
-        @keyframes spin { to { transform: rotate(360deg); } }
-        .no-data { text-align: center; padding: 40px 20px; }
-        .no-data .nd-icon { font-size: 36px; margin-bottom: 8px; }
-        .no-data p { font-size: 13px; color: #6c757d; }
-        .info {
-            padding: 12px 30px 20px; font-size: 13px; color: #6c757d;
-            text-align: center; border-top: 1px solid #e6e9ed; margin-top: 10px;
-        }
-        .info a { color: #5a8fc2; text-decoration: none; }
-        .info a:hover { text-decoration: underline; }
-        @media (max-width: 800px) {
-            .content-area { padding: 14px; }
-            .header { padding: 16px 16px 0 16px; }
-            .sub-nav { padding: 0 10px; overflow-x: auto; }
-            .controls { padding: 14px; }
-            .three-year-hm { flex-direction: column; }
-        }
+
+        .hm-row { display: flex; }
+        .hm-ylabel { width: 30px; font-size: 9px; text-align: right; }
+
+        .three-year-hm { display: flex; gap: 20px; }
     </style>
 </head>
+
 <body>
 <div class="container">
 
     <div class="header">
         <div class="header-top"><h1>European Electricity Dashboard</h1></div>
         <div class="main-nav">
-            <a href="project.html" class="main-nav-link"><span>Projects</span></a>
-            <a href="price-overview.html" class="main-nav-link active"><span>Price</span></a>
-            <a href="load.html" class="main-nav-link"><span>Load</span></a>
-            <a href="capacity.html" class="main-nav-link"><span>Installed Capacity</span></a>
+            <a href="#" class="main-nav-link active">Price</a>
         </div>
     </div>
 
     <div class="sub-nav">
-        <a class="sub-nav-link" href="price-overview.html">Price Overview</a>
-        <a class="sub-nav-link" href="capture-price.html">Capture Prices</a>
-        <a class="sub-nav-link" href="price-spread.html">Price Spread</a>
-        <a class="sub-nav-link active" href="price-intraday.html">Intraday</a>
+        <a class="sub-nav-link active">Intraday</a>
     </div>
 
     <div class="controls">
@@ -185,264 +151,153 @@
             <label>🌍 Country</label>
             <div class="country-static">HU</div>
         </div>
-    </div>
 
-    <div class="content-area">
-        <div class="section-card">
-            <div class="section-head">
-                <h2>Intraday vs Day-Ahead Price Spread Heatmap (H01–H24)</h2>
-                <p>Spread = ID3 − DA &nbsp;|&nbsp; Hourly average of 15-min data &nbsp;|&nbsp; Unit: €/MWh</p>
-            </div>
-            <div class="section-body">
-                <div class="spinner-wrap show" id="hmSpinner"><div class="spinner"></div> Loading data…</div>
-                <div id="hmContent">
-                    <div class="no-data" id="hmNoData" style="display:none">
-                        <div class="nd-icon">🗺️</div>
-                        <p>Failed to load data.</p>
-                    </div>
-                </div>
+        <div class="control-group">
+            <label>📊 Display Mode</label>
+            <div class="btn-group-inline" id="modeGroup">
+                <button class="active" data-mode="abs">€/MWh</button>
+                <button data-mode="pct">%</button>
             </div>
         </div>
     </div>
 
-    <div class="info">
-        Data source:
-        <a href="https://www.entsoe.eu/" target="_blank">ENTSO-E Transparency Platform</a>
-        &nbsp;|&nbsp; Intraday: ID3 &nbsp;|&nbsp; Unit: €/MWh &nbsp;|&nbsp; Author: Hanyu Jian
+    <div class="content-area">
+        <div id="hmContent"></div>
     </div>
 </div>
 
-<div class="hm-tooltip" id="hmTooltip"></div>
-
 <script>
+const YEARS = [2024,2025,2026];
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-const YEARS  = [2024, 2025, 2026];
-const hmData = {};
 
-window.addEventListener('DOMContentLoaded', loadData);
+let displayMode = 'abs';
+let hmDataAbs = {}, hmDataPct = {};
 
-async function loadData() {
-    try {
-        const text = await fetch('data/intraday/HU.csv').then(r => {
-            if (!r.ok) throw new Error(`HTTP ${r.status}`);
-            return r.text();
-        });
-        await processData(text);
-    } catch(e) {
-        console.error('Failed to load:', e.message);
-        document.getElementById('hmSpinner').classList.remove('show');
-        document.getElementById('hmNoData').style.display = 'block';
-    }
+loadData();
+
+async function loadData(){
+    const text = await fetch('data/intraday/HU.csv').then(r=>r.text());
+    processData(text);
 }
 
-function parseDate15min(str) {
-    str = str.trim();
-    // DD/MM/YYYY HH:MM
-    let m = str.match(/^(\d{2})\/(\d{2})\/(\d{4})\s+(\d{1,2}):(\d{2})/);
-    if (m) return { year:+m[3], month:+m[2], day:+m[1], hour:+m[4] };
-    // YYYY/MM/DD HH:MM
-    m = str.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})\s+(\d{1,2}):(\d{2})/);
-    if (m) return { year:+m[1], month:+m[2], day:+m[3], hour:+m[4] };
-    return null;
-}
+function processData(text){
+    const lines = text.trim().split('\n');
+    const header = lines[0].split(',');
+    const id3Col = header.indexOf('ID3');
+    const daCol  = header.indexOf('DA');
 
-async function processData(text) {
-    await yieldFrame();
+    const accAbs = {}, accPct = {};
+    YEARS.forEach(y=>{
+        accAbs[y]=Array.from({length:24},()=>Array.from({length:12},()=>({s:0,c:0})));
+        accPct[y]=Array.from({length:24},()=>Array.from({length:12},()=>({s:0,c:0})));
+    });
 
-    const lines  = text.trim().split(/\r?\n/);
-    const sep    = lines[0].includes('\t') ? /\t/ : /,/;
-    const header = lines[0].split(sep).map(s => s.trim());
+    for(let i=1;i<lines.length;i++){
+        const cols = lines[i].split(',');
+        const d = new Date(cols[0]);
+        const y=d.getFullYear(), m=d.getMonth(), h=d.getHours();
+        if(!YEARS.includes(y)) continue;
 
-    const id3Col = header.findIndex(h => h === 'ID3');
-    const daCol  = header.findIndex(h => h === 'DA');
+        const id3=+cols[id3Col], da=+cols[daCol];
+        if(!da) continue;
 
-    if (id3Col < 0 || daCol < 0) {
-        console.error('Cannot find ID3 or DA columns. Header:', header);
-        document.getElementById('hmSpinner').classList.remove('show');
-        document.getElementById('hmNoData').style.display = 'block';
-        return;
+        const spread=id3-da;
+        const pct=spread/da*100;
+
+        accAbs[y][h][m].s+=spread; accAbs[y][h][m].c++;
+        accPct[y][h][m].s+=pct;    accPct[y][h][m].c++;
     }
 
-    // acc[year][hour 0-23][month 0-11]
-    const acc = {};
-    YEARS.forEach(yr => {
-        acc[yr] = Array.from({length:24}, () =>
-            Array.from({length:12}, () => ({sum:0, cnt:0})));
+    YEARS.forEach(y=>{
+        hmDataAbs[y]=accAbs[y].map(r=>r.map(v=>v.c?v.s/v.c:null));
+        hmDataPct[y]=accPct[y].map(r=>r.map(v=>v.c?v.s/v.c:null));
     });
 
-    const CHUNK = 5000;
-    for (let i = 1; i < lines.length; i++) {
-        if (i % CHUNK === 0) await yieldFrame();
-        const cols = lines[i].split(sep);
-        if (cols.length < Math.max(id3Col, daCol) + 1) continue;
-        const dt = parseDate15min(cols[0]);
-        if (!dt || !YEARS.includes(dt.year)) continue;
-        const id3 = parseFloat(cols[id3Col].trim());
-        const da  = parseFloat(cols[daCol].trim());
-        if (isNaN(id3) || isNaN(da)) continue;
-        const spread = id3 - da;
-        acc[dt.year][dt.hour][dt.month - 1].sum += spread;
-        acc[dt.year][dt.hour][dt.month - 1].cnt += 1;
-    }
-
-    YEARS.forEach(yr => {
-        hmData[yr] = acc[yr].map(hourRow =>
-            hourRow.map(b => b.cnt > 0 ? b.sum / b.cnt : null));
-    });
-
-    renderHeatmap();
-    document.getElementById('hmSpinner').classList.remove('show');
+    render();
 }
 
-function renderHeatmap() {
-    const content = document.getElementById('hmContent');
-    document.getElementById('hmNoData').style.display = 'none';
-    const tooltip = document.getElementById('hmTooltip');
+function getData(){
+    return displayMode==='abs'?hmDataAbs:hmDataPct;
+}
 
-    const outerDiv = document.createElement('div');
-    outerDiv.className = 'heatmap-outer';
-    const threeYear = document.createElement('div');
-    threeYear.className = 'three-year-hm';
+function render(){
+    const container=document.getElementById('hmContent');
+    container.innerHTML='';
 
-    // global mid for consistent coloring
-    const allVals = [];
-    YEARS.forEach(yr => {
-        const avg = hmData[yr];
-        if (!avg) return;
-        avg.forEach(row => row.forEach(v => {
-            if (v !== null && isFinite(v)) allVals.push(v);
-        }));
-    });
-    allVals.sort((a, b) => a - b);
+    const data=getData();
 
-    YEARS.forEach(yr => {
-        const avg     = hmData[yr] || null;
-        const hasData = !!avg;
+    const wrapper=document.createElement('div');
+    wrapper.className='three-year-hm';
 
-        let ymn = Infinity, ymx = -Infinity;
-        const yVals = [];
-        if (hasData) avg.forEach(row => row.forEach(v => {
-            if (v !== null && isFinite(v)) {
-                ymn = Math.min(ymn, v);
-                ymx = Math.max(ymx, v);
-                yVals.push(v);
-            }
-        }));
-        yVals.sort((a, b) => a - b);
-        const ymid = yVals[Math.floor(yVals.length / 2)];
+    YEARS.forEach(y=>{
+        const block=document.createElement('div');
 
-        const block = document.createElement('div');
-        block.className = 'year-hm-block';
-
-        const title = document.createElement('div');
-        title.className = 'year-hm-title';
-        title.textContent = String(yr);
+        const title=document.createElement('div');
+        title.textContent=y;
         block.appendChild(title);
 
-        // Month header
-        const mhWrap = document.createElement('div');
-        mhWrap.className = 'hm-month-header';
-        mhWrap.appendChild(Object.assign(document.createElement('div'), {className:'hm-month-spacer'}));
-        const mlabels = document.createElement('div');
-        mlabels.className = 'hm-month-labels';
-        MONTHS.forEach(m => mlabels.appendChild(
-            Object.assign(document.createElement('div'), {className:'hm-month-label', textContent: m})
-        ));
-        mhWrap.appendChild(mlabels);
-        block.appendChild(mhWrap);
+        for(let h=0;h<24;h++){
+            const row=document.createElement('div');
+            row.className='hm-row';
 
-        // 24 rows
-        for (let h = 0; h < 24; h++) {
-            const row = document.createElement('div');
-            row.className = 'hm-row';
-
-            const yl = document.createElement('div');
-            yl.className = 'hm-ylabel';
-            yl.textContent = `H${String(h+1).padStart(2,'0')}`;
+            const yl=document.createElement('div');
+            yl.className='hm-ylabel';
+            yl.textContent='H'+(h+1);
             row.appendChild(yl);
 
-            const cellsRow = document.createElement('div');
-            cellsRow.className = 'hm-cells-row';
+            const cells=document.createElement('div');
+            cells.className='hm-cells-row';
 
-            for (let mo = 0; mo < 12; mo++) {
-                const cell = document.createElement('div');
-                cell.className = 'hm-cell';
-                const v = hasData ? avg[h][mo] : null;
-                cell.style.background = v !== null ? priceColor(v, ymn, ymx, ymid) : '#e9ecef';
-                cell.textContent = v !== null ? v.toFixed(1) : '';
-                cell.dataset.tip = v !== null
-                    ? `${yr} · ${MONTHS[mo]} · H${String(h+1).padStart(2,'0')} · ${v.toFixed(2)} €/MWh`
-                    : `${yr} · ${MONTHS[mo]} · H${String(h+1).padStart(2,'0')} · no data`;
-                cellsRow.appendChild(cell);
+            for(let m=0;m<12;m++){
+                const v=data[y][h][m];
+                const c=document.createElement('div');
+                c.className='hm-cell';
+
+                if(v!==null){
+                    c.style.background=color(v);
+                    c.textContent=v.toFixed(1);
+                }
+                cells.appendChild(c);
             }
 
-            cellsRow.addEventListener('mousemove', e => {
-                const cell = e.target.closest('.hm-cell');
-                if (!cell) { tooltip.style.display = 'none'; return; }
-                tooltip.style.display = 'block';
-                tooltip.style.left = (e.clientX + 14) + 'px';
-                tooltip.style.top  = (e.clientY + 14) + 'px';
-                const p = cell.dataset.tip.split(' · ');
-                tooltip.innerHTML = `<b>${p[0]}</b> · ${p[1]} · ${p[2]}&nbsp;&nbsp;<span style="color:#f1c40f">${p[3]}</span>`;
-            });
-            cellsRow.addEventListener('mouseleave', () => { tooltip.style.display = 'none'; });
-
-            row.appendChild(cellsRow);
+            row.appendChild(cells);
             block.appendChild(row);
         }
 
-        // Legend
-        const legend = document.createElement('div');
-        legend.className = 'hm-year-legend';
-        if (hasData && isFinite(ymn)) {
-            legend.appendChild(Object.assign(document.createElement('span'),
-                {className:'hm-legend-val', textContent: ymn.toFixed(1)}));
-            const bar = document.createElement('div');
-            bar.className = 'hm-legend-bar';
-            bar.style.background = `linear-gradient(to right,
-                rgb(44,123,182), rgb(171,217,233), rgb(255,255,191),
-                rgb(253,174,97), rgb(215,25,28))`;
-            legend.appendChild(bar);
-            legend.appendChild(Object.assign(document.createElement('span'),
-                {className:'hm-legend-val', textContent: ymx.toFixed(1) + ' €/MWh'}));
-        } else {
-            legend.textContent = 'No data';
-            legend.style.color = '#ced4da';
-        }
-        block.appendChild(legend);
-        threeYear.appendChild(block);
+        wrapper.appendChild(block);
     });
 
-    outerDiv.appendChild(threeYear);
-    content.appendChild(outerDiv);
+    container.appendChild(wrapper);
 }
 
-function priceColor(v, mn, mx, mid) {
-    if (!isFinite(mn) || !isFinite(mx) || mx === mn) return 'rgb(255,255,255)';
-    const stops = [
-        [0.00, [44,  123, 182]],
-        [0.25, [171, 217, 233]],
-        [0.50, [255, 255, 191]],
-        [0.75, [253, 174,  97]],
-        [1.00, [215,  25,  28]],
-    ];
-    let t;
-    if (v <= mid) {
-        t = 0.5 * Math.max(0, Math.min(1, (v - mn) / (mid - mn || 1)));
-    } else {
-        t = 0.5 + 0.5 * Math.max(0, Math.min(1, (v - mid) / (mx - mid || 1)));
+function color(v){
+    const max=50; // 对称范围
+    const t=v/max;
+
+    if(t>=0){
+        return lerp([255,255,191],[215,25,28],Math.min(t,1));
+    }else{
+        return lerp([44,123,182],[255,255,191],1+Math.max(t,-1));
     }
-    let i = 0;
-    while (i < stops.length - 2 && t > stops[i+1][0]) i++;
-    const [t0, c0] = stops[i];
-    const [t1, c1] = stops[i+1];
-    const f = t1 === t0 ? 0 : (t - t0) / (t1 - t0);
-    return `rgb(${Math.round(c0[0]+f*(c1[0]-c0[0]))},${Math.round(c0[1]+f*(c1[1]-c0[1]))},${Math.round(c0[2]+f*(c1[2]-c0[2]))})`;
 }
 
-function yieldFrame() {
-    return new Promise(res => requestAnimationFrame(() => requestAnimationFrame(res)));
+function lerp(a,b,t){
+    return `rgb(${a[0]+(b[0]-a[0])*t},
+                ${a[1]+(b[1]-a[1])*t},
+                ${a[2]+(b[2]-a[2])*t})`;
 }
+
+document.getElementById('modeGroup').onclick=e=>{
+    if(e.target.tagName!=='BUTTON')return;
+
+    document.querySelectorAll('#modeGroup button')
+        .forEach(b=>b.classList.remove('active'));
+
+    e.target.classList.add('active');
+    displayMode=e.target.dataset.mode;
+
+    render();
+};
 </script>
 </body>
 </html>

@@ -32,7 +32,6 @@
             overflow: hidden;
         }
 
-        /* ── Top header ── */
         .header {
             background: #2c3e50;
             color: white;
@@ -45,7 +44,6 @@
             letter-spacing: 0.2px;
         }
 
-        /* ── Main nav ── */
         .main-nav { display: flex; gap: 2px; margin-top: 4px; }
         .main-nav-link {
             display: inline-flex;
@@ -79,7 +77,6 @@
         }
         .main-nav-link.active .nav-icon { opacity: 1; }
 
-        /* ── Sub-nav ── */
         .sub-nav {
             background: #f8f9fa;
             border-bottom: 2px solid #e6e9ed;
@@ -105,7 +102,6 @@
             border-bottom-color: #2c3e50;
         }
 
-        /* ── Controls bar ── */
         .controls {
             padding: 20px 30px;
             display: flex; flex-wrap: wrap; gap: 24px;
@@ -124,7 +120,6 @@
             font-size: 14px; width: 160px; cursor: pointer;
         }
 
-        /* ── Country dropdown ── */
         .country-select-wrapper { position: relative; display: inline-block; }
         .country-select-btn {
             min-width: 160px; height: 36px; padding: 0 12px;
@@ -173,7 +168,6 @@
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         }
 
-        /* ── Chart grid ── */
         .chart-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
@@ -187,7 +181,6 @@
             padding: 16px;
         }
 
-        /* ── Card header ── */
         .chart-card-header {
             display: flex;
             align-items: flex-start;
@@ -225,7 +218,6 @@
             white-space: nowrap;
         }
 
-        /* ── Inline button group ── */
         .btn-group-inline {
             display: flex;
             border: 1px solid #ccc;
@@ -252,10 +244,8 @@
             color: #fff;
         }
 
-        /* ── Full-width card ── */
         .full-width-card { grid-column: 1 / -1; }
 
-        /* ── Dual panel ── */
         .dual-panel { display: flex; gap: 20px; flex-wrap: wrap; }
         .dual-panel > div { flex: 1; min-width: 280px; position: relative; }
         .card-control {
@@ -272,7 +262,41 @@
             font-size: 14px; cursor: pointer;
         }
 
-        /* ── Map ── */
+        .diff-pair-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px 18px;
+            margin: 4px 0 12px;
+            padding: 10px 12px;
+            background: #f8fafc;
+            border: 1px solid #e6e9ed;
+            border-radius: 8px;
+        }
+        .diff-pair-group {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .diff-pair-group label {
+            font-size: 13px;
+            font-weight: 600;
+            color: #2c3e50;
+            min-width: 42px;
+        }
+        .diff-pair-group span {
+            color: #6c757d;
+            font-weight: 600;
+        }
+        .diff-pair-group select {
+            height: 34px;
+            min-width: 90px;
+            padding: 0 10px;
+            border: 1px solid #ccd3db;
+            border-radius: 6px;
+            background: #fff;
+            font-size: 13px;
+        }
+
         #europeMap { height: 400px; background: #eef2f5; border-radius: 8px; }
         .map-legend {
             position: absolute; bottom: 20px; right: 20px;
@@ -405,8 +429,7 @@
         </div>
 
         <div class="chart-card full-width-card">
-            <h3 style="font-size:18px;font-weight:500;color:#2c3e50;
-                       border-left:4px solid #2c3e50;padding-left:12px;margin-bottom:14px;">
+            <h3 style="font-size:18px;font-weight:500;color:#2c3e50;border-left:4px solid #2c3e50;padding-left:12px;margin-bottom:14px;">
                 Hourly Average Price (selected month) &amp; European Map
             </h3>
             <div class="dual-panel">
@@ -438,31 +461,36 @@
         </div>
 
         <div class="chart-card full-width-card">
-            <div class="chart-card-header">
+            <div class="chart-card-header" style="margin-bottom:8px;">
                 <div>
                     <h3>Price Difference</h3>
                     <div class="subtitle">Average difference per period across selected country pairs (if positive, first country is higher)</div>
                 </div>
-                <div class="chart-card-controls" id="diffControls">
+            </div>
+
+            <div class="diff-pair-row">
+                <div class="diff-pair-group">
                     <label>Line 1</label>
-                    <select id="diff1A" style="height:36px;padding:0 10px;border:1px solid #ccc;border-radius:6px;"></select>
-                    <span style="color:#6c757d;font-weight:600;">-</span>
-                    <select id="diff1B" style="height:36px;padding:0 10px;border:1px solid #ccc;border-radius:6px;"></select>
-
+                    <select id="diff1A"></select>
+                    <span>-</span>
+                    <select id="diff1B"></select>
+                </div>
+                <div class="diff-pair-group">
                     <label>Line 2</label>
-                    <select id="diff2A" style="height:36px;padding:0 10px;border:1px solid #ccc;border-radius:6px;"></select>
-                    <span style="color:#6c757d;font-weight:600;">-</span>
-                    <select id="diff2B" style="height:36px;padding:0 10px;border:1px solid #ccc;border-radius:6px;"></select>
-
+                    <select id="diff2A"></select>
+                    <span>-</span>
+                    <select id="diff2B"></select>
+                </div>
+                <div class="diff-pair-group">
                     <label>Line 3</label>
-                    <select id="diff3A" style="height:36px;padding:0 10px;border:1px solid #ccc;border-radius:6px;"></select>
-                    <span style="color:#6c757d;font-weight:600;">-</span>
-                    <select id="diff3B" style="height:36px;padding:0 10px;border:1px solid #ccc;border-radius:6px;"></select>
+                    <select id="diff3A"></select>
+                    <span>-</span>
+                    <select id="diff3B"></select>
                 </div>
             </div>
+
             <div id="diffChart" style="width:100%; height:400px;"></div>
         </div>
-
     </div>
 
     <div class="info">
@@ -470,7 +498,6 @@
         &nbsp;|&nbsp; Unit: €/MWh
         &nbsp;|&nbsp; Author: Hanyu Jian
     </div>
-
 </div>
 
 <script>
@@ -481,9 +508,9 @@ let map = null, geojsonLayer = null;
 const state = {
     freq: 'hourly',
     diffPairs: [
-        { a: 'HU', b: 'DE' },
-        { a: 'FR', b: 'DE' },
-        { a: 'IT', b: 'ES' }
+        { a: 'HU', b: 'DE' }, // line1 default
+        { a: 'HU', b: 'IT' }, // line2 default
+        { a: '', b: '' }      // line3 default empty
     ]
 };
 
@@ -590,7 +617,6 @@ function groupKey(pt, freq) {
 function aggregateByFreq(data, year, countries, freq) {
     const acc = {};
     countries.forEach(c => acc[c] = {});
-
     data.forEach(pt => {
         if (pt.year !== year) return;
         const key = groupKey(pt, freq);
@@ -614,6 +640,7 @@ function aggregateByFreq(data, year, countries, freq) {
             return g ? g.sum / g.cnt : null;
         });
     });
+
     return { keys, series };
 }
 
@@ -622,8 +649,7 @@ function tooltipFmt(params) {
     params.forEach(p => {
         if (p.value == null) return;
         html += `<div style="display:flex;align-items:center;gap:8px;margin:2px 0;font-size:12px">
-            <span style="display:inline-block;width:10px;height:10px;
-                         border-radius:50%;background:${p.color}"></span>
+            <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${p.color}"></span>
             <span style="flex:1;color:#555">${p.seriesName}</span>
             <span style="font-weight:600;color:#2c3e50">${Number(p.value).toFixed(2)} €/MWh</span>
         </div>`;
@@ -637,11 +663,20 @@ const axisStyle = {
     splitLine: { lineStyle: { color: '#f0f2f5' } }
 };
 
+const commonLegendStyle = {
+    type: 'scroll',
+    icon: 'circle',
+    itemWidth: 10,
+    itemHeight: 10,
+    textStyle: { color: '#2c3e50', fontSize: 12 }
+};
+
 function drawOverview() {
     if (!overviewChart) return;
     const year = parseInt(document.getElementById('yearSelect').value);
     const freq = state.freq;
     const countries = getSelectedCountries();
+
     if (!year || !countries.length) {
         overviewChart.setOption({ series: [] }, true);
         return;
@@ -656,11 +691,7 @@ function drawOverview() {
             axisPointer: { type: 'cross', lineStyle: { color: '#bbb' } },
             formatter: tooltipFmt
         },
-        legend: {
-            top: 4, right: 8, type: 'scroll',
-            textStyle: { color: '#2c3e50', fontSize: 12 },
-            itemWidth: 14
-        },
+        legend: { ...commonLegendStyle, top: 4, right: 8 },
         dataZoom: [
             {
                 type: 'slider', xAxisIndex: 0,
@@ -671,12 +702,7 @@ function drawOverview() {
                 textStyle: { color: '#6c757d', fontSize: 10 },
                 brushSelect: false
             },
-            {
-                type: 'inside',
-                xAxisIndex: 0,
-                zoomOnMouseWheel: true,
-                moveOnMouseMove: true
-            }
+            { type: 'inside', xAxisIndex: 0, zoomOnMouseWheel: true, moveOnMouseMove: true }
         ],
         grid: { left: 60, right: 20, top: 40, bottom: 70 },
         xAxis: {
@@ -721,9 +747,10 @@ function drawHourlyAvg() {
     });
 
     const hours = Array.from({ length: 24 }, (_, i) => `${i}:00`);
+
     hourlyAvgChart.setOption({
         tooltip: { trigger: 'axis', formatter: tooltipFmt },
-        legend: { type: 'scroll', bottom: 0, textStyle: { color: '#2c3e50', fontSize: 12 } },
+        legend: { ...commonLegendStyle, bottom: 0 },
         xAxis: { type: 'category', data: hours, ...axisStyle },
         yAxis: { type: 'value', name: '€/MWh', nameTextStyle: { color: '#6c757d', fontSize: 11 }, ...axisStyle },
         series: countries.map(c => ({
@@ -740,18 +767,16 @@ function drawHourlyAvg() {
 }
 
 function monthRangeFrom2024ToNow() {
-    const startY = 2024;
-    const startM = 1;
+    const startY = 2024, startM = 1;
     const now = new Date();
     const endY = now.getUTCFullYear();
     const endM = now.getUTCMonth() + 1;
     const keys = [];
+
     for (let y = startY; y <= endY; y++) {
         const mFrom = (y === startY) ? startM : 1;
         const mTo = (y === endY) ? endM : 12;
-        for (let m = mFrom; m <= mTo; m++) {
-            keys.push(`${y}-${String(m).padStart(2, '0')}`);
-        }
+        for (let m = mFrom; m <= mTo; m++) keys.push(`${y}-${String(m).padStart(2, '0')}`);
     }
     return keys;
 }
@@ -789,7 +814,9 @@ function drawDiff() {
     const monthlyAvg = monthlyAverageByCountryFrom2024();
     const colors = ['#e74c3c', '#2980b9', '#27ae60'];
 
-    const series = state.diffPairs.map((pair, idx) => {
+    const activePairs = state.diffPairs.filter(p => p.a && p.b);
+
+    const series = activePairs.map((pair, idx) => {
         const data = months.map(mk => {
             const a = monthlyAvg[pair.a]?.[mk];
             const b = monthlyAvg[pair.b]?.[mk];
@@ -803,22 +830,16 @@ function drawDiff() {
             data,
             connectNulls: false,
             showSymbol: true,
+            symbol: 'circle',
             symbolSize: 5,
-            lineStyle: { width: 2, color: colors[idx] },
-            itemStyle: { color: colors[idx] }
+            lineStyle: { width: 2, color: colors[idx % colors.length] },
+            itemStyle: { color: colors[idx % colors.length] }
         };
     });
 
     diffChart.setOption({
-        tooltip: {
-            trigger: 'axis',
-            formatter: tooltipFmt
-        },
-        legend: {
-            top: 4, right: 8, type: 'scroll',
-            textStyle: { color: '#2c3e50', fontSize: 12 },
-            itemWidth: 14
-        },
+        tooltip: { trigger: 'axis', formatter: tooltipFmt },
+        legend: { ...commonLegendStyle, top: 6, right: 8 },
         dataZoom: [
             {
                 type: 'slider', xAxisIndex: 0,
@@ -890,10 +911,12 @@ function updateLegend(minP, maxP) {
 async function drawMap() {
     if (!map) return;
     if (geojsonLayer) { map.removeLayer(geojsonLayer); geojsonLayer = null; }
-    const year  = parseInt(document.getElementById('yearSelect').value);
+
+    const year = parseInt(document.getElementById('yearSelect').value);
     const month = parseInt(document.getElementById('monthSelect').value);
     const acc = {};
     fullData.countries.forEach(c => acc[c] = { sum: 0, count: 0 });
+
     fullData.data.forEach(d => {
         if (d.year !== year || d.month !== month) return;
         fullData.countries.forEach(c => {
@@ -901,12 +924,14 @@ async function drawMap() {
             if (v != null && !isNaN(v)) { acc[c].sum += v; acc[c].count++; }
         });
     });
+
     const prices = {}, vals = [];
     fullData.countries.forEach(c => {
         const avg = acc[c].count > 0 ? acc[c].sum / acc[c].count : null;
         prices[c] = avg;
         if (avg != null) vals.push(avg);
     });
+
     const minP = vals.length ? Math.min(...vals) : null;
     const maxP = vals.length ? Math.max(...vals) : null;
     updateLegend(minP, maxP);
@@ -927,8 +952,7 @@ async function drawMap() {
             },
             onEachFeature: (f, layer) => {
                 const code = getCountryCode(f);
-                const p = (code && prices[code] != null)
-                    ? prices[code].toFixed(2) + ' €/MWh' : 'N/A';
+                const p = (code && prices[code] != null) ? prices[code].toFixed(2) + ' €/MWh' : 'N/A';
                 layer.bindTooltip(`${code || '?'}: ${p}`, { sticky: true });
             }
         }).addTo(map);
@@ -940,9 +964,11 @@ async function drawMap() {
 function buildCountryCheckboxes() {
     const container = document.getElementById('countryCheckboxes');
     container.innerHTML = '';
+
     fullData.countries.forEach(country => {
         const item = document.createElement('div');
         item.className = 'country-item';
+
         const cb = document.createElement('input');
         cb.type = 'checkbox';
         cb.value = country;
@@ -974,6 +1000,7 @@ function updateCountryLabel() {
     const all = [...document.querySelectorAll('#countryCheckboxes input[type="checkbox"]')];
     const checked = all.filter(cb => cb.checked);
     const text = document.getElementById('countrySelectText');
+
     if (!checked.length) text.textContent = 'None selected';
     else if (checked.length === all.length) text.textContent = `All (${all.length})`;
     else if (checked.length <= 3) text.textContent = checked.map(cb => cb.value).join(', ');
@@ -995,18 +1022,12 @@ function initDropdown() {
 
 function initDiffSelectors() {
     const ids = ['diff1A','diff1B','diff2A','diff2B','diff3A','diff3B'];
-    const opts = fullData.countries.map(c => `<option value="${c}">${c}</option>`).join('');
+    const opts = `<option value="">-- None --</option>` +
+        fullData.countries.map(c => `<option value="${c}">${c}</option>`).join('');
+
     ids.forEach(id => {
-        const el = document.getElementById(id);
-        el.innerHTML = opts;
+        document.getElementById(id).innerHTML = opts;
     });
-
-    const fallback = fullData.countries[0] || '';
-
-    state.diffPairs = state.diffPairs.map(p => ({
-        a: fullData.countries.includes(p.a) ? p.a : fallback,
-        b: fullData.countries.includes(p.b) ? p.b : fallback
-    }));
 
     document.getElementById('diff1A').value = state.diffPairs[0].a;
     document.getElementById('diff1B').value = state.diffPairs[0].b;
@@ -1033,8 +1054,10 @@ function initControls() {
 
     yearSelect.innerHTML = '<option value="">-- Select year --</option>' +
         fullData.years.map(y => `<option value="${y}">${y}</option>`).join('');
+
     yearSelect.disabled = false;
     monthSelect.disabled = false;
+
     if (fullData.years.length) yearSelect.value = fullData.years[0];
     monthSelect.value = '1';
 

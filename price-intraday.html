@@ -13,19 +13,8 @@
     <title>Intraday – European Electricity Dashboard</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: #f0f2f5;
-            padding: 20px;
-        }
-        .container {
-            max-width: 1600px;
-            margin: 0 auto;
-            background: white;
-            border-radius: 12px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-            overflow: hidden;
-        }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f2f5; padding: 20px; }
+        .container { max-width: 1600px; margin: 0 auto; background: white; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); overflow: hidden; }
         .header { background: #2c3e50; color: white; padding: 20px 30px 0 30px; }
         .header-top { padding-bottom: 16px; }
         .header-top h1 { font-size: 24px; font-weight: 500; letter-spacing: 0.2px; }
@@ -36,165 +25,76 @@
             color: rgba(255,255,255,0.65); text-decoration: none;
             border-radius: 6px 6px 0 0; background: rgba(255,255,255,0.06);
             border: 1px solid transparent; border-bottom: none;
-            letter-spacing: 0.2px;
-            transition: background 0.2s, color 0.2s, border-color 0.2s;
+            letter-spacing: 0.2px; transition: background 0.2s, color 0.2s, border-color 0.2s;
             white-space: nowrap; position: relative; top: 1px;
         }
         .main-nav-link:hover { color: rgba(255,255,255,0.95); background: rgba(255,255,255,0.14); }
         .main-nav-link.active { color: #2c3e50; background: #f8f9fa; border-color: #e6e9ed; border-bottom-color: #f8f9fa; }
-        .sub-nav {
-            background: #f8f9fa; border-bottom: 2px solid #e6e9ed;
-            padding: 0 30px; display: flex;
-        }
+        .sub-nav { background: #f8f9fa; border-bottom: 2px solid #e6e9ed; padding: 0 30px; display: flex; }
         .sub-nav-link {
-            display: inline-block; padding: 14px 22px; font-size: 14px;
-            font-weight: 600; color: #6c757d; text-decoration: none;
-            border-bottom: 3px solid transparent; margin-bottom: -2px;
-            transition: color 0.2s, border-color 0.2s; white-space: nowrap;
+            display: inline-block; padding: 14px 22px; font-size: 14px; font-weight: 600;
+            color: #6c757d; text-decoration: none; border-bottom: 3px solid transparent;
+            margin-bottom: -2px; transition: color 0.2s, border-color 0.2s; white-space: nowrap;
         }
         .sub-nav-link:hover { color: #2c3e50; }
         .sub-nav-link.active { color: #2c3e50; border-bottom-color: #2c3e50; }
-        .controls {
-            padding: 20px 30px;
-            display: flex; flex-wrap: wrap; gap: 20px;
-            align-items: flex-start;
-            background: #fff;
-            border-bottom: 1px solid #e6e9ed;
-        }
+        .controls { padding: 20px 30px; display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start; background: #fff; border-bottom: 1px solid #e6e9ed; }
         .control-group { display: flex; flex-direction: column; gap: 6px; }
         .control-group > label { font-size: 13px; font-weight: 600; color: #2c3e50; }
-        .country-static {
-            height: 36px; padding: 0 12px;
-            border: 1px solid #ccc; border-radius: 6px;
-            font-size: 14px; font-family: inherit;
-            background: #f8f9fa; color: #2c3e50; font-weight: 600;
-            display: flex; align-items: center;
-        }
+        .country-static { height: 36px; padding: 0 12px; border: 1px solid #ccc; border-radius: 6px; font-size: 14px; font-family: inherit; background: #f8f9fa; color: #2c3e50; font-weight: 600; display: flex; align-items: center; }
         .content-area { padding: 24px 30px 10px; }
-        .section-card {
-            background: #fff; border-radius: 8px;
-            border: 1px solid #e6e9ed;
-            margin-bottom: 24px; overflow: hidden;
-        }
+        .section-card { background: #fff; border-radius: 8px; border: 1px solid #e6e9ed; margin-bottom: 24px; overflow: hidden; }
         .section-head { padding: 16px 20px 12px; border-bottom: 1px solid #e6e9ed; }
-        .section-head h2 {
-            font-size: 18px; font-weight: 500; color: #2c3e50;
-            border-left: 4px solid #2c3e50; padding-left: 12px;
-        }
+        .section-head h2 { font-size: 18px; font-weight: 500; color: #2c3e50; border-left: 4px solid #2c3e50; padding-left: 12px; }
         .section-head p { font-size: 12px; color: #868e96; margin-top: 6px; padding-left: 16px; }
         .section-body { padding: 16px 20px; }
         .heatmap-outer { overflow-x: auto; }
         .three-year-hm { display: flex; gap: 20px; min-width: 600px; }
         .year-hm-block { flex: 1; min-width: 0; }
-        .year-hm-title {
-            text-align: center; font-size: 13px; font-weight: 700;
-            margin-bottom: 6px; letter-spacing: 0.5px; color: #2c3e50;
-        }
+        .year-hm-title { text-align: center; font-size: 13px; font-weight: 700; margin-bottom: 6px; letter-spacing: 0.5px; color: #2c3e50; }
         .hm-row { display: flex; align-items: center; }
-        .hm-ylabel {
-            width: 30px; flex-shrink: 0; font-size: 9px; color: #868e96;
-            text-align: right; padding-right: 5px; white-space: nowrap; line-height: 1;
-        }
+        .hm-ylabel { width: 30px; flex-shrink: 0; font-size: 9px; color: #868e96; text-align: right; padding-right: 5px; white-space: nowrap; line-height: 1; }
         .hm-cells-row { display: grid; grid-template-columns: repeat(12, 1fr); gap: 0; flex: 1; }
-        .hm-cell {
-            height: 16px; cursor: default; transition: outline 0.1s;
-            display: flex; align-items: center; justify-content: center;
-            font-size: 7px; font-weight: 700; color: rgba(0,0,0,0.65); overflow: hidden;
-        }
+        .hm-cell { height: 16px; cursor: default; transition: outline 0.1s; display: flex; align-items: center; justify-content: center; font-size: 7px; font-weight: 700; color: rgba(0,0,0,0.65); overflow: hidden; }
         .hm-cell:hover { outline: 2px solid rgba(44,62,80,0.7); z-index: 5; position: relative; }
         .hm-month-header { display: flex; margin-bottom: 3px; }
         .hm-month-spacer { width: 30px; flex-shrink: 0; }
         .hm-month-labels { display: grid; grid-template-columns: repeat(12, 1fr); flex: 1; }
         .hm-month-label { font-size: 9px; color: #495057; font-weight: 600; text-align: center; }
-        .hm-year-legend {
-            display: flex; align-items: center; gap: 6px;
-            margin-top: 6px; font-size: 10px; color: #6c757d; padding-left: 30px;
-        }
+        .hm-year-legend { display: flex; align-items: center; gap: 6px; margin-top: 6px; font-size: 10px; color: #6c757d; padding-left: 30px; }
         .hm-legend-bar { flex: 1; height: 7px; border-radius: 4px; }
         .hm-legend-val { white-space: nowrap; font-size: 10px; color: #495057; }
-        .hm-tooltip {
-            position: fixed; background: rgba(44,62,80,0.93); color: white;
-            padding: 6px 11px; border-radius: 6px; font-size: 12px;
-            pointer-events: none; z-index: 9999; display: none;
-            white-space: nowrap; box-shadow: 0 3px 10px rgba(0,0,0,0.25);
-        }
-        .spinner-wrap {
-            display: none; justify-content: center; align-items: center;
-            padding: 36px; gap: 12px; color: #6c757d; font-size: 13px;
-        }
+        .hm-tooltip { position: fixed; background: rgba(44,62,80,0.93); color: white; padding: 6px 11px; border-radius: 6px; font-size: 12px; pointer-events: none; z-index: 9999; display: none; white-space: nowrap; box-shadow: 0 3px 10px rgba(0,0,0,0.25); }
+        .spinner-wrap { display: none; justify-content: center; align-items: center; padding: 36px; gap: 12px; color: #6c757d; font-size: 13px; }
         .spinner-wrap.show { display: flex; }
-        .spinner {
-            width: 24px; height: 24px;
-            border: 3px solid #dee2e6; border-top-color: #5a8fc2;
-            border-radius: 50%; animation: spin 0.8s linear infinite;
-        }
+        .spinner { width: 24px; height: 24px; border: 3px solid #dee2e6; border-top-color: #5a8fc2; border-radius: 50%; animation: spin 0.8s linear infinite; }
         @keyframes spin { to { transform: rotate(360deg); } }
         .no-data { text-align: center; padding: 40px 20px; }
         .no-data .nd-icon { font-size: 36px; margin-bottom: 8px; }
         .no-data p { font-size: 13px; color: #6c757d; }
-
-        .kpi-grid {
-            display: grid;
-            grid-template-columns: repeat(3, minmax(180px, 1fr));
-            gap: 12px; margin-bottom: 16px;
-        }
+        .kpi-grid { display: grid; grid-template-columns: repeat(3, minmax(180px, 1fr)); gap: 12px; margin-bottom: 16px; }
         .kpi { border: 1px solid #e6e9ed; border-radius: 8px; padding: 10px 12px; background: #fafbfc; }
         .kpi-label { font-size: 12px; color: #6c757d; }
         .kpi-value { font-size: 20px; color: #2c3e50; font-weight: 700; margin-top: 2px; }
-
-        .uplift-controls {
-            display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end;
-            margin-bottom: 16px; padding: 12px 16px;
-            background: #f8f9fa; border-radius: 8px; border: 1px solid #e6e9ed;
-        }
+        .uplift-controls { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end; margin-bottom: 16px; padding: 12px 16px; background: #f8f9fa; border-radius: 8px; border: 1px solid #e6e9ed; }
         .uplift-ctrl-group { display: flex; flex-direction: column; gap: 5px; }
         .uplift-ctrl-group label { font-size: 12px; font-weight: 600; color: #2c3e50; }
         .uplift-ctrl-group select,
-        .uplift-ctrl-group input[type=number] {
-            height: 32px; padding: 0 10px;
-            border: 1px solid #ccc; border-radius: 6px;
-            font-size: 13px; font-family: inherit;
-            background: #fff; color: #2c3e50; cursor: pointer;
-        }
+        .uplift-ctrl-group input[type=number] { height: 32px; padding: 0 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 13px; font-family: inherit; background: #fff; color: #2c3e50; cursor: pointer; }
         .uplift-ctrl-group input[type=number] { width: 72px; }
-        .btn-apply {
-            height: 32px; padding: 0 18px;
-            background: #2c3e50; color: #fff;
-            border: none; border-radius: 6px;
-            font-size: 13px; font-weight: 600; cursor: pointer;
-            transition: background 0.2s;
-        }
-        .btn-apply:hover { background: #3d5166; }
-
+        .ctrl-divider { width: 1px; background: #dee2e6; align-self: stretch; margin: 0 4px; }
         .chart-wrap { border: 1px solid #e6e9ed; border-radius: 8px; padding: 10px; margin-bottom: 12px; }
         .chart-title { font-size: 13px; color: #2c3e50; font-weight: 700; margin-bottom: 8px; }
         .chart-note { font-size: 11px; color: #868e96; margin-top: 6px; }
-
-        .chart-legend { display: flex; gap: 18px; flex-wrap: wrap; margin-bottom: 8px; font-size: 12px; }
-        .legend-item { display: flex; align-items: center; gap: 6px; }
-        .legend-swatch { width: 24px; height: 3px; border-radius: 2px; display: inline-block; }
-        .legend-swatch-bar { width: 12px; height: 12px; border-radius: 2px; display: inline-block; }
-
-        .info {
-            padding: 12px 30px 20px; font-size: 13px; color: #6c757d;
-            text-align: center; border-top: 1px solid #e6e9ed; margin-top: 10px;
-        }
+        .info { padding: 12px 30px 20px; font-size: 13px; color: #6c757d; text-align: center; border-top: 1px solid #e6e9ed; margin-top: 10px; }
         .info a { color: #5a8fc2; text-decoration: none; }
         .info a:hover { text-decoration: underline; }
-
         @media (max-width: 900px) { .kpi-grid { grid-template-columns: 1fr; } }
-        @media (max-width: 800px) {
-            .content-area { padding: 14px; }
-            .header { padding: 16px 16px 0 16px; }
-            .sub-nav { padding: 0 10px; overflow-x: auto; }
-            .controls { padding: 14px; }
-            .three-year-hm { flex-direction: column; }
-        }
+        @media (max-width: 800px) { .content-area { padding: 14px; } .header { padding: 16px 16px 0 16px; } .sub-nav { padding: 0 10px; overflow-x: auto; } .controls { padding: 14px; } .three-year-hm { flex-direction: column; } }
     </style>
 </head>
 <body>
 <div class="container">
-
     <div class="header">
         <div class="header-top"><h1>European Electricity Dashboard</h1></div>
         <div class="main-nav">
@@ -220,7 +120,6 @@
     </div>
 
     <div class="content-area">
-
         <!-- Heatmap -->
         <div class="section-card">
             <div class="section-head">
@@ -242,7 +141,7 @@
         <div class="section-card">
             <div class="section-head">
                 <h2>Intraday Uplift vs Day-Ahead — Daily View</h2>
-                <p id="upliftDesc">Window uplift = Avg(ID3 − DA) for selected hours &nbsp;|&nbsp; Unit: €/MWh</p>
+                <p id="upliftDesc">Spread = Avg(ID3 − DA) for selected window &nbsp;|&nbsp; Unit: €/MWh</p>
             </div>
             <div class="section-body">
 
@@ -255,6 +154,7 @@
                             <option value="2026">2026</option>
                         </select>
                     </div>
+                    <div class="ctrl-divider"></div>
                     <div class="uplift-ctrl-group">
                         <label>Start Hour</label>
                         <input type="number" id="startHour" min="0" max="23" value="17">
@@ -263,45 +163,31 @@
                         <label>End Hour</label>
                         <input type="number" id="endHour" min="0" max="23" value="21">
                     </div>
-                    <button class="btn-apply" id="btnApply">Apply</button>
+                    <div class="ctrl-divider"></div>
+                    <div class="uplift-ctrl-group">
+                        <label>Start Month</label>
+                        <input type="number" id="startMonth" min="1" max="12" value="1">
+                    </div>
+                    <div class="uplift-ctrl-group">
+                        <label>End Month</label>
+                        <input type="number" id="endMonth" min="1" max="12" value="12">
+                    </div>
                 </div>
 
                 <div class="kpi-grid">
                     <div class="kpi"><div class="kpi-label">Cumulative Uplift</div><div class="kpi-value" id="kpiCum">-</div></div>
-                    <div class="kpi"><div class="kpi-label">Positive-Day Ratio</div><div class="kpi-value" id="kpiPos">-</div></div>
+                    <div class="kpi"><div class="kpi-label">Avg Monthly Uplift</div><div class="kpi-value" id="kpiMonthly">-</div></div>
                     <div class="kpi"><div class="kpi-label">Avg Daily Uplift</div><div class="kpi-value" id="kpiAvg">-</div></div>
                 </div>
 
-                <!-- Daily dual-axis chart -->
                 <div class="chart-wrap">
-                    <div class="chart-title" id="dailyChartTitle">Daily Average: ID3, DA & Spread</div>
-                    <div class="chart-legend">
-                        <div class="legend-item">
-                            <span class="legend-swatch" style="background:#2980b9"></span>
-                            <span style="color:#2980b9;">ID3 (€/MWh, left axis)</span>
-                        </div>
-                        <div class="legend-item">
-                            <span class="legend-swatch" style="background:#27ae60"></span>
-                            <span style="color:#27ae60;">DA (€/MWh, left axis)</span>
-                        </div>
-                        <div class="legend-item">
-                            <span class="legend-swatch-bar" style="background:rgba(231,111,81,0.6)"></span>
-                            <span style="color:#c0522a;">Spread ID3−DA (€/MWh, right axis)</span>
-                        </div>
-                    </div>
+                    <div class="chart-title" id="dailyChartTitle">Daily Average Spread (ID3 − DA)</div>
                     <div style="overflow-x:auto">
-                        <div id="dailyChartWrap" style="min-width:600px">
+                        <div style="min-width:600px">
                             <svg id="dailyChart" style="width:100%;height:320px;display:block" viewBox="0 0 1400 320" preserveAspectRatio="none"></svg>
                         </div>
                     </div>
-                    <div class="chart-note">Bars = daily avg spread (right axis). Lines = daily avg ID3 & DA price (left axis).</div>
-                </div>
-
-                <!-- Monthly bar chart -->
-                <div class="chart-wrap">
-                    <div class="chart-title" id="monthlyChartTitle">Monthly Average Daily Spread (€/MWh)</div>
-                    <svg id="monthlyChart" style="width:100%;height:260px;display:block" viewBox="0 0 1200 260" preserveAspectRatio="none"></svg>
-                    <div class="chart-note">Each bar = average of daily spread (ID3 − DA) in that month, for the selected hour window.</div>
+                    <div class="chart-note">Each bar = daily average of (ID3 − DA) within the selected hour and month window.</div>
                 </div>
 
             </div>
@@ -321,21 +207,26 @@ const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov
 const YEARS  = [2024, 2025, 2026];
 const hmData = {};
 let dayHourAcc = {};
-let currentYear = 2025, currentStart = 17, currentEnd = 21;
 
 window.addEventListener('DOMContentLoaded', () => {
-    document.getElementById('btnApply').addEventListener('click', applyFilters);
+    ['selYear','startHour','endHour','startMonth','endMonth'].forEach(id => {
+        document.getElementById(id).addEventListener('change', renderUpliftPanel);
+        document.getElementById(id).addEventListener('input',  renderUpliftPanel);
+    });
     loadData();
 });
 
-function applyFilters() {
-    const yr = parseInt(document.getElementById('selYear').value, 10);
+function getFilters() {
+    const year = parseInt(document.getElementById('selYear').value, 10);
     let sh = parseInt(document.getElementById('startHour').value, 10);
     let eh = parseInt(document.getElementById('endHour').value, 10);
-    sh = Math.max(0, Math.min(23, isNaN(sh) ? 0 : sh));
+    let sm = parseInt(document.getElementById('startMonth').value, 10);
+    let em = parseInt(document.getElementById('endMonth').value, 10);
+    sh = Math.max(0, Math.min(23, isNaN(sh) ? 0  : sh));
     eh = Math.max(sh, Math.min(23, isNaN(eh) ? 23 : eh));
-    currentYear = yr; currentStart = sh; currentEnd = eh;
-    renderUpliftPanel();
+    sm = Math.max(1, Math.min(12, isNaN(sm) ? 1  : sm));
+    em = Math.max(sm, Math.min(12, isNaN(em) ? 12 : em));
+    return { year, sh, eh, sm, em };
 }
 
 async function loadData() {
@@ -400,10 +291,8 @@ async function processData(text) {
 
         const dKey = `${dt.year}-${String(dt.month).padStart(2,'0')}-${String(dt.day).padStart(2,'0')}`;
         if (!dayHourAcc[dKey]) dayHourAcc[dKey] = { year: dt.year, month: dt.month };
-        if (!dayHourAcc[dKey][dt.hour]) dayHourAcc[dKey][dt.hour] = { sS:0, sI:0, sD:0, cnt:0 };
+        if (!dayHourAcc[dKey][dt.hour]) dayHourAcc[dKey][dt.hour] = { sS:0, cnt:0 };
         dayHourAcc[dKey][dt.hour].sS  += spread;
-        dayHourAcc[dKey][dt.hour].sI  += id3;
-        dayHourAcc[dKey][dt.hour].sD  += da;
         dayHourAcc[dKey][dt.hour].cnt += 1;
     }
 
@@ -417,246 +306,194 @@ async function processData(text) {
     document.getElementById('hmSpinner').classList.remove('show');
 }
 
-/* ── Uplift Panel ── */
-function buildDailySeries(year, sh, eh) {
+/* ── Build daily series ── */
+function buildDailySeries(year, sh, eh, sm, em) {
     const days = [];
     Object.entries(dayHourAcc).forEach(([date, meta]) => {
         if (meta.year !== year) return;
-        let ss=0, si=0, sd=0, used=0;
+        if (meta.month < sm || meta.month > em) return;
+        let ss = 0, used = 0;
         for (let h = sh; h <= eh; h++) {
             const b = meta[h];
             if (!b || b.cnt === 0) continue;
             ss += b.sS / b.cnt;
-            si += b.sI / b.cnt;
-            sd += b.sD / b.cnt;
             used++;
         }
-        if (used > 0) days.push({ date, month: meta.month, spread: ss/used, id3: si/used, da: sd/used });
+        if (used > 0) days.push({ date, month: meta.month, spread: ss / used });
     });
     days.sort((a, b) => a.date.localeCompare(b.date));
     return days;
 }
 
-function buildMonthlySeries(days) {
+/* ── Avg Monthly Uplift: mean of per-month daily-averages ── */
+function avgMonthlyUplift(days) {
     const acc = {};
     days.forEach(d => {
-        const mk = String(d.month);
-        if (!acc[mk]) acc[mk] = { sum:0, cnt:0, month:d.month };
-        acc[mk].sum += d.spread; acc[mk].cnt++;
+        if (!acc[d.month]) acc[d.month] = { sum:0, cnt:0 };
+        acc[d.month].sum += d.spread;
+        acc[d.month].cnt++;
     });
-    return Object.values(acc)
-        .map(v => ({ month:v.month, val:v.sum/v.cnt }))
-        .sort((a,b) => a.month - b.month);
+    const monthMeans = Object.values(acc).map(v => v.sum / v.cnt);
+    if (!monthMeans.length) return NaN;
+    return monthMeans.reduce((s, v) => s + v, 0) / monthMeans.length;
 }
 
+/* ── Render uplift panel ── */
 function renderUpliftPanel() {
-    const days = buildDailySeries(currentYear, currentStart, currentEnd);
-    const lbl  = `${currentStart}:00–${currentEnd}:00`;
+    const { year, sh, eh, sm, em } = getFilters();
+    const days = buildDailySeries(year, sh, eh, sm, em);
+
+    const hLbl = `${sh}:00–${eh}:00`;
+    const mLbl = `${MONTHS[sm-1]}–${MONTHS[em-1]}`;
     document.getElementById('upliftDesc').textContent =
-        `Window uplift = Avg(ID3 − DA) for hours ${lbl} | Unit: €/MWh`;
+        `Spread = Avg(ID3 − DA) | Hours: ${hLbl} | Months: ${mLbl} | Unit: €/MWh`;
     document.getElementById('dailyChartTitle').textContent =
-        `Daily Average: ID3, DA & Spread  (${currentYear}, ${lbl})`;
-    document.getElementById('monthlyChartTitle').textContent =
-        `Monthly Average Daily Spread (${currentYear}, ${lbl})  — €/MWh`;
+        `Daily Average Spread (ID3 − DA) — ${year}, ${hLbl}, ${mLbl}`;
 
     if (!days.length) {
-        ['kpiCum','kpiPos','kpiAvg'].forEach(id => document.getElementById(id).textContent = 'N/A');
+        ['kpiCum','kpiMonthly','kpiAvg'].forEach(id => document.getElementById(id).textContent = 'N/A');
+        document.getElementById('dailyChart').innerHTML = '';
         return;
     }
-    const cum = days.reduce((s,d) => s+d.spread, 0);
-    const pos = days.filter(d => d.spread > 0).length;
-    document.getElementById('kpiCum').textContent = `${cum.toFixed(1)} €/MWh`;
-    document.getElementById('kpiPos').textContent = `${(100*pos/days.length).toFixed(1)}%`;
-    document.getElementById('kpiAvg').textContent = `${(cum/days.length).toFixed(2)} €/MWh`;
+
+    const cum     = days.reduce((s, d) => s + d.spread, 0);
+    const avg     = cum / days.length;
+    const moAvg   = avgMonthlyUplift(days);
+
+    document.getElementById('kpiCum').textContent     = `${cum.toFixed(1)} €/MWh`;
+    document.getElementById('kpiMonthly').textContent = `${moAvg.toFixed(2)} €/MWh`;
+    document.getElementById('kpiAvg').textContent     = `${avg.toFixed(2)} €/MWh`;
 
     renderDailyChart(days);
-    renderMonthlyBarChart(buildMonthlySeries(days));
 }
 
-/* ── Daily dual-axis SVG chart ── */
+/* ── Daily spread bar chart (single axis) ── */
 function renderDailyChart(days) {
     const svg = document.getElementById('dailyChart');
     svg.innerHTML = '';
     if (!days.length) return;
 
     const W=1400, H=320;
-    const m={l:62,r:62,t:14,b:48};
+    const m={l:62, r:20, t:14, b:48};
     const cw=W-m.l-m.r, ch=H-m.t-m.b;
     const n=days.length;
 
-    const priceVals = days.flatMap(d=>[d.id3,d.da]).filter(Number.isFinite);
-    let pMin=Math.min(...priceVals), pMax=Math.max(...priceVals);
-    const pPad=(pMax-pMin)*0.08||5; pMin-=pPad; pMax+=pPad;
+    const sVals = days.map(d => d.spread).filter(Number.isFinite);
+    let vMin = Math.min(0, ...sVals);
+    let vMax = Math.max(0, ...sVals);
+    const pad = (vMax - vMin) * 0.08 || 2;
+    vMin -= pad; vMax += pad;
 
-    const sVals = days.map(d=>d.spread).filter(Number.isFinite);
-    let sMin=Math.min(0,...sVals), sMax=Math.max(0,...sVals);
-    const sPad=(sMax-sMin)*0.12||2; sMin-=sPad; sMax+=sPad;
+    const xScale = i => m.l + (i / Math.max(n-1, 1)) * cw;
+    const yScale = v => m.t + (vMax - v) / (vMax - vMin) * ch;
+    const zeroY  = yScale(0);
 
-    const xScale = i => m.l + (i/Math.max(n-1,1))*cw;
-    const yL = v => m.t + (pMax-v)/(pMax-pMin)*ch;
-    const yR = v => m.t + (sMax-v)/(sMax-sMin)*ch;
-    const zeroY = yR(0);
-
-    // Left gridlines
-    niceTicks(pMin,pMax,6).forEach(t => {
-        const yt=yL(t);
-        svg.appendChild(svgEl('line',{x1:m.l,x2:W-m.r,y1:yt,y2:yt,stroke:'#e9ecef','stroke-width':'1'}));
-        const lb=svgEl('text',{x:m.l-6,y:yt+4,'text-anchor':'end','font-size':'10',fill:'#6c757d'});
-        lb.textContent=t.toFixed(0); svg.appendChild(lb);
+    // Gridlines + left axis ticks
+    niceTicks(vMin, vMax, 6).forEach(t => {
+        const yt = yScale(t);
+        svg.appendChild(svgEl('line', {x1:m.l, x2:W-m.r, y1:yt, y2:yt, stroke:'#e9ecef', 'stroke-width':'1'}));
+        const lb = svgEl('text', {x:m.l-6, y:yt+4, 'text-anchor':'end', 'font-size':'10', fill:'#6c757d'});
+        lb.textContent = t.toFixed(1);
+        svg.appendChild(lb);
     });
 
-    // Right axis ticks
-    niceTicks(sMin,sMax,6).forEach(t => {
-        const yt=yR(t);
-        const lb=svgEl('text',{x:W-m.r+6,y:yt+4,'text-anchor':'start','font-size':'10',fill:'#c0522a'});
-        lb.textContent=t.toFixed(1); svg.appendChild(lb);
-    });
+    // Zero line
+    svg.appendChild(svgEl('line', {x1:m.l, x2:W-m.r, y1:zeroY, y2:zeroY, stroke:'#adb5bd', 'stroke-width':'1'}));
 
-    // Spread bars
-    const barW=Math.max(1, cw/n*0.7);
-    days.forEach((d,i) => {
-        const cx=xScale(i), yv=yR(d.spread);
-        svg.appendChild(svgEl('rect',{
-            x:cx-barW/2, y:Math.min(zeroY,yv),
-            width:barW, height:Math.max(1,Math.abs(zeroY-yv)),
-            fill:d.spread>=0?'rgba(231,111,81,0.55)':'rgba(69,123,157,0.55)'
+    // Bars
+    const barW = Math.max(1, cw / n * 0.8);
+    days.forEach((d, i) => {
+        const cx = xScale(i);
+        const yv = yScale(d.spread);
+        svg.appendChild(svgEl('rect', {
+            x: cx - barW/2,
+            y: Math.min(zeroY, yv),
+            width: barW,
+            height: Math.max(1, Math.abs(zeroY - yv)),
+            fill: d.spread >= 0 ? 'rgba(231,111,81,0.7)' : 'rgba(69,123,157,0.7)'
         }));
     });
 
-    // Zero line (right)
-    svg.appendChild(svgEl('line',{x1:m.l,x2:W-m.r,y1:zeroY,y2:zeroY,stroke:'#c0522a','stroke-width':'1','stroke-dasharray':'4 3',opacity:'0.5'}));
-
-    // DA line
-    svg.appendChild(svgEl('path',{d:polyPath(days.map((d,i)=>[xScale(i),yL(d.da)])),fill:'none',stroke:'#27ae60','stroke-width':'1.5',opacity:'0.85'}));
-    // ID3 line
-    svg.appendChild(svgEl('path',{d:polyPath(days.map((d,i)=>[xScale(i),yL(d.id3)])),fill:'none',stroke:'#2980b9','stroke-width':'1.5',opacity:'0.85'}));
-
     // X axis month labels
-    let lastMo=null;
-    days.forEach((d,i) => {
-        const mo=d.date.slice(5,7);
-        if (mo!==lastMo) {
-            lastMo=mo;
-            const xi=xScale(i);
-            svg.appendChild(svgEl('line',{x1:xi,x2:xi,y1:m.t+ch,y2:m.t+ch+4,stroke:'#adb5bd','stroke-width':'1'}));
-            const lb=svgEl('text',{x:xi,y:H-28,'text-anchor':'middle','font-size':'10',fill:'#6c757d'});
-            lb.textContent=`${d.date.slice(0,4)}-${MONTHS[parseInt(mo,10)-1]}`; svg.appendChild(lb);
+    let lastMo = null;
+    days.forEach((d, i) => {
+        const mo = d.date.slice(5, 7);
+        if (mo !== lastMo) {
+            lastMo = mo;
+            const xi = xScale(i);
+            svg.appendChild(svgEl('line', {x1:xi, x2:xi, y1:m.t+ch, y2:m.t+ch+4, stroke:'#adb5bd', 'stroke-width':'1'}));
+            const lb = svgEl('text', {x:xi, y:H-28, 'text-anchor':'middle', 'font-size':'10', fill:'#6c757d'});
+            lb.textContent = `${d.date.slice(0,4)}-${MONTHS[parseInt(mo,10)-1]}`;
+            svg.appendChild(lb);
         }
     });
 
     // Axis borders
-    svg.appendChild(svgEl('line',{x1:m.l,x2:m.l,y1:m.t,y2:m.t+ch,stroke:'#6c757d','stroke-width':'1'}));
-    svg.appendChild(svgEl('line',{x1:W-m.r,x2:W-m.r,y1:m.t,y2:m.t+ch,stroke:'#c0522a','stroke-width':'1.5'}));
-    svg.appendChild(svgEl('line',{x1:m.l,x2:W-m.r,y1:m.t+ch,y2:m.t+ch,stroke:'#adb5bd','stroke-width':'1'}));
+    svg.appendChild(svgEl('line', {x1:m.l, x2:m.l,   y1:m.t, y2:m.t+ch, stroke:'#6c757d', 'stroke-width':'1'}));
+    svg.appendChild(svgEl('line', {x1:m.l, x2:W-m.r, y1:m.t+ch, y2:m.t+ch, stroke:'#adb5bd', 'stroke-width':'1'}));
 
-    // Axis labels
-    const lL=svgEl('text',{x:12,y:m.t+ch/2,'text-anchor':'middle','font-size':'11',fill:'#6c757d',transform:`rotate(-90,12,${m.t+ch/2})`});
-    lL.textContent='Price (€/MWh)'; svg.appendChild(lL);
-    const lR=svgEl('text',{x:W-12,y:m.t+ch/2,'text-anchor':'middle','font-size':'11',fill:'#c0522a',transform:`rotate(90,${W-12},${m.t+ch/2})`});
-    lR.textContent='Spread (€/MWh)'; svg.appendChild(lR);
-}
-
-/* ── Monthly bar chart SVG ── */
-function renderMonthlyBarChart(arr) {
-    const svg = document.getElementById('monthlyChart');
-    svg.innerHTML = '';
-    if (!arr.length) return;
-
-    const W=1200, H=260;
-    const m={l:55,r:15,t:14,b:40};
-    const cw=W-m.l-m.r, ch=H-m.t-m.b;
-
-    let vMin=Math.min(0,...arr.map(d=>d.val));
-    let vMax=Math.max(0,...arr.map(d=>d.val));
-    if (vMax===vMin){vMax+=1;vMin-=1;}
-
-    const yScale=v=>m.t+(vMax-v)/(vMax-vMin)*ch;
-    const zeroY=yScale(0);
-
-    niceTicks(vMin,vMax,5).forEach(t => {
-        const yt=yScale(t);
-        svg.appendChild(svgEl('line',{x1:m.l,x2:W-m.r,y1:yt,y2:yt,stroke:'#e9ecef','stroke-width':'1'}));
-        const lb=svgEl('text',{x:m.l-6,y:yt+4,'text-anchor':'end','font-size':'10',fill:'#6c757d'});
-        lb.textContent=t.toFixed(1); svg.appendChild(lb);
-    });
-
-    const bw=Math.max(8, cw/arr.length*0.7);
-    arr.forEach((d,i) => {
-        const cx=m.l+(i+0.5)*(cw/arr.length);
-        const yv=yScale(d.val);
-        svg.appendChild(svgEl('rect',{
-            x:cx-bw/2, y:Math.min(zeroY,yv),
-            width:bw, height:Math.max(1,Math.abs(zeroY-yv)),
-            fill:d.val>=0?'#e76f51':'#457b9d'
-        }));
-        const lb=svgEl('text',{x:cx,y:H-18,'text-anchor':'middle','font-size':'10',fill:'#6c757d'});
-        lb.textContent=MONTHS[d.month-1]; svg.appendChild(lb);
-        const vl=svgEl('text',{
-            x:cx, y:d.val>=0?Math.min(zeroY,yv)-3:Math.max(zeroY,yv)+11,
-            'text-anchor':'middle','font-size':'9',fill:'#2c3e50'
-        });
-        vl.textContent=d.val.toFixed(1); svg.appendChild(vl);
-    });
-
-    svg.appendChild(svgEl('line',{x1:m.l,x2:W-m.r,y1:zeroY,y2:zeroY,stroke:'#adb5bd','stroke-width':'1'}));
-    const al=svgEl('text',{x:13,y:m.t+ch/2,'text-anchor':'middle','font-size':'11',fill:'#6c757d',transform:`rotate(-90,13,${m.t+ch/2})`});
-    al.textContent='€/MWh'; svg.appendChild(al);
+    // Y axis label
+    const al = svgEl('text', {x:12, y:m.t+ch/2, 'text-anchor':'middle', 'font-size':'11', fill:'#6c757d', transform:`rotate(-90,12,${m.t+ch/2})`});
+    al.textContent = '€/MWh';
+    svg.appendChild(al);
 }
 
 /* ── Heatmap ── */
 function renderHeatmap() {
     const content = document.getElementById('hmContent');
-    document.getElementById('hmNoData').style.display='none';
+    document.getElementById('hmNoData').style.display = 'none';
     const tooltip = document.getElementById('hmTooltip');
-    const outerDiv=document.createElement('div'); outerDiv.className='heatmap-outer';
-    const threeYear=document.createElement('div'); threeYear.className='three-year-hm';
+    const outerDiv = document.createElement('div'); outerDiv.className = 'heatmap-outer';
+    const threeYear = document.createElement('div'); threeYear.className = 'three-year-hm';
 
     YEARS.forEach(yr => {
-        const avg=hmData[yr]||null, hasData=!!avg;
+        const avg = hmData[yr] || null, hasData = !!avg;
         let ymn=Infinity, ymx=-Infinity; const yVals=[];
-        if (hasData) avg.forEach(row=>row.forEach(v=>{ if(v!==null&&isFinite(v)){ymn=Math.min(ymn,v);ymx=Math.max(ymx,v);yVals.push(v);} }));
+        if (hasData) avg.forEach(row => row.forEach(v => {
+            if (v!==null&&isFinite(v)) { ymn=Math.min(ymn,v); ymx=Math.max(ymx,v); yVals.push(v); }
+        }));
         yVals.sort((a,b)=>a-b);
-        const ymid=yVals[Math.floor(yVals.length/2)];
-        const block=document.createElement('div'); block.className='year-hm-block';
-        const title=document.createElement('div'); title.className='year-hm-title'; title.textContent=String(yr);
+        const ymid = yVals[Math.floor(yVals.length/2)];
+        const block = document.createElement('div'); block.className='year-hm-block';
+        const title = document.createElement('div'); title.className='year-hm-title'; title.textContent=String(yr);
         block.appendChild(title);
-        const mhWrap=document.createElement('div'); mhWrap.className='hm-month-header';
+        const mhWrap = document.createElement('div'); mhWrap.className='hm-month-header';
         mhWrap.appendChild(Object.assign(document.createElement('div'),{className:'hm-month-spacer'}));
-        const mlabels=document.createElement('div'); mlabels.className='hm-month-labels';
-        MONTHS.forEach(mo=>mlabels.appendChild(Object.assign(document.createElement('div'),{className:'hm-month-label',textContent:mo})));
+        const mlabels = document.createElement('div'); mlabels.className='hm-month-labels';
+        MONTHS.forEach(mo => mlabels.appendChild(Object.assign(document.createElement('div'),{className:'hm-month-label',textContent:mo})));
         mhWrap.appendChild(mlabels); block.appendChild(mhWrap);
 
-        for (let h=0;h<24;h++) {
-            const row=document.createElement('div'); row.className='hm-row';
-            const yl=document.createElement('div'); yl.className='hm-ylabel';
+        for (let h=0; h<24; h++) {
+            const row = document.createElement('div'); row.className='hm-row';
+            const yl = document.createElement('div'); yl.className='hm-ylabel';
             yl.textContent=`H${String(h+1).padStart(2,'0')}`; row.appendChild(yl);
-            const cellsRow=document.createElement('div'); cellsRow.className='hm-cells-row';
-            for (let mo=0;mo<12;mo++) {
-                const cell=document.createElement('div'); cell.className='hm-cell';
-                const v=hasData?avg[h][mo]:null;
-                cell.style.background=v!==null?priceColor(v,ymn,ymx,ymid):'#e9ecef';
-                cell.textContent=v!==null?v.toFixed(1):'';
-                cell.dataset.tip=v!==null
-                    ?`${yr} · ${MONTHS[mo]} · H${String(h+1).padStart(2,'0')} · ${v.toFixed(2)} €/MWh`
-                    :`${yr} · ${MONTHS[mo]} · H${String(h+1).padStart(2,'0')} · no data`;
+            const cellsRow = document.createElement('div'); cellsRow.className='hm-cells-row';
+            for (let mo=0; mo<12; mo++) {
+                const cell = document.createElement('div'); cell.className='hm-cell';
+                const v = hasData ? avg[h][mo] : null;
+                cell.style.background = v!==null ? priceColor(v,ymn,ymx,ymid) : '#e9ecef';
+                cell.textContent = v!==null ? v.toFixed(1) : '';
+                cell.dataset.tip = v!==null
+                    ? `${yr} · ${MONTHS[mo]} · H${String(h+1).padStart(2,'0')} · ${v.toFixed(2)} €/MWh`
+                    : `${yr} · ${MONTHS[mo]} · H${String(h+1).padStart(2,'0')} · no data`;
                 cellsRow.appendChild(cell);
             }
-            cellsRow.addEventListener('mousemove',e=>{
-                const cell=e.target.closest('.hm-cell');
-                if(!cell){tooltip.style.display='none';return;}
+            cellsRow.addEventListener('mousemove', e => {
+                const cell = e.target.closest('.hm-cell');
+                if (!cell) { tooltip.style.display='none'; return; }
                 tooltip.style.display='block';
                 tooltip.style.left=(e.clientX+14)+'px'; tooltip.style.top=(e.clientY+14)+'px';
-                const p=cell.dataset.tip.split(' · ');
+                const p = cell.dataset.tip.split(' · ');
                 tooltip.innerHTML=`<b>${p[0]}</b> · ${p[1]} · ${p[2]}&nbsp;&nbsp;<span style="color:#f1c40f">${p[3]}</span>`;
             });
-            cellsRow.addEventListener('mouseleave',()=>{tooltip.style.display='none';});
+            cellsRow.addEventListener('mouseleave', () => { tooltip.style.display='none'; });
             row.appendChild(cellsRow); block.appendChild(row);
         }
 
-        const legend=document.createElement('div'); legend.className='hm-year-legend';
-        if (hasData&&isFinite(ymn)) {
+        const legend = document.createElement('div'); legend.className='hm-year-legend';
+        if (hasData && isFinite(ymn)) {
             legend.appendChild(Object.assign(document.createElement('span'),{className:'hm-legend-val',textContent:ymn.toFixed(1)}));
-            const bar=document.createElement('div'); bar.className='hm-legend-bar';
+            const bar = document.createElement('div'); bar.className='hm-legend-bar';
             bar.style.background='linear-gradient(to right,rgb(44,123,182),rgb(171,217,233),rgb(255,255,191),rgb(253,174,97),rgb(215,25,28))';
             legend.appendChild(bar);
             legend.appendChild(Object.assign(document.createElement('span'),{className:'hm-legend-val',textContent:ymx.toFixed(1)+' €/MWh'}));
@@ -669,33 +506,30 @@ function renderHeatmap() {
 
 /* ── Helpers ── */
 function svgEl(tag, attrs) {
-    const el=document.createElementNS('http://www.w3.org/2000/svg',tag);
-    Object.entries(attrs).forEach(([k,v])=>el.setAttribute(k,v));
+    const el = document.createElementNS('http://www.w3.org/2000/svg', tag);
+    Object.entries(attrs).forEach(([k,v]) => el.setAttribute(k,v));
     return el;
 }
-function polyPath(pts) {
-    return pts.map((p,i)=>`${i===0?'M':'L'}${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(' ');
-}
-function niceTicks(min,max,count) {
-    const range=max-min; if(range===0)return[min];
-    const raw=range/count;
-    const mag=Math.pow(10,Math.floor(Math.log10(raw)));
-    const step=[1,2,2.5,5,10].map(f=>f*mag).find(s=>s>=raw)||mag*10;
-    const start=Math.ceil(min/step)*step;
-    const ticks=[];
-    for(let t=start;t<=max+step*0.01;t+=step)ticks.push(parseFloat(t.toFixed(10)));
+function niceTicks(min, max, count) {
+    const range = max-min; if (range===0) return [min];
+    const raw = range/count;
+    const mag = Math.pow(10, Math.floor(Math.log10(raw)));
+    const step = [1,2,2.5,5,10].map(f=>f*mag).find(s=>s>=raw) || mag*10;
+    const start = Math.ceil(min/step)*step;
+    const ticks = [];
+    for (let t=start; t<=max+step*0.01; t+=step) ticks.push(parseFloat(t.toFixed(10)));
     return ticks;
 }
-function priceColor(v,mn,mx,mid) {
-    if(!isFinite(mn)||!isFinite(mx)||mx===mn)return'rgb(255,255,255)';
+function priceColor(v, mn, mx, mid) {
+    if (!isFinite(mn)||!isFinite(mx)||mx===mn) return 'rgb(255,255,255)';
     const stops=[[0,[44,123,182]],[0.25,[171,217,233]],[0.5,[255,255,191]],[0.75,[253,174,97]],[1,[215,25,28]]];
-    let t=v<=mid?0.5*Math.max(0,Math.min(1,(v-mn)/(mid-mn||1))):0.5+0.5*Math.max(0,Math.min(1,(v-mid)/(mx-mid||1)));
+    let t = v<=mid ? 0.5*Math.max(0,Math.min(1,(v-mn)/(mid-mn||1))) : 0.5+0.5*Math.max(0,Math.min(1,(v-mid)/(mx-mid||1)));
     let i=0; while(i<stops.length-2&&t>stops[i+1][0])i++;
     const [t0,c0]=stops[i],[t1,c1]=stops[i+1];
     const f=t1===t0?0:(t-t0)/(t1-t0);
-    return`rgb(${Math.round(c0[0]+f*(c1[0]-c0[0]))},${Math.round(c0[1]+f*(c1[1]-c0[1]))},${Math.round(c0[2]+f*(c1[2]-c0[2]))})`;
+    return `rgb(${Math.round(c0[0]+f*(c1[0]-c0[0]))},${Math.round(c0[1]+f*(c1[1]-c0[1]))},${Math.round(c0[2]+f*(c1[2]-c0[2]))})`;
 }
-function yieldFrame(){return new Promise(res=>requestAnimationFrame(()=>requestAnimationFrame(res)));}
+function yieldFrame() { return new Promise(res => requestAnimationFrame(() => requestAnimationFrame(res))); }
 </script>
 </body>
 </html>

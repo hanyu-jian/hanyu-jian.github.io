@@ -8,342 +8,93 @@
             }
         })();
     </script>
+
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Installed Capacity – European Electricity Dashboard</title>
+    <title>Generation Overview – European Electricity Dashboard</title>
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: #f0f2f5;
-            padding: 20px;
-        }
-        .container {
-            max-width: 1600px;
-            margin: 0 auto;
-            background: white;
-            border-radius: 12px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-            overflow: hidden;
-        }
-        .header {
-            background: #2c3e50;
-            color: white;
-            padding: 20px 30px 0 30px;
-        }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f2f5; padding: 20px; }
+        .container { max-width: 1920px; margin: 0 auto; background: #fff; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); overflow: hidden; }
+
+        .header { background: #2c3e50; color: #fff; padding: 20px 30px 0 30px; }
         .header-top { padding-bottom: 16px; }
         .header-top h1 { font-size: 24px; font-weight: 500; letter-spacing: 0.2px; }
+
         .main-nav { display: flex; gap: 2px; margin-top: 4px; }
         .main-nav-link {
             display: inline-flex; align-items: center; gap: 7px;
             padding: 10px 24px; font-size: 14px; font-weight: 600;
             color: rgba(255,255,255,0.65); text-decoration: none;
-            border-radius: 6px 6px 0 0;
-            background: rgba(255,255,255,0.06);
-            border: 1px solid transparent; border-bottom: none;
-            letter-spacing: 0.2px;
-            transition: background 0.2s, color 0.2s;
-            white-space: nowrap; position: relative; top: 1px;
+            border-radius: 6px 6px 0 0; background: rgba(255,255,255,0.06);
+            border: 1px solid transparent; border-bottom: none; letter-spacing: 0.2px;
+            transition: background 0.2s, color 0.2s, border-color 0.2s; white-space: nowrap;
+            position: relative; top: 1px;
         }
         .main-nav-link:hover { color: rgba(255,255,255,0.95); background: rgba(255,255,255,0.14); }
-        .main-nav-link.active {
-            color: #2c3e50; background: #f8f9fa;
-            border-color: #e6e9ed; border-bottom-color: #f8f9fa;
-        }
-        .sub-nav {
-            background: #f8f9fa; border-bottom: 2px solid #e6e9ed;
-            padding: 0 30px; display: flex;
-        }
-        .sub-nav-link {
-            display: inline-block; padding: 14px 22px;
-            font-size: 14px; font-weight: 600; color: #6c757d;
-            text-decoration: none; border-bottom: 3px solid transparent;
-            margin-bottom: -2px; transition: color 0.2s, border-color 0.2s;
-        }
-        .sub-nav-link:hover { color: #2c3e50; }
+        .main-nav-link.active { color: #2c3e50; background: #f8f9fa; border-color: #e6e9ed; border-bottom-color: #f8f9fa; }
+
+        .sub-nav { background: #f8f9fa; border-bottom: 2px solid #e6e9ed; padding: 0 30px; display: flex; }
+        .sub-nav-link { display: inline-block; padding: 14px 22px; font-size: 14px; font-weight: 600; color: #6c757d; text-decoration: none; border-bottom: 3px solid transparent; margin-bottom: -2px; }
         .sub-nav-link.active { color: #2c3e50; border-bottom-color: #2c3e50; }
 
-        .loading { text-align: center; padding: 60px; color: #666; font-size: 16px; }
-
-        .content-area {
-            display: flex; gap: 0; min-height: 500px;
+        .controls {
+            padding: 20px 30px; display: flex; flex-wrap: wrap; gap: 24px;
+            align-items: flex-end; background: #fff; border-bottom: 1px solid #e6e9ed;
+        }
+        .control-group { display: flex; flex-direction: column; gap: 6px; }
+        .control-group label { font-size: 13px; font-weight: 600; color: #2c3e50; white-space: nowrap; }
+        select {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            height: 36px; padding: 0 12px; border: 1px solid #ccc; border-radius: 6px;
+            font-size: 14px; min-width: 120px; cursor: pointer;
         }
 
-        /* ── Map panel ── */
-        .map-panel {
-            width: 33.333%; flex-shrink: 0; 
-            border-right: 1px solid #e6e9ed;
-            display: flex; flex-direction: column;
+        .country-select-wrapper { position: relative; display: inline-block; }
+        .country-select-btn {
+            min-width: 220px; height: 36px; padding: 0 12px; border: 1px solid #ccc;
+            border-radius: 6px; font-size: 14px; background: #fff; cursor: pointer;
+            display: flex; align-items: center; justify-content: space-between; gap: 8px;
         }
-        .map-panel-header {
-            padding: 16px 20px 10px;
-            border-bottom: 1px solid #f0f2f5;
-            min-height: 57px;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
+        .country-select-btn::after { content: '▼'; font-size: 10px; color: #666; }
+        .country-dropdown {
+            position: absolute; top: calc(100% + 4px); left: 0; min-width: 320px;
+            max-height: 320px; overflow-y: auto; background: #fff; border: 1px solid #ccc;
+            border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 9999;
+            display: none; padding: 8px 0;
         }
-        .map-year-ctrl {
-            display: flex; align-items: center; gap: 8px;
-            padding: 8px 20px 10px;
-            border-bottom: 1px solid #f0f2f5;
-            background: #fafbfc;
-        }
-        .map-year-ctrl label { font-size: 12px; font-weight: 600; color: #2c3e50; }
-        .map-year-ctrl select {
-            padding: 5px 9px; border: 1px solid #ccc;
-            border-radius: 5px; font-size: 13px; height: 30px;
-            font-family: inherit; cursor: pointer; background: white;
-        }
-        .map-year-ctrl select:focus { outline: none; border-color: #2c3e50; }
-        .map-wrap {
-            flex: 1; position: relative; overflow: hidden;
-            background: #d4e8f5; min-height: 380px;
-        }
-        #europeSvg { width: 100%; height: 100%; display: block; }
+        .country-dropdown.show { display: block; }
+        .country-dropdown-header { display: flex; gap: 8px; padding: 4px 12px 8px; border-bottom: 1px solid #eee; margin-bottom: 4px; }
+        .btn-small { padding: 4px 10px; font-size: 12px; background: #e9ecef; border: 1px solid #ccc; cursor: pointer; border-radius: 4px; }
+        .country-list { display: grid; grid-template-columns: repeat(2, 1fr); gap: 2px 0; padding: 0 8px; }
+        .country-item { display: flex; align-items: center; gap: 6px; padding: 4px 6px; border-radius: 4px; cursor: pointer; }
+        .country-item:hover { background: #f5f5f5; }
 
-        .country-detail {
-            border-top: 1px solid #e6e9ed;
-            padding: 12px 16px; max-height: 240px; overflow-y: auto;
-        }
-        .country-detail::-webkit-scrollbar { width: 4px; }
-        .country-detail::-webkit-scrollbar-thumb { background: #ccc; border-radius: 2px; }
-        .detail-header {
-            display: flex; justify-content: space-between;
-            align-items: baseline; margin-bottom: 4px;
-        }
-        .detail-country-name { font-size: 14px; font-weight: 700; color: #2c3e50; }
-        .detail-total { font-size: 12px; color: #e67e22; font-weight: 600; }
-        .detail-rows { display: flex; flex-direction: column; gap: 3px; margin-top: 6px; }
-        .detail-row {
-            display: flex; align-items: center; gap: 7px;
-            padding: 4px 7px; border-radius: 4px;
-            background: #f8f9fa; font-size: 11px;
-        }
-        .detail-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-        .detail-type { flex: 1; color: #555; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .detail-gw { font-weight: 600; color: #2c3e50; white-space: nowrap; }
-        .detail-hint {
-            display: flex; align-items: center; justify-content: center;
-            height: 70px; color: #bbb; font-size: 12px; gap: 5px;
-        }
+        .chart-grid { display: grid; grid-template-columns: 1fr; gap: 24px; padding: 24px 30px; }
+        .chart-card { background: #fff; border-radius: 8px; border: 1px solid #e6e9ed; padding: 16px; }
+        .chart-card-header h3 { font-size: 18px; font-weight: 500; color: #2c3e50; border-left: 4px solid #2c3e50; padding-left: 12px; margin: 0; }
+        .subtitle { font-size: 12px; color: #888; margin-top: 4px; padding-left: 16px; }
+        .year-row-wrap { overflow-x: auto; margin-top: 14px; }
+        .year-row { display: grid; grid-template-columns: repeat(3, minmax(560px, 1fr)); gap: 14px; min-width: 1700px; }
+        .year-card { border: 1px solid #e6e9ed; border-radius: 8px; padding: 10px; background: #fafbfd; }
+        .year-title { font-size: 13px; font-weight: 700; color: #2c3e50; margin-bottom: 8px; }
+        .year-chart { height: 360px; }
+        .shared-legend { display: flex; flex-wrap: wrap; gap: 10px 16px; margin-top: 14px; padding-top: 10px; border-top: 1px solid #e6e9ed; }
+        .legend-item { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: #2c3e50; }
+        .legend-swatch { width: 12px; height: 12px; border-radius: 3px; border: 1px solid rgba(0,0,0,0.12); }
 
-        /* ── Charts panel ── */
-        .charts-panel {
-            flex: 2; display: flex; flex-direction: column;
-            overflow: hidden; min-width: 0;
-        }
+        .loading { text-align: center; padding: 40px 20px; color: #666; font-size: 15px; }
+        .load-status { padding: 10px 30px; font-size: 12px; color: #6c757d; border-bottom: 1px solid #e6e9ed; display: none; }
+        .load-status.error { color: #b42318; background: #fff4f2; }
 
-        /* ── Chart card ── */
-        .chart-card {
-            margin: 0 30px;
-            background: #fff;
-            border-radius: 8px;
-            border: 1px solid #e6e9ed;
-            overflow: visible;
-        }
-        .chart-card-inner {
-            padding: 16px 20px 12px 20px;
-        }
-        .chart-card h3 {
-            font-size: 15px;
-            font-weight: 600;
-            color: #2c3e50;
-            margin-bottom: 0;
-        }
-
-        /* ── Top bar inside chart card ── */
-        .chart-top-bar {
-            display: flex; align-items: center;
-            justify-content: space-between;
-            flex-wrap: wrap; gap: 10px;
-            margin-bottom: 12px;
-        }
-        .range-selector {
-            display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
-        }
-        .range-selector label {
-            font-size: 12px; font-weight: 600; color: #2c3e50; white-space: nowrap;
-        }
-        .range-selector select {
-            padding: 6px 10px; border: 1px solid #ccc;
-            border-radius: 6px; font-size: 13px; height: 32px;
-            font-family: inherit; cursor: pointer; background: white;
-            min-width: 100px;
-        }
-        .range-selector select:focus { outline: none; border-color: #2c3e50; }
-        .range-sep { font-size: 13px; color: #888; font-weight: 600; }
-
-        #barChart { width: 100%; min-height: 500px; }
-
-        /* ── Forecast Table ── */
-        .forecast-table-wrap {
-            margin: 16px 30px 0 30px;
-            border: 1px solid #e6e9ed;
-            border-radius: 8px;
-            overflow: hidden;
-            background: #fff;
-        }
-        .forecast-table-header {
-            padding: 11px 16px 10px;
-            border-bottom: 1px solid #e6e9ed;
-            display: flex;
-            align-items: baseline;
-            gap: 10px;
-            background: #fafbfc;
-        }
-        .forecast-table-header h4 {
-            font-size: 13px;
-            font-weight: 700;
-            color: #2c3e50;
-            white-space: nowrap;
-        }
-        .forecast-table-header span {
-            font-size: 11px;
-            color: #999;
-        }
-        .forecast-table-hint {
-            padding: 18px;
-            text-align: center;
-            color: #bbb;
-            font-size: 12px;
-        }
-        .forecast-table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 12px;
-        }
-        .forecast-table thead tr {
-            background: #f0f4f8;
-        }
-        .forecast-table th {
-            padding: 9px 16px;
-            text-align: center;
-            font-size: 11px;
-            font-weight: 700;
-            color: #2c3e50;
-            border-bottom: 2px solid #e0e6ed;
-            white-space: nowrap;
-            line-height: 1.5;
-        }
-        .forecast-table th:first-child { text-align: left; }
-        .forecast-table td {
-            padding: 10px 16px;
-            text-align: center;
-            color: #2c3e50;
-            border-bottom: 1px solid #f0f2f5;
-            font-size: 13px;
-        }
-        .forecast-table td:first-child {
-            text-align: left;
-            font-weight: 600;
-            font-size: 12px;
-        }
-        .forecast-table tr:last-child td { border-bottom: none; }
-        .forecast-table tbody tr:hover { background: #f8fbff; }
-
-        /* 类型色点 */
-        .type-dot-solar {
-            display: inline-block; width: 9px; height: 9px;
-            border-radius: 50%; background: #f9d923;
-            border: 1px solid #fcc428;
-            margin-right: 6px; vertical-align: middle;
-        }
-        .type-dot-wind {
-            display: inline-block; width: 9px; height: 9px;
-            border-radius: 50%; background: #81c784;
-            margin-right: 6px; vertical-align: middle;
-        }
-
-        /* 分隔竖线 */
-        .col-divider {
-            width: 1px;
-            padding: 0 !important;
-            background: #dde4ec;
-        }
-        /* 2030列高亮 */
-        .td-forecast {
-            background: #eef5ff;
-            color: #1a56a0 !important;
-            font-weight: 700 !important;
-        }
-        .td-forecast-pct {
-            background: #eef5ff;
-            color: #2e6db4 !important;
-            font-weight: 600 !important;
-        }
-        .th-forecast {
-            background: #ddeaf8 !important;
-            color: #1a3d6e !important;
-        }
-
-        .info {
-            padding: 10px 30px 16px; font-size: 12px; color: #6c757d;
-            text-align: center; border-top: 1px solid #e6e9ed;
-        }
-        .info a { color: #5a8fc2; text-decoration: none; }
-        .info a:hover { text-decoration: underline; }
-
-        .map-tooltip {
-            position: fixed; background: rgba(44,62,80,0.95);
-            color: #fff; padding: 7px 11px; border-radius: 5px;
-            font-size: 12px; pointer-events: none; z-index: 9999;
-            display: none; line-height: 1.6;
-            box-shadow: 0 3px 10px rgba(0,0,0,0.3);
-        }
-
-        .section-wrap {
-            padding: 20px 0 24px 0;
-            display: flex; flex-direction: column; gap: 0;
-            flex: 1;
-        }
-
+        @media (max-width: 1100px) { .year-row { grid-template-columns: repeat(3, minmax(460px, 1fr)); min-width: 1400px; } }
         @media (max-width: 900px) {
-            .content-area { flex-direction: column; }
-            .map-panel { width: 100%; border-right: none; border-bottom: 1px solid #e6e9ed; }
-            .header { padding: 14px 14px 0; }
-            .header-top h1 { font-size: 18px; }
-            .chart-card { margin: 0 14px; }
-            .forecast-table-wrap { margin: 16px 14px 0 14px; }
+            .header { padding: 16px 16px 0 16px; }
+            .sub-nav { padding: 0 10px; overflow-x: auto; }
+            .controls { flex-direction: column; align-items: stretch; }
+            .country-select-btn, .country-dropdown, select { width: 100%; min-width: 0; }
         }
-
-            /* info icon */
-        .info-icon {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            width: 16px;
-            height: 16px;
-            border-radius: 50%;
-            background: #e0e6ed;
-            color: #2c3e50;
-            font-size: 11px;
-            font-weight: 700;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-        
-        .info-icon:hover {
-            background: #2c3e50;
-            color: #fff;
-        }
-        
-        .info-tooltip {
-            position: absolute;
-            max-width: 280px;
-            background: rgba(44,62,80,0.96);
-            color: #fff;
-            padding: 10px 12px;
-            border-radius: 6px;
-            font-size: 11px;
-            line-height: 1.5;
-            display: none;
-            z-index: 9999;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.25);
-        }
-        
     </style>
 </head>
 <body>
@@ -351,99 +102,71 @@
     <div class="header">
         <div class="header-top"><h1>European Electricity Dashboard</h1></div>
         <div class="main-nav">
-            <a href="project.html" class="main-nav-link"><span>Projects</span></a>
-            <a href="price-overview.html" class="main-nav-link"><span>Price</span></a>
-            <a href="load.html" class="main-nav-link"><span>Load</span></a>
-            <a href="capacity.html" class="main-nav-link active"><span>Installed Capacity</span></a>
+            <a href="project.html" class="main-nav-link">Projects</a>
+            <a href="price-overview.html" class="main-nav-link">Price</a>
+            <a href="load.html" class="main-nav-link">Load</a>
+            <a href="generation-overview.html" class="main-nav-link active">Generation</a>
+            <a href="capacity.html" class="main-nav-link">Installed Capacity</a>
         </div>
     </div>
+
     <div class="sub-nav">
-        <a class="sub-nav-link active" href="capacity.html">Overview</a>
+        <a class="sub-nav-link active" href="generation-overview.html">Generation Overview</a>
     </div>
 
-    <div id="loadingMsg" class="loading">⏳ Loading capacity data...</div>
-
-    <div class="content-area" id="contentArea" style="display:none;">
-
-        <!-- ── Left: Map panel ── -->
-        <div class="map-panel">
-            <div class="map-panel-header">
-                <h3 style="font-size:15px;font-weight:600;color:#2c3e50; display:flex; align-items:center; gap:6px;">
-                    Installed Capacity by Country
-                    <span class="info-icon" id="infoBtn">i</span>
-                </h3>
-                    
-                <p style="font-size:11px;color:#888;margin-top:3px;">
-                    Click a country to explore
-                </p>
-            </div>
-            <div class="map-year-ctrl">
-                <label>🗺️ Map Year:</label>
-                <select id="mapYearSel"></select>
-            </div>
-            <div class="map-wrap">
-                <svg id="europeSvg" viewBox="0 0 420 430"
-                     preserveAspectRatio="xMidYMid meet"></svg>
-            </div>
-            <div class="country-detail" id="countryDetail">
-                <div class="detail-hint">🗺️ Click a country to see details</div>
-            </div>
+    <div class="controls">
+        <div class="control-group">
+            <label>Month From</label>
+            <select id="monthFrom"></select>
         </div>
-
-        <!-- ── Right: Charts panel ── -->
-        <div class="charts-panel">
-            <div class="section-wrap">
-
-                <!-- Bar chart card -->
-                <div class="chart-card">
-                    <div class="chart-card-inner">
-                        <div class="chart-top-bar">
-                            <h3 id="barTitle">Installed Capacity by Country</h3>
-                            <div class="range-selector">
-                                <label>📅 Time Range:</label>
-                                <select id="startSel"></select>
-                                <span class="range-sep">-</span>
-                                <select id="endSel"></select>
-                            </div>
-                        </div>
-                        <div id="barSubLine" style="font-size:11px;color:#999;
-                             margin-bottom:10px;margin-top:-6px;">
-                            Click a country on the map to view details
-                        </div>
-                        <div id="barChart"></div>
+        <div class="control-group">
+            <label>Month To</label>
+            <select id="monthTo"></select>
+        </div>
+        <div class="control-group">
+            <label>Countries</label>
+            <div class="country-select-wrapper">
+                <div class="country-select-btn" id="countrySelectBtn"><span id="countrySelectText">Select...</span></div>
+                <div class="country-dropdown" id="countryDropdown">
+                    <div class="country-dropdown-header">
+                        <button id="selectAllBtn" class="btn-small">Select All</button>
+                        <button id="clearAllBtn" class="btn-small">Clear All</button>
                     </div>
+                    <div id="countryCheckboxes" class="country-list"></div>
                 </div>
-
-                <!-- Forecast table -->
-                <div class="forecast-table-wrap">
-                    <div class="forecast-table-header">
-                        <h4>2030 NECP Forecast</h4>
-                        <span id="forecastSubtitle">Click a country on the map to view</span>
-                    </div>
-                    <div id="forecastTableBody">
-                        <div class="forecast-table-hint">
-                            🗺️ Click a country to see solar &amp; wind capacity data
-                        </div>
-                    </div>
-                </div>
-
             </div>
         </div>
     </div>
 
-    <div class="info" id="footerInfo" style="display:none;">
-        Data source: <a href="https://www.entsoe.eu/" target="_blank">ENTSO-E Transparency Platform</a>
-        &nbsp;|&nbsp; Unit: GW &nbsp;|&nbsp; Author: Hanyu Jian
+    <div id="loadingMsg" class="loading">Loading generation data...</div>
+    <div id="loadStatus" class="load-status"></div>
+
+    <div class="chart-grid" style="display:none;" id="chartGrid">
+        <div class="chart-card">
+            <div class="chart-card-header">
+                <h3>Load vs Generation by Hour (Monthly Range Avg)</h3>
+                <div class="subtitle">Generation = sum of technologies excluding Cross border; selected countries are summed</div>
+            </div>
+            <div class="year-row-wrap">
+                <div class="year-row">
+                    <div class="year-card"><div class="year-title">2024</div><div id="chart2024" class="year-chart"></div></div>
+                    <div class="year-card"><div class="year-title">2025</div><div id="chart2025" class="year-chart"></div></div>
+                    <div class="year-card"><div class="year-title">2026</div><div id="chart2026" class="year-chart"></div></div>
+                </div>
+            </div>
+            <div id="sharedLegend" class="shared-legend"></div>
+        </div>
     </div>
 </div>
 
-<div class="map-tooltip" id="mapTip"></div>
-<div class="info-tooltip" id="infoTooltip"></div>
-
 <script>
-// ═══════════════════════════════════════
-// Colour helpers
-// ═══════════════════════════════════════
+const countries = ['AT','BG','DE','ES','FR','GR','HR','HU','IT','PL','RO','RS','SK'];
+const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+let countryData = {};
+let charts = {};
+let loadReport = { ok: [], fail: [] };
+let loadFailReason = {};
+
 function typeToColor(t) {
     if (!t) return '#90a4ae';
     const tl = t.toLowerCase();
@@ -469,750 +192,370 @@ function typeToColor(t) {
     return '#90a4ae';
 }
 
-const infoText = `
-<b>Data Disclaimer</b><br/>
-Data sourced from ENTSO-E Transparency Platform.<br/><br/>
-For their control areas, TSOs calculate and provide 
-the total installed generation capacity (MW) 
-for all existing production units with a capacity 
-equal to or exceeding 1 MW, aggregated by production type.
-`;
-
-function initInfoTooltip() {
-    const btn = document.getElementById('infoBtn');
-    const tip = document.getElementById('infoTooltip');
-
-    btn.addEventListener('mouseenter', (e) => {
-        tip.innerHTML = infoText;
-        tip.style.display = 'block';
-        moveInfoTip(e);
-    });
-
-    btn.addEventListener('mouseleave', () => {
-        tip.style.display = 'none';
-    });
-
-    btn.addEventListener('mousemove', (e) => {
-        moveInfoTip(e);
-    });
+function parseDate(s) {
+    if (!s) return null;
+    let m = s.match(/^(\d{4})[\/-](\d{1,2})[\/-](\d{1,2})\s+(\d{1,2}):(\d{2})/);
+    if (m) return { year: +m[1], month: +m[2], day: +m[3], hour: +m[4] };
+    m = s.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})\s+(\d{1,2}):(\d{2})/);
+    if (m) return { year: +m[3], month: +m[2], day: +m[1], hour: +m[4] };
+    return null;
 }
 
-function moveInfoTip(e) {
-    const tip = document.getElementById('infoTooltip');
-    tip.style.left = (e.clientX + 12) + 'px';
-    tip.style.top  = (e.clientY + 12) + 'px';
-}
+function parseCSV(text) {
+    const lines = text.trim().split(/\r?\n/);
+    const out = [];
+    if (!lines.length) return out;
+    const first = lines[0].trim().toLowerCase();
+    const hasHeader = first.includes('date') && first.includes('category');
+    const startIdx = hasHeader ? 1 : 0;
 
-
-
-
-    
-const TARGET = ['AT','BG','DE','ES','FR','GR','HR','HU','IT','PL','RO','RS','SK'];
-const COUNTRY_LABEL = {
-    AT:'Austria', BG:'Bulgaria', DE:'Germany', ES:'Spain', FR:'France',
-    GR:'Greece', HR:'Croatia', HU:'Hungary', IT:'Italy',
-    PL:'Poland', RO:'Romania', RS:'Serbia', SK:'Slovakia'
-};
-
-// ═══════════════════════════════════════════════════════════════════════
-// ★ 2030 Forecast — 手动填写全部四个字段
-//   solar        : 2030年光伏装机容量预测 (GW)
-//   solarSharePct: 2030年光伏占总容量比例 (%)
-//   wind         : 2030年风电装机容量预测 (GW，含陆上+海上)
-//   windSharePct : 2030年风电占总容量比例 (%)
-// ═══════════════════════════════════════════════════════════════════════
-const FORECAST_2030 = {
-    AT: { solar: 13.0,  solarSharePct: 18.5, wind: 11.0,  windSharePct: 15.5 },
-    BG: { solar: 6.0,   solarSharePct: 14.2, wind: 4.0,   windSharePct: 9.5  },
-    DE: { solar: 215.0, solarSharePct: 28.3, wind: 160.0, windSharePct: 21.1 },
-    ES: { solar: 76.0,  solarSharePct: 22.4, wind: 62.0,  windSharePct: 18.3 },
-    FR: { solar: 44.0,  solarSharePct: 12.0, wind: 40.0,  windSharePct: 10.9 },
-    GR: { solar: 13.0,  solarSharePct: 19.7, wind: 9.0,   windSharePct: 13.6 },
-    HR: { solar: 2.5,   solarSharePct: 17.8, wind: 2.8,   windSharePct: 20.0 },
-    HU: { solar: 12.0,  solarSharePct: 30.2, wind: 1.0,   windSharePct: 2.5  },
-    IT: { solar: 80.0,  solarSharePct: 23.1, wind: 28.0,  windSharePct: 8.1  },
-    PL: { solar: 30.0,  solarSharePct: 16.5, wind: 20.0,  windSharePct: 11.0 },
-    RO: { solar: 7.0,   solarSharePct: 11.3, wind: 6.0,   windSharePct: 9.7  },
-    RS: { solar: 2.0,   solarSharePct: 10.5, wind: 2.5,   windSharePct: 13.2 },
-    SK: { solar: 2.0,   solarSharePct: 8.3,  wind: 0.5,   windSharePct: 2.1  },
-};
-
-// ═══════════════════════════
-// State
-// ═══════════════════════════
-const S = {
-    data: [],
-    allPeriods: [],
-    startPeriod: null,
-    endPeriod: null,
-    mapYear: null,
-    country: null,
-    geoFeatures: [],
-};
-let barInst = null;
-
-// ═══════════════════════════
-// Load CSV
-// ═══════════════════════════
-async function loadCSV() {
-    return new Promise((res, rej) => {
-        Papa.parse('data/capacity.csv', {
-            download: true, header: true, skipEmptyLines: true,
-            complete: r => res(r.data),
-            error:    e => rej(e),
-        });
-    });
-}
-
-function parseData(raw) {
-    const cleaned = raw.filter(r => {
-        const cc  = (r['Country'] || '').trim();
-        const tp  = (r['Production Type'] || '').trim();
-        const val = (r['Installed Capacity (MW)'] || '').trim();
-        return TARGET.includes(cc) && tp && val !== 'n/e' && val !== '';
-    }).map(r => ({
-        year:    +r['Year'],
-        month:   r['Month'] ? (+r['Month'] || null) : null,
-        country: r['Country'].trim(),
-        type:    r['Production Type'].trim(),
-        mw:      parseFloat(r['Installed Capacity (MW)']),
-    }));
-    S.data = cleaned;
-
-    const seen = new Set();
-    cleaned.forEach(r => {
-        const key = r.month
-            ? `${r.year}/${String(r.month).padStart(2,'0')}`
-            : `${r.year}`;
-        seen.add(key);
-    });
-    S.allPeriods = [...seen].sort();
-    S.startPeriod = S.allPeriods[0];
-    S.endPeriod   = S.allPeriods[S.allPeriods.length - 1];
-
-    const years = [...new Set(cleaned.map(r => r.year))].sort();
-    S.mapYear = years[years.length - 1];
-}
-
-// ═══════════════════════════
-// Load GeoJSON
-// ═══════════════════════════
-async function loadGeoJSON() {
-    const resp = await fetch('europe.geojson');
-    const geo  = await resp.json();
-    S.geoFeatures = geo.features || [];
-}
-
-// ═══════════════════════════
-// Period helpers
-// ═══════════════════════════
-function periodToNum(p) {
-    if (p.includes('/')) {
-        const [y, m] = p.split('/');
-        return +y * 100 + +m;
-    }
-    return +p * 100;
-}
-
-function rowMatchesPeriod(r, periodStr) {
-    if (periodStr.includes('/')) {
-        const [y, m] = periodStr.split('/');
-        return r.year === +y && r.month === +m;
-    }
-    return r.year === +periodStr && !r.month;
-}
-
-function getPeriodsInRange() {
-    const s = periodToNum(S.startPeriod);
-    const e = periodToNum(S.endPeriod);
-    return S.allPeriods.filter(p => {
-        const n = periodToNum(p);
-        return n >= s && n <= e;
-    });
-}
-
-function getRowsForCountryPeriod(country, periodStr) {
-    return S.data.filter(r => r.country === country && rowMatchesPeriod(r, periodStr));
-}
-
-function getTotalForMapYear(country) {
-    return S.data
-        .filter(r => r.country === country && r.year === S.mapYear && !r.month)
-        .reduce((s, r) => s + r.mw, 0);
-}
-
-// ═══════════════════════════════════════════════════════
-// 获取某国最新一期的 Solar / Wind 数值
-// ═══════════════════════════════════════════════════════
-function getSolarWindLatest(cc) {
-    const periods = getPeriodsInRange();
-    let lastPeriod = null;
-    let rows = [];
-    // 从末尾往前找第一个有数据的 period
-    for (let i = periods.length - 1; i >= 0; i--) {
-        rows = getRowsForCountryPeriod(cc, periods[i]);
-        if (rows.length > 0) { lastPeriod = periods[i]; break; }
-    }
-    if (!rows.length || !lastPeriod) return null;
-
-    const totalMW = rows.reduce((s, r) => s + r.mw, 0);
-
-    // Solar
-    const solarMW = rows
-        .filter(r => r.type.toLowerCase().includes('solar'))
-        .reduce((s, r) => s + r.mw, 0);
-
-    // Wind onshore
-    const windOnMW = rows
-        .filter(r => {
-            const tl = r.type.toLowerCase();
-            return tl.includes('wind') && tl.includes('on');
-        })
-        .reduce((s, r) => s + r.mw, 0);
-
-    // Wind offshore
-    const windOffMW = rows
-        .filter(r => {
-            const tl = r.type.toLowerCase();
-            return tl.includes('wind') && tl.includes('off');
-        })
-        .reduce((s, r) => s + r.mw, 0);
-
-    // 如果 onshore/offshore 都是 0，fallback 到所有 wind
-    let windMW = windOnMW + windOffMW;
-    if (windMW === 0) {
-        windMW = rows
-            .filter(r => r.type.toLowerCase().includes('wind'))
-            .reduce((s, r) => s + r.mw, 0);
+    function parseLooseLine(line) {
+        const m = line.match(/^(\d{4}\/\d{1,2}\/\d{1,2})\s+(\d{1,2}:\d{2})\s+(.+?)\s+(-?\d+(?:\.\d+)?)$/);
+        if (!m) return null;
+        return {
+            date: `${m[1]} ${m[2]}`,
+            category: m[3].trim(),
+            value: parseFloat(m[4])
+        };
     }
 
-    return { solarMW, windMW, windOnMW, windOffMW, totalMW, period: lastPeriod };
-}
-
-// ═══════════════════════════════════════════════════════
-// Render Forecast Table  
-// ═══════════════════════════════════════════════════════
-function renderForecastTable(cc) {
-    const bodyEl     = document.getElementById('forecastTableBody');
-    const subtitleEl = document.getElementById('forecastSubtitle');
-
-    const info = getSolarWindLatest(cc);
-    const fc   = FORECAST_2030[cc] || null;
-    const label = COUNTRY_LABEL[cc] || cc;
-
-    if (!info) {
-        bodyEl.innerHTML = `<div class="forecast-table-hint">No data available for ${label}</div>`;
-        subtitleEl.textContent = label;
-        return;
+    for (let i = startIdx; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (!line) continue;
+        if (line.includes('\t')) {
+            const parts = line.split('\t');
+            if (parts.length >= 3) {
+                out.push({ date: parts[0].trim(), category: parts[1].trim(), value: parseFloat(parts[2]) });
+                continue;
+            }
+        }
+        if (line.includes(',')) {
+            const parts = line.split(',');
+            if (parts.length >= 3) {
+                out.push({ date: parts[0].trim(), category: parts[1].trim(), value: parseFloat(parts[2]) });
+                continue;
+            }
+        }
+        const loose = parseLooseLine(line);
+        if (loose) out.push(loose);
     }
-
-    subtitleEl.textContent = `${label}  ·  Latest period: ${info.period}`;
-
-    // ── Current values
-    const solarNowGW = info.solarMW / 1000;
-    const windNowGW  = info.windMW  / 1000;
-    const totalNowGW = info.totalMW / 1000;
-
-    const nowSolarSharePct = totalNowGW > 0 ? (solarNowGW / totalNowGW * 100) : null;
-    const nowWindSharePct  = totalNowGW > 0 ? (windNowGW  / totalNowGW * 100) : null;
-
-    // ── 2030 values — directly from manual input, no calculation
-    const solar2030GW       = fc ? fc.solar         : null;
-    const solar2030SharePct = fc ? fc.solarSharePct  : null;
-    const wind2030GW        = fc ? fc.wind           : null;
-    const wind2030SharePct  = fc ? fc.windSharePct   : null;
-
-    // ── Wind sub-label (show onshore / offshore breakdown if available)
-    let windSubLabel = '';
-    if (info.windOnMW > 0 && info.windOffMW > 0) {
-        windSubLabel =
-            `<span style="font-size:10px;color:#888;font-weight:400;margin-left:4px;">` +
-            `(On ${(info.windOnMW/1000).toFixed(1)} + Off ${(info.windOffMW/1000).toFixed(1)} GW)</span>`;
-    } else if (info.windOnMW > 0) {
-        windSubLabel = `<span style="font-size:10px;color:#888;font-weight:400;margin-left:4px;">(Onshore)</span>`;
-    } else if (info.windOffMW > 0) {
-        windSubLabel = `<span style="font-size:10px;color:#888;font-weight:400;margin-left:4px;">(Offshore)</span>`;
-    }
-
-    // ── Format helpers
-    const fmtGW = v =>
-        (v === null || v === undefined || isNaN(v))
-            ? `<span style="color:#bbb">—</span>`
-            : `${v.toFixed(2)} GW`;
-
-    const fmtPct = v =>
-        (v === null || v === undefined || isNaN(v))
-            ? `<span style="color:#bbb">—</span>`
-            : `${v.toFixed(1)}%`;
-
-    bodyEl.innerHTML = `
-        <table class="forecast-table">
-            <thead>
-                <tr>
-                    <th style="min-width:120px; text-align:left;">Energy Type</th>
-                    <th>Installed Capacity
-                        <br><span style="font-size:10px;font-weight:400;color:#666;">
-                            (${info.period}, GW)</span>
-                    </th>
-                    <th>Share of Total
-                        <br><span style="font-size:10px;font-weight:400;color:#666;">
-                            (${info.period}, %)</span>
-                    </th>
-                    <th class="th-forecast">2030 Forecast
-                        <br><span style="font-size:10px;font-weight:500;color:#3a72b8;">
-                            (GW)</span>
-                    </th>
-                    <th class="th-forecast">2030 Share of total
-                        <br><span style="font-size:10px;font-weight:500;color:#3a72b8;">
-                            (%)</span>
-                    </th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr>
-                    <td><span class="type-dot-solar"></span>Solar PV</td>
-                    <td>${fmtGW(solarNowGW)}</td>
-                    <td>${fmtPct(nowSolarSharePct)}</td>
-                    <td class="td-forecast">${fmtGW(solar2030GW)}</td>
-                    <td class="td-forecast-pct">${fmtPct(solar2030SharePct)}</td>
-                </tr>
-                <tr>
-                    <td><span class="type-dot-wind"></span>Wind${windSubLabel}</td>
-                    <td>${fmtGW(windNowGW)}</td>
-                    <td>${fmtPct(nowWindSharePct)}</td>
-                    <td class="td-forecast">${fmtGW(wind2030GW)}</td>
-                    <td class="td-forecast-pct">${fmtPct(wind2030SharePct)}</td>
-                </tr>
-            </tbody>
-        </table>
-        <div style="padding:5px 16px 7px; font-size:10px; color:#bbb; text-align:right;">
-            Current total: ${fmtGW(totalNowGW)}
-        </div>`;
+    return out;
 }
 
-// ═══════════════════════════════════════════════════════
-// GeoJSON → SVG
-// ═══════════════════════════════════════════════════════
-const VIEW_W = 420, VIEW_H = 380;
-const LON_MIN = -12, LON_MAX = 36;
-const LAT_MIN = 32,  LAT_MAX = 60;
-
-function lonlatToXY(lon, lat) {
-    const x = (lon - LON_MIN) / (LON_MAX - LON_MIN) * VIEW_W;
-    const y = (LAT_MAX - lat) / (LAT_MAX - LAT_MIN) * VIEW_H;
-    return [x, y];
+function normalizeCategory(cat) {
+    return (cat || '').replace(/\s+/g, ' ').trim();
 }
 
-function coordsToD(coords) {
-    const pts = coords.map(([lon, lat]) => lonlatToXY(lon, lat));
-    if (!pts.length) return '';
-    let d = `M ${pts[0][0].toFixed(1)},${pts[0][1].toFixed(1)}`;
-    for (let i = 1; i < pts.length; i++) {
-        d += ` L ${pts[i][0].toFixed(1)},${pts[i][1].toFixed(1)}`;
-    }
-    return d + ' Z';
+function canonicalKey(cat) {
+    return normalizeCategory(cat).toLowerCase().replace(/[-/]/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
-function featureToPathD(feature) {
-    const geom = feature.geometry;
-    if (!geom) return '';
-    const parts = [];
-    const processRings = rings => rings.forEach(ring => {
-        const d = coordsToD(ring);
-        if (d) parts.push(d);
-    });
-    if (geom.type === 'Polygon') {
-        processRings(geom.coordinates);
-    } else if (geom.type === 'MultiPolygon') {
-        geom.coordinates.forEach(poly => processRings(poly));
-    }
-    return parts.join(' ');
-}
-
-function getISO(feature) {
-    const p = feature.properties || {};
-    return (p.ISO_A2 || p.iso_a2 || p.ISO2 || p.iso2 || p.ADM0_A3 || '').toUpperCase();
-}
-
-function buildMap() {
-    const svg = document.getElementById('europeSvg');
-    let html = `
-        <defs>
-            <filter id="shad" x="-20%" y="-20%" width="140%" height="140%">
-                <feDropShadow dx="0" dy="1" stdDeviation="1.2" flood-opacity="0.15"/>
-            </filter>
-        </defs>
-        <rect width="${VIEW_W}" height="${VIEW_H}" fill="#d4e8f5"/>`;
-
-    S.geoFeatures.forEach(f => {
-        const cc = getISO(f);
-        if (TARGET.includes(cc)) return;
-        const d = featureToPathD(f);
-        if (!d) return;
-        html += `<path d="${d}" fill="#c8dce8" stroke="#b0c8d8"
-                    stroke-width="0.6" stroke-linejoin="round"/>`;
-    });
-
-    S.geoFeatures.forEach(f => {
-        const cc = getISO(f);
-        if (!TARGET.includes(cc)) return;
-        const d = featureToPathD(f);
-        if (!d) return;
-
-        const isSelected = S.country === cc;
-        const fill   = isSelected ? '#2c3e50' : '#7aafc8';
-        const stroke = isSelected ? '#1a252f' : '#5a90b0';
-        const sw     = isSelected ? 2 : 1.2;
-        const total  = getTotalForMapYear(cc);
-        const totalGW = (total / 1000).toFixed(1);
-
-        html += `<path d="${d}" fill="${fill}" stroke="${stroke}" stroke-width="${sw}"
-                    stroke-linejoin="round" filter="url(#shad)"
-                    style="cursor:pointer;transition:fill 0.15s;"
-                    onmouseenter="onMapHover(event,'${cc}')"
-                    onmouseleave="onMapLeave()"
-                    onclick="onMapClick('${cc}')"/>`;
-
-        const ctr = getFeatureCentroid(f);
-        if (ctr) {
-            const [cx, cy] = lonlatToXY(ctr[0], ctr[1]);
-            const tcol  = isSelected ? '#ffffff' : '#1a3a52';
-            const tcol2 = isSelected ? '#c0d4e8' : '#2a5a7a';
-            html += `
-                <text x="${cx.toFixed(1)}" y="${(cy-1).toFixed(1)}"
-                    text-anchor="middle" font-size="8" font-weight="800"
-                    fill="${tcol}" style="pointer-events:none;
-                    font-family:'Segoe UI',sans-serif;">${cc}</text>
-                <text x="${cx.toFixed(1)}" y="${(cy+7).toFixed(1)}"
-                    text-anchor="middle" font-size="6.5" fill="${tcol2}"
-                    style="pointer-events:none;font-family:'Segoe UI',sans-serif;">
-                    ${total > 0 ? totalGW + ' GW' : ''}</text>`;
+async function loadAllCountries() {
+    loadReport = { ok: [], fail: [] };
+    loadFailReason = {};
+    const jobs = countries.map(async c => {
+        try {
+            const url = `/data/generation/${c}.csv`;
+            const res = await fetch(url, { cache: 'no-store' });
+            if (!res.ok) {
+                loadReport.fail.push(c);
+                loadFailReason[c] = `HTTP ${res.status}`;
+                return;
+            }
+            const text = await res.text();
+            const rows = parseCSV(text);
+            if (!rows.length) {
+                loadReport.fail.push(c);
+                loadFailReason[c] = 'parsed 0 rows';
+                return;
+            }
+            countryData[c] = rows;
+            loadReport.ok.push(c);
+        } catch (e) {
+            loadReport.fail.push(c);
+            loadFailReason[c] = e && e.message ? e.message : 'fetch error';
         }
     });
-
-    svg.innerHTML = html;
+    await Promise.all(jobs);
 }
 
-function getFeatureCentroid(feature) {
-    const geom = feature.geometry;
-    if (!geom) return null;
-    let best = null, bestLen = 0;
-    const checkRing = ring => {
-        if (ring.length > bestLen) { bestLen = ring.length; best = ring; }
-    };
-    if (geom.type === 'Polygon') {
-        geom.coordinates.forEach(checkRing);
-    } else if (geom.type === 'MultiPolygon') {
-        geom.coordinates.forEach(poly => poly.forEach(checkRing));
-    }
-    if (!best) return null;
-    let sx = 0, sy = 0;
-    best.forEach(([lon, lat]) => { sx += lon; sy += lat; });
-    return [sx / best.length, sy / best.length];
-}
-
-function onMapHover(e, cc) {
-    const tip   = document.getElementById('mapTip');
-    const total = getTotalForMapYear(cc);
-    tip.innerHTML = `<b>${COUNTRY_LABEL[cc] || cc}</b><br/>
-                     Total (${S.mapYear}): ${(total/1000).toFixed(2)} GW`;
-    tip.style.display = 'block';
-    moveTip(e);
-}
-function onMapLeave() {
-    document.getElementById('mapTip').style.display = 'none';
-}
-document.addEventListener('mousemove', e => {
-    if (document.getElementById('mapTip').style.display === 'block') moveTip(e);
-});
-function moveTip(e) {
-    const tip = document.getElementById('mapTip');
-    tip.style.left = (e.clientX + 14) + 'px';
-    tip.style.top  = (e.clientY - 10) + 'px';
-}
-
-function onMapClick(cc) {
-    if (!TARGET.includes(cc)) return;
-    S.country = cc;
-    buildMap();
-    renderDetail(cc);
-    renderBar(cc);
-    renderForecastTable(cc);
-    document.getElementById('barTitle').textContent =
-        `Installed Capacity — ${COUNTRY_LABEL[cc]} (${cc})`;
-    document.getElementById('barSubLine').textContent =
-        `ENTSO-E · Unit: GW · ${S.startPeriod} → ${S.endPeriod}`;
-}
-
-// ═══════════════════════════
-// Country detail panel
-// ═══════════════════════════
-function renderDetail(cc) {
-    const periods    = getPeriodsInRange();
-    const lastPeriod = periods[periods.length - 1];
-    const rows       = getRowsForCountryPeriod(cc, lastPeriod);
-    const total      = rows.reduce((s, r) => s + r.mw, 0);
-    const el         = document.getElementById('countryDetail');
-
-    if (!rows.length) {
-        el.innerHTML = `<div class="detail-hint">No data for this selection</div>`;
-        return;
-    }
-
-    const sorted   = [...rows].sort((a, b) => b.mw - a.mw);
-    const rowsHTML = sorted.map(r => {
-        const gw = (r.mw / 1000).toFixed(2);
-        return `
-        <div class="detail-row">
-            <div class="detail-dot" style="background:${typeToColor(r.type)}"></div>
-            <span class="detail-type" title="${r.type}">${r.type}</span>
-            <span class="detail-gw">${gw} GW</span>
-        </div>`;
-    }).join('');
-
-    const totalGW = (total / 1000).toFixed(2);
-    el.innerHTML = `
-        <div class="detail-header">
-            <span class="detail-country-name">${COUNTRY_LABEL[cc]} (${cc})</span>
-            <span class="detail-total">Total: ${totalGW} GW</span>
-        </div>
-        <div style="font-size:10px;color:#aaa;margin-bottom:4px;padding-left:2px;">
-            As of ${lastPeriod}
-        </div>
-        <div class="detail-rows">${rowsHTML}</div>`;
-}
-
-// ═══════════════════════════════════════════════════════════
-// Bar chart
-// ═══════════════════════════════════════════════════════════
-function renderBar(cc) {
-    const el = document.getElementById('barChart');
-    if (!barInst) {
-        barInst = echarts.init(el);
-        window.addEventListener('resize', () => barInst && barInst.resize());
-    }
-
-    const periods = getPeriodsInRange();
-    const typeSet = new Set();
-    periods.forEach(p =>
-        getRowsForCountryPeriod(cc, p).forEach(r => typeSet.add(r.type))
-    );
-    const typeTotals = {};
-    typeSet.forEach(t => {
-        typeTotals[t] = periods.reduce((s, p) => {
-            const row = getRowsForCountryPeriod(cc, p).find(r => r.type === t);
-            return s + (row ? row.mw : 0);
-        }, 0);
+function buildCountryCheckboxes() {
+    const wrap = document.getElementById('countryCheckboxes');
+    wrap.innerHTML = '';
+    countries.forEach(c => {
+        const item = document.createElement('div');
+        item.className = 'country-item';
+        const cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.value = c;
+        cb.checked = c === 'HU';
+        cb.addEventListener('change', refresh);
+        const span = document.createElement('span');
+        span.textContent = c;
+        item.appendChild(cb);
+        item.appendChild(span);
+        item.addEventListener('click', e => {
+            if (e.target !== cb) { cb.checked = !cb.checked; cb.dispatchEvent(new Event('change')); }
+        });
+        wrap.appendChild(item);
     });
-    const types = [...typeSet].sort((a, b) => typeTotals[b] - typeTotals[a]);
-
-    const periodTotalsGW = periods.map(p =>
-        getRowsForCountryPeriod(cc, p).reduce((s, r) => s + r.mw, 0) / 1000
-    );
-    const maxTotal = Math.max(...periodTotalsGW, 0);
-    const yMax = Math.ceil(maxTotal * 1.18);
-
-    const series = types.map(type => ({
-        name:        type,
-        type:        'bar',
-        stack:       'total',
-        barMaxWidth: 55,
-        emphasis:    { focus: 'series' },
-        itemStyle: {
-            color:       typeToColor(type),
-            borderColor: typeToColor(type) === '#f9d923' ? '#ccb800' : undefined,
-            borderWidth: typeToColor(type) === '#f9d923' ? 0.5 : 0,
-        },
-        data: periods.map(p => {
-            const row = getRowsForCountryPeriod(cc, p).find(r => r.type === type);
-            return row ? +(row.mw / 1000).toFixed(3) : 0;
-        }),
-    }));
-
-    const capSeries = {
-        name:        '_cap',
-        type:        'bar',
-        stack:       'total',
-        barMaxWidth: 55,
-        itemStyle:   { color: 'transparent', borderWidth: 0 },
-        emphasis:    { disabled: true },
-        silent:      true,
-        legendHoverLink: false,
-        label: {
-            show: true, position: 'top', distance: 4,
-            color: '#2c3e50', fontSize: 10, fontWeight: 700,
-            formatter: params => {
-                const chart = barInst;
-                const option = chart.getOption();
-                const selected = option.legend[0].selected || {};
-                let sum = 0;
-                option.series.forEach(series => {
-                    if (series.name === '_cap') return;
-                    const isOn = selected[series.name] !== false;
-                    if (isOn) {
-                        const val = series.data[params.dataIndex] || 0;
-                        sum += val;
-                    }
-                });
-                return sum > 0 ? sum.toFixed(1) + ' GW' : '';
-            },
-        },
-        data: periodTotalsGW.map(t => +(Math.max(yMax - t, 0)).toFixed(3)),
-        tooltip: { show: false },
-    };
-
-    barInst.setOption({
-        backgroundColor: 'transparent',
-        animation: true,
-        tooltip: {
-            trigger: 'axis',
-            axisPointer: { type: 'shadow' },
-            backgroundColor: '#fff',
-            borderColor: '#e0e0e0',
-            textStyle: { color: '#2c3e50', fontSize: 12 },
-            extraCssText: 'box-shadow:0 4px 12px rgba(0,0,0,0.15);border-radius:6px;',
-            formatter(params) {
-                const per   = params[0].axisValue;
-                const items = params
-                    .filter(p => p.seriesName !== '_cap' && p.value > 0)
-                    .sort((a, b) => b.value - a.value);
-                const total = items.reduce((s, p) => s + p.value, 0);
-                let html = `<div style="font-weight:700;margin-bottom:6px;color:#2c3e50">
-                                ${per} · ${COUNTRY_LABEL[cc]}</div>`;
-                items.forEach(p => {
-                    const dot = `<span style="display:inline-block;width:9px;height:9px;
-                        border-radius:50%;background:${typeToColor(p.seriesName)};
-                        border:1px solid #ddd;margin-right:5px;vertical-align:middle;"></span>`;
-                    html += `<div style="display:flex;justify-content:space-between;
-                                gap:18px;margin:2px 0;font-size:11px;">
-                                <span>${dot}${p.seriesName}</span>
-                                <span style="font-weight:600">${p.value.toFixed(2)} GW</span>
-                             </div>`;
-                });
-                html += `<div style="margin-top:7px;padding-top:5px;border-top:1px solid #eee;
-                            font-weight:700;color:#2c3e50;font-size:12px;">
-                             Total: ${total.toFixed(2)} GW</div>`;
-                return html;
-            },
-        },
-        legend: {           
-            type: 'plain', bottom: 0, left: 'center', width: '85%',
-            itemWidth: 12, itemHeight: 12,
-            textStyle: { color: '#444', fontSize: 11 },
-            pageTextStyle: { color: '#888' },
-            data: types.map(t => ({ name: t, itemStyle: { color: typeToColor(t) } })),
-            selector: [
-                { type: 'all', title: 'Select All' },
-                { type: 'inverse', title: 'Clear All' }
-                ]
-        },
-        grid: { top: 36, left: 64, right: 20, bottom: 110 },
-        xAxis: {
-            type: 'category', data: periods,
-            axisLine:  { lineStyle: { color: '#ccc' } },
-            axisTick:  { lineStyle: { color: '#ccc' } },
-            axisLabel: {
-                color: '#2c3e50', fontSize: 12, fontWeight: 600,
-                rotate: periods.length > 8 ? 35 : 0, interval: 0,
-            },
-        },
-        yAxis: {
-            type: 'value', name: 'GW', min: 0, max: yMax,
-            nameTextStyle: { color: '#999', fontSize: 11 },
-            axisLine: { show: false }, axisTick: { show: false },
-            axisLabel: { color: '#999', fontSize: 11, formatter: v => v.toFixed(0) },
-            splitLine: { lineStyle: { color: '#f0f2f5' } },
-        },
-        series: [...series, capSeries],
-    }, true);
+    updateCountryLabel();
 }
 
-// ═══════════════════════════
-// Controls init
-// ═══════════════════════════
-function formatPeriodLabel(p) {
-    if (p.includes('/')) {
-        const [y, m] = p.split('/');
-        const mName  = new Date(2000, +m - 1).toLocaleString('en', { month: 'short' });
-        return `${mName} ${y}`;
-    }
-    return p;
+function getSelectedCountries() {
+    return [...document.querySelectorAll('#countryCheckboxes input:checked')].map(x => x.value);
+}
+
+function updateCountryLabel() {
+    const all = [...document.querySelectorAll('#countryCheckboxes input')];
+    const checked = all.filter(x => x.checked);
+    const el = document.getElementById('countrySelectText');
+    if (!checked.length) el.textContent = 'None selected';
+    else if (checked.length === all.length) el.textContent = `All (${all.length})`;
+    else if (checked.length <= 4) el.textContent = checked.map(x => x.value).join(', ');
+    else el.textContent = `${checked.length} selected`;
 }
 
 function initControls() {
-    const startSel   = document.getElementById('startSel');
-    const endSel     = document.getElementById('endSel');
-    const mapYearSel = document.getElementById('mapYearSel');
+    const from = document.getElementById('monthFrom');
+    const to = document.getElementById('monthTo');
+    from.innerHTML = monthNames.map((m,i) => `<option value="${i+1}">${m}</option>`).join('');
+    to.innerHTML = monthNames.map((m,i) => `<option value="${i+1}">${m}</option>`).join('');
+    from.value = '1';
+    to.value = '12';
 
-    S.allPeriods.forEach(p => {
-        const lbl = formatPeriodLabel(p);
-        startSel.innerHTML += `<option value="${p}">${lbl}</option>`;
-        endSel.innerHTML   += `<option value="${p}">${lbl}</option>`;
-    });
-    startSel.value = S.startPeriod;
-    endSel.value   = S.endPeriod;
+    from.addEventListener('change', refresh);
+    to.addEventListener('change', refresh);
 
-    startSel.addEventListener('change', () => {
-        S.startPeriod = startSel.value;
-        if (periodToNum(S.endPeriod) < periodToNum(S.startPeriod)) {
-            S.endPeriod = S.startPeriod; endSel.value = S.endPeriod;
-        }
-        refreshAll();
-    });
-    endSel.addEventListener('change', () => {
-        S.endPeriod = endSel.value;
-        if (periodToNum(S.startPeriod) > periodToNum(S.endPeriod)) {
-            S.startPeriod = S.endPeriod; startSel.value = S.startPeriod;
-        }
-        refreshAll();
-    });
+    const btn = document.getElementById('countrySelectBtn');
+    const drop = document.getElementById('countryDropdown');
+    btn.addEventListener('click', e => { e.stopPropagation(); drop.classList.toggle('show'); });
+    document.addEventListener('click', e => { if (!drop.contains(e.target) && e.target !== btn) drop.classList.remove('show'); });
 
-    const years = [...new Set(S.data.map(r => r.year))].sort();
-    years.forEach(y => {
-        mapYearSel.innerHTML += `<option value="${y}">${y}</option>`;
+    document.getElementById('selectAllBtn').addEventListener('click', () => {
+        document.querySelectorAll('#countryCheckboxes input').forEach(x => x.checked = true);
+        updateCountryLabel(); refresh();
     });
-    mapYearSel.value = S.mapYear;
-    mapYearSel.addEventListener('change', () => {
-        S.mapYear = +mapYearSel.value;
-        buildMap();
-        if (S.country) renderDetail(S.country);
+    document.getElementById('clearAllBtn').addEventListener('click', () => {
+        document.querySelectorAll('#countryCheckboxes input').forEach(x => x.checked = false);
+        updateCountryLabel(); refresh();
     });
 }
 
-function refreshAll() {
-    buildMap();
-    if (S.country) {
-        renderDetail(S.country);
-        renderBar(S.country);
-        renderForecastTable(S.country);
-        document.getElementById('barSubLine').textContent =
-            `ENTSO-E · Unit: GW · ${S.startPeriod} → ${S.endPeriod}`;
-    }
-}
+function summarizeYear(year, selectedCountries, mFrom, mTo) {
+    const techLabelByKey = {};
+    const byHour = {};
+    for (let h = 0; h < 24; h++) byHour[h] = { loadSum: 0, loadCnt: 0, techSum: {}, techCnt: {} };
+    const mergedByTs = {};
 
-// ═══════════════════════════
-// Init
-// ═══════════════════════════
-async function init() {
-    try {
-        const [raw] = await Promise.all([loadCSV(), loadGeoJSON()]);
-        parseData(raw);
-        initControls();
+    selectedCountries.forEach(c => {
+        const rows = countryData[c] || [];
+        const countryTs = {};
 
-        document.getElementById('loadingMsg').style.display  = 'none';
-        document.getElementById('contentArea').style.display = 'flex';
-        document.getElementById('footerInfo').style.display  = 'block';
+        rows.forEach(r => {
+            if (isNaN(r.value)) return;
+            const dt = parseDate(r.date);
+            if (!dt || dt.year !== year || dt.month < mFrom || dt.month > mTo) return;
 
-        requestAnimationFrame(() => buildMap());
-        initInfoTooltip();
-        window.addEventListener('resize', () => {
-            buildMap();
-            barInst && barInst.resize();
+            const hour = dt.hour;
+            const key = `${dt.year}-${dt.month}-${dt.day}-${hour}`;
+            const cat = normalizeCategory(r.category);
+            const ck = canonicalKey(cat);
+
+            if (ck.includes('cross border')) return;
+            if (ck.includes('renewable share')) return;
+            if (!countryTs[key]) {
+                countryTs[key] = { hour, load: { sum: 0, cnt: 0 }, tech: {} };
+            }
+
+            // Same country + same hour + same canonical category may appear multiple times.
+            // De-duplicate by averaging duplicates first, then aggregate across countries.
+            if (ck === 'load') {
+                countryTs[key].load.sum += r.value;
+                countryTs[key].load.cnt += 1;
+                return;
+            }
+
+            if (!techLabelByKey[ck]) techLabelByKey[ck] = cat;
+            if (!countryTs[key].tech[ck]) countryTs[key].tech[ck] = { sum: 0, cnt: 0 };
+            countryTs[key].tech[ck].sum += r.value;
+            countryTs[key].tech[ck].cnt += 1;
         });
-    } catch (e) {
-        console.error(e);
-        document.getElementById('loadingMsg').textContent = '❌ Failed to load: ' + e.message;
+
+        Object.entries(countryTs).forEach(([key, ts]) => {
+            if (!mergedByTs[key]) mergedByTs[key] = { hour: ts.hour, load: 0, hasLoad: false, tech: {} };
+
+            if (ts.load.cnt > 0) {
+                mergedByTs[key].load += ts.load.sum / ts.load.cnt;
+                mergedByTs[key].hasLoad = true;
+            }
+
+            Object.entries(ts.tech).forEach(([ck, v]) => {
+                const avg = v.cnt ? (v.sum / v.cnt) : 0;
+                if (!mergedByTs[key].tech[ck]) mergedByTs[key].tech[ck] = 0;
+                mergedByTs[key].tech[ck] += avg;
+            });
+        });
+    });
+
+    Object.values(mergedByTs).forEach(b => {
+        const h = b.hour;
+        if (b.hasLoad) { byHour[h].loadSum += b.load; byHour[h].loadCnt += 1; }
+        Object.entries(b.tech).forEach(([ck, v]) => {
+            if (!byHour[h].techSum[ck]) byHour[h].techSum[ck] = 0;
+            if (!byHour[h].techCnt[ck]) byHour[h].techCnt[ck] = 0;
+            byHour[h].techSum[ck] += v;
+            byHour[h].techCnt[ck] += 1;
+        });
+    });
+
+    const techKeys = Object.keys(techLabelByKey).sort((a, b) => techLabelByKey[a].localeCompare(techLabelByKey[b]));
+    const techs = techKeys.map(k => techLabelByKey[k]);
+    const load = [];
+    const techSeries = {};
+    techs.forEach(t => techSeries[t] = []);
+
+    for (let h = 0; h < 24; h++) {
+        const x = byHour[h];
+        load.push(x.loadCnt ? +((x.loadSum / x.loadCnt).toFixed(2)) : null);
+        techKeys.forEach((k, i) => {
+            const label = techs[i];
+            const s = x.techSum[k] || 0;
+            const c = x.techCnt[k] || 0;
+            techSeries[label].push(c ? +((s / c).toFixed(2)) : 0);
+        });
     }
+
+    return { techs, techSeries, load };
+}
+
+function drawYearChart(year, domId) {
+    const selectedCountries = getSelectedCountries();
+    updateCountryLabel();
+    const mFrom = parseInt(document.getElementById('monthFrom').value, 10);
+    const mTo = parseInt(document.getElementById('monthTo').value, 10);
+
+    const chart = charts[domId];
+    if (!chart) return;
+    if (!selectedCountries.length || !mFrom || !mTo || mFrom > mTo) {
+        chart.clear();
+        return;
+    }
+
+    const { techs, techSeries, load } = summarizeYear(year, selectedCountries, mFrom, mTo);
+    const hours = Array.from({ length: 24 }, (_, i) => String(i + 1));
+
+    const series = techs.map(t => ({
+        name: t,
+        type: 'line',
+        stack: 'gen',
+        smooth: true,
+        symbol: 'none',
+        lineStyle: { width: 1.6 },
+        areaStyle: { opacity: 0.18 },
+        data: techSeries[t],
+        itemStyle: { color: typeToColor(t) }
+    }));
+
+    series.push({
+        name: 'Load',
+        type: 'line',
+        yAxisIndex: 0,
+        data: load,
+        smooth: true,
+        symbol: 'none',
+        lineStyle: { width: 2.2, color: '#111827' }
+    });
+
+    chart.setOption({
+        tooltip: {
+            trigger: 'axis',
+            valueFormatter: v => (v == null || Number.isNaN(v) ? '-' : `${Number(v).toFixed(2)}`)
+        },
+        grid: { left: 52, right: 20, top: 24, bottom: 42 },
+        xAxis: { type: 'category', data: hours, name: 'Hour', nameGap: 24 },
+        yAxis: { type: 'value', name: 'Power (MW)' },
+        dataZoom: [{ type: 'inside' }],
+        series
+    }, true);
+}
+
+function renderSharedLegend() {
+    const selectedCountries = getSelectedCountries();
+    const mFrom = parseInt(document.getElementById('monthFrom').value, 10);
+    const mTo = parseInt(document.getElementById('monthTo').value, 10);
+    const union = new Set();
+    [2024, 2025, 2026].forEach(y => {
+        const s = summarizeYear(y, selectedCountries, mFrom, mTo);
+        s.techs.forEach(t => union.add(t));
+    });
+    const legend = document.getElementById('sharedLegend');
+    const items = [...union].sort((a, b) => a.localeCompare(b));
+    items.push('Load');
+    legend.innerHTML = items.map(name => {
+        const color = name === 'Load' ? '#111827' : typeToColor(name);
+        return `<span class="legend-item"><span class="legend-swatch" style="background:${color}"></span>${name}</span>`;
+    }).join('');
+}
+
+function refresh() {
+    drawYearChart(2024, 'chart2024');
+    drawYearChart(2025, 'chart2025');
+    drawYearChart(2026, 'chart2026');
+    renderSharedLegend();
+}
+
+async function init() {
+    if (typeof echarts === 'undefined') {
+        const st = document.getElementById('loadStatus');
+        document.getElementById('loadingMsg').style.display = 'none';
+        st.className = 'load-status error';
+        st.style.display = 'block';
+        st.textContent = 'ECharts failed to load (CDN blocked or unavailable).';
+        return;
+    }
+
+    await loadAllCountries();
+    buildCountryCheckboxes();
+    initControls();
+
+    document.getElementById('loadingMsg').style.display = 'none';
+    document.getElementById('chartGrid').style.display = 'grid';
+    charts.chart2024 = echarts.init(document.getElementById('chart2024'));
+    charts.chart2025 = echarts.init(document.getElementById('chart2025'));
+    charts.chart2026 = echarts.init(document.getElementById('chart2026'));
+    Object.values(charts).forEach(c => c.resize());
+    const st = document.getElementById('loadStatus');
+    if (!loadReport.ok.length) {
+        st.className = 'load-status error';
+        st.style.display = 'block';
+        const details = loadReport.fail.map(c => `${c}: ${loadFailReason[c] || 'failed'}`).join(' | ');
+        st.textContent = `No generation files were loaded. ${details}`;
+    } else if (loadReport.fail.length) {
+        st.className = 'load-status';
+        st.style.display = 'block';
+        const details = loadReport.fail.map(c => `${c}(${loadFailReason[c] || 'failed'})`).join(', ');
+        st.textContent = `Loaded: ${loadReport.ok.join(', ')} | Failed: ${details}`;
+    } else {
+        const sampleCountry = loadReport.ok[0];
+        const sampleRows = countryData[sampleCountry] || [];
+        const parsedDateRows = sampleRows.reduce((n, r) => n + (parseDate(r.date) ? 1 : 0), 0);
+        st.className = 'load-status';
+        st.style.display = 'block';
+        st.textContent = `Loaded ${loadReport.ok.length} countries. Sample ${sampleCountry}: ${sampleRows.length} rows, ${parsedDateRows} parsable dates.`;
+    }
+
+    refresh();
+    const allSelected = getSelectedCountries();
+    const y24 = summarizeYear(2024, allSelected, 1, 12);
+    const y25 = summarizeYear(2025, allSelected, 1, 12);
+    const y26 = summarizeYear(2026, allSelected, 1, 12);
+    if (!y24.techs.length && !y25.techs.length && !y26.techs.length) {
+        st.className = 'load-status error';
+        st.style.display = 'block';
+        st.textContent = 'Data loaded, but no chartable rows found. Please verify CSV date format and category/value columns.';
+    }
+    window.addEventListener('resize', () => Object.values(charts).forEach(c => c.resize()));
 }
 
 init();

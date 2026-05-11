@@ -81,6 +81,8 @@
         .year-chart { height: 360px; }
 
         .loading { text-align: center; padding: 40px 20px; color: #666; font-size: 15px; }
+        .load-status { padding: 10px 30px; font-size: 12px; color: #6c757d; border-bottom: 1px solid #e6e9ed; display: none; }
+        .load-status.error { color: #b42318; background: #fff4f2; }
 
         @media (max-width: 1100px) { .year-row { grid-template-columns: 1fr; } }
         @media (max-width: 900px) {
@@ -133,12 +135,13 @@
     </div>
 
     <div id="loadingMsg" class="loading">Loading generation data...</div>
+    <div id="loadStatus" class="load-status"></div>
 
     <div class="chart-grid" style="display:none;" id="chartGrid">
         <div class="chart-card">
             <div class="chart-card-header">
                 <h3>Load vs Generation by Hour (Monthly Range Avg)</h3>
-                <div class="subtitle">Generation = sum of technologies excluding Cross border; selected countries are averaged</div>
+                <div class="subtitle">Generation = sum of technologies excluding Cross border; selected countries are summed</div>
             </div>
             <div class="year-row">
                 <div class="year-card"><div class="year-title">2024</div><div id="chart2024" class="year-chart"></div></div>
@@ -150,12 +153,11 @@
 </div>
 
 <script>
-// ── Country list: must match your actual files in data/generation/ ──
 const countries = ['AT','BG','DE','ES','FR','GR','HR','HU','IT','PL','RO','RS','SK'];
-
 const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 let countryData = {};
 let charts = {};
+let loadReport = { ok: [], fail: [] };
 
 function typeToColor(t) {
     if (!t) return '#90a4ae';
@@ -182,29 +184,25 @@ function typeToColor(t) {
     return '#90a4ae';
 }
 
-// ── Robust date parser: handles "2024/1/1 0:00" and "2024/01/01 00:00" ──
 function parseDate(s) {
-    if (!s) return null;
-    // Match: YYYY/M/D H:MM  or  YYYY/MM/DD HH:MM
-    const m = s.trim().match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})\s+(\d{1,2}):(\d{2})/);
+    const m = s && s.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})\s+(\d{1,2}):(\d{2})/);
     if (!m) return null;
     return { year: +m[1], month: +m[2], day: +m[3], hour: +m[4] };
 }
 
-// ── CSV parser: handles both tab-separated and comma-separated ──
 function parseCSV(text) {
     const lines = text.trim().split(/\r?\n/);
     const out = [];
-    for (let i = 1; i < lines.length; i++) {
+    if (!lines.length) return out;
+    const first = lines[0].trim().toLowerCase();
+    const hasHeader = first.includes('date') && first.includes('category');
+    const startIdx = hasHeader ? 1 : 0;
+    for (let i = startIdx; i < lines.length; i++) {
         const line = lines[i].trim();
         if (!line) continue;
-        // Auto-detect delimiter: prefer tab
-        const sep = line.includes('\t') ? '\t' : ',';
-        const parts = line.split(sep);
+        const parts = line.includes('\t') ? line.split('\t') : line.split(',');
         if (parts.length < 3) continue;
-        const val = parseFloat(parts[2].trim());
-        if (isNaN(val)) continue;
-        out.push({ date: parts[0].trim(), category: parts[1].trim(), value: val });
+        out.push({ date: parts[0].trim(), category: parts[1].trim(), value: parseFloat(parts[2]) });
     }
     return out;
 }
@@ -218,19 +216,35 @@ function canonicalKey(cat) {
 }
 
 async function loadAllCountries() {
+    loadReport = { ok: [], fail: [] };
     const jobs = countries.map(async c => {
         try {
-            const res = await fetch(`data/generation/${c}.csv`);
-            if (!res.ok) {
-                console.warn(`Could not load ${c}.csv (HTTP ${res.status})`);
+            const urls = [
+                `https://hanyu-jian.github.io/data/generation/${c}.csv`,
+                `/data/generation/${c}.csv`,
+                `data/generation/${c}.csv`
+            ];
+            let text = null;
+            for (const u of urls) {
+                const res = await fetch(u);
+                if (res.ok) {
+                    text = await res.text();
+                    break;
+                }
+            }
+            if (!text) {
+                loadReport.fail.push(c);
                 return;
             }
-            const text = await res.text();
             const rows = parseCSV(text);
+            if (!rows.length) {
+                loadReport.fail.push(c);
+                return;
+            }
             countryData[c] = rows;
-            console.log(`Loaded ${c}.csv: ${rows.length} rows`);
-        } catch (err) {
-            console.warn(`Error loading ${c}.csv:`, err);
+            loadReport.ok.push(c);
+        } catch (_) {
+            loadReport.fail.push(c);
         }
     });
     await Promise.all(jobs);
@@ -246,7 +260,7 @@ function buildCountryCheckboxes() {
         cb.type = 'checkbox';
         cb.value = c;
         cb.checked = c === 'HU';
-        cb.addEventListener('change', () => { updateCountryLabel(); refresh(); });
+        cb.addEventListener('change', refresh);
         const span = document.createElement('span');
         span.textContent = c;
         item.appendChild(cb);
@@ -275,16 +289,16 @@ function updateCountryLabel() {
 
 function initControls() {
     const from = document.getElementById('monthFrom');
-    const to   = document.getElementById('monthTo');
+    const to = document.getElementById('monthTo');
     from.innerHTML = monthNames.map((m,i) => `<option value="${i+1}">${m}</option>`).join('');
-    to.innerHTML   = monthNames.map((m,i) => `<option value="${i+1}">${m}</option>`).join('');
+    to.innerHTML = monthNames.map((m,i) => `<option value="${i+1}">${m}</option>`).join('');
     from.value = '1';
-    to.value   = '12';
+    to.value = '12';
 
     from.addEventListener('change', refresh);
     to.addEventListener('change', refresh);
 
-    const btn  = document.getElementById('countrySelectBtn');
+    const btn = document.getElementById('countrySelectBtn');
     const drop = document.getElementById('countryDropdown');
     btn.addEventListener('click', e => { e.stopPropagation(); drop.classList.toggle('show'); });
     document.addEventListener('click', e => { if (!drop.contains(e.target) && e.target !== btn) drop.classList.remove('show'); });
@@ -301,50 +315,45 @@ function initControls() {
 
 function summarizeYear(year, selectedCountries, mFrom, mTo) {
     const techLabelByKey = {};
-    // byHour indexed 0–23
     const byHour = {};
     for (let h = 0; h < 24; h++) byHour[h] = { loadSum: 0, loadCnt: 0, techSum: {}, techCnt: {} };
-
-    // Per-timestamp accumulator (so multi-country sums are correct before averaging by hour)
     const mergedByTs = {};
 
     selectedCountries.forEach(c => {
         const rows = countryData[c] || [];
-        rows.forEach(r => {
-            const dt = parseDate(r.date);
-            if (!dt) return;
-            if (dt.year !== year) return;
-            if (dt.month < mFrom || dt.month > mTo) return;
 
-            const hour = dt.hour; // 0–23
-            const tsKey = `${dt.year}-${dt.month}-${dt.day}-${hour}-${c}`;
-            if (!mergedByTs[tsKey]) mergedByTs[tsKey] = { hour, load: 0, hasLoad: false, tech: {} };
+        rows.forEach(r => {
+            if (isNaN(r.value)) return;
+            const dt = parseDate(r.date);
+            if (!dt || dt.year !== year || dt.month < mFrom || dt.month > mTo) return;
+
+            const hour = dt.hour;
+            const key = `${dt.year}-${dt.month}-${dt.day}-${hour}`;
+            if (!mergedByTs[key]) mergedByTs[key] = { hour, load: 0, hasLoad: false, tech: {} };
 
             const cat = normalizeCategory(r.category);
-            const ck  = canonicalKey(cat);
-
-            // Skip unwanted rows
-            if (ck.includes('cross border'))             return;
-            if (ck.includes('renewable share of'))       return;
+            const ck = canonicalKey(cat);
 
             if (ck === 'load') {
-                mergedByTs[tsKey].load   += r.value;
-                mergedByTs[tsKey].hasLoad = true;
+                mergedByTs[key].load += r.value;
+                mergedByTs[key].hasLoad = true;
                 return;
             }
+            if (ck.includes('cross border')) return;
+            if (ck.includes('renewable share')) return;
 
             if (!techLabelByKey[ck]) techLabelByKey[ck] = cat;
-            if (!mergedByTs[tsKey].tech[ck]) mergedByTs[tsKey].tech[ck] = 0;
-            mergedByTs[tsKey].tech[ck] += r.value;
+            if (!mergedByTs[key].tech[ck]) mergedByTs[key].tech[ck] = 0;
+            mergedByTs[key].tech[ck] += r.value;
         });
     });
 
-    // Aggregate into hourly averages
     Object.values(mergedByTs).forEach(b => {
         const h = b.hour;
         if (b.hasLoad) { byHour[h].loadSum += b.load; byHour[h].loadCnt += 1; }
         Object.entries(b.tech).forEach(([ck, v]) => {
-            if (!byHour[h].techSum[ck]) { byHour[h].techSum[ck] = 0; byHour[h].techCnt[ck] = 0; }
+            if (!byHour[h].techSum[ck]) byHour[h].techSum[ck] = 0;
+            if (!byHour[h].techCnt[ck]) byHour[h].techCnt[ck] = 0;
             byHour[h].techSum[ck] += v;
             byHour[h].techCnt[ck] += 1;
         });
@@ -358,12 +367,12 @@ function summarizeYear(year, selectedCountries, mFrom, mTo) {
 
     for (let h = 0; h < 24; h++) {
         const x = byHour[h];
-        load.push(x.loadCnt ? +(x.loadSum / x.loadCnt).toFixed(2) : null);
+        load.push(x.loadCnt ? x.loadSum / x.loadCnt : null);
         techKeys.forEach((k, i) => {
             const label = techs[i];
             const s = x.techSum[k] || 0;
             const c = x.techCnt[k] || 0;
-            techSeries[label].push(c ? +(s / c).toFixed(2) : 0);
+            techSeries[label].push(c ? s / c : 0);
         });
     }
 
@@ -372,21 +381,19 @@ function summarizeYear(year, selectedCountries, mFrom, mTo) {
 
 function drawYearChart(year, domId) {
     const selectedCountries = getSelectedCountries();
+    updateCountryLabel();
     const mFrom = parseInt(document.getElementById('monthFrom').value, 10);
-    const mTo   = parseInt(document.getElementById('monthTo').value, 10);
+    const mTo = parseInt(document.getElementById('monthTo').value, 10);
 
     const chart = charts[domId];
     if (!chart) return;
-
     if (!selectedCountries.length || !mFrom || !mTo || mFrom > mTo) {
         chart.clear();
         return;
     }
 
     const { techs, techSeries, load } = summarizeYear(year, selectedCountries, mFrom, mTo);
-
-    // X-axis labels: "0h" through "23h"
-    const hours = Array.from({ length: 24 }, (_, i) => `${i}h`);
+    const hours = Array.from({ length: 24 }, (_, i) => String(i + 1));
 
     const series = techs.map(t => ({
         name: t,
@@ -404,16 +411,15 @@ function drawYearChart(year, domId) {
         data: load,
         smooth: true,
         symbol: 'none',
-        lineStyle: { width: 2.5, color: '#111827' },
-        z: 10
+        lineStyle: { width: 2.2, color: '#111827' }
     });
 
     chart.setOption({
-        tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+        tooltip: { trigger: 'axis' },
         legend: { type: 'scroll', top: 0, textStyle: { fontSize: 11 } },
-        grid: { left: 56, right: 20, top: 64, bottom: 42 },
-        xAxis: { type: 'category', data: hours, name: 'Hour', nameGap: 24, nameLocation: 'middle' },
-        yAxis: { type: 'value', name: 'Power (MW)', nameTextStyle: { fontSize: 11 } },
+        grid: { left: 52, right: 20, top: 58, bottom: 42 },
+        xAxis: { type: 'category', data: hours, name: 'Hour', nameGap: 24 },
+        yAxis: { type: 'value', name: 'Power (MW)' },
         dataZoom: [{ type: 'inside' }],
         series
     }, true);
@@ -436,6 +442,16 @@ async function init() {
 
     document.getElementById('loadingMsg').style.display = 'none';
     document.getElementById('chartGrid').style.display = 'grid';
+    const st = document.getElementById('loadStatus');
+    if (!loadReport.ok.length) {
+        st.className = 'load-status error';
+        st.style.display = 'block';
+        st.textContent = 'No generation files were loaded. Please check GitHub path: /data/generation/{AT,BG,DE,ES,FR,GR,HR,HU,IT,PL,RO,RS,SK}.csv';
+    } else if (loadReport.fail.length) {
+        st.className = 'load-status';
+        st.style.display = 'block';
+        st.textContent = `Loaded: ${loadReport.ok.join(', ')} | Failed: ${loadReport.fail.join(', ')}`;
+    }
 
     refresh();
     window.addEventListener('resize', () => Object.values(charts).forEach(c => c.resize()));

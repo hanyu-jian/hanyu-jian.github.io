@@ -186,9 +186,12 @@ function typeToColor(t) {
 }
 
 function parseDate(s) {
-    const m = s && s.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})\s+(\d{1,2}):(\d{2})/);
-    if (!m) return null;
-    return { year: +m[1], month: +m[2], day: +m[3], hour: +m[4] };
+    if (!s) return null;
+    let m = s.match(/^(\d{4})[\/-](\d{1,2})[\/-](\d{1,2})\s+(\d{1,2}):(\d{2})/);
+    if (m) return { year: +m[1], month: +m[2], day: +m[3], hour: +m[4] };
+    m = s.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})\s+(\d{1,2}):(\d{2})/);
+    if (m) return { year: +m[3], month: +m[2], day: +m[1], hour: +m[4] };
+    return null;
 }
 
 function parseCSV(text) {
@@ -386,12 +389,12 @@ function summarizeYear(year, selectedCountries, mFrom, mTo) {
 
     for (let h = 0; h < 24; h++) {
         const x = byHour[h];
-        load.push(x.loadCnt ? x.loadSum / x.loadCnt : null);
+        load.push(x.loadCnt ? +((x.loadSum / x.loadCnt).toFixed(2)) : null);
         techKeys.forEach((k, i) => {
             const label = techs[i];
             const s = x.techSum[k] || 0;
             const c = x.techCnt[k] || 0;
-            techSeries[label].push(c ? s / c : 0);
+            techSeries[label].push(c ? +((s / c).toFixed(2)) : 0);
         });
     }
 
@@ -416,9 +419,12 @@ function drawYearChart(year, domId) {
 
     const series = techs.map(t => ({
         name: t,
-        type: 'bar',
+        type: 'line',
         stack: 'gen',
-        barMaxWidth: 18,
+        smooth: true,
+        symbol: 'none',
+        lineStyle: { width: 1.6 },
+        areaStyle: { opacity: 0.18 },
         data: techSeries[t],
         itemStyle: { color: typeToColor(t) }
     }));
@@ -434,7 +440,10 @@ function drawYearChart(year, domId) {
     });
 
     chart.setOption({
-        tooltip: { trigger: 'axis' },
+        tooltip: {
+            trigger: 'axis',
+            valueFormatter: v => (v == null || Number.isNaN(v) ? '-' : `${Number(v).toFixed(2)}`)
+        },
         legend: { type: 'scroll', top: 0, textStyle: { fontSize: 11 } },
         grid: { left: 52, right: 20, top: 58, bottom: 42 },
         xAxis: { type: 'category', data: hours, name: 'Hour', nameGap: 24 },
@@ -451,9 +460,14 @@ function refresh() {
 }
 
 async function init() {
-    charts.chart2024 = echarts.init(document.getElementById('chart2024'));
-    charts.chart2025 = echarts.init(document.getElementById('chart2025'));
-    charts.chart2026 = echarts.init(document.getElementById('chart2026'));
+    if (typeof echarts === 'undefined') {
+        const st = document.getElementById('loadStatus');
+        document.getElementById('loadingMsg').style.display = 'none';
+        st.className = 'load-status error';
+        st.style.display = 'block';
+        st.textContent = 'ECharts failed to load (CDN blocked or unavailable).';
+        return;
+    }
 
     await loadAllCountries();
     buildCountryCheckboxes();
@@ -461,6 +475,10 @@ async function init() {
 
     document.getElementById('loadingMsg').style.display = 'none';
     document.getElementById('chartGrid').style.display = 'grid';
+    charts.chart2024 = echarts.init(document.getElementById('chart2024'));
+    charts.chart2025 = echarts.init(document.getElementById('chart2025'));
+    charts.chart2026 = echarts.init(document.getElementById('chart2026'));
+    Object.values(charts).forEach(c => c.resize());
     const st = document.getElementById('loadStatus');
     if (!loadReport.ok.length) {
         st.className = 'load-status error';
@@ -472,9 +490,25 @@ async function init() {
         st.style.display = 'block';
         const details = loadReport.fail.map(c => `${c}(${loadFailReason[c] || 'failed'})`).join(', ');
         st.textContent = `Loaded: ${loadReport.ok.join(', ')} | Failed: ${details}`;
+    } else {
+        const sampleCountry = loadReport.ok[0];
+        const sampleRows = countryData[sampleCountry] || [];
+        const parsedDateRows = sampleRows.reduce((n, r) => n + (parseDate(r.date) ? 1 : 0), 0);
+        st.className = 'load-status';
+        st.style.display = 'block';
+        st.textContent = `Loaded ${loadReport.ok.length} countries. Sample ${sampleCountry}: ${sampleRows.length} rows, ${parsedDateRows} parsable dates.`;
     }
 
     refresh();
+    const allSelected = getSelectedCountries();
+    const y24 = summarizeYear(2024, allSelected, 1, 12);
+    const y25 = summarizeYear(2025, allSelected, 1, 12);
+    const y26 = summarizeYear(2026, allSelected, 1, 12);
+    if (!y24.techs.length && !y25.techs.length && !y26.techs.length) {
+        st.className = 'load-status error';
+        st.style.display = 'block';
+        st.textContent = 'Data loaded, but no chartable rows found. Please verify CSV date format and category/value columns.';
+    }
     window.addEventListener('resize', () => Object.values(charts).forEach(c => c.resize()));
 }
 

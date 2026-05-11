@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <script>
+        (function() {
+            if (localStorage.getItem('site_access') !== 'granted') {
+                window.location.replace('/password.html');
+            }
+        })();
+    </script>
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Generation Overview – European Electricity Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f2f5; padding: 20px; }
+        .container { max-width: 1600px; margin: 0 auto; background: #fff; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); overflow: hidden; }
+
+        .header { background: #2c3e50; color: #fff; padding: 20px 30px 0 30px; }
+        .header-top { padding-bottom: 16px; }
+        .header-top h1 { font-size: 24px; font-weight: 500; letter-spacing: 0.2px; }
+
+        .main-nav { display: flex; gap: 2px; margin-top: 4px; }
+        .main-nav-link {
+            display: inline-flex; align-items: center; gap: 7px;
+            padding: 10px 24px; font-size: 14px; font-weight: 600;
+            color: rgba(255,255,255,0.65); text-decoration: none;
+            border-radius: 6px 6px 0 0; background: rgba(255,255,255,0.06);
+            border: 1px solid transparent; border-bottom: none; letter-spacing: 0.2px;
+            transition: background 0.2s, color 0.2s, border-color 0.2s; white-space: nowrap;
+            position: relative; top: 1px;
+        }
+        .main-nav-link:hover { color: rgba(255,255,255,0.95); background: rgba(255,255,255,0.14); }
+        .main-nav-link.active { color: #2c3e50; background: #f8f9fa; border-color: #e6e9ed; border-bottom-color: #f8f9fa; }
+
+        .sub-nav { background: #f8f9fa; border-bottom: 2px solid #e6e9ed; padding: 0 30px; display: flex; }
+        .sub-nav-link { display: inline-block; padding: 14px 22px; font-size: 14px; font-weight: 600; color: #6c757d; text-decoration: none; border-bottom: 3px solid transparent; margin-bottom: -2px; }
+        .sub-nav-link.active { color: #2c3e50; border-bottom-color: #2c3e50; }
+
+        .controls {
+            padding: 20px 30px; display: flex; flex-wrap: wrap; gap: 24px;
+            align-items: flex-end; background: #fff; border-bottom: 1px solid #e6e9ed;
+        }
+        .control-group { display: flex; flex-direction: column; gap: 6px; }
+        .control-group label { font-size: 13px; font-weight: 600; color: #2c3e50; white-space: nowrap; }
+        select {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            height: 36px; padding: 0 12px; border: 1px solid #ccc; border-radius: 6px;
+            font-size: 14px; min-width: 120px; cursor: pointer;
+        }
+
+        .country-select-wrapper { position: relative; display: inline-block; }
+        .country-select-btn {
+            min-width: 220px; height: 36px; padding: 0 12px; border: 1px solid #ccc;
+            border-radius: 6px; font-size: 14px; background: #fff; cursor: pointer;
+            display: flex; align-items: center; justify-content: space-between; gap: 8px;
+        }
+        .country-select-btn::after { content: '▼'; font-size: 10px; color: #666; }
+        .country-dropdown {
+            position: absolute; top: calc(100% + 4px); left: 0; min-width: 320px;
+            max-height: 320px; overflow-y: auto; background: #fff; border: 1px solid #ccc;
+            border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 9999;
+            display: none; padding: 8px 0;
+        }
+        .country-dropdown.show { display: block; }
+        .country-dropdown-header { display: flex; gap: 8px; padding: 4px 12px 8px; border-bottom: 1px solid #eee; margin-bottom: 4px; }
+        .btn-small { padding: 4px 10px; font-size: 12px; background: #e9ecef; border: 1px solid #ccc; cursor: pointer; border-radius: 4px; }
+        .country-list { display: grid; grid-template-columns: repeat(2, 1fr); gap: 2px 0; padding: 0 8px; }
+        .country-item { display: flex; align-items: center; gap: 6px; padding: 4px 6px; border-radius: 4px; cursor: pointer; }
+        .country-item:hover { background: #f5f5f5; }
+
+        .chart-grid { display: grid; grid-template-columns: 1fr; gap: 24px; padding: 24px 30px; }
+        .chart-card { background: #fff; border-radius: 8px; border: 1px solid #e6e9ed; padding: 16px; }
+        .chart-card-header h3 { font-size: 18px; font-weight: 500; color: #2c3e50; border-left: 4px solid #2c3e50; padding-left: 12px; margin: 0; }
+        .subtitle { font-size: 12px; color: #888; margin-top: 4px; padding-left: 16px; }
+        .year-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 14px; }
+        .year-card { border: 1px solid #e6e9ed; border-radius: 8px; padding: 10px; background: #fafbfd; }
+        .year-title { font-size: 13px; font-weight: 700; color: #2c3e50; margin-bottom: 8px; }
+        .year-chart { height: 360px; }
+
+        .loading { text-align: center; padding: 40px 20px; color: #666; font-size: 15px; }
+
+        @media (max-width: 1100px) { .year-row { grid-template-columns: 1fr; } }
+        @media (max-width: 900px) {
+            .header { padding: 16px 16px 0 16px; }
+            .sub-nav { padding: 0 10px; overflow-x: auto; }
+            .controls { flex-direction: column; align-items: stretch; }
+            .country-select-btn, .country-dropdown, select { width: 100%; min-width: 0; }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <div class="header-top"><h1>European Electricity Dashboard</h1></div>
+        <div class="main-nav">
+            <a href="project.html" class="main-nav-link">Projects</a>
+            <a href="price-overview.html" class="main-nav-link">Price</a>
+            <a href="load.html" class="main-nav-link">Load</a>
+            <a href="generation-overview.html" class="main-nav-link active">Generation</a>
+            <a href="capacity.html" class="main-nav-link">Installed Capacity</a>
+        </div>
+    </div>
+
+    <div class="sub-nav">
+        <a class="sub-nav-link active" href="generation-overview.html">Generation Overview</a>
+    </div>
+
+    <div class="controls">
+        <div class="control-group">
+            <label>Month From</label>
+            <select id="monthFrom"></select>
+        </div>
+        <div class="control-group">
+            <label>Month To</label>
+            <select id="monthTo"></select>
+        </div>
+        <div class="control-group">
+            <label>Countries</label>
+            <div class="country-select-wrapper">
+                <div class="country-select-btn" id="countrySelectBtn"><span id="countrySelectText">Select...</span></div>
+                <div class="country-dropdown" id="countryDropdown">
+                    <div class="country-dropdown-header">
+                        <button id="selectAllBtn" class="btn-small">Select All</button>
+                        <button id="clearAllBtn" class="btn-small">Clear All</button>
+                    </div>
+                    <div id="countryCheckboxes" class="country-list"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="loadingMsg" class="loading">Loading generation data...</div>
+
+    <div class="chart-grid" style="display:none;" id="chartGrid">
+        <div class="chart-card">
+            <div class="chart-card-header">
+                <h3>Load vs Generation by Hour (Monthly Range Avg)</h3>
+                <div class="subtitle">Generation = sum of technologies excluding Cross border; selected countries are averaged</div>
+            </div>
+            <div class="year-row">
+                <div class="year-card"><div class="year-title">2024</div><div id="chart2024" class="year-chart"></div></div>
+                <div class="year-card"><div class="year-title">2025</div><div id="chart2025" class="year-chart"></div></div>
+                <div class="year-card"><div class="year-title">2026</div><div id="chart2026" class="year-chart"></div></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+const countries = ['AT','BE','BG','CZ','DE','FR','GR','HU','IT','NL','PL','RO','SK'];
+const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+let countryData = {};
+let charts = {};
+
+function typeToColor(t) {
+    if (!t) return '#90a4ae';
+    const tl = t.toLowerCase();
+    if (tl.includes('hydro pumped') || tl.includes('pumped storage')) return '#a8c4e0';
+    if (tl.includes('hydro')) return '#1a56a0';
+    if (tl.includes('battery') || tl.includes('energy storage')) return '#b0bec5';
+    if (tl.includes('biomass')) return '#1b5e20';
+    if (tl.includes('brown coal') || tl.includes('lignite')) return '#8B6914';
+    if (tl.includes('hard coal')) return '#444444';
+    if (tl.includes('coal-derived')) return '#d4b44a';
+    if (tl.includes('fossil oil') || tl.includes('oil shale')) return '#8B6914';
+    if (tl.includes('fossil gas') || tl.includes('gas')) return '#f5821f';
+    if (tl.includes('peat')) return '#5d4037';
+    if (tl.includes('wind off')) return '#2e7d32';
+    if (tl.includes('wind on') || tl.includes('wind')) return '#81c784';
+    if (tl.includes('solar')) return '#fcc428';
+    if (tl.includes('nuclear')) return '#e53935';
+    if (tl.includes('geotherm')) return '#3949ab';
+    if (tl.includes('marine')) return '#1565c0';
+    if (tl.includes('waste')) return '#8d6e63';
+    if (tl.includes('other renew')) return '#9c7bb5';
+    if (tl.includes('other')) return '#9c7bb5';
+    return '#90a4ae';
+}
+
+function parseDate(s) {
+    const m = s && s.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})\s+(\d{1,2}):(\d{2})/);
+    if (!m) return null;
+    return { year: +m[1], month: +m[2], day: +m[3], hour: +m[4] };
+}
+
+function parseCSV(text) {
+    const lines = text.trim().split(/\r?\n/);
+    const out = [];
+    for (let i = 1; i < lines.length; i++) {
+        const parts = lines[i].split(',');
+        if (parts.length < 3) continue;
+        out.push({ date: parts[0].trim(), category: parts[1].trim(), value: parseFloat(parts[2]) });
+    }
+    return out;
+}
+
+function normalizeCategory(cat) {
+    return (cat || '').replace(/\s+/g, ' ').trim();
+}
+
+async function loadAllCountries() {
+    const jobs = countries.map(async c => {
+        try {
+            const res = await fetch(`data/generation/${c}.csv`);
+            if (!res.ok) return;
+            const text = await res.text();
+            countryData[c] = parseCSV(text);
+        } catch (_) {}
+    });
+    await Promise.all(jobs);
+}
+
+function buildCountryCheckboxes() {
+    const wrap = document.getElementById('countryCheckboxes');
+    wrap.innerHTML = '';
+    countries.forEach(c => {
+        const item = document.createElement('div');
+        item.className = 'country-item';
+        const cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.value = c;
+        cb.checked = c === 'HU';
+        cb.addEventListener('change', refresh);
+        const span = document.createElement('span');
+        span.textContent = c;
+        item.appendChild(cb);
+        item.appendChild(span);
+        item.addEventListener('click', e => {
+            if (e.target !== cb) { cb.checked = !cb.checked; cb.dispatchEvent(new Event('change')); }
+        });
+        wrap.appendChild(item);
+    });
+    updateCountryLabel();
+}
+
+function getSelectedCountries() {
+    return [...document.querySelectorAll('#countryCheckboxes input:checked')].map(x => x.value);
+}
+
+function updateCountryLabel() {
+    const all = [...document.querySelectorAll('#countryCheckboxes input')];
+    const checked = all.filter(x => x.checked);
+    const el = document.getElementById('countrySelectText');
+    if (!checked.length) el.textContent = 'None selected';
+    else if (checked.length === all.length) el.textContent = `All (${all.length})`;
+    else if (checked.length <= 4) el.textContent = checked.map(x => x.value).join(', ');
+    else el.textContent = `${checked.length} selected`;
+}
+
+function initControls() {
+    const from = document.getElementById('monthFrom');
+    const to = document.getElementById('monthTo');
+    from.innerHTML = monthNames.map((m,i) => `<option value="${i+1}">${m}</option>`).join('');
+    to.innerHTML = monthNames.map((m,i) => `<option value="${i+1}">${m}</option>`).join('');
+    from.value = '1';
+    to.value = '12';
+
+    from.addEventListener('change', refresh);
+    to.addEventListener('change', refresh);
+
+    const btn = document.getElementById('countrySelectBtn');
+    const drop = document.getElementById('countryDropdown');
+    btn.addEventListener('click', e => { e.stopPropagation(); drop.classList.toggle('show'); });
+    document.addEventListener('click', e => { if (!drop.contains(e.target) && e.target !== btn) drop.classList.remove('show'); });
+
+    document.getElementById('selectAllBtn').addEventListener('click', () => {
+        document.querySelectorAll('#countryCheckboxes input').forEach(x => x.checked = true);
+        updateCountryLabel(); refresh();
+    });
+    document.getElementById('clearAllBtn').addEventListener('click', () => {
+        document.querySelectorAll('#countryCheckboxes input').forEach(x => x.checked = false);
+        updateCountryLabel(); refresh();
+    });
+}
+
+function summarizeYear(year, selectedCountries, mFrom, mTo) {
+    const techSet = new Set();
+    const byHour = {};
+    for (let h = 0; h < 24; h++) byHour[h] = { loadSum: 0, loadCnt: 0, tech: {} };
+
+    selectedCountries.forEach(c => {
+        const rows = countryData[c] || [];
+        const hourlyBuckets = {};
+
+        rows.forEach(r => {
+            if (isNaN(r.value)) return;
+            const dt = parseDate(r.date);
+            if (!dt || dt.year !== year || dt.month < mFrom || dt.month > mTo) return;
+
+            const hour = dt.hour;
+            const key = `${dt.year}-${dt.month}-${dt.day}-${hour}`;
+            if (!hourlyBuckets[key]) hourlyBuckets[key] = { hour, load: null, tech: {} };
+
+            const cat = normalizeCategory(r.category);
+            const cl = cat.toLowerCase();
+
+            if (cl === 'load') {
+                hourlyBuckets[key].load = r.value;
+                return;
+            }
+            if (cl.includes('cross border')) return;
+
+            if (!hourlyBuckets[key].tech[cat]) hourlyBuckets[key].tech[cat] = 0;
+            hourlyBuckets[key].tech[cat] += r.value;
+        });
+
+        Object.values(hourlyBuckets).forEach(b => {
+            const h = b.hour;
+            if (b.load != null) { byHour[h].loadSum += b.load; byHour[h].loadCnt += 1; }
+            Object.entries(b.tech).forEach(([t, v]) => {
+                techSet.add(t);
+                if (!byHour[h].tech[t]) byHour[h].tech[t] = { sum: 0, cnt: 0 };
+                byHour[h].tech[t].sum += v;
+                byHour[h].tech[t].cnt += 1;
+            });
+        });
+    });
+
+    const techs = [...techSet].sort();
+    const load = [];
+    const techSeries = {};
+    techs.forEach(t => techSeries[t] = []);
+
+    for (let h = 0; h < 24; h++) {
+        const x = byHour[h];
+        load.push(x.loadCnt ? x.loadSum / x.loadCnt : null);
+        techs.forEach(t => {
+            const g = x.tech[t];
+            techSeries[t].push(g ? g.sum / g.cnt : 0);
+        });
+    }
+
+    return { techs, techSeries, load };
+}
+
+function drawYearChart(year, domId) {
+    const selectedCountries = getSelectedCountries();
+    updateCountryLabel();
+    const mFrom = parseInt(document.getElementById('monthFrom').value, 10);
+    const mTo = parseInt(document.getElementById('monthTo').value, 10);
+
+    const chart = charts[domId];
+    if (!chart) return;
+    if (!selectedCountries.length || !mFrom || !mTo || mFrom > mTo) {
+        chart.clear();
+        return;
+    }
+
+    const { techs, techSeries, load } = summarizeYear(year, selectedCountries, mFrom, mTo);
+    const hours = Array.from({ length: 24 }, (_, i) => String(i + 1));
+
+    const series = techs.map(t => ({
+        name: t,
+        type: 'bar',
+        stack: 'gen',
+        barMaxWidth: 18,
+        data: techSeries[t],
+        itemStyle: { color: typeToColor(t) }
+    }));
+
+    series.push({
+        name: 'Load',
+        type: 'line',
+        yAxisIndex: 0,
+        data: load,
+        smooth: true,
+        symbol: 'none',
+        lineStyle: { width: 2.2, color: '#111827' }
+    });
+
+    chart.setOption({
+        tooltip: { trigger: 'axis' },
+        legend: { type: 'scroll', top: 0, textStyle: { fontSize: 11 } },
+        grid: { left: 52, right: 20, top: 58, bottom: 42 },
+        xAxis: { type: 'category', data: hours, name: 'Hour', nameGap: 24 },
+        yAxis: { type: 'value', name: 'Power (MW)' },
+        dataZoom: [{ type: 'inside' }],
+        series
+    }, true);
+}
+
+function refresh() {
+    drawYearChart(2024, 'chart2024');
+    drawYearChart(2025, 'chart2025');
+    drawYearChart(2026, 'chart2026');
+}
+
+async function init() {
+    charts.chart2024 = echarts.init(document.getElementById('chart2024'));
+    charts.chart2025 = echarts.init(document.getElementById('chart2025'));
+    charts.chart2026 = echarts.init(document.getElementById('chart2026'));
+
+    await loadAllCountries();
+    buildCountryCheckboxes();
+    initControls();
+
+    document.getElementById('loadingMsg').style.display = 'none';
+    document.getElementById('chartGrid').style.display = 'grid';
+
+    refresh();
+    window.addEventListener('resize', () => Object.values(charts).forEach(c => c.resize()));
+}
+
+init();
+</script>
+</body>
+</html>

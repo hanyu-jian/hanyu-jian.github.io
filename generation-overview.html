@@ -190,7 +190,9 @@ function parseCSV(text) {
     const lines = text.trim().split(/\r?\n/);
     const out = [];
     for (let i = 1; i < lines.length; i++) {
-        const parts = lines[i].split(',');
+        const line = lines[i].trim();
+        if (!line) continue;
+        const parts = line.includes('\t') ? line.split('\t') : line.split(',');
         if (parts.length < 3) continue;
         out.push({ date: parts[0].trim(), category: parts[1].trim(), value: parseFloat(parts[2]) });
     }
@@ -199,6 +201,10 @@ function parseCSV(text) {
 
 function normalizeCategory(cat) {
     return (cat || '').replace(/\s+/g, ' ').trim();
+}
+
+function canonicalKey(cat) {
+    return normalizeCategory(cat).toLowerCase().replace(/[-/]/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
 async function loadAllCountries() {
@@ -277,13 +283,13 @@ function initControls() {
 }
 
 function summarizeYear(year, selectedCountries, mFrom, mTo) {
-    const techSet = new Set();
+    const techLabelByKey = {};
     const byHour = {};
-    for (let h = 0; h < 24; h++) byHour[h] = { loadSum: 0, loadCnt: 0, tech: {} };
+    for (let h = 0; h < 24; h++) byHour[h] = { loadSum: 0, loadCnt: 0, techSum: {}, techCnt: {} };
+    const mergedByTs = {};
 
     selectedCountries.forEach(c => {
         const rows = countryData[c] || [];
-        const hourlyBuckets = {};
 
         rows.forEach(r => {
             if (isNaN(r.value)) return;
@@ -292,34 +298,38 @@ function summarizeYear(year, selectedCountries, mFrom, mTo) {
 
             const hour = dt.hour;
             const key = `${dt.year}-${dt.month}-${dt.day}-${hour}`;
-            if (!hourlyBuckets[key]) hourlyBuckets[key] = { hour, load: null, tech: {} };
+            if (!mergedByTs[key]) mergedByTs[key] = { hour, load: 0, hasLoad: false, tech: {} };
 
             const cat = normalizeCategory(r.category);
-            const cl = cat.toLowerCase();
+            const ck = canonicalKey(cat);
 
-            if (cl === 'load') {
-                hourlyBuckets[key].load = r.value;
+            if (ck === 'load') {
+                mergedByTs[key].load += r.value;
+                mergedByTs[key].hasLoad = true;
                 return;
             }
-            if (cl.includes('cross border')) return;
+            if (ck.includes('cross border')) return;
+            if (ck.includes('renewable share')) return;
 
-            if (!hourlyBuckets[key].tech[cat]) hourlyBuckets[key].tech[cat] = 0;
-            hourlyBuckets[key].tech[cat] += r.value;
-        });
-
-        Object.values(hourlyBuckets).forEach(b => {
-            const h = b.hour;
-            if (b.load != null) { byHour[h].loadSum += b.load; byHour[h].loadCnt += 1; }
-            Object.entries(b.tech).forEach(([t, v]) => {
-                techSet.add(t);
-                if (!byHour[h].tech[t]) byHour[h].tech[t] = { sum: 0, cnt: 0 };
-                byHour[h].tech[t].sum += v;
-                byHour[h].tech[t].cnt += 1;
-            });
+            if (!techLabelByKey[ck]) techLabelByKey[ck] = cat;
+            if (!mergedByTs[key].tech[ck]) mergedByTs[key].tech[ck] = 0;
+            mergedByTs[key].tech[ck] += r.value;
         });
     });
 
-    const techs = [...techSet].sort();
+    Object.values(mergedByTs).forEach(b => {
+        const h = b.hour;
+        if (b.hasLoad) { byHour[h].loadSum += b.load; byHour[h].loadCnt += 1; }
+        Object.entries(b.tech).forEach(([ck, v]) => {
+            if (!byHour[h].techSum[ck]) byHour[h].techSum[ck] = 0;
+            if (!byHour[h].techCnt[ck]) byHour[h].techCnt[ck] = 0;
+            byHour[h].techSum[ck] += v;
+            byHour[h].techCnt[ck] += 1;
+        });
+    });
+
+    const techKeys = Object.keys(techLabelByKey).sort((a, b) => techLabelByKey[a].localeCompare(techLabelByKey[b]));
+    const techs = techKeys.map(k => techLabelByKey[k]);
     const load = [];
     const techSeries = {};
     techs.forEach(t => techSeries[t] = []);
@@ -327,9 +337,11 @@ function summarizeYear(year, selectedCountries, mFrom, mTo) {
     for (let h = 0; h < 24; h++) {
         const x = byHour[h];
         load.push(x.loadCnt ? x.loadSum / x.loadCnt : null);
-        techs.forEach(t => {
-            const g = x.tech[t];
-            techSeries[t].push(g ? g.sum / g.cnt : 0);
+        techKeys.forEach((k, i) => {
+            const label = techs[i];
+            const s = x.techSum[k] || 0;
+            const c = x.techCnt[k] || 0;
+            techSeries[label].push(c ? s / c : 0);
         });
     }
 

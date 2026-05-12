@@ -75,16 +75,22 @@
         .chart-card { background: #fff; border-radius: 8px; border: 1px solid #e6e9ed; padding: 16px; }
         .chart-card-header h3 { font-size: 18px; font-weight: 500; color: #2c3e50; border-left: 4px solid #2c3e50; padding-left: 12px; margin: 0; }
         .subtitle { font-size: 12px; color: #888; margin-top: 4px; padding-left: 16px; }
-        .year-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 14px; }
-        .year-card { border: 1px solid #e6e9ed; border-radius: 8px; padding: 10px; background: #fafbfd; }
+
+        /* ── shared legend lives here ── */
+        #sharedLegend { width: 100%; margin-top: 12px; min-height: 32px; }
+
+        .year-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; margin-top: 14px; }
+        .year-card { border: 1px solid #e6e9ed; border-radius: 0; padding: 10px; background: #fafbfd; }
+        .year-card:first-child { border-radius: 8px 0 0 8px; }
+        .year-card:last-child  { border-radius: 0 8px 8px 0; }
+        /* remove duplicate borders between cards */
+        .year-card + .year-card { border-left: none; }
         .year-title { font-size: 13px; font-weight: 700; color: #2c3e50; margin-bottom: 8px; }
-        .year-chart { height: 360px; }
+        .year-chart { height: 380px; }
 
         .loading { text-align: center; padding: 40px 20px; color: #666; font-size: 15px; }
-        .load-status { padding: 10px 30px; font-size: 12px; color: #6c757d; border-bottom: 1px solid #e6e9ed; display: none; }
-        .load-status.error { color: #b42318; background: #fff4f2; }
 
-        @media (max-width: 1100px) { .year-row { grid-template-columns: 1fr; } }
+        @media (max-width: 1100px) { .year-row { grid-template-columns: 1fr; } .year-card, .year-card:first-child, .year-card:last-child { border-radius: 8px; border: 1px solid #e6e9ed; } }
         @media (max-width: 900px) {
             .header { padding: 16px 16px 0 16px; }
             .sub-nav { padding: 0 10px; overflow-x: auto; }
@@ -135,7 +141,6 @@
     </div>
 
     <div id="loadingMsg" class="loading">Loading generation data...</div>
-    <div id="loadStatus" class="load-status"></div>
 
     <div class="chart-grid" style="display:none;" id="chartGrid">
         <div class="chart-card">
@@ -148,6 +153,8 @@
                 <div class="year-card"><div class="year-title">2025</div><div id="chart2025" class="year-chart"></div></div>
                 <div class="year-card"><div class="year-title">2026</div><div id="chart2026" class="year-chart"></div></div>
             </div>
+            <!-- shared legend rendered by ECharts into this div -->
+            <div id="sharedLegend"></div>
         </div>
     </div>
 </div>
@@ -157,9 +164,11 @@ const countries = ['AT','BG','DE','ES','FR','GR','HR','HU','IT','PL','RO','RS','
 const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 let countryData = {};
 let charts = {};
+let legendChart = null;   // dedicated ECharts instance for the shared legend
 let loadReport = { ok: [], fail: [] };
 let loadFailReason = {};
 
+// ── Colour helpers ───────────────────────────────────────────────────────────
 function typeToColor(t) {
     if (!t) return '#90a4ae';
     const tl = t.toLowerCase();
@@ -185,6 +194,7 @@ function typeToColor(t) {
     return '#90a4ae';
 }
 
+// ── CSV / date parsing ───────────────────────────────────────────────────────
 function parseDate(s) {
     if (!s) return null;
     let m = s.match(/^(\d{4})[\/-](\d{1,2})[\/-](\d{1,2})\s+(\d{1,2}):(\d{2})/);
@@ -205,11 +215,7 @@ function parseCSV(text) {
     function parseLooseLine(line) {
         const m = line.match(/^(\d{4}\/\d{1,2}\/\d{1,2})\s+(\d{1,2}:\d{2})\s+(.+?)\s+(-?\d+(?:\.\d+)?)$/);
         if (!m) return null;
-        return {
-            date: `${m[1]} ${m[2]}`,
-            category: m[3].trim(),
-            value: parseFloat(m[4])
-        };
+        return { date: `${m[1]} ${m[2]}`, category: m[3].trim(), value: parseFloat(m[4]) };
     }
 
     for (let i = startIdx; i < lines.length; i++) {
@@ -217,17 +223,11 @@ function parseCSV(text) {
         if (!line) continue;
         if (line.includes('\t')) {
             const parts = line.split('\t');
-            if (parts.length >= 3) {
-                out.push({ date: parts[0].trim(), category: parts[1].trim(), value: parseFloat(parts[2]) });
-                continue;
-            }
+            if (parts.length >= 3) { out.push({ date: parts[0].trim(), category: parts[1].trim(), value: parseFloat(parts[2]) }); continue; }
         }
         if (line.includes(',')) {
             const parts = line.split(',');
-            if (parts.length >= 3) {
-                out.push({ date: parts[0].trim(), category: parts[1].trim(), value: parseFloat(parts[2]) });
-                continue;
-            }
+            if (parts.length >= 3) { out.push({ date: parts[0].trim(), category: parts[1].trim(), value: parseFloat(parts[2]) }); continue; }
         }
         const loose = parseLooseLine(line);
         if (loose) out.push(loose);
@@ -235,43 +235,30 @@ function parseCSV(text) {
     return out;
 }
 
-function normalizeCategory(cat) {
-    return (cat || '').replace(/\s+/g, ' ').trim();
-}
+function normalizeCategory(cat) { return (cat || '').replace(/\s+/g, ' ').trim(); }
+function canonicalKey(cat) { return normalizeCategory(cat).toLowerCase().replace(/[-/]/g, ' ').replace(/\s+/g, ' ').trim(); }
 
-function canonicalKey(cat) {
-    return normalizeCategory(cat).toLowerCase().replace(/[-/]/g, ' ').replace(/\s+/g, ' ').trim();
-}
-
+// ── Data loading ─────────────────────────────────────────────────────────────
 async function loadAllCountries() {
     loadReport = { ok: [], fail: [] };
     loadFailReason = {};
-    const jobs = countries.map(async c => {
+    await Promise.all(countries.map(async c => {
         try {
-            const url = `/data/generation/${c}.csv`;
-            const res = await fetch(url, { cache: 'no-store' });
-            if (!res.ok) {
-                loadReport.fail.push(c);
-                loadFailReason[c] = `HTTP ${res.status}`;
-                return;
-            }
+            const res = await fetch(`/data/generation/${c}.csv`, { cache: 'no-store' });
+            if (!res.ok) { loadReport.fail.push(c); loadFailReason[c] = `HTTP ${res.status}`; return; }
             const text = await res.text();
             const rows = parseCSV(text);
-            if (!rows.length) {
-                loadReport.fail.push(c);
-                loadFailReason[c] = 'parsed 0 rows';
-                return;
-            }
+            if (!rows.length) { loadReport.fail.push(c); loadFailReason[c] = 'parsed 0 rows'; return; }
             countryData[c] = rows;
             loadReport.ok.push(c);
         } catch (e) {
             loadReport.fail.push(c);
             loadFailReason[c] = e && e.message ? e.message : 'fetch error';
         }
-    });
-    await Promise.all(jobs);
+    }));
 }
 
+// ── Country selector ─────────────────────────────────────────────────────────
 function buildCountryCheckboxes() {
     const wrap = document.getElementById('countryCheckboxes');
     wrap.innerHTML = '';
@@ -279,17 +266,12 @@ function buildCountryCheckboxes() {
         const item = document.createElement('div');
         item.className = 'country-item';
         const cb = document.createElement('input');
-        cb.type = 'checkbox';
-        cb.value = c;
-        cb.checked = c === 'HU';
+        cb.type = 'checkbox'; cb.value = c; cb.checked = c === 'HU';
         cb.addEventListener('change', refresh);
         const span = document.createElement('span');
         span.textContent = c;
-        item.appendChild(cb);
-        item.appendChild(span);
-        item.addEventListener('click', e => {
-            if (e.target !== cb) { cb.checked = !cb.checked; cb.dispatchEvent(new Event('change')); }
-        });
+        item.appendChild(cb); item.appendChild(span);
+        item.addEventListener('click', e => { if (e.target !== cb) { cb.checked = !cb.checked; cb.dispatchEvent(new Event('change')); } });
         wrap.appendChild(item);
     });
     updateCountryLabel();
@@ -311,16 +293,14 @@ function updateCountryLabel() {
 
 function initControls() {
     const from = document.getElementById('monthFrom');
-    const to = document.getElementById('monthTo');
+    const to   = document.getElementById('monthTo');
     from.innerHTML = monthNames.map((m,i) => `<option value="${i+1}">${m}</option>`).join('');
-    to.innerHTML = monthNames.map((m,i) => `<option value="${i+1}">${m}</option>`).join('');
-    from.value = '1';
-    to.value = '12';
-
+    to.innerHTML   = monthNames.map((m,i) => `<option value="${i+1}">${m}</option>`).join('');
+    from.value = '1'; to.value = '12';
     from.addEventListener('change', refresh);
     to.addEventListener('change', refresh);
 
-    const btn = document.getElementById('countrySelectBtn');
+    const btn  = document.getElementById('countrySelectBtn');
     const drop = document.getElementById('countryDropdown');
     btn.addEventListener('click', e => { e.stopPropagation(); drop.classList.toggle('show'); });
     document.addEventListener('click', e => { if (!drop.contains(e.target) && e.target !== btn) drop.classList.remove('show'); });
@@ -335,6 +315,7 @@ function initControls() {
     });
 }
 
+// ── Data summarisation ───────────────────────────────────────────────────────
 function summarizeYear(year, selectedCountries, mFrom, mTo) {
     const techLabelByKey = {};
     const byHour = {};
@@ -342,31 +323,22 @@ function summarizeYear(year, selectedCountries, mFrom, mTo) {
     const mergedByTs = {};
 
     selectedCountries.forEach(c => {
-        const rows = countryData[c] || [];
-
-        rows.forEach(r => {
+        (countryData[c] || []).forEach(r => {
             if (isNaN(r.value)) return;
             const dt = parseDate(r.date);
             if (!dt || dt.year !== year || dt.month < mFrom || dt.month > mTo) return;
 
-            const hour = dt.hour;
-            const key = `${dt.year}-${dt.month}-${dt.day}-${hour}`;
-            if (!mergedByTs[key]) mergedByTs[key] = { hour, load: 0, hasLoad: false, tech: {} };
+            const key = `${dt.year}-${dt.month}-${dt.day}-${dt.hour}`;
+            if (!mergedByTs[key]) mergedByTs[key] = { hour: dt.hour, load: 0, hasLoad: false, tech: {} };
 
             const cat = normalizeCategory(r.category);
-            const ck = canonicalKey(cat);
+            const ck  = canonicalKey(cat);
 
-            if (ck === 'load') {
-                mergedByTs[key].load += r.value;
-                mergedByTs[key].hasLoad = true;
-                return;
-            }
-            if (ck.includes('cross border')) return;
-            if (ck.includes('renewable share')) return;
+            if (ck === 'load') { mergedByTs[key].load += r.value; mergedByTs[key].hasLoad = true; return; }
+            if (ck.includes('cross border') || ck.includes('renewable share')) return;
 
             if (!techLabelByKey[ck]) techLabelByKey[ck] = cat;
-            if (!mergedByTs[key].tech[ck]) mergedByTs[key].tech[ck] = 0;
-            mergedByTs[key].tech[ck] += r.value;
+            mergedByTs[key].tech[ck] = (mergedByTs[key].tech[ck] || 0) + r.value;
         });
     });
 
@@ -374,10 +346,8 @@ function summarizeYear(year, selectedCountries, mFrom, mTo) {
         const h = b.hour;
         if (b.hasLoad) { byHour[h].loadSum += b.load; byHour[h].loadCnt += 1; }
         Object.entries(b.tech).forEach(([ck, v]) => {
-            if (!byHour[h].techSum[ck]) byHour[h].techSum[ck] = 0;
-            if (!byHour[h].techCnt[ck]) byHour[h].techCnt[ck] = 0;
-            byHour[h].techSum[ck] += v;
-            byHour[h].techCnt[ck] += 1;
+            byHour[h].techSum[ck] = (byHour[h].techSum[ck] || 0) + v;
+            byHour[h].techCnt[ck] = (byHour[h].techCnt[ck] || 0) + 1;
         });
     });
 
@@ -392,28 +362,20 @@ function summarizeYear(year, selectedCountries, mFrom, mTo) {
         load.push(x.loadCnt ? +((x.loadSum / x.loadCnt).toFixed(2)) : null);
         techKeys.forEach((k, i) => {
             const label = techs[i];
-            const s = x.techSum[k] || 0;
-            const c = x.techCnt[k] || 0;
-            techSeries[label].push(c ? +((s / c).toFixed(2)) : 0);
+            const s = x.techSum[k] || 0, cnt = x.techCnt[k] || 0;
+            techSeries[label].push(cnt ? +((s / cnt).toFixed(2)) : 0);
         });
     }
 
     return { techs, techSeries, load };
 }
 
-function drawYearChart(year, domId) {
-    const selectedCountries = getSelectedCountries();
-    updateCountryLabel();
-    const mFrom = parseInt(document.getElementById('monthFrom').value, 10);
-    const mTo = parseInt(document.getElementById('monthTo').value, 10);
+// ── Chart drawing ─────────────────────────────────────────────────────────────
+// We collect all series names across all three years so the shared legend is complete.
+let allSeriesNames = [];   // updated on each refresh
+let allSeriesColors = {};  // name → colour
 
-    const chart = charts[domId];
-    if (!chart) return;
-    if (!selectedCountries.length || !mFrom || !mTo || mFrom > mTo) {
-        chart.clear();
-        return;
-    }
-
+function buildSeriesForYear(year, selectedCountries, mFrom, mTo) {
     const { techs, techSeries, load } = summarizeYear(year, selectedCountries, mFrom, mTo);
     const hours = Array.from({ length: 24 }, (_, i) => String(i + 1));
 
@@ -421,10 +383,10 @@ function drawYearChart(year, domId) {
         name: t,
         type: 'line',
         stack: 'gen',
-        smooth: true,
+        smooth: false,           // ← straight lines
         symbol: 'none',
-        lineStyle: { width: 1.6 },
-        areaStyle: { opacity: 0.18 },
+        lineStyle: { width: 1.6, color: typeToColor(t) },
+        areaStyle: { opacity: 1, color: typeToColor(t) },  // ← solid fill, same colour
         data: techSeries[t],
         itemStyle: { color: typeToColor(t) }
     }));
@@ -432,20 +394,33 @@ function drawYearChart(year, domId) {
     series.push({
         name: 'Load',
         type: 'line',
-        yAxisIndex: 0,
-        data: load,
-        smooth: true,
+        smooth: false,           // ← straight lines
         symbol: 'none',
-        lineStyle: { width: 2.2, color: '#111827' }
+        data: load,
+        lineStyle: { width: 2.2, color: '#111827' },
+        itemStyle: { color: '#111827' }
     });
+
+    // accumulate for shared legend
+    series.forEach(s => {
+        if (!allSeriesColors[s.name]) allSeriesColors[s.name] = s.itemStyle.color;
+        if (!allSeriesNames.includes(s.name)) allSeriesNames.push(s.name);
+    });
+
+    return { series, hours };
+}
+
+function applyYearChart(chart, year, selectedCountries, mFrom, mTo) {
+    if (!selectedCountries.length || mFrom > mTo) { chart.clear(); return; }
+    const { series, hours } = buildSeriesForYear(year, selectedCountries, mFrom, mTo);
 
     chart.setOption({
         tooltip: {
             trigger: 'axis',
-            valueFormatter: v => (v == null || Number.isNaN(v) ? '-' : `${Number(v).toFixed(2)}`)
+            valueFormatter: v => (v == null || Number.isNaN(v) ? '-' : Number(v).toFixed(2))
         },
-        legend: { type: 'scroll', top: 0, textStyle: { fontSize: 11 } },
-        grid: { left: 52, right: 20, top: 58, bottom: 42 },
+        legend: { show: false },   // ← legend hidden in individual charts
+        grid: { left: 52, right: 16, top: 12, bottom: 42 },
         xAxis: { type: 'category', data: hours, name: 'Hour', nameGap: 24 },
         yAxis: { type: 'value', name: 'Power (MW)' },
         dataZoom: [{ type: 'inside' }],
@@ -453,19 +428,53 @@ function drawYearChart(year, domId) {
     }, true);
 }
 
-function refresh() {
-    drawYearChart(2024, 'chart2024');
-    drawYearChart(2025, 'chart2025');
-    drawYearChart(2026, 'chart2026');
+function updateSharedLegend() {
+    if (!legendChart) return;
+    // Build a minimal ECharts option whose sole purpose is rendering a legend
+    const legendData = allSeriesNames.map(name => ({
+        name,
+        icon: 'rect',
+        itemStyle: { color: allSeriesColors[name] }
+    }));
+
+    legendChart.setOption({
+        legend: {
+            type: 'scroll',
+            orient: 'horizontal',
+            left: 'center',
+            top: 0,
+            data: legendData,
+            textStyle: { fontSize: 11 },
+            pageButtonPosition: 'end'
+        },
+        series: []   // no actual data – just the legend
+    }, true);
+
+    // Resize the container to fit however many rows the legend needs
+    legendChart.resize();
 }
 
+function refresh() {
+    updateCountryLabel();
+    const selected = getSelectedCountries();
+    const mFrom = parseInt(document.getElementById('monthFrom').value, 10);
+    const mTo   = parseInt(document.getElementById('monthTo').value, 10);
+
+    // Reset legend accumulation before rebuilding
+    allSeriesNames = [];
+    allSeriesColors = {};
+
+    applyYearChart(charts.chart2024, 2024, selected, mFrom, mTo);
+    applyYearChart(charts.chart2025, 2025, selected, mFrom, mTo);
+    applyYearChart(charts.chart2026, 2026, selected, mFrom, mTo);
+
+    updateSharedLegend();
+}
+
+// ── Init ─────────────────────────────────────────────────────────────────────
 async function init() {
     if (typeof echarts === 'undefined') {
-        const st = document.getElementById('loadStatus');
-        document.getElementById('loadingMsg').style.display = 'none';
-        st.className = 'load-status error';
-        st.style.display = 'block';
-        st.textContent = 'ECharts failed to load (CDN blocked or unavailable).';
+        document.getElementById('loadingMsg').textContent = 'ECharts failed to load (CDN blocked or unavailable).';
         return;
     }
 
@@ -475,41 +484,18 @@ async function init() {
 
     document.getElementById('loadingMsg').style.display = 'none';
     document.getElementById('chartGrid').style.display = 'grid';
+
     charts.chart2024 = echarts.init(document.getElementById('chart2024'));
     charts.chart2025 = echarts.init(document.getElementById('chart2025'));
     charts.chart2026 = echarts.init(document.getElementById('chart2026'));
-    Object.values(charts).forEach(c => c.resize());
-    const st = document.getElementById('loadStatus');
-    if (!loadReport.ok.length) {
-        st.className = 'load-status error';
-        st.style.display = 'block';
-        const details = loadReport.fail.map(c => `${c}: ${loadFailReason[c] || 'failed'}`).join(' | ');
-        st.textContent = `No generation files were loaded. ${details}`;
-    } else if (loadReport.fail.length) {
-        st.className = 'load-status';
-        st.style.display = 'block';
-        const details = loadReport.fail.map(c => `${c}(${loadFailReason[c] || 'failed'})`).join(', ');
-        st.textContent = `Loaded: ${loadReport.ok.join(', ')} | Failed: ${details}`;
-    } else {
-        const sampleCountry = loadReport.ok[0];
-        const sampleRows = countryData[sampleCountry] || [];
-        const parsedDateRows = sampleRows.reduce((n, r) => n + (parseDate(r.date) ? 1 : 0), 0);
-        st.className = 'load-status';
-        st.style.display = 'block';
-        st.textContent = `Loaded ${loadReport.ok.length} countries. Sample ${sampleCountry}: ${sampleRows.length} rows, ${parsedDateRows} parsable dates.`;
-    }
+    legendChart      = echarts.init(document.getElementById('sharedLegend'), null, { height: 80 });
 
     refresh();
-    const allSelected = getSelectedCountries();
-    const y24 = summarizeYear(2024, allSelected, 1, 12);
-    const y25 = summarizeYear(2025, allSelected, 1, 12);
-    const y26 = summarizeYear(2026, allSelected, 1, 12);
-    if (!y24.techs.length && !y25.techs.length && !y26.techs.length) {
-        st.className = 'load-status error';
-        st.style.display = 'block';
-        st.textContent = 'Data loaded, but no chartable rows found. Please verify CSV date format and category/value columns.';
-    }
-    window.addEventListener('resize', () => Object.values(charts).forEach(c => c.resize()));
+
+    window.addEventListener('resize', () => {
+        Object.values(charts).forEach(c => c.resize());
+        legendChart && legendChart.resize();
+    });
 }
 
 init();

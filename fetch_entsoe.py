@@ -366,12 +366,6 @@ def _coerce_df_numeric(df: pd.DataFrame) -> pd.DataFrame:
     return out
 
 
-def _hourly_wall_clock_index(start_date: str, end_date: str) -> pd.DatetimeIndex:
-    start_dt = pd.Timestamp(start_date)
-    end_dt = pd.Timestamp(end_date) + pd.Timedelta(days=1) - pd.Timedelta(hours=1)
-    return pd.date_range(start=start_dt, end=end_dt, freq="h")
-
-
 def _fmt_dt_hourly(dt: pd.Timestamp) -> str:
     return f"{dt.year}/{dt.month}/{dt.day} {dt.hour}:00"
 
@@ -680,8 +674,6 @@ def main():
         mode_label = f"增量模式（最近 {LOOKBACK_DAYS} 天）"
 
     cutoff = datetime.strptime(end_date, "%Y-%m-%d") + timedelta(days=1)
-    wall_clock_hourly_idx = _hourly_wall_clock_index(start_date, end_date)
-
     print("=" * 62)
     print(f"ENTSOE 数据更新  [{mode_label}]")
     print("=" * 62)
@@ -714,7 +706,7 @@ def main():
         print(f"  → A44 price  eic={bzn_eic}")
         s_hourly, s_raw = fetch_price(bzn_eic, start_date, end_date, tz)
         if s_hourly is not None:
-            s_hourly = s_hourly[s_hourly.index < cutoff].reindex(wall_clock_hourly_idx)
+            s_hourly = s_hourly[s_hourly.index < cutoff]
             price_cols[col]     = s_hourly
             raw_price_cols[col] = s_raw[s_raw.index < cutoff]
             print(f"     ✓ {price_cols[col].notna().sum()} 有效值(1h) | "
@@ -725,7 +717,7 @@ def main():
         print(f"  → A65 load   eic={bzn_eic}")
         s_hourly, s_raw = fetch_load(bzn_eic, start_date, end_date, tz)
         if s_hourly is not None:
-            s_hourly = s_hourly[s_hourly.index < cutoff].reindex(wall_clock_hourly_idx)
+            s_hourly = s_hourly[s_hourly.index < cutoff]
             load_cols[col]     = s_hourly
             raw_load_cols[col] = s_raw[s_raw.index < cutoff]
             print(f"     ✓ {load_cols[col].notna().sum()} 有效值(1h) | "
@@ -748,7 +740,7 @@ def main():
         ]:
             s = result.get(field)
             if s is not None:
-                target_dict[col] = s[s.index < cutoff].reindex(wall_clock_hourly_idx)
+                target_dict[col] = s[s.index < cutoff]
                 print(f"     ✓ {lbl:<8} {target_dict[col].notna().sum()} 有效值")
             else:
                 print(f"     [WARN] {lbl} 无数据")
@@ -802,3 +794,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

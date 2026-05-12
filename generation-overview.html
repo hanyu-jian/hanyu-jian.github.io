@@ -394,30 +394,28 @@ function buildSeriesForYear(year, selectedCountries, mFrom, mTo) {
     const series = techs.map(t => {
         const col = typeToColor(t);
         const visible = legendState[t] !== false;
-        return {
-            name: t,
-            type: 'line',
-            stack: 'gen',
-            smooth: false,
-            symbol: 'none',
-            lineStyle: { width: 1.6, color: col },
-            areaStyle: { opacity: 1, color: col },
-            data: techSeries[t],
-            itemStyle: { color: col },
-            // hide series that are toggled off
-            lineStyle: { width: visible ? 1.6 : 0, color: col },
-            areaStyle: { opacity: visible ? 1 : 0, color: col },
-        };
+        if (visible) {
+            return {
+                name: t, type: 'line', stack: 'gen', smooth: false, symbol: 'none',
+                data: techSeries[t], itemStyle: { color: col },
+                lineStyle: { width: 1.6, color: col }, areaStyle: { opacity: 1, color: col },
+            };
+        } else {
+            return {
+                name: t, type: 'line', smooth: false, symbol: 'none',
+                data: techSeries[t], itemStyle: { color: col },
+                lineStyle: { width: 0, color: col }, areaStyle: { opacity: 0, color: col },
+                silent: true,
+            };
+        }
     });
 
+    const loadVisible = legendState['Load'] !== false;
     series.push({
-        name: 'Load',
-        type: 'line',
-        smooth: false,
-        symbol: 'none',
-        data: load,
-        lineStyle: { width: legendState['Load'] !== false ? 2.2 : 0, color: '#111827' },
-        itemStyle: { color: '#111827' }
+        name: 'Load', type: 'line', smooth: false, symbol: 'none',
+        data: load, itemStyle: { color: '#111827' },
+        lineStyle: { width: loadVisible ? 2.2 : 0, color: '#111827' },
+        areaStyle: { opacity: 0 }, silent: !loadVisible,
     });
 
     // Accumulate names/colours for HTML legend
@@ -442,8 +440,6 @@ function applyYearChart(chart, year, selectedCountries, mFrom, mTo) {
         grid: { left: 52, right: 16, top: 12, bottom: 42 },
         xAxis: { type: 'category', data: hours, name: 'Hour', nameGap: 24 },
         yAxis: { type: 'value', name: 'Power (MW)' },
-        // inside zoom only on Y axis; X axis locked
-        dataZoom: [{ type: 'inside', yAxisIndex: 0, zoomOnMouseWheel: true, moveOnMouseWheel: false, moveOnMouseMove: false }],
         series
     }, true);
 }

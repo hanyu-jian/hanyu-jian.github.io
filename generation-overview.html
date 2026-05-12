@@ -16,7 +16,7 @@
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f2f5; padding: 20px; }
-        .container { max-width: 1920px; margin: 0 auto; background: #fff; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); overflow: hidden; }
+        .container { max-width: 1600px; margin: 0 auto; background: #fff; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); overflow: hidden; }
 
         .header { background: #2c3e50; color: #fff; padding: 20px 30px 0 30px; }
         .header-top { padding-bottom: 16px; }
@@ -75,20 +75,16 @@
         .chart-card { background: #fff; border-radius: 8px; border: 1px solid #e6e9ed; padding: 16px; }
         .chart-card-header h3 { font-size: 18px; font-weight: 500; color: #2c3e50; border-left: 4px solid #2c3e50; padding-left: 12px; margin: 0; }
         .subtitle { font-size: 12px; color: #888; margin-top: 4px; padding-left: 16px; }
-        .year-row-wrap { overflow-x: auto; margin-top: 14px; }
-        .year-row { display: grid; grid-template-columns: repeat(3, minmax(560px, 1fr)); gap: 14px; min-width: 1700px; }
+        .year-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 14px; }
         .year-card { border: 1px solid #e6e9ed; border-radius: 8px; padding: 10px; background: #fafbfd; }
         .year-title { font-size: 13px; font-weight: 700; color: #2c3e50; margin-bottom: 8px; }
         .year-chart { height: 360px; }
-        .shared-legend { display: flex; flex-wrap: wrap; gap: 10px 16px; margin-top: 14px; padding-top: 10px; border-top: 1px solid #e6e9ed; }
-        .legend-item { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: #2c3e50; }
-        .legend-swatch { width: 12px; height: 12px; border-radius: 3px; border: 1px solid rgba(0,0,0,0.12); }
 
         .loading { text-align: center; padding: 40px 20px; color: #666; font-size: 15px; }
         .load-status { padding: 10px 30px; font-size: 12px; color: #6c757d; border-bottom: 1px solid #e6e9ed; display: none; }
         .load-status.error { color: #b42318; background: #fff4f2; }
 
-        @media (max-width: 1100px) { .year-row { grid-template-columns: repeat(3, minmax(460px, 1fr)); min-width: 1400px; } }
+        @media (max-width: 1100px) { .year-row { grid-template-columns: 1fr; } }
         @media (max-width: 900px) {
             .header { padding: 16px 16px 0 16px; }
             .sub-nav { padding: 0 10px; overflow-x: auto; }
@@ -147,14 +143,11 @@
                 <h3>Load vs Generation by Hour (Monthly Range Avg)</h3>
                 <div class="subtitle">Generation = sum of technologies excluding Cross border; selected countries are summed</div>
             </div>
-            <div class="year-row-wrap">
-                <div class="year-row">
-                    <div class="year-card"><div class="year-title">2024</div><div id="chart2024" class="year-chart"></div></div>
-                    <div class="year-card"><div class="year-title">2025</div><div id="chart2025" class="year-chart"></div></div>
-                    <div class="year-card"><div class="year-title">2026</div><div id="chart2026" class="year-chart"></div></div>
-                </div>
+            <div class="year-row">
+                <div class="year-card"><div class="year-title">2024</div><div id="chart2024" class="year-chart"></div></div>
+                <div class="year-card"><div class="year-title">2025</div><div id="chart2025" class="year-chart"></div></div>
+                <div class="year-card"><div class="year-title">2026</div><div id="chart2026" class="year-chart"></div></div>
             </div>
-            <div id="sharedLegend" class="shared-legend"></div>
         </div>
     </div>
 </div>
@@ -350,7 +343,6 @@ function summarizeYear(year, selectedCountries, mFrom, mTo) {
 
     selectedCountries.forEach(c => {
         const rows = countryData[c] || [];
-        const countryTs = {};
 
         rows.forEach(r => {
             if (isNaN(r.value)) return;
@@ -359,42 +351,22 @@ function summarizeYear(year, selectedCountries, mFrom, mTo) {
 
             const hour = dt.hour;
             const key = `${dt.year}-${dt.month}-${dt.day}-${hour}`;
+            if (!mergedByTs[key]) mergedByTs[key] = { hour, load: 0, hasLoad: false, tech: {} };
+
             const cat = normalizeCategory(r.category);
             const ck = canonicalKey(cat);
 
-            if (ck.includes('cross border')) return;
-            if (ck.includes('renewable share')) return;
-            if (!countryTs[key]) {
-                countryTs[key] = { hour, load: { sum: 0, cnt: 0 }, tech: {} };
-            }
-
-            // Same country + same hour + same canonical category may appear multiple times.
-            // De-duplicate by averaging duplicates first, then aggregate across countries.
             if (ck === 'load') {
-                countryTs[key].load.sum += r.value;
-                countryTs[key].load.cnt += 1;
+                mergedByTs[key].load += r.value;
+                mergedByTs[key].hasLoad = true;
                 return;
             }
+            if (ck.includes('cross border')) return;
+            if (ck.includes('renewable share')) return;
 
             if (!techLabelByKey[ck]) techLabelByKey[ck] = cat;
-            if (!countryTs[key].tech[ck]) countryTs[key].tech[ck] = { sum: 0, cnt: 0 };
-            countryTs[key].tech[ck].sum += r.value;
-            countryTs[key].tech[ck].cnt += 1;
-        });
-
-        Object.entries(countryTs).forEach(([key, ts]) => {
-            if (!mergedByTs[key]) mergedByTs[key] = { hour: ts.hour, load: 0, hasLoad: false, tech: {} };
-
-            if (ts.load.cnt > 0) {
-                mergedByTs[key].load += ts.load.sum / ts.load.cnt;
-                mergedByTs[key].hasLoad = true;
-            }
-
-            Object.entries(ts.tech).forEach(([ck, v]) => {
-                const avg = v.cnt ? (v.sum / v.cnt) : 0;
-                if (!mergedByTs[key].tech[ck]) mergedByTs[key].tech[ck] = 0;
-                mergedByTs[key].tech[ck] += avg;
-            });
+            if (!mergedByTs[key].tech[ck]) mergedByTs[key].tech[ck] = 0;
+            mergedByTs[key].tech[ck] += r.value;
         });
     });
 
@@ -472,7 +444,8 @@ function drawYearChart(year, domId) {
             trigger: 'axis',
             valueFormatter: v => (v == null || Number.isNaN(v) ? '-' : `${Number(v).toFixed(2)}`)
         },
-        grid: { left: 52, right: 20, top: 24, bottom: 42 },
+        legend: { type: 'scroll', top: 0, textStyle: { fontSize: 11 } },
+        grid: { left: 52, right: 20, top: 58, bottom: 42 },
         xAxis: { type: 'category', data: hours, name: 'Hour', nameGap: 24 },
         yAxis: { type: 'value', name: 'Power (MW)' },
         dataZoom: [{ type: 'inside' }],
@@ -480,29 +453,10 @@ function drawYearChart(year, domId) {
     }, true);
 }
 
-function renderSharedLegend() {
-    const selectedCountries = getSelectedCountries();
-    const mFrom = parseInt(document.getElementById('monthFrom').value, 10);
-    const mTo = parseInt(document.getElementById('monthTo').value, 10);
-    const union = new Set();
-    [2024, 2025, 2026].forEach(y => {
-        const s = summarizeYear(y, selectedCountries, mFrom, mTo);
-        s.techs.forEach(t => union.add(t));
-    });
-    const legend = document.getElementById('sharedLegend');
-    const items = [...union].sort((a, b) => a.localeCompare(b));
-    items.push('Load');
-    legend.innerHTML = items.map(name => {
-        const color = name === 'Load' ? '#111827' : typeToColor(name);
-        return `<span class="legend-item"><span class="legend-swatch" style="background:${color}"></span>${name}</span>`;
-    }).join('');
-}
-
 function refresh() {
     drawYearChart(2024, 'chart2024');
     drawYearChart(2025, 'chart2025');
     drawYearChart(2026, 'chart2026');
-    renderSharedLegend();
 }
 
 async function init() {

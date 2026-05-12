@@ -10,6 +10,11 @@ ENTSOE API 数据更新脚本（增量更新版）
     --mode incremental  仅更新最近7天（默认）
     --mode full         全量拉取 FULL_START_DATE → yesterday
 
+时间轴说明：
+- ENTSOE 所有文档（A44/A65/A75）的时间轴统一使用 CET/CEST（Europe/Brussels）
+- 与 ENTSOE 网站下载的 CSV 时间列完全一致
+- 不再按各国本地时区转换，避免 RO/BG/GR 等东欧国家出现 +1h 偏移
+
 原始数据额外保存至 /raw_data/：
   - /raw_data/A44.csv          价格原始数据（宽表，列=国家）
   - /raw_data/A65.csv          负荷原始数据（宽表，列=国家）
@@ -17,8 +22,6 @@ ENTSOE API 数据更新脚本（增量更新版）
   时间轴规则：
   - 原始 15min 数据 → 保持 15min，index 格式 "YYYY/M/D H:MM"
   - 原始 1h 数据    → 展开为 15min（:00/:15/:30/:45 四点值相同）
-  - 历史上如果某时段只有 1h 精度，则仍保留 1h 粒度，
-    只对真实存在 15min 原始点的时段用 15min 轴。
 
 ENTSOE API 限制：
 - 每次请求时间跨度 ≤ 1 年 → 按年分段请求
@@ -43,20 +46,24 @@ import requests
 ENTSOE_TOKEN = os.environ["ENTSOE_TOKEN"]
 API_URL      = "https://web-api.tp.entsoe.eu/api"
 
+# ← CHANGED: 新增统一展示时区常量
+# ENTSOE 网站所有文档时间轴均基于 CET/CEST，与各国本地时区无关
+ENTSOE_DISPLAY_TZ = "Europe/Brussels"
+
 COUNTRY_CONFIG = {
-    "de": {"tz": "Europe/Berlin",     "bzn_eic": "10Y1001A1001A82H"},
-    "fr": {"tz": "Europe/Paris",      "bzn_eic": "10YFR-RTE------C"},
-    "es": {"tz": "Europe/Madrid",     "bzn_eic": "10YES-REE------0"},
-    "it": {"tz": "Europe/Rome",       "bzn_eic": "10YIT-GRTN-----B"},
-    "gr": {"tz": "Europe/Athens",     "bzn_eic": "10YGR-HTSO-----Y"},
-    "ro": {"tz": "Europe/Bucharest",  "bzn_eic": "10YRO-TEL------P"},
-    "hu": {"tz": "Europe/Budapest",   "bzn_eic": "10YHU-MAVIR----U"},
-    "at": {"tz": "Europe/Vienna",     "bzn_eic": "10YAT-APG------L"},
-    "pl": {"tz": "Europe/Warsaw",     "bzn_eic": "10YPL-AREA-----S"},
-    "sk": {"tz": "Europe/Bratislava", "bzn_eic": "10YSK-SEPS-----K"},
-    "rs": {"tz": "Europe/Belgrade",   "bzn_eic": "10YCS-SERBIATSOV"},
-    "hr": {"tz": "Europe/Zagreb",     "bzn_eic": "10YHR-HEP------M"},
-    "bg": {"tz": "Europe/Sofia",      "bzn_eic": "10YCA-BULGARIA-R"},
+    "de": {"bzn_eic": "10Y1001A1001A82H"},
+    "fr": {"bzn_eic": "10YFR-RTE------C"},
+    "es": {"bzn_eic": "10YES-REE------0"},
+    "it": {"bzn_eic": "10YIT-GRTN-----B"},
+    "gr": {"bzn_eic": "10YGR-HTSO-----Y"},
+    "ro": {"bzn_eic": "10YRO-TEL------P"},
+    "hu": {"bzn_eic": "10YHU-MAVIR----U"},
+    "at": {"bzn_eic": "10YAT-APG------L"},
+    "pl": {"bzn_eic": "10YPL-AREA-----S"},
+    "sk": {"bzn_eic": "10YSK-SEPS-----K"},
+    "rs": {"bzn_eic": "10YCS-SERBIATSOV"},
+    "hr": {"bzn_eic": "10YHR-HEP------M"},
+    "bg": {"bzn_eic": "10YCA-BULGARIA-R"},
 }
 
 PSR_TYPE_MAP = {
@@ -82,18 +89,18 @@ PSR_TYPE_MAP = {
     "B20": "Other",
 }
 
-COUNTRIES        = list(COUNTRY_CONFIG.keys())
-FULL_START_DATE  = "2024-01-01"
-LOOKBACK_DAYS    = 7
-REQUEST_DELAY    = 1.5
-CHUNK_DAYS       = 365
-PRICE_CHUNK_DAYS = 30
-PAGE_SIZE        = 100
-DEFAULT_TIMEOUT  = 90
-GEN_TIMEOUT      = 120
-DATA_DIR         = Path("data")
-RAW_DIR          = Path("raw_data")
-ENTSOE_FMT       = "%Y%m%d%H%M"
+COUNTRIES            = list(COUNTRY_CONFIG.keys())
+FULL_START_DATE      = "2024-01-01"
+LOOKBACK_DAYS        = 7
+REQUEST_DELAY        = 1.5
+CHUNK_DAYS           = 365
+PRICE_CHUNK_DAYS     = 30
+PAGE_SIZE            = 100
+DEFAULT_TIMEOUT      = 90
+GEN_TIMEOUT          = 120
+DATA_DIR             = Path("data")
+RAW_DIR              = Path("raw_data")
+ENTSOE_FMT           = "%Y%m%d%H%M"
 HOURLY_ROUND_DECIMALS = 6
 
 
@@ -113,12 +120,14 @@ def _to_entsoe_dt(date_str: str) -> str:
     return datetime.strptime(date_str, "%Y-%m-%d").strftime(ENTSOE_FMT)
 
 
-def _local_date_to_entsoe_utc_dt(date_str: str, tz: str) -> str:
+# ← CHANGED: 统一用 ENTSOE_DISPLAY_TZ（CET/CEST）作为请求边界的本地时间基准
+# 原来按各国 tz 转换会导致东欧国家（RO/BG/GR 等）请求边界偏移 1 小时
+def _date_to_entsoe_utc_dt(date_str: str) -> str:
     """
-    把“国家本地日期的 00:00”转换为 ENTSOE 需要的 UTC 时间字符串。
-    这样每个国家请求到的都是本地挂钟日，而不是统一 UTC 日。
+    把日期字符串的 CET/CEST 00:00 转换为 ENTSOE API 需要的 UTC 时间字符串。
+    所有国家统一用 CET/CEST 作为边界，与 ENTSOE 网站时间轴一致。
     """
-    local_midnight = pd.Timestamp(date_str).tz_localize(tz)
+    local_midnight = pd.Timestamp(date_str).tz_localize(ENTSOE_DISPLAY_TZ)
     utc_dt = local_midnight.tz_convert("UTC")
     return utc_dt.strftime(ENTSOE_FMT)
 
@@ -171,34 +180,35 @@ def _get_all_timeseries(base_params: dict, label: str,
     return all_ts
 
 
-def _price_params(bzn_eic: str, start: str, end: str, tz: str) -> dict:
+# ← CHANGED: 所有 params 函数去掉 tz 参数，统一调用 _date_to_entsoe_utc_dt
+def _price_params(bzn_eic: str, start: str, end: str) -> dict:
     return {
         "documentType": "A44",
         "out_Domain":   bzn_eic,
         "in_Domain":    bzn_eic,
-        "periodStart":  _local_date_to_entsoe_utc_dt(start, tz),
-        "periodEnd":    _local_date_to_entsoe_utc_dt(end, tz),
+        "periodStart":  _date_to_entsoe_utc_dt(start),
+        "periodEnd":    _date_to_entsoe_utc_dt(end),
     }
 
 
-def _load_params(bzn_eic: str, start: str, end: str, tz: str) -> dict:
+def _load_params(bzn_eic: str, start: str, end: str) -> dict:
     return {
         "documentType":          "A65",
         "processType":           "A16",
         "outBiddingZone_Domain": bzn_eic,
-        "periodStart":           _local_date_to_entsoe_utc_dt(start, tz),
-        "periodEnd":             _local_date_to_entsoe_utc_dt(end, tz),
+        "periodStart":           _date_to_entsoe_utc_dt(start),
+        "periodEnd":             _date_to_entsoe_utc_dt(end),
     }
 
 
-def _gen_params(in_domain: str, start: str, end: str, psr_type: str, tz: str) -> dict:
+def _gen_params(in_domain: str, start: str, end: str, psr_type: str) -> dict:
     return {
         "documentType": "A75",
         "processType":  "A16",
         "in_Domain":    in_domain,
         "psrType":      psr_type,
-        "periodStart":  _local_date_to_entsoe_utc_dt(start, tz),
-        "periodEnd":    _local_date_to_entsoe_utc_dt(end, tz),
+        "periodStart":  _date_to_entsoe_utc_dt(start),
+        "periodEnd":    _date_to_entsoe_utc_dt(end),
     }
 
 
@@ -214,7 +224,8 @@ RES_MINUTES = {
 }
 
 
-def _parse_period_raw(period_el: ET.Element, tz: str,
+# ← CHANGED: 时区转换固定用 ENTSOE_DISPLAY_TZ，不再接收 tz 参数用于时间轴
+def _parse_period_raw(period_el: ET.Element,
                       value_tag: str = "quantity") -> tuple[pd.Series, int]:
     start_el = period_el.find(".//{*}start")
     end_el   = period_el.find(".//{*}end")
@@ -270,16 +281,23 @@ def _parse_period_raw(period_el: ET.Element, tz: str,
         return pd.Series(dtype=float), res_min
 
     s = pd.Series(records)
-    s.index = pd.DatetimeIndex(s.index, tz="UTC").tz_convert(tz).tz_localize(None)
+    # ← CHANGED: 固定转换到 CET/CEST，与 ENTSOE 网站时间轴对齐
+    s.index = (
+        pd.DatetimeIndex(s.index)
+          .tz_localize("UTC")
+          .tz_convert(ENTSOE_DISPLAY_TZ)
+          .tz_localize(None)
+    )
     return s, res_min
 
 
-def _ts_list_to_raw_series(ts_list: list[ET.Element], tz: str,
+# ← CHANGED: 去掉 tz 参数
+def _ts_list_to_raw_series(ts_list: list[ET.Element],
                            value_tag: str = "quantity") -> pd.Series | None:
     parts = []
     for ts in ts_list:
         for period in ts.findall(".//{*}Period"):
-            s, _res = _parse_period_raw(period, tz, value_tag)
+            s, _res = _parse_period_raw(period, value_tag)
             if not s.empty:
                 parts.append(s)
     if not parts:
@@ -382,15 +400,16 @@ def fmt_index_15min(index: pd.DatetimeIndex) -> list[str]:
     return [_fmt_dt_15min(dt) for dt in index]
 
 
-def fetch_price(bzn_eic: str, start: str, end_inclusive: str,
-                tz: str) -> tuple[pd.Series | None, pd.Series | None]:
+# ← CHANGED: 去掉所有 fetch_* 函数的 tz 参数
+def fetch_price(bzn_eic: str, start: str,
+                end_inclusive: str) -> tuple[pd.Series | None, pd.Series | None]:
     raw_parts = []
     chunks = date_chunks(start, end_inclusive, chunk_days=PRICE_CHUNK_DAYS)
     for i, (cs, ce) in enumerate(chunks, 1):
         print(f"     chunk {i}/{len(chunks)}: {cs} → {ce}")
-        ts_list = _get_all_timeseries(_price_params(bzn_eic, cs, ce, tz), f"price {bzn_eic}")
+        ts_list = _get_all_timeseries(_price_params(bzn_eic, cs, ce), f"price {bzn_eic}")
         time.sleep(REQUEST_DELAY)
-        raw = _ts_list_to_raw_series(ts_list, tz, value_tag="price.amount")
+        raw = _ts_list_to_raw_series(ts_list, value_tag="price.amount")
         if raw is not None:
             raw_parts.append(raw)
 
@@ -403,15 +422,15 @@ def fetch_price(bzn_eic: str, start: str, end_inclusive: str,
     return hourly, raw_combined
 
 
-def fetch_load(bzn_eic: str, start: str, end_inclusive: str,
-               tz: str) -> tuple[pd.Series | None, pd.Series | None]:
+def fetch_load(bzn_eic: str, start: str,
+               end_inclusive: str) -> tuple[pd.Series | None, pd.Series | None]:
     raw_parts = []
     chunks = date_chunks(start, end_inclusive)
     for i, (cs, ce) in enumerate(chunks, 1):
         print(f"     chunk {i}/{len(chunks)}: {cs} → {ce}")
-        ts_list = _get_all_timeseries(_load_params(bzn_eic, cs, ce, tz), f"load {bzn_eic}")
+        ts_list = _get_all_timeseries(_load_params(bzn_eic, cs, ce), f"load {bzn_eic}")
         time.sleep(REQUEST_DELAY)
-        raw = _ts_list_to_raw_series(ts_list, tz, value_tag="quantity")
+        raw = _ts_list_to_raw_series(ts_list, value_tag="quantity")
         if raw is not None:
             raw_parts.append(raw)
 
@@ -424,8 +443,8 @@ def fetch_load(bzn_eic: str, start: str, end_inclusive: str,
     return hourly, raw_combined
 
 
-def fetch_generation(in_domain: str, start: str, end_inclusive: str,
-                     tz: str) -> tuple[dict[str, pd.Series], dict[str, pd.Series]]:
+def fetch_generation(in_domain: str, start: str,
+                     end_inclusive: str) -> tuple[dict[str, pd.Series], dict[str, pd.Series]]:
     hourly_series: dict[str, pd.Series] = {}
     raw_series:    dict[str, pd.Series] = {}
     chunks = date_chunks(start, end_inclusive, chunk_days=CHUNK_DAYS)
@@ -435,14 +454,14 @@ def fetch_generation(in_domain: str, start: str, end_inclusive: str,
 
         for cs, ce in chunks:
             ts_list = _get_all_timeseries(
-                _gen_params(in_domain, cs, ce, psr_code, tz),
+                _gen_params(in_domain, cs, ce, psr_code),
                 f"gen {in_domain} {psr_code}",
                 timeout=GEN_TIMEOUT,
             )
             time.sleep(REQUEST_DELAY)
             for ts in ts_list:
                 for period in ts.findall(".//{*}Period"):
-                    s, _res = _parse_period_raw(period, tz, value_tag="quantity")
+                    s, _res = _parse_period_raw(period, value_tag="quantity")
                     if not s.empty:
                         r_parts.append(s)
 
@@ -673,11 +692,14 @@ def main():
         start_date = (today - timedelta(days=LOOKBACK_DAYS)).strftime("%Y-%m-%d")
         mode_label = f"增量模式（最近 {LOOKBACK_DAYS} 天）"
 
-    cutoff = datetime.strptime(end_date, "%Y-%m-%d") + timedelta(days=1)
+    # ← CHANGED: cutoff 也基于 CET/CEST 的午夜，而非 UTC
+    cutoff_local = pd.Timestamp(end_date).tz_localize(ENTSOE_DISPLAY_TZ) + timedelta(days=1)
+    cutoff_naive = cutoff_local.tz_localize(None)  # strip tz，用于与 naive index 比较
+
     print("=" * 62)
     print(f"ENTSOE 数据更新  [{mode_label}]")
     print("=" * 62)
-    print(f"数据范围: {start_date} → {end_date}（含）")
+    print(f"数据范围: {start_date} → {end_date}（含，CET/CEST）")
     print(f"国家数量: {len(COUNTRIES)}")
     print()
 
@@ -697,41 +719,41 @@ def main():
 
     for cc in COUNTRIES:
         cfg     = COUNTRY_CONFIG[cc]
-        tz      = cfg["tz"]
         bzn_eic = cfg["bzn_eic"]
         col     = cc.upper()
 
         print(f"[{col}]")
 
+        # ← CHANGED: fetch_* 不再传 tz 参数
         print(f"  → A44 price  eic={bzn_eic}")
-        s_hourly, s_raw = fetch_price(bzn_eic, start_date, end_date, tz)
+        s_hourly, s_raw = fetch_price(bzn_eic, start_date, end_date)
         if s_hourly is not None:
-            s_hourly = s_hourly[s_hourly.index < cutoff]
+            s_hourly = s_hourly[s_hourly.index < cutoff_naive]
             price_cols[col]     = s_hourly
-            raw_price_cols[col] = s_raw[s_raw.index < cutoff]
+            raw_price_cols[col] = s_raw[s_raw.index < cutoff_naive]
             print(f"     ✓ {price_cols[col].notna().sum()} 有效值(1h) | "
                   f"{raw_price_cols[col].notna().sum()} 原始点")
         else:
             print(f"     [WARN] 无价格数据")
 
         print(f"  → A65 load   eic={bzn_eic}")
-        s_hourly, s_raw = fetch_load(bzn_eic, start_date, end_date, tz)
+        s_hourly, s_raw = fetch_load(bzn_eic, start_date, end_date)
         if s_hourly is not None:
-            s_hourly = s_hourly[s_hourly.index < cutoff]
+            s_hourly = s_hourly[s_hourly.index < cutoff_naive]
             load_cols[col]     = s_hourly
-            raw_load_cols[col] = s_raw[s_raw.index < cutoff]
+            raw_load_cols[col] = s_raw[s_raw.index < cutoff_naive]
             print(f"     ✓ {load_cols[col].notna().sum()} 有效值(1h) | "
                   f"{raw_load_cols[col].notna().sum()} 原始点")
         else:
             print(f"     [WARN] 无负荷数据")
 
         print(f"  → A75 gen    in_Domain={bzn_eic}")
-        hourly_dict, raw_dict = fetch_generation(bzn_eic, start_date, end_date, tz)
+        hourly_dict, raw_dict = fetch_generation(bzn_eic, start_date, end_date)
         result = build_generation_result(hourly_dict)
 
         if raw_dict:
             raw_gen_by_country[col] = {
-                k: v[v.index < cutoff] for k, v in raw_dict.items()
+                k: v[v.index < cutoff_naive] for k, v in raw_dict.items()
             }
 
         for field, target_dict, lbl in [
@@ -740,7 +762,7 @@ def main():
         ]:
             s = result.get(field)
             if s is not None:
-                target_dict[col] = s[s.index < cutoff]
+                target_dict[col] = s[s.index < cutoff_naive]
                 print(f"     ✓ {lbl:<8} {target_dict[col].notna().sum()} 有效值")
             else:
                 print(f"     [WARN] {lbl} 无数据")
@@ -759,7 +781,7 @@ def main():
 
         gen_df: pd.DataFrame = result.get("generation", pd.DataFrame())
         if not gen_df.empty:
-            gen_df = gen_df[gen_df.index < cutoff]
+            gen_df = gen_df[gen_df.index < cutoff_naive]
             for cat in gen_df.columns:
                 for dt, val in gen_df[cat].items():
                     gen_rows.append({
@@ -794,4 +816,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

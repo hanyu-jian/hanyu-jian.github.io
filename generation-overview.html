@@ -76,17 +76,28 @@
         .chart-card-header h3 { font-size: 18px; font-weight: 500; color: #2c3e50; border-left: 4px solid #2c3e50; padding-left: 12px; margin: 0; }
         .subtitle { font-size: 12px; color: #888; margin-top: 4px; padding-left: 16px; }
 
-        /* ── shared legend lives here ── */
-        #sharedLegend { width: 100%; margin-top: 12px; min-height: 32px; }
+        /* ── shared HTML legend ── */
+        #sharedLegend {
+            width: 100%; margin-top: 14px; padding: 8px 12px;
+            display: flex; flex-wrap: wrap; gap: 6px 14px; justify-content: center;
+            border-top: 1px solid #e6e9ed;
+        }
+        .leg-item {
+            display: flex; align-items: center; gap: 5px;
+            font-size: 11px; color: #333; cursor: pointer;
+            padding: 2px 4px; border-radius: 3px; user-select: none;
+            transition: opacity 0.15s;
+        }
+        .leg-item.hidden { opacity: 0.35; }
+        .leg-swatch { width: 14px; height: 10px; border-radius: 2px; flex-shrink: 0; }
 
         .year-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; margin-top: 14px; }
         .year-card { border: 1px solid #e6e9ed; border-radius: 0; padding: 10px; background: #fafbfd; }
         .year-card:first-child { border-radius: 8px 0 0 8px; }
         .year-card:last-child  { border-radius: 0 8px 8px 0; }
-        /* remove duplicate borders between cards */
         .year-card + .year-card { border-left: none; }
         .year-title { font-size: 13px; font-weight: 700; color: #2c3e50; margin-bottom: 8px; }
-        .year-chart { height: 380px; }
+        .year-chart { height: 280px; }
 
         .loading { text-align: center; padding: 40px 20px; color: #666; font-size: 15px; }
 
@@ -146,7 +157,7 @@
         <div class="chart-card">
             <div class="chart-card-header">
                 <h3>Load vs Generation by Hour (Monthly Range Avg)</h3>
-                <div class="subtitle">Generation = sum of technologies excluding Cross border; selected countries are summed</div>
+                <div class="subtitle">Generation = sum of technologies including Cross border; selected countries are summed. Click legend to toggle series.</div>
             </div>
             <div class="year-row">
                 <div class="year-card"><div class="year-title">2024</div><div id="chart2024" class="year-chart"></div></div>
@@ -164,9 +175,10 @@ const countries = ['AT','BG','DE','ES','FR','GR','HR','HU','IT','PL','RO','RS','
 const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 let countryData = {};
 let charts = {};
-let legendChart = null;   // dedicated ECharts instance for the shared legend
 let loadReport = { ok: [], fail: [] };
 let loadFailReason = {};
+// legend state: seriesName → boolean (true = visible)
+let legendState = {};
 
 // ── Colour helpers ───────────────────────────────────────────────────────────
 function typeToColor(t) {
@@ -335,7 +347,7 @@ function summarizeYear(year, selectedCountries, mFrom, mTo) {
             const ck  = canonicalKey(cat);
 
             if (ck === 'load') { mergedByTs[key].load += r.value; mergedByTs[key].hasLoad = true; return; }
-            if (ck.includes('cross border') || ck.includes('renewable share')) return;
+            if (ck.includes('renewable share')) return;
 
             if (!techLabelByKey[ck]) techLabelByKey[ck] = cat;
             mergedByTs[key].tech[ck] = (mergedByTs[key].tech[ck] || 0) + r.value;
@@ -370,38 +382,45 @@ function summarizeYear(year, selectedCountries, mFrom, mTo) {
     return { techs, techSeries, load };
 }
 
-// ── Chart drawing ─────────────────────────────────────────────────────────────
-// We collect all series names across all three years so the shared legend is complete.
-let allSeriesNames = [];   // updated on each refresh
-let allSeriesColors = {};  // name → colour
+// ── Chart drawing ────────────────────────────────────────────────────────────
+// Accumulated across all 3 years so HTML legend is complete
+let allSeriesNames = [];
+let allSeriesColors = {};
 
 function buildSeriesForYear(year, selectedCountries, mFrom, mTo) {
     const { techs, techSeries, load } = summarizeYear(year, selectedCountries, mFrom, mTo);
     const hours = Array.from({ length: 24 }, (_, i) => String(i + 1));
 
-    const series = techs.map(t => ({
-        name: t,
-        type: 'line',
-        stack: 'gen',
-        smooth: false,           // ← straight lines
-        symbol: 'none',
-        lineStyle: { width: 1.6, color: typeToColor(t) },
-        areaStyle: { opacity: 1, color: typeToColor(t) },  // ← solid fill, same colour
-        data: techSeries[t],
-        itemStyle: { color: typeToColor(t) }
-    }));
+    const series = techs.map(t => {
+        const col = typeToColor(t);
+        const visible = legendState[t] !== false;
+        return {
+            name: t,
+            type: 'line',
+            stack: 'gen',
+            smooth: false,
+            symbol: 'none',
+            lineStyle: { width: 1.6, color: col },
+            areaStyle: { opacity: 1, color: col },
+            data: techSeries[t],
+            itemStyle: { color: col },
+            // hide series that are toggled off
+            lineStyle: { width: visible ? 1.6 : 0, color: col },
+            areaStyle: { opacity: visible ? 1 : 0, color: col },
+        };
+    });
 
     series.push({
         name: 'Load',
         type: 'line',
-        smooth: false,           // ← straight lines
+        smooth: false,
         symbol: 'none',
         data: load,
-        lineStyle: { width: 2.2, color: '#111827' },
+        lineStyle: { width: legendState['Load'] !== false ? 2.2 : 0, color: '#111827' },
         itemStyle: { color: '#111827' }
     });
 
-    // accumulate for shared legend
+    // Accumulate names/colours for HTML legend
     series.forEach(s => {
         if (!allSeriesColors[s.name]) allSeriesColors[s.name] = s.itemStyle.color;
         if (!allSeriesNames.includes(s.name)) allSeriesNames.push(s.name);
@@ -419,39 +438,58 @@ function applyYearChart(chart, year, selectedCountries, mFrom, mTo) {
             trigger: 'axis',
             valueFormatter: v => (v == null || Number.isNaN(v) ? '-' : Number(v).toFixed(2))
         },
-        legend: { show: false },   // ← legend hidden in individual charts
+        legend: { show: false },
         grid: { left: 52, right: 16, top: 12, bottom: 42 },
         xAxis: { type: 'category', data: hours, name: 'Hour', nameGap: 24 },
         yAxis: { type: 'value', name: 'Power (MW)' },
-        dataZoom: [{ type: 'inside' }],
+        // inside zoom only on Y axis; X axis locked
+        dataZoom: [{ type: 'inside', yAxisIndex: 0, zoomOnMouseWheel: true, moveOnMouseWheel: false, moveOnMouseMove: false }],
         series
     }, true);
 }
 
-function updateSharedLegend() {
-    if (!legendChart) return;
-    // Build a minimal ECharts option whose sole purpose is rendering a legend
-    const legendData = allSeriesNames.map(name => ({
-        name,
-        icon: 'rect',
-        itemStyle: { color: allSeriesColors[name] }
-    }));
+// ── HTML shared legend ────────────────────────────────────────────────────────
+function buildHtmlLegend() {
+    const wrap = document.getElementById('sharedLegend');
+    wrap.innerHTML = '';
+    // Sort: techs alphabetically, Load at end
+    const names = allSeriesNames.filter(n => n !== 'Load').sort((a,b) => a.localeCompare(b));
+    if (allSeriesNames.includes('Load')) names.push('Load');
 
-    legendChart.setOption({
-        legend: {
-            type: 'scroll',
-            orient: 'horizontal',
-            left: 'center',
-            top: 0,
-            data: legendData,
-            textStyle: { fontSize: 11 },
-            pageButtonPosition: 'end'
-        },
-        series: []   // no actual data – just the legend
-    }, true);
+    names.forEach(name => {
+        const visible = legendState[name] !== false;
+        const item = document.createElement('div');
+        item.className = 'leg-item' + (visible ? '' : ' hidden');
+        item.dataset.name = name;
 
-    // Resize the container to fit however many rows the legend needs
-    legendChart.resize();
+        const swatch = document.createElement('div');
+        swatch.className = 'leg-swatch';
+        swatch.style.background = allSeriesColors[name] || '#90a4ae';
+
+        const label = document.createElement('span');
+        label.textContent = name;
+
+        item.appendChild(swatch);
+        item.appendChild(label);
+        item.addEventListener('click', () => toggleSeries(name));
+        wrap.appendChild(item);
+    });
+}
+
+function toggleSeries(name) {
+    legendState[name] = legendState[name] === false ? true : false;
+    // Redraw all charts with updated visibility (no data refetch needed)
+    const selected = getSelectedCountries();
+    const mFrom = parseInt(document.getElementById('monthFrom').value, 10);
+    const mTo   = parseInt(document.getElementById('monthTo').value, 10);
+    [[charts.chart2024, 2024],[charts.chart2025, 2025],[charts.chart2026, 2026]].forEach(([c, y]) => {
+        applyYearChart(c, y, selected, mFrom, mTo);
+    });
+    // Update legend item appearance
+    document.querySelectorAll('.leg-item').forEach(el => {
+        const visible = legendState[el.dataset.name] !== false;
+        el.classList.toggle('hidden', !visible);
+    });
 }
 
 function refresh() {
@@ -460,7 +498,6 @@ function refresh() {
     const mFrom = parseInt(document.getElementById('monthFrom').value, 10);
     const mTo   = parseInt(document.getElementById('monthTo').value, 10);
 
-    // Reset legend accumulation before rebuilding
     allSeriesNames = [];
     allSeriesColors = {};
 
@@ -468,7 +505,7 @@ function refresh() {
     applyYearChart(charts.chart2025, 2025, selected, mFrom, mTo);
     applyYearChart(charts.chart2026, 2026, selected, mFrom, mTo);
 
-    updateSharedLegend();
+    buildHtmlLegend();
 }
 
 // ── Init ─────────────────────────────────────────────────────────────────────
@@ -488,14 +525,10 @@ async function init() {
     charts.chart2024 = echarts.init(document.getElementById('chart2024'));
     charts.chart2025 = echarts.init(document.getElementById('chart2025'));
     charts.chart2026 = echarts.init(document.getElementById('chart2026'));
-    legendChart      = echarts.init(document.getElementById('sharedLegend'), null, { height: 80 });
 
     refresh();
 
-    window.addEventListener('resize', () => {
-        Object.values(charts).forEach(c => c.resize());
-        legendChart && legendChart.resize();
-    });
+    window.addEventListener('resize', () => Object.values(charts).forEach(c => c.resize()));
 }
 
 init();

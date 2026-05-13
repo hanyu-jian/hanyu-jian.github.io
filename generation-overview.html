@@ -124,7 +124,7 @@
     </div>
 
     <div class="sub-nav">
-        <a class="sub-nav-link active" href="generation-overview.html">Overview</a>
+        <a class="sub-nav-link active" href="generation-overview.html">Generation Overview</a>
     </div>
 
     <div class="controls">
@@ -171,13 +171,16 @@
 </div>
 
 <script>
-const countries = ['AT','BG','DE','ES','FR','GR','HR','HU','IT','PL','RO','RS','SK'];
+const BASE_COUNTRIES = ['AT','BG','DE','ES','FR','GR','HR','HU','IT','PL','RO','RS','SK'];
+const CEE_COUNTRIES = ['HU','RO','RS','HR','PL','BG'];
+const DISPLAY_COUNTRIES = ['CEE', ...BASE_COUNTRIES];
 const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
 let countryData = {};
+let loadData = [];
 let charts = {};
 let loadReport = { ok: [], fail: [] };
 let loadFailReason = {};
-// legend state: seriesName → boolean (true = visible)
 let legendState = {};
 
 // ── Colour helpers ───────────────────────────────────────────────────────────
@@ -250,11 +253,49 @@ function parseCSV(text) {
 function normalizeCategory(cat) { return (cat || '').replace(/\s+/g, ' ').trim(); }
 function canonicalKey(cat) { return normalizeCategory(cat).toLowerCase().replace(/[-/]/g, ' ').replace(/\s+/g, ' ').trim(); }
 
+// ── Load CSV parsing (/data/load.csv) ────────────────────────────────────────
+function parseLoadCSV(text) {
+    const lines = text.trim().split(/\r?\n/).filter(Boolean);
+    if (!lines.length) return [];
+
+    const headers = lines[0].split(',').map(h => h.trim());
+    const dateIdx = headers.findIndex(h => h.toLowerCase() === 'date');
+    if (dateIdx < 0) return [];
+
+    const countryCols = headers
+        .map((h, i) => ({ code: h, idx: i }))
+        .filter(x => x.idx !== dateIdx);
+
+    const out = [];
+    for (let i = 1; i < lines.length; i++) {
+        const cols = lines[i].split(',').map(x => x.trim());
+        if (!cols.length) continue;
+        const dt = parseDate(cols[dateIdx]);
+        if (!dt) continue;
+
+        const values = {};
+        countryCols.forEach(c => {
+            const v = Number(cols[c.idx]);
+            values[c.code] = Number.isFinite(v) ? v : null;
+        });
+
+        out.push({
+            year: dt.year,
+            month: dt.month,
+            day: dt.day,
+            hour: dt.hour,
+            values
+        });
+    }
+    return out;
+}
+
 // ── Data loading ─────────────────────────────────────────────────────────────
 async function loadAllCountries() {
     loadReport = { ok: [], fail: [] };
     loadFailReason = {};
-    await Promise.all(countries.map(async c => {
+
+    await Promise.all(BASE_COUNTRIES.map(async c => {
         try {
             const res = await fetch(`/data/generation/${c}.csv`, { cache: 'no-store' });
             if (!res.ok) { loadReport.fail.push(c); loadFailReason[c] = `HTTP ${res.status}`; return; }
@@ -268,13 +309,18 @@ async function loadAllCountries() {
             loadFailReason[c] = e && e.message ? e.message : 'fetch error';
         }
     }));
+
+    const loadRes = await fetch('/data/load.csv', { cache: 'no-store' });
+    if (!loadRes.ok) throw new Error(`load.csv HTTP ${loadRes.status}`);
+    const loadText = await loadRes.text();
+    loadData = parseLoadCSV(loadText);
 }
 
 // ── Country selector ─────────────────────────────────────────────────────────
 function buildCountryCheckboxes() {
     const wrap = document.getElementById('countryCheckboxes');
     wrap.innerHTML = '';
-    countries.forEach(c => {
+    DISPLAY_COUNTRIES.forEach(c => {
         const item = document.createElement('div');
         item.className = 'country-item';
         const cb = document.createElement('input');
@@ -289,8 +335,17 @@ function buildCountryCheckboxes() {
     updateCountryLabel();
 }
 
-function getSelectedCountries() {
+function getSelectedCountriesRaw() {
     return [...document.querySelectorAll('#countryCheckboxes input:checked')].map(x => x.value);
+}
+
+function expandCountries(selectedRaw) {
+    const expanded = selectedRaw.flatMap(c => c === 'CEE' ? CEE_COUNTRIES : [c]);
+    return [...new Set(expanded)];
+}
+
+function getSelectedCountries() {
+    return expandCountries(getSelectedCountriesRaw());
 }
 
 function updateCountryLabel() {
@@ -328,10 +383,35 @@ function initControls() {
 }
 
 // ── Data summarisation ───────────────────────────────────────────────────────
+function buildLoadSeries(year, selectedCountries, mFrom, mTo) {
+    const byHour = Array.from({ length: 24 }, () => ({ sum: 0, cnt: 0 }));
+
+    loadData.forEach(r => {
+        if (r.year !== year || r.month < mFrom || r.month > mTo) return;
+        let rowSum = 0;
+        let hasValue = false;
+
+        selectedCountries.forEach(c => {
+            const v = r.values[c];
+            if (Number.isFinite(v)) {
+                rowSum += v;
+                hasValue = true;
+            }
+        });
+
+        if (hasValue && r.hour >= 0 && r.hour < 24) {
+            byHour[r.hour].sum += rowSum;
+            byHour[r.hour].cnt += 1;
+        }
+    });
+
+    return byHour.map(x => x.cnt ? +((x.sum / x.cnt).toFixed(2)) : null);
+}
+
 function summarizeYear(year, selectedCountries, mFrom, mTo) {
     const techLabelByKey = {};
     const byHour = {};
-    for (let h = 0; h < 24; h++) byHour[h] = { loadSum: 0, loadCnt: 0, techSum: {}, techCnt: {} };
+    for (let h = 0; h < 24; h++) byHour[h] = { techSum: {}, techCnt: {} };
     const mergedByTs = {};
 
     selectedCountries.forEach(c => {
@@ -341,12 +421,13 @@ function summarizeYear(year, selectedCountries, mFrom, mTo) {
             if (!dt || dt.year !== year || dt.month < mFrom || dt.month > mTo) return;
 
             const key = `${dt.year}-${dt.month}-${dt.day}-${dt.hour}`;
-            if (!mergedByTs[key]) mergedByTs[key] = { hour: dt.hour, load: 0, hasLoad: false, tech: {} };
+            if (!mergedByTs[key]) mergedByTs[key] = { hour: dt.hour, tech: {} };
 
             const cat = normalizeCategory(r.category);
             const ck  = canonicalKey(cat);
 
-            if (ck === 'load') { mergedByTs[key].load += r.value; mergedByTs[key].hasLoad = true; return; }
+            // Load now comes only from /data/load.csv
+            if (ck === 'load') return;
             if (ck.includes('renewable share')) return;
 
             if (!techLabelByKey[ck]) techLabelByKey[ck] = cat;
@@ -356,7 +437,6 @@ function summarizeYear(year, selectedCountries, mFrom, mTo) {
 
     Object.values(mergedByTs).forEach(b => {
         const h = b.hour;
-        if (b.hasLoad) { byHour[h].loadSum += b.load; byHour[h].loadCnt += 1; }
         Object.entries(b.tech).forEach(([ck, v]) => {
             byHour[h].techSum[ck] = (byHour[h].techSum[ck] || 0) + v;
             byHour[h].techCnt[ck] = (byHour[h].techCnt[ck] || 0) + 1;
@@ -365,13 +445,12 @@ function summarizeYear(year, selectedCountries, mFrom, mTo) {
 
     const techKeys = Object.keys(techLabelByKey).sort((a, b) => techLabelByKey[a].localeCompare(techLabelByKey[b]));
     const techs = techKeys.map(k => techLabelByKey[k]);
-    const load = [];
+    const load = buildLoadSeries(year, selectedCountries, mFrom, mTo);
     const techSeries = {};
     techs.forEach(t => techSeries[t] = []);
 
     for (let h = 0; h < 24; h++) {
         const x = byHour[h];
-        load.push(x.loadCnt ? +((x.loadSum / x.loadCnt).toFixed(2)) : null);
         techKeys.forEach((k, i) => {
             const label = techs[i];
             const s = x.techSum[k] || 0, cnt = x.techCnt[k] || 0;
@@ -383,7 +462,6 @@ function summarizeYear(year, selectedCountries, mFrom, mTo) {
 }
 
 // ── Chart drawing ────────────────────────────────────────────────────────────
-// Accumulated across all 3 years so HTML legend is complete
 let allSeriesNames = [];
 let allSeriesColors = {};
 
@@ -418,7 +496,6 @@ function buildSeriesForYear(year, selectedCountries, mFrom, mTo) {
         areaStyle: { opacity: 0 }, silent: !loadVisible,
     });
 
-    // Accumulate names/colours for HTML legend
     series.forEach(s => {
         if (!allSeriesColors[s.name]) allSeriesColors[s.name] = s.itemStyle.color;
         if (!allSeriesNames.includes(s.name)) allSeriesNames.push(s.name);
@@ -448,7 +525,6 @@ function applyYearChart(chart, year, selectedCountries, mFrom, mTo) {
 function buildHtmlLegend() {
     const wrap = document.getElementById('sharedLegend');
     wrap.innerHTML = '';
-    // Sort: techs alphabetically, Load at end
     const names = allSeriesNames.filter(n => n !== 'Load').sort((a,b) => a.localeCompare(b));
     if (allSeriesNames.includes('Load')) names.push('Load');
 
@@ -460,7 +536,14 @@ function buildHtmlLegend() {
 
         const swatch = document.createElement('div');
         swatch.className = 'leg-swatch';
-        swatch.style.background = allSeriesColors[name] || '#90a4ae';
+
+        const color = allSeriesColors[name] || '#90a4ae';
+        // line-style legend swatch (including Load)
+        swatch.style.height = '0';
+        swatch.style.width = '16px';
+        swatch.style.borderRadius = '0';
+        swatch.style.background = 'transparent';
+        swatch.style.borderTop = `${name === 'Load' ? 2.5 : 2}px solid ${color}`;
 
         const label = document.createElement('span');
         label.textContent = name;
@@ -474,17 +557,15 @@ function buildHtmlLegend() {
 
 function toggleSeries(name) {
     legendState[name] = legendState[name] === false ? true : false;
-    // Redraw all charts with updated visibility (no data refetch needed)
     const selected = getSelectedCountries();
     const mFrom = parseInt(document.getElementById('monthFrom').value, 10);
     const mTo   = parseInt(document.getElementById('monthTo').value, 10);
     [[charts.chart2024, 2024],[charts.chart2025, 2025],[charts.chart2026, 2026]].forEach(([c, y]) => {
         applyYearChart(c, y, selected, mFrom, mTo);
     });
-    // Update legend item appearance
     document.querySelectorAll('.leg-item').forEach(el => {
-        const visible = legendState[el.dataset.name] !== false;
-        el.classList.toggle('hidden', !visible);
+        const vis = legendState[el.dataset.name] !== false;
+        el.classList.toggle('hidden', !vis);
     });
 }
 

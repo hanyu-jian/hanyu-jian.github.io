@@ -161,20 +161,20 @@
                     </div>
                     <div class="ctrl-divider"></div>
                     <div class="uplift-ctrl-group">
-                        <label>⚡ Discharge Start</label>
+                        <label> Discharge </label>
                         <input type="number" id="startHour" min="0" max="23" value="17">
                     </div>
                     <div class="uplift-ctrl-group">
-                        <label>⚡ Discharge End</label>
+                        <label> </label>
                         <input type="number" id="endHour" min="0" max="23" value="21">
                     </div>
                     <div class="ctrl-divider"></div>
                     <div class="uplift-ctrl-group">
-                        <label>🔋 Charge Start</label>
+                        <label> Charge </label>
                         <input type="number" id="chargeStartHour" min="0" max="23" value="1">
                     </div>
                     <div class="uplift-ctrl-group">
-                        <label>🔋 Charge End</label>
+                        <label> </label>
                         <input type="number" id="chargeEndHour" min="0" max="23" value="6">
                     </div>
                     <div class="ctrl-divider"></div>
@@ -191,22 +191,20 @@
                 <div class="kpi-grid">
                     <div class="kpi"><div class="kpi-label">Cumulative Uplift (discharge spread)</div><div class="kpi-value" id="kpiCum">-</div></div>
                     <div class="kpi"><div class="kpi-label">Monthly Uplift (avg ID3−DA, discharge hrs)</div><div class="kpi-value" id="kpiMonthly">-</div></div>
-                    <div class="kpi"><div class="kpi-label">ID3 Premium vs Net DA Spread</div><div class="kpi-value" id="kpiAvg">-</div></div>
+                    <div class="kpi"><div class="kpi-label">ID3 premium </div><div class="kpi-value" id="kpiAvg">-</div></div>
                 </div>
 
                 <div class="chart-wrap">
                     <div class="chart-title" id="monthlyChartTitle">Monthly Average Price — DA vs ID3</div>
                     <div class="chart-legend">
-                        <div class="legend-item"><div class="legend-swatch" style="background:rgba(69,123,157,0.85)"></div> DA (Day-Ahead)</div>
-                        <div class="legend-item"><div class="legend-swatch" style="background:rgba(231,111,81,0.85)"></div> ID3 above DA</div>
-                        <div class="legend-item"><div class="legend-swatch" style="background:rgba(231,111,81,0.35); border: 1px dashed rgba(231,111,81,0.7)"></div> ID3 below DA</div>
+                        <div class="legend-item"><div class="legend-swatch" style="background:rgba(69,123,157,0.85)"></div> DA Arbitrage </div>
+                        <div class="legend-item"><div class="legend-swatch" style="background:rgba(231,111,81,0.85)"></div> ID3 Arbitrage </div>
                     </div>
                     <div style="overflow-x:auto">
                         <div style="min-width:400px">
                             <svg id="monthlyChart" style="width:100%;height:320px;display:block" viewBox="0 0 900 320" preserveAspectRatio="none"></svg>
                         </div>
                     </div>
-                    <div class="chart-note">Each bar group = monthly average of DA and ID3 within the selected hour window. ID3 portion shown on top of (or below) DA bar.</div>
                 </div>
 
             </div>
@@ -464,7 +462,7 @@ function renderUpliftPanel() {
     renderMonthlyChart(months);
 }
 
-/* ── Monthly stacked bar chart: DA base + ID3 delta on top ── */
+/* ── Monthly stacked bar chart: DA arbitrage base + ID3 premium on top ── */
 function renderMonthlyChart(months) {
     const svg = document.getElementById('monthlyChart');
     svg.innerHTML = '';
@@ -475,15 +473,15 @@ function renderMonthlyChart(months) {
     const cw = W - m.l - m.r, ch = H - m.t - m.b;
     const n = months.length;
 
-    // Value range: covers both DA and ID3
-    const allVals = months.flatMap(d => [d.da, d.id3]);
+    // Value range: covers both netDA and netID3 (arbitrage values)
+    const allVals = months.flatMap(d => [d.netDA, d.netID3]);
     let vMin = Math.min(0, ...allVals);
     let vMax = Math.max(0, ...allVals);
-    const pad = (vMax - vMin) * 0.1 || 5;
+    const pad = (vMax - vMin) * 0.12 || 2;
     vMin -= pad; vMax += pad;
 
-    const groupW = cw / n;
-    const barW   = groupW * 0.55;
+    const groupW  = cw / n;
+    const barW    = groupW * 0.55;
     const xCenter = i => m.l + (i + 0.5) * groupW;
     const yScale  = v => m.t + (vMax - v) / (vMax - vMin) * ch;
     const zeroY   = yScale(0);
@@ -500,29 +498,26 @@ function renderMonthlyChart(months) {
     // Zero line
     svg.appendChild(svgEl('line', { x1: m.l, x2: W - m.r, y1: zeroY, y2: zeroY, stroke: '#adb5bd', 'stroke-width': '1' }));
 
-    // Bars: DA as base, ID3 delta stacked on top (or below)
     months.forEach((d, i) => {
         const cx  = xCenter(i);
         const x0  = cx - barW / 2;
-        const daY = yScale(d.da);
-        const daH = Math.max(1, Math.abs(daY - zeroY));
 
-        // DA bar (always full from 0 to DA value)
+        // ── DA arbitrage bar (netDA: DA_discharge − DA_charge) ──
+        const daY = yScale(d.netDA);
+        const daH = Math.max(1, Math.abs(daY - zeroY));
         svg.appendChild(svgEl('rect', {
             x: x0, y: Math.min(zeroY, daY),
             width: barW, height: daH,
             fill: 'rgba(69,123,157,0.85)'
         }));
 
-        // ID3 delta: from DA level to ID3 level
-        const diff = d.id3 - d.da;
+        // ── ID3 premium: from netDA level to netID3 level ──
+        const diff = d.netID3 - d.netDA;   // = ID3_discharge − DA_discharge = pure ID3 uplift
         if (Math.abs(diff) > 0.001) {
-            const id3Y = yScale(d.id3);
+            const id3Y        = yScale(d.netID3);
             const deltaTop    = Math.min(daY, id3Y);
             const deltaBottom = Math.max(daY, id3Y);
             const deltaH = Math.max(1, deltaBottom - deltaTop);
-            // above DA = positive diff = ID3 > DA → warm color
-            // below DA = negative diff → same warm but lighter/dashed via fill opacity
             svg.appendChild(svgEl('rect', {
                 x: x0, y: deltaTop,
                 width: barW, height: deltaH,
@@ -535,25 +530,26 @@ function renderMonthlyChart(months) {
         lb.textContent = MONTHS[d.month - 1];
         svg.appendChild(lb);
 
-        // Value annotations: DA and ID3
-        const topVal = Math.max(d.da, d.id3);
-        const botVal = Math.min(d.da, d.id3);
+        // Value annotation: show netID3 at top of bar
+        const topVal = Math.max(d.netDA, d.netID3);
         const topY   = yScale(topVal);
-        const botY   = yScale(botVal);
-
-        // Show ID3 value above/below
-        if (Math.abs(d.id3 - d.da) > 0.5) {
+        if (Math.abs(d.netID3 - d.netDA) > 0.3) {
             const id3Lbl = svgEl('text', {
-                x: cx,
-                y: topY - 4,
-                'text-anchor': 'middle',
-                'font-size': '9',
-                fill: 'rgba(231,111,81,1)',
-                'font-weight': '700'
+                x: cx, y: topY - 4,
+                'text-anchor': 'middle', 'font-size': '9',
+                fill: 'rgba(231,111,81,1)', 'font-weight': '700'
             });
-            id3Lbl.textContent = d.id3.toFixed(1);
+            id3Lbl.textContent = d.netID3.toFixed(1);
             svg.appendChild(id3Lbl);
         }
+        // Always show netDA value inside/below its bar
+        const daLbl = svgEl('text', {
+            x: cx, y: Math.min(zeroY, daY) + Math.min(daH - 2, 11),
+            'text-anchor': 'middle', 'font-size': '9',
+            fill: 'rgba(255,255,255,0.9)', 'font-weight': '700'
+        });
+        daLbl.textContent = d.netDA.toFixed(1);
+        svg.appendChild(daLbl);
     });
 
     // Axes borders
@@ -661,4 +657,3 @@ function yieldFrame() { return new Promise(res => requestAnimationFrame(() => re
 </script>
 </body>
 </html>
-

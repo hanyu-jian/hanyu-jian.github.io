@@ -87,6 +87,9 @@
         .chart-wrap { border: 1px solid #e6e9ed; border-radius: 8px; padding: 10px; margin-bottom: 12px; }
         .chart-title { font-size: 13px; color: #2c3e50; font-weight: 700; margin-bottom: 8px; }
         .chart-note { font-size: 11px; color: #868e96; margin-top: 6px; }
+        .chart-legend { display: flex; gap: 16px; margin-bottom: 8px; align-items: center; }
+        .legend-item { display: flex; align-items: center; gap: 5px; font-size: 12px; color: #495057; }
+        .legend-swatch { width: 14px; height: 14px; border-radius: 3px; flex-shrink: 0; }
         .info { padding: 12px 30px 20px; font-size: 13px; color: #6c757d; text-align: center; border-top: 1px solid #e6e9ed; margin-top: 10px; }
         .info a { color: #5a8fc2; text-decoration: none; }
         .info a:hover { text-decoration: underline; }
@@ -142,8 +145,8 @@
         <!-- Uplift panel -->
         <div class="section-card">
             <div class="section-head">
-                <h2>Intraday Uplift vs Day-Ahead — Daily View</h2>
-                <p id="upliftDesc">Spread = Avg(ID3 − DA) for selected window &nbsp;|&nbsp; Unit: €/MWh</p>
+                <h2>Monthly Average Price — DA vs ID3</h2>
+                <p id="upliftDesc">Monthly average of DA and ID3 prices for selected hour and month window &nbsp;|&nbsp; Unit: €/MWh</p>
             </div>
             <div class="section-body">
 
@@ -178,18 +181,23 @@
 
                 <div class="kpi-grid">
                     <div class="kpi"><div class="kpi-label">Cumulative Uplift</div><div class="kpi-value" id="kpiCum">-</div></div>
-                    <div class="kpi"><div class="kpi-label">Avg Monthly Uplift</div><div class="kpi-value" id="kpiMonthly">-</div></div>
-                    <div class="kpi"><div class="kpi-label">Avg Daily Uplift</div><div class="kpi-value" id="kpiAvg">-</div></div>
+                    <div class="kpi"><div class="kpi-label">Monthly Uplift</div><div class="kpi-value" id="kpiMonthly">-</div></div>
+                    <div class="kpi"><div class="kpi-label">Avg ID3 Premium</div><div class="kpi-value" id="kpiAvg">-</div></div>
                 </div>
 
                 <div class="chart-wrap">
-                    <div class="chart-title" id="dailyChartTitle">Daily Average Spread (ID3 − DA)</div>
+                    <div class="chart-title" id="monthlyChartTitle">Monthly Average Price — DA vs ID3</div>
+                    <div class="chart-legend">
+                        <div class="legend-item"><div class="legend-swatch" style="background:rgba(69,123,157,0.85)"></div> DA (Day-Ahead)</div>
+                        <div class="legend-item"><div class="legend-swatch" style="background:rgba(231,111,81,0.85)"></div> ID3 above DA</div>
+                        <div class="legend-item"><div class="legend-swatch" style="background:rgba(231,111,81,0.35); border: 1px dashed rgba(231,111,81,0.7)"></div> ID3 below DA</div>
+                    </div>
                     <div style="overflow-x:auto">
-                        <div style="min-width:600px">
-                            <svg id="dailyChart" style="width:100%;height:320px;display:block" viewBox="0 0 1400 320" preserveAspectRatio="none"></svg>
+                        <div style="min-width:400px">
+                            <svg id="monthlyChart" style="width:100%;height:320px;display:block" viewBox="0 0 900 320" preserveAspectRatio="none"></svg>
                         </div>
                     </div>
-                    <div class="chart-note">Each bar = daily average of (ID3 − DA) within the selected hour and month window.</div>
+                    <div class="chart-note">Each bar group = monthly average of DA and ID3 within the selected hour window. ID3 portion shown on top of (or below) DA bar.</div>
                 </div>
 
             </div>
@@ -288,14 +296,19 @@ async function processData(text) {
         if (isNaN(id3) || isNaN(da)) continue;
 
         const spread = id3 - da;
+
+        // Heatmap accumulation (spread only)
         hmAcc[dt.year][dt.hour][dt.month - 1].sum += spread;
         hmAcc[dt.year][dt.hour][dt.month - 1].cnt += 1;
 
+        // Daily accumulation: store DA and ID3 separately per hour
+        // so we can compute spread AFTER averaging hours within each day
         const dKey = `${dt.year}-${String(dt.month).padStart(2,'0')}-${String(dt.day).padStart(2,'0')}`;
         if (!dayHourAcc[dKey]) dayHourAcc[dKey] = { year: dt.year, month: dt.month };
-        if (!dayHourAcc[dKey][dt.hour]) dayHourAcc[dKey][dt.hour] = { sS:0, cnt:0 };
-        dayHourAcc[dKey][dt.hour].sS  += spread;
-        dayHourAcc[dKey][dt.hour].cnt += 1;
+        if (!dayHourAcc[dKey][dt.hour]) dayHourAcc[dKey][dt.hour] = { daS:0, id3S:0, cnt:0 };
+        dayHourAcc[dKey][dt.hour].daS  += da;
+        dayHourAcc[dKey][dt.hour].id3S += id3;
+        dayHourAcc[dKey][dt.hour].cnt  += 1;
     }
 
     YEARS.forEach(yr => {
@@ -308,134 +321,198 @@ async function processData(text) {
     document.getElementById('hmSpinner').classList.remove('show');
 }
 
-/* ── Build daily series ── */
+/*
+ * ── Build daily series ──
+ * Correct order:
+ *   1. For each day, average DA and ID3 separately across selected hours
+ *   2. Compute that day's spread = avg_ID3 - avg_DA
+ * This preserves intraday peak/trough structure vs computing spread then averaging.
+ */
 function buildDailySeries(year, sh, eh, sm, em) {
     const days = [];
     Object.entries(dayHourAcc).forEach(([date, meta]) => {
         if (meta.year !== year) return;
         if (meta.month < sm || meta.month > em) return;
-        let ss = 0, used = 0;
+        let daS = 0, id3S = 0, used = 0;
         for (let h = sh; h <= eh; h++) {
             const b = meta[h];
             if (!b || b.cnt === 0) continue;
-            ss += b.sS / b.cnt;
+            daS  += b.daS  / b.cnt;   // avg DA  for this hour on this day
+            id3S += b.id3S / b.cnt;   // avg ID3 for this hour on this day
             used++;
         }
-        if (used > 0) days.push({ date, month: meta.month, spread: ss / used });
+        if (used > 0) {
+            const dayDA  = daS  / used;
+            const dayID3 = id3S / used;
+            days.push({ date, month: meta.month, da: dayDA, id3: dayID3, spread: dayID3 - dayDA });
+        }
     });
     days.sort((a, b) => a.date.localeCompare(b.date));
     return days;
 }
 
-/* ── Avg Monthly Uplift: mean of per-month daily-averages ── */
-function avgMonthlyUplift(days) {
+/*
+ * ── Build monthly series from daily series ──
+ * Correct order:
+ *   1. Each day already has spread = avg_ID3 - avg_DA (from buildDailySeries)
+ *   2. Monthly DA   = mean of daily DA values
+ *   3. Monthly ID3  = monthly DA + mean of daily spreads
+ * The chart bars are thus grounded in the correct monthly spread.
+ */
+function buildMonthlySeries(days) {
     const acc = {};
     days.forEach(d => {
-        if (!acc[d.month]) acc[d.month] = { sum:0, cnt:0 };
-        acc[d.month].sum += d.spread;
-        acc[d.month].cnt++;
+        if (!acc[d.month]) acc[d.month] = { daSum: 0, spreadSum: 0, cnt: 0 };
+        acc[d.month].daSum     += d.da;
+        acc[d.month].spreadSum += d.spread;
+        acc[d.month].cnt       += 1;
     });
-    const monthMeans = Object.values(acc).map(v => v.sum / v.cnt);
-    if (!monthMeans.length) return NaN;
-    return monthMeans.reduce((s, v) => s + v, 0) / monthMeans.length;
+    return Object.entries(acc)
+        .map(([mo, v]) => ({
+            month:  parseInt(mo, 10),
+            da:     v.daSum     / v.cnt,
+            spread: v.spreadSum / v.cnt,           // mean of daily (ID3−DA)
+            id3:    v.daSum / v.cnt + v.spreadSum / v.cnt  // da + spread
+        }))
+        .sort((a, b) => a.month - b.month);
 }
 
 /* ── Render uplift panel ── */
 function renderUpliftPanel() {
     const { year, sh, eh, sm, em } = getFilters();
-    const days = buildDailySeries(year, sh, eh, sm, em);
+    const days    = buildDailySeries(year, sh, eh, sm, em);
+    const months  = buildMonthlySeries(days);
 
     const hLbl = `${sh}:00–${eh}:00`;
     const mLbl = `${MONTHS[sm-1]}–${MONTHS[em-1]}`;
     document.getElementById('upliftDesc').textContent =
-        `Spread = Avg(ID3 − DA) | Hours: ${hLbl} | Months: ${mLbl} | Unit: €/MWh`;
-    document.getElementById('dailyChartTitle').textContent =
-        `Daily Average Spread (ID3 − DA) — ${year}, ${hLbl}, ${mLbl}`;
+        `Monthly average of DA and ID3 | Hours: ${hLbl} | Months: ${mLbl} | Unit: €/MWh`;
+    document.getElementById('monthlyChartTitle').textContent =
+        `Monthly Average Price — DA vs ID3 · ${year}, ${hLbl}`;
 
-    if (!days.length) {
+    if (!days.length || !months.length) {
         ['kpiCum','kpiMonthly','kpiAvg'].forEach(id => document.getElementById(id).textContent = 'N/A');
-        document.getElementById('dailyChart').innerHTML = '';
+        document.getElementById('monthlyChart').innerHTML = '';
         return;
     }
 
-    const cum     = days.reduce((s, d) => s + d.spread, 0);
-    const avg     = cum / days.length;
-    const moAvg   = avgMonthlyUplift(days);
+    // Cumulative uplift = sum of daily avg spreads
+    const cum = days.reduce((s, d) => s + d.spread, 0);
 
-    document.getElementById('kpiCum').textContent     = `${cum.toFixed(1)} €/MWh`;
-    document.getElementById('kpiMonthly').textContent = `${moAvg.toFixed(2)} €/MWh`;
-    document.getElementById('kpiAvg').textContent     = `${avg.toFixed(2)} €/MWh`;
+    // Monthly uplift = mean of monthly average spreads (each month's spread = mean of daily ID3−DA)
+    const avgMonthlyUplift = months.reduce((s, m) => s + m.spread, 0) / months.length;
 
-    renderDailyChart(days);
+    // ID3 Premium % = mean of per-month spread/|DA| × 100
+    const premiums = months
+        .filter(m => m.da !== 0)
+        .map(m => m.spread / Math.abs(m.da) * 100);
+    const avgPremium = premiums.length ? premiums.reduce((s, v) => s + v, 0) / premiums.length : NaN;
+
+    document.getElementById('kpiCum').textContent      = `${cum.toFixed(1)} €/MWh`;
+    document.getElementById('kpiMonthly').textContent  = `${avgMonthlyUplift.toFixed(2)} €/MWh`;
+    document.getElementById('kpiAvg').textContent      = isNaN(avgPremium) ? 'N/A' : `${avgPremium.toFixed(2)}%`;
+
+    renderMonthlyChart(months);
 }
 
-/* ── Daily spread bar chart (single axis) ── */
-function renderDailyChart(days) {
-    const svg = document.getElementById('dailyChart');
+/* ── Monthly stacked bar chart: DA base + ID3 delta on top ── */
+function renderMonthlyChart(months) {
+    const svg = document.getElementById('monthlyChart');
     svg.innerHTML = '';
-    if (!days.length) return;
+    if (!months.length) return;
 
-    const W=1400, H=320;
-    const m={l:62, r:20, t:14, b:48};
-    const cw=W-m.l-m.r, ch=H-m.t-m.b;
-    const n=days.length;
+    const W = 900, H = 320;
+    const m = { l: 62, r: 20, t: 14, b: 48 };
+    const cw = W - m.l - m.r, ch = H - m.t - m.b;
+    const n = months.length;
 
-    const sVals = days.map(d => d.spread).filter(Number.isFinite);
-    let vMin = Math.min(0, ...sVals);
-    let vMax = Math.max(0, ...sVals);
-    const pad = (vMax - vMin) * 0.08 || 2;
+    // Value range: covers both DA and ID3
+    const allVals = months.flatMap(d => [d.da, d.id3]);
+    let vMin = Math.min(0, ...allVals);
+    let vMax = Math.max(0, ...allVals);
+    const pad = (vMax - vMin) * 0.1 || 5;
     vMin -= pad; vMax += pad;
 
-    const xScale = i => m.l + (i / Math.max(n-1, 1)) * cw;
-    const yScale = v => m.t + (vMax - v) / (vMax - vMin) * ch;
-    const zeroY  = yScale(0);
+    const groupW = cw / n;
+    const barW   = groupW * 0.55;
+    const xCenter = i => m.l + (i + 0.5) * groupW;
+    const yScale  = v => m.t + (vMax - v) / (vMax - vMin) * ch;
+    const zeroY   = yScale(0);
 
     // Gridlines + left axis ticks
     niceTicks(vMin, vMax, 6).forEach(t => {
         const yt = yScale(t);
-        svg.appendChild(svgEl('line', {x1:m.l, x2:W-m.r, y1:yt, y2:yt, stroke:'#e9ecef', 'stroke-width':'1'}));
-        const lb = svgEl('text', {x:m.l-6, y:yt+4, 'text-anchor':'end', 'font-size':'10', fill:'#6c757d'});
+        svg.appendChild(svgEl('line', { x1: m.l, x2: W - m.r, y1: yt, y2: yt, stroke: '#e9ecef', 'stroke-width': '1' }));
+        const lb = svgEl('text', { x: m.l - 6, y: yt + 4, 'text-anchor': 'end', 'font-size': '10', fill: '#6c757d' });
         lb.textContent = t.toFixed(1);
         svg.appendChild(lb);
     });
 
     // Zero line
-    svg.appendChild(svgEl('line', {x1:m.l, x2:W-m.r, y1:zeroY, y2:zeroY, stroke:'#adb5bd', 'stroke-width':'1'}));
+    svg.appendChild(svgEl('line', { x1: m.l, x2: W - m.r, y1: zeroY, y2: zeroY, stroke: '#adb5bd', 'stroke-width': '1' }));
 
-    // Bars
-    const barW = Math.max(1, cw / n * 0.8);
-    days.forEach((d, i) => {
-        const cx = xScale(i);
-        const yv = yScale(d.spread);
+    // Bars: DA as base, ID3 delta stacked on top (or below)
+    months.forEach((d, i) => {
+        const cx  = xCenter(i);
+        const x0  = cx - barW / 2;
+        const daY = yScale(d.da);
+        const daH = Math.max(1, Math.abs(daY - zeroY));
+
+        // DA bar (always full from 0 to DA value)
         svg.appendChild(svgEl('rect', {
-            x: cx - barW/2,
-            y: Math.min(zeroY, yv),
-            width: barW,
-            height: Math.max(1, Math.abs(zeroY - yv)),
-            fill: d.spread >= 0 ? 'rgba(231,111,81,0.7)' : 'rgba(69,123,157,0.7)'
+            x: x0, y: Math.min(zeroY, daY),
+            width: barW, height: daH,
+            fill: 'rgba(69,123,157,0.85)'
         }));
-    });
 
-    // X axis month labels
-    let lastMo = null;
-    days.forEach((d, i) => {
-        const mo = d.date.slice(5, 7);
-        if (mo !== lastMo) {
-            lastMo = mo;
-            const xi = xScale(i);
-            svg.appendChild(svgEl('line', {x1:xi, x2:xi, y1:m.t+ch, y2:m.t+ch+4, stroke:'#adb5bd', 'stroke-width':'1'}));
-            const lb = svgEl('text', {x:xi, y:H-28, 'text-anchor':'middle', 'font-size':'10', fill:'#6c757d'});
-            lb.textContent = `${d.date.slice(0,4)}-${MONTHS[parseInt(mo,10)-1]}`;
-            svg.appendChild(lb);
+        // ID3 delta: from DA level to ID3 level
+        const diff = d.id3 - d.da;
+        if (Math.abs(diff) > 0.001) {
+            const id3Y = yScale(d.id3);
+            const deltaTop    = Math.min(daY, id3Y);
+            const deltaBottom = Math.max(daY, id3Y);
+            const deltaH = Math.max(1, deltaBottom - deltaTop);
+            // above DA = positive diff = ID3 > DA → warm color
+            // below DA = negative diff → same warm but lighter/dashed via fill opacity
+            svg.appendChild(svgEl('rect', {
+                x: x0, y: deltaTop,
+                width: barW, height: deltaH,
+                fill: diff >= 0 ? 'rgba(231,111,81,0.85)' : 'rgba(231,111,81,0.35)'
+            }));
+        }
+
+        // X label
+        const lb = svgEl('text', { x: cx, y: H - 28, 'text-anchor': 'middle', 'font-size': '11', fill: '#495057', 'font-weight': '600' });
+        lb.textContent = MONTHS[d.month - 1];
+        svg.appendChild(lb);
+
+        // Value annotations: DA and ID3
+        const topVal = Math.max(d.da, d.id3);
+        const botVal = Math.min(d.da, d.id3);
+        const topY   = yScale(topVal);
+        const botY   = yScale(botVal);
+
+        // Show ID3 value above/below
+        if (Math.abs(d.id3 - d.da) > 0.5) {
+            const id3Lbl = svgEl('text', {
+                x: cx,
+                y: topY - 4,
+                'text-anchor': 'middle',
+                'font-size': '9',
+                fill: 'rgba(231,111,81,1)',
+                'font-weight': '700'
+            });
+            id3Lbl.textContent = d.id3.toFixed(1);
+            svg.appendChild(id3Lbl);
         }
     });
 
-    // Axis borders
-    svg.appendChild(svgEl('line', {x1:m.l, x2:m.l,   y1:m.t, y2:m.t+ch, stroke:'#6c757d', 'stroke-width':'1'}));
-    svg.appendChild(svgEl('line', {x1:m.l, x2:W-m.r, y1:m.t+ch, y2:m.t+ch, stroke:'#adb5bd', 'stroke-width':'1'}));
+    // Axes borders
+    svg.appendChild(svgEl('line', { x1: m.l, x2: m.l,   y1: m.t, y2: m.t + ch, stroke: '#6c757d', 'stroke-width': '1' }));
+    svg.appendChild(svgEl('line', { x1: m.l, x2: W - m.r, y1: m.t + ch, y2: m.t + ch, stroke: '#adb5bd', 'stroke-width': '1' }));
 
     // Y axis label
-    const al = svgEl('text', {x:12, y:m.t+ch/2, 'text-anchor':'middle', 'font-size':'11', fill:'#6c757d', transform:`rotate(-90,12,${m.t+ch/2})`});
+    const al = svgEl('text', { x: 12, y: m.t + ch / 2, 'text-anchor': 'middle', 'font-size': '11', fill: '#6c757d', transform: `rotate(-90,12,${m.t + ch / 2})` });
     al.textContent = '€/MWh';
     svg.appendChild(al);
 }

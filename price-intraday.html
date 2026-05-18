@@ -91,6 +91,11 @@
         .info { padding: 12px 30px 20px; font-size: 13px; color: #6c757d; text-align: center; border-top: 1px solid #e6e9ed; margin-top: 10px; }
         .info a { color: #5a8fc2; text-decoration: none; }
         .info a:hover { text-decoration: underline; }
+        .strategy-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 2px; }
+        .stag { display: inline-block; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+        .stag-charge { background: #e8f4fd; color: #1a6fa0; border: 1px solid #b3d9f5; }
+        .stag-da     { background: #e8f0f8; color: #2c5f8a; border: 1px solid #9fbfd8; }
+        .stag-id3    { background: #fdf0eb; color: #b94a24; border: 1px solid #f5c4b0; }
         @media (max-width: 900px) { .kpi-grid { grid-template-columns: 1fr; } }
         @media (max-width: 800px) { .content-area { padding: 14px; } .header { padding: 16px 16px 0 16px; } .sub-nav { padding: 0 10px; overflow-x: auto; } .controls { padding: 14px; } .three-year-hm { flex-direction: column; } }
     </style>
@@ -144,7 +149,6 @@
         <div class="section-card">
             <div class="section-head">
                 <h2>Arbitrage DA vs ID3</h2>
-                <p id="upliftDesc">Monthly average arbitrage: DA and ID3 strategies | Charge: 03:00–05:00 (DA) | Discharge: 17:00–21:00 | Unit: €/MWh</p>
             </div>
             <div class="section-body">
 
@@ -192,12 +196,21 @@
                             <option value="12">Dec</option>
                         </select>
                     </div>
+                    <div class="ctrl-divider"></div>
+                    <div class="uplift-ctrl-group" style="justify-content:flex-start">
+                        <label>Strategy</label>
+                        <div class="strategy-tags">
+                            <span class="stag stag-charge">Charge&nbsp; 03:00–05:00 DA</span>
+                            <span class="stag stag-da"> DA Discharge&nbsp; 17:00–21:00 · top 2 hrs/span>
+                            <span class="stag stag-id3">ID3 Discharge &nbsp; 17:00–21:00 · top 8 quarters</span>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="kpi-grid">
-                    <div class="kpi"><div class="kpi-label">Cumulative Uplift (ID3−DA discharge, selected months)</div><div class="kpi-value" id="kpiCum">-</div></div>
-                    <div class="kpi"><div class="kpi-label">Monthly Avg Uplift (ID3−DA discharge spread)</div><div class="kpi-value" id="kpiMonthly">-</div></div>
-                    <div class="kpi"><div class="kpi-label">ID3 Premium (avg of selected months)</div><div class="kpi-value" id="kpiAvg">-</div></div>
+                    <div class="kpi"><div class="kpi-label">Total Uplift </div><div class="kpi-value" id="kpiCum">-</div></div>
+                    <div class="kpi"><div class="kpi-label">Monthly Avg Uplift </div><div class="kpi-value" id="kpiMonthly">-</div></div>
+                    <div class="kpi"><div class="kpi-label">ID3 Premium (%)</div><div class="kpi-value" id="kpiAvg">-</div></div>
                 </div>
 
                 <div class="chart-wrap">
@@ -431,9 +444,10 @@ function buildMonthlySeries(days) {
     return Object.entries(acc)
         .map(([mo, v]) => ({
             month:  parseInt(mo, 10),
-            netDA:  v.netDASum  / v.cnt,
-            netID3: v.netID3Sum / v.cnt,
-            spread: v.spreadSum / v.cnt
+            netDA:  v.netDASum,   // 月度累计（每日加总）
+            netID3: v.netID3Sum,
+            spread: v.spreadSum,
+            cnt:    v.cnt
         }))
         .sort((a, b) => a.month - b.month);
 }
@@ -449,8 +463,7 @@ function renderUpliftPanel() {
 
 
     const mLbl = `${MONTHS[sm-1]}–${MONTHS[em-1]}`;
-    document.getElementById('upliftDesc').textContent =
-        `Charge: 03:00–05:00 (DA) | DA Discharge: top 2 hrs of 17–21 | ID3 Discharge: top 8 quarters of 17–21 | Months: ${mLbl} | Unit: €/MWh`;
+    // upliftDesc removed (info now shown in control bar)
     document.getElementById('monthlyChartTitle').textContent =
         `Arbitrage DA vs ID3 · ${year}, ${mLbl}`;
 
@@ -463,8 +476,8 @@ function renderUpliftPanel() {
     // Cumulative uplift = sum of daily (ID3_dis − DA_dis) over selected months
     const cum = days.reduce((s, d) => s + d.spread, 0);
 
-    // Monthly uplift = mean of monthly avg spreads over selected months
-    const avgMonthlyUplift = months.reduce((s, m) => s + m.spread, 0) / months.length;
+    // Monthly Avg Uplift = 选中月份累计总收益 / 月份数
+    const avgMonthlyUplift = cum / months.length;
 
     // Premium: mean across selected months only
     // premium_per_month = (netID3 − netDA) / |netDA| × 100

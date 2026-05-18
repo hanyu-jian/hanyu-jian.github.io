@@ -80,9 +80,7 @@
         .uplift-controls { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end; margin-bottom: 16px; padding: 12px 16px; background: #f8f9fa; border-radius: 8px; border: 1px solid #e6e9ed; }
         .uplift-ctrl-group { display: flex; flex-direction: column; gap: 5px; }
         .uplift-ctrl-group label { font-size: 12px; font-weight: 600; color: #2c3e50; }
-        .uplift-ctrl-group select,
-        .uplift-ctrl-group input[type=number] { height: 32px; padding: 0 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 13px; font-family: inherit; background: #fff; color: #2c3e50; cursor: pointer; }
-        .uplift-ctrl-group input[type=number] { width: 72px; }
+        .uplift-ctrl-group select { height: 32px; padding: 0 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 13px; font-family: inherit; background: #fff; color: #2c3e50; cursor: pointer; }
         .ctrl-divider { width: 1px; background: #dee2e6; align-self: stretch; margin: 0 4px; }
         .chart-wrap { border: 1px solid #e6e9ed; border-radius: 8px; padding: 10px; margin-bottom: 12px; }
         .chart-title { font-size: 13px; color: #2c3e50; font-weight: 700; margin-bottom: 8px; }
@@ -145,8 +143,8 @@
         <!-- Uplift panel -->
         <div class="section-card">
             <div class="section-head">
-                <h2>Monthly Average Price — DA vs ID3</h2>
-                <p id="upliftDesc">Monthly average of DA and ID3 prices for selected hour and month window &nbsp;|&nbsp; Unit: €/MWh</p>
+                <h2>Arbitrage DA vs ID3</h2>
+                <p id="upliftDesc">Monthly average arbitrage: DA and ID3 strategies | Charge: 03:00–05:00 (DA) | Discharge: 17:00–21:00 | Unit: €/MWh</p>
             </div>
             <div class="section-body">
 
@@ -161,44 +159,52 @@
                     </div>
                     <div class="ctrl-divider"></div>
                     <div class="uplift-ctrl-group">
-                        <label> Discharge </label>
-                        <input type="number" id="startHour" min="0" max="23" value="17">
-                    </div>
-                    <div class="uplift-ctrl-group">
-                        <label> </label>
-                        <input type="number" id="endHour" min="0" max="23" value="21">
-                    </div>
-                    <div class="ctrl-divider"></div>
-                    <div class="uplift-ctrl-group">
-                        <label> Charge </label>
-                        <input type="number" id="chargeStartHour" min="0" max="23" value="1">
-                    </div>
-                    <div class="uplift-ctrl-group">
-                        <label> </label>
-                        <input type="number" id="chargeEndHour" min="0" max="23" value="6">
-                    </div>
-                    <div class="ctrl-divider"></div>
-                    <div class="uplift-ctrl-group">
                         <label>Start Month</label>
-                        <input type="number" id="startMonth" min="1" max="12" value="1">
+                        <select id="startMonth">
+                            <option value="1">Jan</option>
+                            <option value="2">Feb</option>
+                            <option value="3">Mar</option>
+                            <option value="4" selected>Apr</option>
+                            <option value="5">May</option>
+                            <option value="6">Jun</option>
+                            <option value="7">Jul</option>
+                            <option value="8">Aug</option>
+                            <option value="9">Sep</option>
+                            <option value="10">Oct</option>
+                            <option value="11">Nov</option>
+                            <option value="12">Dec</option>
+                        </select>
                     </div>
                     <div class="uplift-ctrl-group">
                         <label>End Month</label>
-                        <input type="number" id="endMonth" min="1" max="12" value="12">
+                        <select id="endMonth">
+                            <option value="1">Jan</option>
+                            <option value="2">Feb</option>
+                            <option value="3">Mar</option>
+                            <option value="4">Apr</option>
+                            <option value="5">May</option>
+                            <option value="6">Jun</option>
+                            <option value="7">Jul</option>
+                            <option value="8">Aug</option>
+                            <option value="9">Sep</option>
+                            <option value="10" selected>Oct</option>
+                            <option value="11">Nov</option>
+                            <option value="12">Dec</option>
+                        </select>
                     </div>
                 </div>
 
                 <div class="kpi-grid">
-                    <div class="kpi"><div class="kpi-label">Cumulative Uplift (discharge spread)</div><div class="kpi-value" id="kpiCum">-</div></div>
-                    <div class="kpi"><div class="kpi-label">Monthly Uplift (avg ID3−DA, discharge hrs)</div><div class="kpi-value" id="kpiMonthly">-</div></div>
-                    <div class="kpi"><div class="kpi-label">ID3 premium </div><div class="kpi-value" id="kpiAvg">-</div></div>
+                    <div class="kpi"><div class="kpi-label">Cumulative Uplift (ID3−DA discharge, selected months)</div><div class="kpi-value" id="kpiCum">-</div></div>
+                    <div class="kpi"><div class="kpi-label">Monthly Avg Uplift (ID3−DA discharge spread)</div><div class="kpi-value" id="kpiMonthly">-</div></div>
+                    <div class="kpi"><div class="kpi-label">ID3 Premium (avg of selected months)</div><div class="kpi-value" id="kpiAvg">-</div></div>
                 </div>
 
                 <div class="chart-wrap">
-                    <div class="chart-title" id="monthlyChartTitle">Monthly Average Price — DA vs ID3</div>
+                    <div class="chart-title" id="monthlyChartTitle">Arbitrage DA vs ID3</div>
                     <div class="chart-legend">
-                        <div class="legend-item"><div class="legend-swatch" style="background:rgba(69,123,157,0.85)"></div> DA Arbitrage </div>
-                        <div class="legend-item"><div class="legend-swatch" style="background:rgba(231,111,81,0.85)"></div> ID3 Arbitrage </div>
+                        <div class="legend-item"><div class="legend-swatch" style="background:rgba(69,123,157,0.85)"></div> DA Arbitrage</div>
+                        <div class="legend-item"><div class="legend-swatch" style="background:rgba(231,111,81,0.85)"></div> ID3 Arbitrage</div>
                     </div>
                     <div style="overflow-x:auto">
                         <div style="min-width:400px">
@@ -223,31 +229,23 @@
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 const YEARS  = [2024, 2025, 2026];
 const hmData = {};
-let dayHourAcc = {};
+
+// Raw 15-min data store: key = "YYYY-MM-DD", value = { month, hourSlots: { h: [{ da, id3 }, ...] } }
+let rawDayData = {};
 
 window.addEventListener('DOMContentLoaded', () => {
-    ['selYear','startHour','endHour','chargeStartHour','chargeEndHour','startMonth','endMonth'].forEach(id => {
+    ['selYear','startMonth','endMonth'].forEach(id => {
         document.getElementById(id).addEventListener('change', renderUpliftPanel);
-        document.getElementById(id).addEventListener('input',  renderUpliftPanel);
     });
     loadData();
 });
 
 function getFilters() {
     const year = parseInt(document.getElementById('selYear').value, 10);
-    let sh  = parseInt(document.getElementById('startHour').value, 10);
-    let eh  = parseInt(document.getElementById('endHour').value, 10);
-    let csh = parseInt(document.getElementById('chargeStartHour').value, 10);
-    let ceh = parseInt(document.getElementById('chargeEndHour').value, 10);
-    let sm  = parseInt(document.getElementById('startMonth').value, 10);
-    let em  = parseInt(document.getElementById('endMonth').value, 10);
-    sh  = Math.max(0, Math.min(23, isNaN(sh)  ? 17 : sh));
-    eh  = Math.max(sh,  Math.min(23, isNaN(eh)  ? 21 : eh));
-    csh = Math.max(0, Math.min(23, isNaN(csh) ? 1  : csh));
-    ceh = Math.max(csh, Math.min(23, isNaN(ceh) ? 6  : ceh));
-    sm  = Math.max(1, Math.min(12, isNaN(sm)  ? 1  : sm));
-    em  = Math.max(sm,  Math.min(12, isNaN(em)  ? 12 : em));
-    return { year, sh, eh, csh, ceh, sm, em };
+    let sm = parseInt(document.getElementById('startMonth').value, 10);
+    let em = parseInt(document.getElementById('endMonth').value, 10);
+    if (em < sm) em = sm;
+    return { year, sm, em };
 }
 
 async function loadData() {
@@ -267,9 +265,9 @@ async function loadData() {
 function parseDate15min(str) {
     str = str.trim();
     let m = str.match(/^(\d{2})\/(\d{2})\/(\d{4})\s+(\d{1,2}):(\d{2})/);
-    if (m) return { year:+m[3], month:+m[2], day:+m[1], hour:+m[4] };
+    if (m) return { year:+m[3], month:+m[2], day:+m[1], hour:+m[4], minute:+m[5] };
     m = str.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})\s+(\d{1,2}):(\d{2})/);
-    if (m) return { year:+m[1], month:+m[2], day:+m[3], hour:+m[4] };
+    if (m) return { year:+m[1], month:+m[2], day:+m[3], hour:+m[4], minute:+m[5] };
     return null;
 }
 
@@ -293,7 +291,7 @@ async function processData(text) {
             Array.from({length:12}, () => ({sum:0, cnt:0})));
     });
 
-    dayHourAcc = {};
+    rawDayData = {};
     const CHUNK = 5000;
 
     for (let i = 1; i < lines.length; i++) {
@@ -308,18 +306,16 @@ async function processData(text) {
 
         const spread = id3 - da;
 
-        // Heatmap accumulation (spread only)
+        // Heatmap accumulation (spread, averaged at hour level)
         hmAcc[dt.year][dt.hour][dt.month - 1].sum += spread;
         hmAcc[dt.year][dt.hour][dt.month - 1].cnt += 1;
 
-        // Daily accumulation: store DA and ID3 separately per hour
-        // so we can compute spread AFTER averaging hours within each day
+        // Raw 15-min storage: store every quarter separately so we can
+        // later pick top-N quarters within a window for ID3 discharge calc.
         const dKey = `${dt.year}-${String(dt.month).padStart(2,'0')}-${String(dt.day).padStart(2,'0')}`;
-        if (!dayHourAcc[dKey]) dayHourAcc[dKey] = { year: dt.year, month: dt.month };
-        if (!dayHourAcc[dKey][dt.hour]) dayHourAcc[dKey][dt.hour] = { daS:0, id3S:0, cnt:0 };
-        dayHourAcc[dKey][dt.hour].daS  += da;
-        dayHourAcc[dKey][dt.hour].id3S += id3;
-        dayHourAcc[dKey][dt.hour].cnt  += 1;
+        if (!rawDayData[dKey]) rawDayData[dKey] = { year: dt.year, month: dt.month, slots: {} };
+        const qKey = `${dt.hour}:${String(dt.minute).padStart(2,'0')}`;
+        rawDayData[dKey].slots[qKey] = { da, id3, hour: dt.hour, minute: dt.minute };
     }
 
     YEARS.forEach(yr => {
@@ -333,107 +329,119 @@ async function processData(text) {
 }
 
 /*
- * ── Build daily series ──
- * Correct order:
- *   1. For each day, average DA and ID3 separately across selected DISCHARGE hours
- *   2. Also average DA across selected CHARGE hours
- *   3. spread     = avg_ID3(discharge) − avg_DA(discharge)
- *   4. netDA      = avg_DA(discharge)  − avg_DA(charge)      ← DA-only net spread
- *   5. netID3     = avg_ID3(discharge) − avg_DA(charge)      ← ID3 net spread
+ * Strategy definitions (fixed):
+ *
+ * CHARGE:  03:00–05:00 (hours 3 and 4, i.e. h=3 and h=4)
+ *   DA_charge = average DA price across those 2 hours (all quarters)
+ *
+ * DISCHARGE: 17:00–21:00 (hours 17,18,19,20 = 16 quarters total)
+ *   DA_discharge = average DA price across all 16 quarters
+ *   ID3_discharge = average of the TOP 8 ID3 quarters (highest 8 of 16)
+ *
+ * DAILY P&L:
+ *   netDA  = DA_discharge  − DA_charge
+ *   netID3 = ID3_discharge − DA_charge
+ *   spread = ID3_discharge − DA_discharge   (pure ID3 uplift on discharge side)
+ *
+ * MONTHLY: mean of daily values within month
+ *
+ * PREMIUM:
+ *   per-month: (netID3 − netDA) / |netDA| × 100  = (ID3_dis − DA_dis) / |DA_dis − DA_charge| × 100
+ *   annual avg premium: mean across ALL 12 months of the selected year (ignoring the month filter)
  */
-function buildDailySeries(year, sh, eh, csh, ceh, sm, em) {
+
+// Fixed hour windows
+const CHARGE_HOURS  = [3, 4];          // 03:00–05:00 (h=3 → 03:xx, h=4 → 04:xx)
+const DISCHARGE_HOURS = [17, 18, 19, 20]; // 17:00–21:00 (h=17..20 → 16 quarters)
+const TOP_Q_COUNT   = 8;               // top 8 of 16 quarters for ID3 discharge
+
+function buildDailySeries(year, sm, em) {
     const days = [];
-    Object.entries(dayHourAcc).forEach(([date, meta]) => {
+
+    Object.entries(rawDayData).forEach(([date, meta]) => {
         if (meta.year !== year) return;
         if (meta.month < sm || meta.month > em) return;
 
-        // Discharge window
-        let disDA = 0, disID3 = 0, disUsed = 0;
-        for (let h = sh; h <= eh; h++) {
-            const b = meta[h];
-            if (!b || b.cnt === 0) continue;
-            disDA  += b.daS  / b.cnt;
-            disID3 += b.id3S / b.cnt;
-            disUsed++;
-        }
-        if (disUsed === 0) return;
-        const dayDisDA  = disDA  / disUsed;
-        const dayDisID3 = disID3 / disUsed;
+        const slots = meta.slots;
 
-        // Charge window (DA only — charging assumed at DA price)
-        let chDA = 0, chUsed = 0;
-        for (let h = csh; h <= ceh; h++) {
-            const b = meta[h];
-            if (!b || b.cnt === 0) continue;
-            chDA  += b.daS / b.cnt;
-            chUsed++;
-        }
-        // If no charge data for this day, skip (can't compute net spread)
-        if (chUsed === 0) return;
-        const dayChDA = chDA / chUsed;
+        // ── DA charge (hours 3 & 4) ──
+        let chDASum = 0, chCnt = 0;
+        Object.values(slots).forEach(s => {
+            if (CHARGE_HOURS.includes(s.hour)) {
+                chDASum += s.da;
+                chCnt++;
+            }
+        });
+        if (chCnt === 0) return;
+        const DA_charge = chDASum / chCnt;
+
+        // ── Discharge window quarters ──
+        const disSlots = Object.values(slots).filter(s => DISCHARGE_HOURS.includes(s.hour));
+        if (disSlots.length === 0) return;
+
+        // DA discharge: average of all discharge quarters
+        const DA_discharge = disSlots.reduce((s, q) => s + q.da, 0) / disSlots.length;
+
+        // ID3 discharge: average of top-8 ID3 quarters (sorted desc, take first TOP_Q_COUNT)
+        const id3Vals = disSlots.map(s => s.id3).sort((a, b) => b - a);
+        const topN    = id3Vals.slice(0, Math.min(TOP_Q_COUNT, id3Vals.length));
+        if (topN.length === 0) return;
+        const ID3_discharge = topN.reduce((s, v) => s + v, 0) / topN.length;
+
+        const netDA  = DA_discharge  - DA_charge;
+        const netID3 = ID3_discharge - DA_charge;
+        const spread = ID3_discharge - DA_discharge;  // uplift
 
         days.push({
             date,
             month:   meta.month,
-            disDA:   dayDisDA,
-            disID3:  dayDisID3,
-            chDA:    dayChDA,
-            spread:  dayDisID3 - dayDisDA,   // ID3 uplift on discharge side
-            netDA:   dayDisDA  - dayChDA,    // DA-only net spread (discharge − charge)
-            netID3:  dayDisID3 - dayChDA     // ID3 net spread (ID3 discharge − DA charge)
+            DA_discharge,
+            ID3_discharge,
+            DA_charge,
+            netDA,
+            netID3,
+            spread
         });
     });
+
     days.sort((a, b) => a.date.localeCompare(b.date));
     return days;
 }
 
-/*
- * ── Build monthly series from daily series ──
- * Monthly values = mean of daily values within that month.
- * spread  = mean(daily ID3−DA discharge)
- * netDA   = mean(daily DA_discharge − DA_charge)
- * netID3  = mean(daily ID3_discharge − DA_charge)
- * premium = netID3 / |netDA| − 1  (computed per month, then averaged in renderUpliftPanel)
- */
 function buildMonthlySeries(days) {
     const acc = {};
     days.forEach(d => {
-        if (!acc[d.month]) acc[d.month] = { disDASum:0, disID3Sum:0, chDASum:0, spreadSum:0, netDASum:0, netID3Sum:0, cnt:0 };
-        const a = acc[d.month];
-        a.disDASum  += d.disDA;
-        a.disID3Sum += d.disID3;
-        a.chDASum   += d.chDA;
-        a.spreadSum += d.spread;
-        a.netDASum  += d.netDA;
-        a.netID3Sum += d.netID3;
-        a.cnt++;
+        if (!acc[d.month]) acc[d.month] = { netDASum:0, netID3Sum:0, spreadSum:0, cnt:0 };
+        acc[d.month].netDASum  += d.netDA;
+        acc[d.month].netID3Sum += d.netID3;
+        acc[d.month].spreadSum += d.spread;
+        acc[d.month].cnt++;
     });
     return Object.entries(acc)
         .map(([mo, v]) => ({
             month:  parseInt(mo, 10),
-            da:     v.disDASum  / v.cnt,   // avg discharge DA  (for chart bar base)
-            id3:    v.disID3Sum / v.cnt,   // avg discharge ID3 (for chart bar top)
-            chDA:   v.chDASum   / v.cnt,   // avg charge DA
-            spread: v.spreadSum / v.cnt,   // avg (ID3−DA) discharge
-            netDA:  v.netDASum  / v.cnt,   // avg net DA spread
-            netID3: v.netID3Sum / v.cnt    // avg net ID3 spread
+            netDA:  v.netDASum  / v.cnt,
+            netID3: v.netID3Sum / v.cnt,
+            spread: v.spreadSum / v.cnt
         }))
         .sort((a, b) => a.month - b.month);
 }
 
 /* ── Render uplift panel ── */
 function renderUpliftPanel() {
-    const { year, sh, eh, csh, ceh, sm, em } = getFilters();
-    const days    = buildDailySeries(year, sh, eh, csh, ceh, sm, em);
+    const { year, sm, em } = getFilters();
+
+    // Selected-month series (for chart + cumulative KPIs)
+    const days    = buildDailySeries(year, sm, em);
     const months  = buildMonthlySeries(days);
 
-    const disLbl = `${sh}:00–${eh}:00`;
-    const chLbl  = `${csh}:00–${ceh}:00`;
-    const mLbl   = `${MONTHS[sm-1]}–${MONTHS[em-1]}`;
+
+
+    const mLbl = `${MONTHS[sm-1]}–${MONTHS[em-1]}`;
     document.getElementById('upliftDesc').textContent =
-        `Discharge: ${disLbl} | Charge (DA): ${chLbl} | Months: ${mLbl} | Unit: €/MWh`;
+        `Charge: 03:00–05:00 (DA) | Discharge: 17:00–21:00 (ID3: top 8 of 16 quarters) | Months: ${mLbl} | Unit: €/MWh`;
     document.getElementById('monthlyChartTitle').textContent =
-        `Monthly Average Price — DA vs ID3 (discharge hrs) · ${year}, ${disLbl}`;
+        `Arbitrage DA vs ID3 · ${year}, ${mLbl}`;
 
     if (!days.length || !months.length) {
         ['kpiCum','kpiMonthly','kpiAvg'].forEach(id => document.getElementById(id).textContent = 'N/A');
@@ -441,119 +449,123 @@ function renderUpliftPanel() {
         return;
     }
 
-    // Cumulative uplift = sum of daily (ID3−DA) on discharge side
+    // Cumulative uplift = sum of daily (ID3_dis − DA_dis) over selected months
     const cum = days.reduce((s, d) => s + d.spread, 0);
 
-    // Monthly uplift = mean of monthly avg (ID3−DA) on discharge side
+    // Monthly uplift = mean of monthly avg spreads over selected months
     const avgMonthlyUplift = months.reduce((s, m) => s + m.spread, 0) / months.length;
 
-    // ID3 Premium = (netID3 − netDA) / |netDA|
-    // = (avg_ID3_discharge − avg_DA_charge) / |avg_DA_discharge − avg_DA_charge| − 1
-    // Computed per month, then averaged across selected months
-    const premiums = months
-        .filter(m => Math.abs(m.netDA) > 0.01)   // avoid division by near-zero
+    // Premium: mean across selected months only
+    // premium_per_month = (netID3 − netDA) / |netDA| × 100
+    const annualPremiums = months
+        .filter(m => Math.abs(m.netDA) > 0.01)
         .map(m => (m.netID3 - m.netDA) / Math.abs(m.netDA) * 100);
-    const avgPremium = premiums.length ? premiums.reduce((s, v) => s + v, 0) / premiums.length : NaN;
+    const annualAvgPremium = annualPremiums.length
+        ? annualPremiums.reduce((s, v) => s + v, 0) / annualPremiums.length
+        : NaN;
 
-    document.getElementById('kpiCum').textContent      = `${cum.toFixed(1)} €/MWh`;
-    document.getElementById('kpiMonthly').textContent  = `${avgMonthlyUplift.toFixed(2)} €/MWh`;
-    document.getElementById('kpiAvg').textContent      = isNaN(avgPremium) ? 'N/A' : `${avgPremium.toFixed(2)}%`;
+    document.getElementById('kpiCum').textContent     = `${cum.toFixed(1)} €/MWh`;
+    document.getElementById('kpiMonthly').textContent = `${avgMonthlyUplift.toFixed(2)} €/MWh`;
+    document.getElementById('kpiAvg').textContent     = isNaN(annualAvgPremium) ? 'N/A' : `${annualAvgPremium.toFixed(2)}%`;
 
     renderMonthlyChart(months);
 }
 
-/* ── Monthly stacked bar chart: DA arbitrage base + ID3 premium on top ── */
+/* ── Monthly bar chart: y-axis starts at 0, no decimal on axis labels ── */
 function renderMonthlyChart(months) {
     const svg = document.getElementById('monthlyChart');
     svg.innerHTML = '';
     if (!months.length) return;
 
     const W = 900, H = 320;
-    const m = { l: 62, r: 20, t: 14, b: 48 };
+    const m = { l: 52, r: 20, t: 14, b: 48 };
     const cw = W - m.l - m.r, ch = H - m.t - m.b;
     const n = months.length;
 
-    // Value range: covers both netDA and netID3 (arbitrage values)
+    // Y-axis: always starts at 0 (bottom of chart area = 0)
     const allVals = months.flatMap(d => [d.netDA, d.netID3]);
-    let vMin = Math.min(0, ...allVals);
-    let vMax = Math.max(0, ...allVals);
-    const pad = (vMax - vMin) * 0.12 || 2;
-    vMin -= pad; vMax += pad;
+    const vMax = Math.max(0, ...allVals);
+    const pad  = vMax * 0.15 || 2;
+    const yMin = 0;
+    const yMax = vMax + pad;
 
     const groupW  = cw / n;
     const barW    = groupW * 0.55;
     const xCenter = i => m.l + (i + 0.5) * groupW;
-    const yScale  = v => m.t + (vMax - v) / (vMax - vMin) * ch;
-    const zeroY   = yScale(0);
+    // y=0 maps to bottom of chart area (m.t + ch)
+    const yScale  = v => m.t + ch - (v - yMin) / (yMax - yMin) * ch;
+    const zeroY   = m.t + ch;  // y=0 is at the bottom
 
-    // Gridlines + left axis ticks
-    niceTicks(vMin, vMax, 6).forEach(t => {
+    // Gridlines + left axis ticks (integers only)
+    niceTicks(yMin, yMax, 6).forEach(t => {
         const yt = yScale(t);
         svg.appendChild(svgEl('line', { x1: m.l, x2: W - m.r, y1: yt, y2: yt, stroke: '#e9ecef', 'stroke-width': '1' }));
         const lb = svgEl('text', { x: m.l - 6, y: yt + 4, 'text-anchor': 'end', 'font-size': '10', fill: '#6c757d' });
-        lb.textContent = t.toFixed(1);
+        lb.textContent = Math.round(t);  // no decimals
         svg.appendChild(lb);
     });
 
-    // Zero line
+    // Zero / baseline
     svg.appendChild(svgEl('line', { x1: m.l, x2: W - m.r, y1: zeroY, y2: zeroY, stroke: '#adb5bd', 'stroke-width': '1' }));
 
     months.forEach((d, i) => {
-        const cx  = xCenter(i);
-        const x0  = cx - barW / 2;
+        const cx = xCenter(i);
+        const x0 = cx - barW / 2;
 
-        // ── DA arbitrage bar (netDA: DA_discharge − DA_charge) ──
-        const daY = yScale(d.netDA);
-        const daH = Math.max(1, Math.abs(daY - zeroY));
+        // ── DA arbitrage bar (netDA) — from 0 up ──
+        const daTopY = yScale(Math.max(0, d.netDA));
+        const daH    = Math.max(1, Math.abs(zeroY - daTopY));
         svg.appendChild(svgEl('rect', {
-            x: x0, y: Math.min(zeroY, daY),
+            x: x0, y: daTopY,
             width: barW, height: daH,
             fill: 'rgba(69,123,157,0.85)'
         }));
 
-        // ── ID3 premium: from netDA level to netID3 level ──
-        const diff = d.netID3 - d.netDA;   // = ID3_discharge − DA_discharge = pure ID3 uplift
+        // ── ID3 premium: from netDA level up to netID3 ──
+        const diff = d.netID3 - d.netDA;
         if (Math.abs(diff) > 0.001) {
-            const id3Y        = yScale(d.netID3);
-            const deltaTop    = Math.min(daY, id3Y);
-            const deltaBottom = Math.max(daY, id3Y);
-            const deltaH = Math.max(1, deltaBottom - deltaTop);
+            const id3TopY    = yScale(Math.max(d.netDA, d.netID3));
+            const id3BotY    = yScale(Math.min(d.netDA, d.netID3));
+            const deltaH     = Math.max(1, id3BotY - id3TopY);
             svg.appendChild(svgEl('rect', {
-                x: x0, y: deltaTop,
+                x: x0, y: id3TopY,
                 width: barW, height: deltaH,
                 fill: diff >= 0 ? 'rgba(231,111,81,0.85)' : 'rgba(231,111,81,0.35)'
             }));
         }
 
-        // X label
+        // X label (month name)
         const lb = svgEl('text', { x: cx, y: H - 28, 'text-anchor': 'middle', 'font-size': '11', fill: '#495057', 'font-weight': '600' });
         lb.textContent = MONTHS[d.month - 1];
         svg.appendChild(lb);
 
-        // Value annotation: show netID3 at top of bar
-        const topVal = Math.max(d.netDA, d.netID3);
-        const topY   = yScale(topVal);
+        // Value label: netID3 above bar top (if meaningfully different from netDA)
         if (Math.abs(d.netID3 - d.netDA) > 0.3) {
+            const topVal = Math.max(d.netDA, d.netID3);
+            const topY   = yScale(topVal);
             const id3Lbl = svgEl('text', {
                 x: cx, y: topY - 4,
                 'text-anchor': 'middle', 'font-size': '9',
                 fill: 'rgba(231,111,81,1)', 'font-weight': '700'
             });
-            id3Lbl.textContent = d.netID3.toFixed(1);
+            id3Lbl.textContent = Math.round(d.netID3);
             svg.appendChild(id3Lbl);
         }
-        // Always show netDA value inside/below its bar
-        const daLbl = svgEl('text', {
-            x: cx, y: Math.min(zeroY, daY) + Math.min(daH - 2, 11),
-            'text-anchor': 'middle', 'font-size': '9',
-            fill: 'rgba(255,255,255,0.9)', 'font-weight': '700'
-        });
-        daLbl.textContent = d.netDA.toFixed(1);
-        svg.appendChild(daLbl);
+
+        // DA value inside bar
+        if (daH > 12) {
+            const daLbl = svgEl('text', {
+                x: cx, y: daTopY + Math.min(daH - 2, 11),
+                'text-anchor': 'middle', 'font-size': '9',
+                fill: 'rgba(255,255,255,0.9)', 'font-weight': '700'
+            });
+            daLbl.textContent = Math.round(d.netDA);
+            svg.appendChild(daLbl);
+        }
     });
 
-    // Axes borders
-    svg.appendChild(svgEl('line', { x1: m.l, x2: m.l,   y1: m.t, y2: m.t + ch, stroke: '#6c757d', 'stroke-width': '1' }));
+    // Axes
+    svg.appendChild(svgEl('line', { x1: m.l, x2: m.l,     y1: m.t,      y2: m.t + ch, stroke: '#6c757d', 'stroke-width': '1' }));
     svg.appendChild(svgEl('line', { x1: m.l, x2: W - m.r, y1: m.t + ch, y2: m.t + ch, stroke: '#adb5bd', 'stroke-width': '1' }));
 
     // Y axis label
@@ -635,13 +647,13 @@ function svgEl(tag, attrs) {
     return el;
 }
 function niceTicks(min, max, count) {
-    const range = max-min; if (range===0) return [min];
-    const raw = range/count;
+    const range = max - min; if (range === 0) return [min];
+    const raw = range / count;
     const mag = Math.pow(10, Math.floor(Math.log10(raw)));
-    const step = [1,2,2.5,5,10].map(f=>f*mag).find(s=>s>=raw) || mag*10;
-    const start = Math.ceil(min/step)*step;
+    const step = [1,2,2.5,5,10].map(f => f*mag).find(s => s >= raw) || mag*10;
+    const start = Math.ceil(min / step) * step;
     const ticks = [];
-    for (let t=start; t<=max+step*0.01; t+=step) ticks.push(parseFloat(t.toFixed(10)));
+    for (let t = start; t <= max + step*0.01; t += step) ticks.push(parseFloat(t.toFixed(10)));
     return ticks;
 }
 function priceColor(v, mn, mx, mid) {

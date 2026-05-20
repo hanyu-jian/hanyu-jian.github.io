@@ -89,7 +89,7 @@
             transition: opacity 0.15s;
         }
         .leg-item.hidden { opacity: 0.35; }
-        .leg-swatch { width: 14px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+        .leg-swatch { flex-shrink: 0; }
 
         .year-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; margin-top: 14px; }
         .year-card { border: 1px solid #e6e9ed; border-radius: 0; padding: 10px; background: #fafbfd; }
@@ -164,7 +164,6 @@
                 <div class="year-card"><div class="year-title">2025</div><div id="chart2025" class="year-chart"></div></div>
                 <div class="year-card"><div class="year-title">2026</div><div id="chart2026" class="year-chart"></div></div>
             </div>
-            <!-- shared legend rendered by ECharts into this div -->
             <div id="sharedLegend"></div>
         </div>
     </div>
@@ -426,7 +425,6 @@ function summarizeYear(year, selectedCountries, mFrom, mTo) {
             const cat = normalizeCategory(r.category);
             const ck  = canonicalKey(cat);
 
-            // Load now comes only from /data/load.csv
             if (ck === 'load') return;
             if (ck.includes('renewable share')) return;
 
@@ -459,6 +457,27 @@ function summarizeYear(year, selectedCountries, mFrom, mTo) {
     }
 
     return { techs, techSeries, load };
+}
+
+// ── Y-axis max calculation ───────────────────────────────────────────────────
+function calcGlobalYMax(selected, mFrom, mTo, visibilityFilter) {
+    if (!selected.length || mFrom > mTo) return undefined;
+    let globalMax = 0;
+    [2024, 2025, 2026].forEach(year => {
+        const { techSeries, load } = summarizeYear(year, selected, mFrom, mTo);
+        for (let h = 0; h < 24; h++) {
+            let stackedSum = 0;
+            Object.entries(techSeries).forEach(([name, arr]) => {
+                if (visibilityFilter ? visibilityFilter(name) : true) {
+                    if (arr[h] > 0) stackedSum += arr[h];
+                }
+            });
+            if (stackedSum > globalMax) globalMax = stackedSum;
+            const loadVisible = visibilityFilter ? visibilityFilter('Load') : true;
+            if (loadVisible && load[h] && load[h] > globalMax) globalMax = load[h];
+        }
+    });
+    return globalMax > 0 ? Math.ceil(globalMax * 1.05 / 1000) * 1000 : undefined;
 }
 
 // ── Chart drawing ────────────────────────────────────────────────────────────
@@ -504,7 +523,7 @@ function buildSeriesForYear(year, selectedCountries, mFrom, mTo) {
     return { series, hours };
 }
 
-function applyYearChart(chart, year, selectedCountries, mFrom, mTo) {
+function applyYearChart(chart, year, selectedCountries, mFrom, mTo, yMax) {
     if (!selectedCountries.length || mFrom > mTo) { chart.clear(); return; }
     const { series, hours } = buildSeriesForYear(year, selectedCountries, mFrom, mTo);
 
@@ -516,7 +535,7 @@ function applyYearChart(chart, year, selectedCountries, mFrom, mTo) {
         legend: { show: false },
         grid: { left: 52, right: 16, top: 12, bottom: 42 },
         xAxis: { type: 'category', data: hours, name: 'Hour', nameGap: 24 },
-        yAxis: { type: 'value', name: 'Power (MW)' },
+        yAxis: { type: 'value', name: 'Power (MW)', max: yMax },
         series
     }, true);
 }
@@ -538,12 +557,24 @@ function buildHtmlLegend() {
         swatch.className = 'leg-swatch';
 
         const color = allSeriesColors[name] || '#90a4ae';
-        // line-style legend swatch (including Load)
-        swatch.style.height = '0';
-        swatch.style.width = '16px';
-        swatch.style.borderRadius = '0';
-        swatch.style.background = 'transparent';
-        swatch.style.borderTop = `${name === 'Load' ? 2.5 : 2}px solid ${color}`;
+
+        if (name === 'Load') {
+            // Load: 折线样式
+            swatch.style.width = '20px';
+            swatch.style.height = '0';
+            swatch.style.borderRadius = '0';
+            swatch.style.background = 'transparent';
+            swatch.style.borderTop = `2.5px solid ${color}`;
+            swatch.style.flexShrink = '0';
+        } else {
+            // 发电技术: 实心圆
+            swatch.style.width = '10px';
+            swatch.style.height = '10px';
+            swatch.style.borderRadius = '50%';
+            swatch.style.background = color;
+            swatch.style.border = 'none';
+            swatch.style.flexShrink = '0';
+        }
 
         const label = document.createElement('span');
         label.textContent = name;
@@ -560,8 +591,12 @@ function toggleSeries(name) {
     const selected = getSelectedCountries();
     const mFrom = parseInt(document.getElementById('monthFrom').value, 10);
     const mTo   = parseInt(document.getElementById('monthTo').value, 10);
+
+    // 计算 toggle 后可见系列的统一 yMax
+    const yMax = calcGlobalYMax(selected, mFrom, mTo, seriesName => legendState[seriesName] !== false);
+
     [[charts.chart2024, 2024],[charts.chart2025, 2025],[charts.chart2026, 2026]].forEach(([c, y]) => {
-        applyYearChart(c, y, selected, mFrom, mTo);
+        applyYearChart(c, y, selected, mFrom, mTo, yMax);
     });
     document.querySelectorAll('.leg-item').forEach(el => {
         const vis = legendState[el.dataset.name] !== false;
@@ -578,9 +613,12 @@ function refresh() {
     allSeriesNames = [];
     allSeriesColors = {};
 
-    applyYearChart(charts.chart2024, 2024, selected, mFrom, mTo);
-    applyYearChart(charts.chart2025, 2025, selected, mFrom, mTo);
-    applyYearChart(charts.chart2026, 2026, selected, mFrom, mTo);
+    // 先算三年统一 yMax，再渲染
+    const yMax = calcGlobalYMax(selected, mFrom, mTo, null);
+
+    applyYearChart(charts.chart2024, 2024, selected, mFrom, mTo, yMax);
+    applyYearChart(charts.chart2025, 2025, selected, mFrom, mTo, yMax);
+    applyYearChart(charts.chart2026, 2026, selected, mFrom, mTo, yMax);
 
     buildHtmlLegend();
 }

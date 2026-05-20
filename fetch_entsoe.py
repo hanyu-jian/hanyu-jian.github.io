@@ -54,7 +54,10 @@ COUNTRY_CONFIG = {
     "de": {"bzn_eic": "10Y1001A1001A82H"},
     "fr": {"bzn_eic": "10YFR-RTE------C"},
     "es": {"bzn_eic": "10YES-REE------0"},
-    "it": {"bzn_eic": "10YIT-GRTN-----B"},
+    "it": {
+    "bzn_eic": "10Y1001A1001A73I",   # IT-North BZ（价格/负荷）
+    "gen_eic": "10YIT-GRTN-----B",   # IT 全国控制区（发电）
+    },
     "gr": {"bzn_eic": "10YGR-HTSO-----Y"},
     "ro": {"bzn_eic": "10YRO-TEL------P"},
     "hu": {"bzn_eic": "10YHU-MAVIR----U"},
@@ -87,6 +90,7 @@ PSR_TYPE_MAP = {
     "B18": "Wind Offshore",
     "B19": "Wind Onshore",
     "B20": "Other",
+    "B25": "Energy Storage",
 }
 
 COUNTRIES            = list(COUNTRY_CONFIG.keys())
@@ -720,6 +724,7 @@ def main():
     for cc in COUNTRIES:
         cfg     = COUNTRY_CONFIG[cc]
         bzn_eic = cfg["bzn_eic"]
+        gen_domain = cfg.get("gen_eic", bzn_eic)  
         col     = cc.upper()
 
         print(f"[{col}]")
@@ -748,7 +753,7 @@ def main():
             print(f"     [WARN] 无负荷数据")
 
         print(f"  → A75 gen    in_Domain={bzn_eic}")
-        hourly_dict, raw_dict = fetch_generation(bzn_eic, start_date, end_date)
+        hourly_dict, raw_dict = fetch_generation(gen_domain, start_date, end_date)
         result = build_generation_result(hourly_dict)
 
         if raw_dict:

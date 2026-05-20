@@ -8,106 +8,96 @@
             }
         })();
     </script>
-
+    
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Generation Overview – European Electricity Dashboard</title>
-    <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+    <title>Intraday – European Electricity Dashboard</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f2f5; padding: 20px; }
-        .container { max-width: 1600px; margin: 0 auto; background: #fff; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); overflow: hidden; }
-
-        .header { background: #2c3e50; color: #fff; padding: 20px 30px 0 30px; }
+        .container { max-width: 1600px; margin: 0 auto; background: white; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); overflow: hidden; }
+        .header { background: #2c3e50; color: white; padding: 20px 30px 0 30px; }
         .header-top { padding-bottom: 16px; }
         .header-top h1 { font-size: 24px; font-weight: 500; letter-spacing: 0.2px; }
-
         .main-nav { display: flex; gap: 2px; margin-top: 4px; }
         .main-nav-link {
             display: inline-flex; align-items: center; gap: 7px;
             padding: 10px 24px; font-size: 14px; font-weight: 600;
             color: rgba(255,255,255,0.65); text-decoration: none;
             border-radius: 6px 6px 0 0; background: rgba(255,255,255,0.06);
-            border: 1px solid transparent; border-bottom: none; letter-spacing: 0.2px;
-            transition: background 0.2s, color 0.2s, border-color 0.2s; white-space: nowrap;
-            position: relative; top: 1px;
+            border: 1px solid transparent; border-bottom: none;
+            letter-spacing: 0.2px; transition: background 0.2s, color 0.2s, border-color 0.2s;
+            white-space: nowrap; position: relative; top: 1px;
         }
         .main-nav-link:hover { color: rgba(255,255,255,0.95); background: rgba(255,255,255,0.14); }
         .main-nav-link.active { color: #2c3e50; background: #f8f9fa; border-color: #e6e9ed; border-bottom-color: #f8f9fa; }
-
         .sub-nav { background: #f8f9fa; border-bottom: 2px solid #e6e9ed; padding: 0 30px; display: flex; }
-        .sub-nav-link { display: inline-block; padding: 14px 22px; font-size: 14px; font-weight: 600; color: #6c757d; text-decoration: none; border-bottom: 3px solid transparent; margin-bottom: -2px; }
+        .sub-nav-link {
+            display: inline-block; padding: 14px 22px; font-size: 14px; font-weight: 600;
+            color: #6c757d; text-decoration: none; border-bottom: 3px solid transparent;
+            margin-bottom: -2px; transition: color 0.2s, border-color 0.2s; white-space: nowrap;
+        }
+        .sub-nav-link:hover { color: #2c3e50; }
         .sub-nav-link.active { color: #2c3e50; border-bottom-color: #2c3e50; }
-
-        .controls {
-            padding: 20px 30px; display: flex; flex-wrap: wrap; gap: 24px;
-            align-items: flex-end; background: #fff; border-bottom: 1px solid #e6e9ed;
-        }
+        .controls { padding: 20px 30px; display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start; background: #fff; border-bottom: 1px solid #e6e9ed; }
         .control-group { display: flex; flex-direction: column; gap: 6px; }
-        .control-group label { font-size: 13px; font-weight: 600; color: #2c3e50; white-space: nowrap; }
-        select {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            height: 36px; padding: 0 12px; border: 1px solid #ccc; border-radius: 6px;
-            font-size: 14px; min-width: 120px; cursor: pointer;
-        }
-
-        .country-select-wrapper { position: relative; display: inline-block; }
-        .country-select-btn {
-            min-width: 220px; height: 36px; padding: 0 12px; border: 1px solid #ccc;
-            border-radius: 6px; font-size: 14px; background: #fff; cursor: pointer;
-            display: flex; align-items: center; justify-content: space-between; gap: 8px;
-        }
-        .country-select-btn::after { content: '▼'; font-size: 10px; color: #666; }
-        .country-dropdown {
-            position: absolute; top: calc(100% + 4px); left: 0; min-width: 320px;
-            max-height: 320px; overflow-y: auto; background: #fff; border: 1px solid #ccc;
-            border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 9999;
-            display: none; padding: 8px 0;
-        }
-        .country-dropdown.show { display: block; }
-        .country-dropdown-header { display: flex; gap: 8px; padding: 4px 12px 8px; border-bottom: 1px solid #eee; margin-bottom: 4px; }
-        .btn-small { padding: 4px 10px; font-size: 12px; background: #e9ecef; border: 1px solid #ccc; cursor: pointer; border-radius: 4px; }
-        .country-list { display: grid; grid-template-columns: repeat(2, 1fr); gap: 2px 0; padding: 0 8px; }
-        .country-item { display: flex; align-items: center; gap: 6px; padding: 4px 6px; border-radius: 4px; cursor: pointer; }
-        .country-item:hover { background: #f5f5f5; }
-
-        .chart-grid { display: grid; grid-template-columns: 1fr; gap: 24px; padding: 24px 30px; }
-        .chart-card { background: #fff; border-radius: 8px; border: 1px solid #e6e9ed; padding: 16px; }
-        .chart-card-header h3 { font-size: 18px; font-weight: 500; color: #2c3e50; border-left: 4px solid #2c3e50; padding-left: 12px; margin: 0; }
-        .subtitle { font-size: 12px; color: #888; margin-top: 4px; padding-left: 16px; }
-
-        /* ── shared HTML legend ── */
-        #sharedLegend {
-            width: 100%; margin-top: 14px; padding: 8px 12px;
-            display: flex; flex-wrap: wrap; gap: 6px 14px; justify-content: center;
-            border-top: 1px solid #e6e9ed;
-        }
-        .leg-item {
-            display: flex; align-items: center; gap: 5px;
-            font-size: 11px; color: #333; cursor: pointer;
-            padding: 2px 4px; border-radius: 3px; user-select: none;
-            transition: opacity 0.15s;
-        }
-        .leg-item.hidden { opacity: 0.35; }
-        .leg-swatch { width: 14px; height: 10px; border-radius: 2px; flex-shrink: 0; }
-
-        .year-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; margin-top: 14px; }
-        .year-card { border: 1px solid #e6e9ed; border-radius: 0; padding: 10px; background: #fafbfd; }
-        .year-card:first-child { border-radius: 8px 0 0 8px; }
-        .year-card:last-child  { border-radius: 0 8px 8px 0; }
-        .year-card + .year-card { border-left: none; }
-        .year-title { font-size: 13px; font-weight: 700; color: #2c3e50; margin-bottom: 8px; }
-        .year-chart { height: 280px; }
-
-        .loading { text-align: center; padding: 40px 20px; color: #666; font-size: 15px; }
-
-        @media (max-width: 1100px) { .year-row { grid-template-columns: 1fr; } .year-card, .year-card:first-child, .year-card:last-child { border-radius: 8px; border: 1px solid #e6e9ed; } }
-        @media (max-width: 900px) {
-            .header { padding: 16px 16px 0 16px; }
-            .sub-nav { padding: 0 10px; overflow-x: auto; }
-            .controls { flex-direction: column; align-items: stretch; }
-            .country-select-btn, .country-dropdown, select { width: 100%; min-width: 0; }
-        }
+        .control-group > label { font-size: 13px; font-weight: 600; color: #2c3e50; }
+        .country-static { height: 36px; padding: 0 12px; border: 1px solid #ccc; border-radius: 6px; font-size: 14px; font-family: inherit; background: #f8f9fa; color: #2c3e50; font-weight: 600; display: flex; align-items: center; }
+        .content-area { padding: 24px 30px 10px; }
+        .section-card { background: #fff; border-radius: 8px; border: 1px solid #e6e9ed; margin-bottom: 24px; overflow: hidden; }
+        .section-head { padding: 16px 20px 12px; border-bottom: 1px solid #e6e9ed; }
+        .section-head h2 { font-size: 18px; font-weight: 500; color: #2c3e50; border-left: 4px solid #2c3e50; padding-left: 12px; }
+        .section-head p { font-size: 12px; color: #868e96; margin-top: 6px; padding-left: 16px; }
+        .section-body { padding: 16px 20px; }
+        .heatmap-outer { overflow-x: auto; }
+        .three-year-hm { display: flex; gap: 20px; min-width: 600px; }
+        .year-hm-block { flex: 1; min-width: 0; }
+        .year-hm-title { text-align: center; font-size: 13px; font-weight: 700; margin-bottom: 6px; letter-spacing: 0.5px; color: #2c3e50; }
+        .hm-row { display: flex; align-items: center; }
+        .hm-ylabel { width: 30px; flex-shrink: 0; font-size: 9px; color: #868e96; text-align: right; padding-right: 5px; white-space: nowrap; line-height: 1; }
+        .hm-cells-row { display: grid; grid-template-columns: repeat(12, 1fr); gap: 0; flex: 1; }
+        .hm-cell { height: 16px; cursor: default; transition: outline 0.1s; display: flex; align-items: center; justify-content: center; font-size: 7px; font-weight: 700; color: rgba(0,0,0,0.65); overflow: hidden; }
+        .hm-cell:hover { outline: 2px solid rgba(44,62,80,0.7); z-index: 5; position: relative; }
+        .hm-month-header { display: flex; margin-bottom: 3px; }
+        .hm-month-spacer { width: 30px; flex-shrink: 0; }
+        .hm-month-labels { display: grid; grid-template-columns: repeat(12, 1fr); flex: 1; }
+        .hm-month-label { font-size: 9px; color: #495057; font-weight: 600; text-align: center; }
+        .hm-year-legend { display: flex; align-items: center; gap: 6px; margin-top: 6px; font-size: 10px; color: #6c757d; padding-left: 30px; }
+        .hm-legend-bar { flex: 1; height: 7px; border-radius: 4px; }
+        .hm-legend-val { white-space: nowrap; font-size: 10px; color: #495057; }
+        .hm-tooltip { position: fixed; background: rgba(44,62,80,0.93); color: white; padding: 6px 11px; border-radius: 6px; font-size: 12px; pointer-events: none; z-index: 9999; display: none; white-space: nowrap; box-shadow: 0 3px 10px rgba(0,0,0,0.25); }
+        .spinner-wrap { display: none; justify-content: center; align-items: center; padding: 36px; gap: 12px; color: #6c757d; font-size: 13px; }
+        .spinner-wrap.show { display: flex; }
+        .spinner { width: 24px; height: 24px; border: 3px solid #dee2e6; border-top-color: #5a8fc2; border-radius: 50%; animation: spin 0.8s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .no-data { text-align: center; padding: 40px 20px; }
+        .no-data .nd-icon { font-size: 36px; margin-bottom: 8px; }
+        .no-data p { font-size: 13px; color: #6c757d; }
+        .kpi-grid { display: grid; grid-template-columns: repeat(3, minmax(180px, 1fr)); gap: 12px; margin-bottom: 16px; }
+        .kpi { border: 1px solid #e6e9ed; border-radius: 8px; padding: 10px 12px; background: #fafbfc; }
+        .kpi-label { font-size: 12px; color: #6c757d; }
+        .kpi-value { font-size: 20px; color: #2c3e50; font-weight: 700; margin-top: 2px; }
+        .uplift-controls { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end; margin-bottom: 16px; padding: 12px 16px; background: #f8f9fa; border-radius: 8px; border: 1px solid #e6e9ed; }
+        .uplift-ctrl-group { display: flex; flex-direction: column; gap: 5px; }
+        .uplift-ctrl-group label { font-size: 12px; font-weight: 600; color: #2c3e50; }
+        .uplift-ctrl-group select { height: 32px; padding: 0 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 13px; font-family: inherit; background: #fff; color: #2c3e50; cursor: pointer; }
+        .ctrl-divider { width: 1px; background: #dee2e6; align-self: stretch; margin: 0 4px; }
+        .chart-wrap { border: 1px solid #e6e9ed; border-radius: 8px; padding: 10px; margin-bottom: 12px; }
+        .chart-title { font-size: 13px; color: #2c3e50; font-weight: 700; margin-bottom: 8px; }
+        .chart-note { font-size: 11px; color: #868e96; margin-top: 6px; }
+        .chart-legend { display: flex; gap: 16px; margin-bottom: 8px; align-items: center; }
+        .legend-item { display: flex; align-items: center; gap: 5px; font-size: 12px; color: #495057; }
+        .legend-swatch { width: 14px; height: 14px; border-radius: 3px; flex-shrink: 0; }
+        .info { padding: 12px 30px 20px; font-size: 13px; color: #6c757d; text-align: center; border-top: 1px solid #e6e9ed; margin-top: 10px; }
+        .info a { color: #5a8fc2; text-decoration: none; }
+        .info a:hover { text-decoration: underline; }
+        .strategy-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 2px; }
+        .stag { display: inline-block; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+        .stag-charge { background: #e8f4fd; color: #1a6fa0; border: 1px solid #b3d9f5; }
+        .stag-da     { background: #e8f0f8; color: #2c5f8a; border: 1px solid #9fbfd8; }
+        .stag-id3    { background: #fdf0eb; color: #b94a24; border: 1px solid #f5c4b0; }
+        @media (max-width: 900px) { .kpi-grid { grid-template-columns: 1fr; } }
+        @media (max-width: 800px) { .content-area { padding: 14px; } .header { padding: 16px 16px 0 16px; } .sub-nav { padding: 0 10px; overflow-x: auto; } .controls { padding: 14px; } .three-year-hm { flex-direction: column; } }
     </style>
 </head>
 <body>
@@ -115,500 +105,590 @@
     <div class="header">
         <div class="header-top"><h1>European Electricity Dashboard</h1></div>
         <div class="main-nav">
-            <a href="project.html" class="main-nav-link">Projects</a>
-            <a href="price-overview.html" class="main-nav-link">Price</a>
-            <a href="load.html" class="main-nav-link">Load</a>
-            <a href="generation-overview.html" class="main-nav-link active">Generation</a>
-            <a href="capacity.html" class="main-nav-link">Installed Capacity</a>
+            <a href="project.html" class="main-nav-link"><span>Projects</span></a>
+            <a href="price-overview.html" class="main-nav-link active"><span>Price</span></a>
+            <a href="load.html" class="main-nav-link"><span>Load</span></a>
+            <a href="generation-overview.html" class="main-nav-link"><span>Generation</span></a>
+            <a href="capacity.html" class="main-nav-link"><span>Installed Capacity</span></a>
         </div>
     </div>
 
     <div class="sub-nav">
-        <a class="sub-nav-link active" href="generation-overview.html">Generation Overview</a>
+        <a class="sub-nav-link" href="price-overview.html">Price Overview</a>
+        <a class="sub-nav-link" href="capture-price.html">Capture Prices</a>
+        <a class="sub-nav-link" href="price-spread.html">Price Spread</a>
+        <a class="sub-nav-link active" href="price-intraday.html">Intraday</a>
     </div>
 
     <div class="controls">
         <div class="control-group">
-            <label>Start month</label>
-            <select id="monthFrom"></select>
+            <label>🌍 Country</label>
+            <div class="country-static">HU</div>
         </div>
-        <div class="control-group">
-            <label>End month</label>
-            <select id="monthTo"></select>
-        </div>
-        <div class="control-group">
-            <label>Countries</label>
-            <div class="country-select-wrapper">
-                <div class="country-select-btn" id="countrySelectBtn"><span id="countrySelectText">Select...</span></div>
-                <div class="country-dropdown" id="countryDropdown">
-                    <div class="country-dropdown-header">
-                        <button id="selectAllBtn" class="btn-small">Select All</button>
-                        <button id="clearAllBtn" class="btn-small">Clear All</button>
+    </div>
+
+    <div class="content-area">
+        <!-- Heatmap -->
+        <div class="section-card">
+            <div class="section-head">
+                <h2>Intraday vs Day-Ahead Price Spread Heatmap (H01–H24)</h2>
+                <p>Spread = ID3 − DA &nbsp;|&nbsp; Hourly average of 15-min data &nbsp;|&nbsp; Unit: €/MWh</p>
+            </div>
+            <div class="section-body">
+                <div class="spinner-wrap show" id="hmSpinner"><div class="spinner"></div> Loading data…</div>
+                <div id="hmContent">
+                    <div class="no-data" id="hmNoData" style="display:none">
+                        <div class="nd-icon">🗺️</div>
+                        <p>Failed to load data.</p>
                     </div>
-                    <div id="countryCheckboxes" class="country-list"></div>
                 </div>
             </div>
         </div>
+
+        <!-- Uplift panel -->
+        <div class="section-card">
+            <div class="section-head">
+                <h2>Arbitrage DA vs ID3</h2>
+            </div>
+            <div class="section-body">
+
+                <div class="uplift-controls">
+                    <div class="uplift-ctrl-group">
+                        <label>Year</label>
+                        <select id="selYear">
+                            <option value="2024">2024</option>
+                            <option value="2025" selected>2025</option>
+                            <option value="2026">2026</option>
+                        </select>
+                    </div>
+                    <div class="ctrl-divider"></div>
+                    <div class="uplift-ctrl-group">
+                        <label>Start Month</label>
+                        <select id="startMonth">
+                            <option value="1">Jan</option>
+                            <option value="2">Feb</option>
+                            <option value="3">Mar</option>
+                            <option value="4" selected>Apr</option>
+                            <option value="5">May</option>
+                            <option value="6">Jun</option>
+                            <option value="7">Jul</option>
+                            <option value="8">Aug</option>
+                            <option value="9">Sep</option>
+                            <option value="10">Oct</option>
+                            <option value="11">Nov</option>
+                            <option value="12">Dec</option>
+                        </select>
+                    </div>
+                    <div class="uplift-ctrl-group">
+                        <label>End Month</label>
+                        <select id="endMonth">
+                            <option value="1">Jan</option>
+                            <option value="2">Feb</option>
+                            <option value="3">Mar</option>
+                            <option value="4">Apr</option>
+                            <option value="5">May</option>
+                            <option value="6">Jun</option>
+                            <option value="7">Jul</option>
+                            <option value="8">Aug</option>
+                            <option value="9">Sep</option>
+                            <option value="10" selected>Oct</option>
+                            <option value="11">Nov</option>
+                            <option value="12">Dec</option>
+                        </select>
+                    </div>
+                    <div class="ctrl-divider"></div>
+                    <div class="uplift-ctrl-group" style="justify-content:flex-start">
+                        <label>Strategy</label>
+                        <div class="strategy-tags">
+                            <span class="stag stag-charge"> Charge: &nbsp; 03:00–05:00 DA</span>
+                            <span class="stag stag-da"> DA Discharge: &nbsp; 17:00–21:00 · top 2 hrs </span>
+                            <span class="stag stag-id3"> ID3 Discharge: &nbsp; 17:00–21:00 · top 8 quarters</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="kpi-grid">
+                    <div class="kpi"><div class="kpi-label">Total Uplift </div><div class="kpi-value" id="kpiCum">-</div></div>
+                    <div class="kpi"><div class="kpi-label">Monthly Avg Uplift </div><div class="kpi-value" id="kpiMonthly">-</div></div>
+                    <div class="kpi"><div class="kpi-label">ID3 Premium (%)</div><div class="kpi-value" id="kpiAvg">-</div></div>
+                </div>
+
+                <div class="chart-wrap">
+                    <div class="chart-title" id="monthlyChartTitle">Arbitrage DA vs ID3</div>
+                    <div class="chart-legend">
+                        <div class="legend-item"><div class="legend-swatch" style="background:rgba(69,123,157,0.85)"></div> DA Arbitrage</div>
+                        <div class="legend-item"><div class="legend-swatch" style="background:rgba(231,111,81,0.85)"></div> ID3 Arbitrage</div>
+                    </div>
+                    <div style="overflow-x:auto">
+                        <div style="min-width:400px">
+                            <svg id="monthlyChart" style="width:100%;height:320px;display:block" viewBox="0 0 900 320" preserveAspectRatio="none"></svg>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
     </div>
 
-    <div id="loadingMsg" class="loading">Loading generation data...</div>
-
-    <div class="chart-grid" style="display:none;" id="chartGrid">
-        <div class="chart-card">
-            <div class="chart-card-header">
-                <h3>Load vs Generation by Hour (Monthly Range Avg)</h3>
-                <div class="subtitle">Generation = sum of technologies including Cross border; selected countries are summed. Click legend to toggle series.</div>
-            </div>
-            <div class="year-row">
-                <div class="year-card"><div class="year-title">2024</div><div id="chart2024" class="year-chart"></div></div>
-                <div class="year-card"><div class="year-title">2025</div><div id="chart2025" class="year-chart"></div></div>
-                <div class="year-card"><div class="year-title">2026</div><div id="chart2026" class="year-chart"></div></div>
-            </div>
-            <!-- shared legend rendered by ECharts into this div -->
-            <div id="sharedLegend"></div>
-        </div>
+    <div class="info">
+        Data source: <a href="https://www.entsoe.eu/" target="_blank">ENTSO-E Transparency Platform</a>
+        &nbsp;|&nbsp; Intraday: ID3 &nbsp;|&nbsp; Unit: €/MWh &nbsp;|&nbsp; Author: Hanyu Jian
     </div>
 </div>
 
+<div class="hm-tooltip" id="hmTooltip"></div>
+
 <script>
-const BASE_COUNTRIES = ['AT','BG','DE','ES','FR','GR','HR','HU','IT','PL','RO','RS','SK'];
-const CEE_COUNTRIES = ['HU','RO','RS','HR','PL','BG'];
-const DISPLAY_COUNTRIES = ['CEE', ...BASE_COUNTRIES];
-const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const YEARS  = [2024, 2025, 2026];
+const hmData = {};
 
-let countryData = {};
-let loadData = [];
-let charts = {};
-let loadReport = { ok: [], fail: [] };
-let loadFailReason = {};
-let legendState = {};
+// Raw 15-min data store: key = "YYYY-MM-DD", value = { month, hourSlots: { h: [{ da, id3 }, ...] } }
+let rawDayData = {};
 
-// ── Colour helpers ───────────────────────────────────────────────────────────
-function typeToColor(t) {
-    if (!t) return '#90a4ae';
-    const tl = t.toLowerCase();
-    if (tl.includes('hydro pumped') || tl.includes('pumped storage')) return '#a8c4e0';
-    if (tl.includes('hydro')) return '#1a56a0';
-    if (tl.includes('battery') || tl.includes('energy storage')) return '#b0bec5';
-    if (tl.includes('biomass')) return '#1b5e20';
-    if (tl.includes('brown coal') || tl.includes('lignite')) return '#8B6914';
-    if (tl.includes('hard coal')) return '#444444';
-    if (tl.includes('coal-derived')) return '#d4b44a';
-    if (tl.includes('fossil oil') || tl.includes('oil shale')) return '#8B6914';
-    if (tl.includes('fossil gas') || tl.includes('gas')) return '#f5821f';
-    if (tl.includes('peat')) return '#5d4037';
-    if (tl.includes('wind off')) return '#2e7d32';
-    if (tl.includes('wind on') || tl.includes('wind')) return '#81c784';
-    if (tl.includes('solar')) return '#fcc428';
-    if (tl.includes('nuclear')) return '#e53935';
-    if (tl.includes('geotherm')) return '#3949ab';
-    if (tl.includes('marine')) return '#1565c0';
-    if (tl.includes('waste')) return '#8d6e63';
-    if (tl.includes('other renew')) return '#9c7bb5';
-    if (tl.includes('other')) return '#9c7bb5';
-    return '#90a4ae';
+window.addEventListener('DOMContentLoaded', () => {
+    ['selYear','startMonth','endMonth'].forEach(id => {
+        document.getElementById(id).addEventListener('change', renderUpliftPanel);
+    });
+    loadData();
+});
+
+function getFilters() {
+    const year = parseInt(document.getElementById('selYear').value, 10);
+    let sm = parseInt(document.getElementById('startMonth').value, 10);
+    let em = parseInt(document.getElementById('endMonth').value, 10);
+    if (em < sm) em = sm;
+    return { year, sm, em };
 }
 
-// ── CSV / date parsing ───────────────────────────────────────────────────────
-function parseDate(s) {
-    if (!s) return null;
-    let m = s.match(/^(\d{4})[\/-](\d{1,2})[\/-](\d{1,2})\s+(\d{1,2}):(\d{2})/);
-    if (m) return { year: +m[1], month: +m[2], day: +m[3], hour: +m[4] };
-    m = s.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})\s+(\d{1,2}):(\d{2})/);
-    if (m) return { year: +m[3], month: +m[2], day: +m[1], hour: +m[4] };
+async function loadData() {
+    try {
+        const text = await fetch('data/intraday/HU.csv').then(r => {
+            if (!r.ok) throw new Error(HTTP ${r.status});
+            return r.text();
+        });
+        await processData(text);
+    } catch(e) {
+        console.error('Failed to load:', e.message);
+        document.getElementById('hmSpinner').classList.remove('show');
+        document.getElementById('hmNoData').style.display = 'block';
+    }
+}
+
+function parseDate15min(str) {
+    str = str.trim();
+    let m = str.match(/^(\d{2})\/(\d{2})\/(\d{4})\s+(\d{1,2}):(\d{2})/);
+    if (m) return { year:+m[3], month:+m[2], day:+m[1], hour:+m[4], minute:+m[5] };
+    m = str.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})\s+(\d{1,2}):(\d{2})/);
+    if (m) return { year:+m[1], month:+m[2], day:+m[3], hour:+m[4], minute:+m[5] };
     return null;
 }
 
-function parseCSV(text) {
-    const lines = text.trim().split(/\r?\n/);
-    const out = [];
-    if (!lines.length) return out;
-    const first = lines[0].trim().toLowerCase();
-    const hasHeader = first.includes('date') && first.includes('category');
-    const startIdx = hasHeader ? 1 : 0;
+async function processData(text) {
+    await yieldFrame();
+    const lines  = text.trim().split(/\r?\n/);
+    const sep    = lines[0].includes('\t') ? /\t/ : /,/;
+    const header = lines[0].split(sep).map(s => s.trim());
+    const id3Col = header.findIndex(h => h === 'ID3');
+    const daCol  = header.findIndex(h => h === 'DA');
 
-    function parseLooseLine(line) {
-        const m = line.match(/^(\d{4}\/\d{1,2}\/\d{1,2})\s+(\d{1,2}:\d{2})\s+(.+?)\s+(-?\d+(?:\.\d+)?)$/);
-        if (!m) return null;
-        return { date: `${m[1]} ${m[2]}`, category: m[3].trim(), value: parseFloat(m[4]) };
-    }
-
-    for (let i = startIdx; i < lines.length; i++) {
-        const line = lines[i].trim();
-        if (!line) continue;
-        if (line.includes('\t')) {
-            const parts = line.split('\t');
-            if (parts.length >= 3) { out.push({ date: parts[0].trim(), category: parts[1].trim(), value: parseFloat(parts[2]) }); continue; }
-        }
-        if (line.includes(',')) {
-            const parts = line.split(',');
-            if (parts.length >= 3) { out.push({ date: parts[0].trim(), category: parts[1].trim(), value: parseFloat(parts[2]) }); continue; }
-        }
-        const loose = parseLooseLine(line);
-        if (loose) out.push(loose);
-    }
-    return out;
-}
-
-function normalizeCategory(cat) { return (cat || '').replace(/\s+/g, ' ').trim(); }
-function canonicalKey(cat) { return normalizeCategory(cat).toLowerCase().replace(/[-/]/g, ' ').replace(/\s+/g, ' ').trim(); }
-
-// ── Load CSV parsing (/data/load.csv) ────────────────────────────────────────
-function parseLoadCSV(text) {
-    const lines = text.trim().split(/\r?\n/).filter(Boolean);
-    if (!lines.length) return [];
-
-    const headers = lines[0].split(',').map(h => h.trim());
-    const dateIdx = headers.findIndex(h => h.toLowerCase() === 'date');
-    if (dateIdx < 0) return [];
-
-    const countryCols = headers
-        .map((h, i) => ({ code: h, idx: i }))
-        .filter(x => x.idx !== dateIdx);
-
-    const out = [];
-    for (let i = 1; i < lines.length; i++) {
-        const cols = lines[i].split(',').map(x => x.trim());
-        if (!cols.length) continue;
-        const dt = parseDate(cols[dateIdx]);
-        if (!dt) continue;
-
-        const values = {};
-        countryCols.forEach(c => {
-            const v = Number(cols[c.idx]);
-            values[c.code] = Number.isFinite(v) ? v : null;
-        });
-
-        out.push({
-            year: dt.year,
-            month: dt.month,
-            day: dt.day,
-            hour: dt.hour,
-            values
-        });
-    }
-    return out;
-}
-
-// ── Data loading ─────────────────────────────────────────────────────────────
-async function loadAllCountries() {
-    loadReport = { ok: [], fail: [] };
-    loadFailReason = {};
-
-    await Promise.all(BASE_COUNTRIES.map(async c => {
-        try {
-            const res = await fetch(`/data/generation/${c}.csv`, { cache: 'no-store' });
-            if (!res.ok) { loadReport.fail.push(c); loadFailReason[c] = `HTTP ${res.status}`; return; }
-            const text = await res.text();
-            const rows = parseCSV(text);
-            if (!rows.length) { loadReport.fail.push(c); loadFailReason[c] = 'parsed 0 rows'; return; }
-            countryData[c] = rows;
-            loadReport.ok.push(c);
-        } catch (e) {
-            loadReport.fail.push(c);
-            loadFailReason[c] = e && e.message ? e.message : 'fetch error';
-        }
-    }));
-
-    const loadRes = await fetch('/data/load.csv', { cache: 'no-store' });
-    if (!loadRes.ok) throw new Error(`load.csv HTTP ${loadRes.status}`);
-    const loadText = await loadRes.text();
-    loadData = parseLoadCSV(loadText);
-}
-
-// ── Country selector ─────────────────────────────────────────────────────────
-function buildCountryCheckboxes() {
-    const wrap = document.getElementById('countryCheckboxes');
-    wrap.innerHTML = '';
-    DISPLAY_COUNTRIES.forEach(c => {
-        const item = document.createElement('div');
-        item.className = 'country-item';
-        const cb = document.createElement('input');
-        cb.type = 'checkbox'; cb.value = c; cb.checked = c === 'CEE';
-        cb.addEventListener('change', refresh);
-        const span = document.createElement('span');
-        span.textContent = c;
-        item.appendChild(cb); item.appendChild(span);
-        item.addEventListener('click', e => { if (e.target !== cb) { cb.checked = !cb.checked; cb.dispatchEvent(new Event('change')); } });
-        wrap.appendChild(item);
-    });
-    updateCountryLabel();
-}
-
-function getSelectedCountriesRaw() {
-    return [...document.querySelectorAll('#countryCheckboxes input:checked')].map(x => x.value);
-}
-
-function expandCountries(selectedRaw) {
-    const expanded = selectedRaw.flatMap(c => c === 'CEE' ? CEE_COUNTRIES : [c]);
-    return [...new Set(expanded)];
-}
-
-function getSelectedCountries() {
-    return expandCountries(getSelectedCountriesRaw());
-}
-
-function updateCountryLabel() {
-    const all = [...document.querySelectorAll('#countryCheckboxes input')];
-    const checked = all.filter(x => x.checked);
-    const el = document.getElementById('countrySelectText');
-    if (!checked.length) el.textContent = 'None selected';
-    else if (checked.length === all.length) el.textContent = `All (${all.length})`;
-    else if (checked.length <= 4) el.textContent = checked.map(x => x.value).join(', ');
-    else el.textContent = `${checked.length} selected`;
-}
-
-function initControls() {
-    const from = document.getElementById('monthFrom');
-    const to   = document.getElementById('monthTo');
-    from.innerHTML = monthNames.map((m,i) => `<option value="${i+1}">${m}</option>`).join('');
-    to.innerHTML   = monthNames.map((m,i) => `<option value="${i+1}">${m}</option>`).join('');
-    from.value = '1'; to.value = '12';
-    from.addEventListener('change', refresh);
-    to.addEventListener('change', refresh);
-
-    const btn  = document.getElementById('countrySelectBtn');
-    const drop = document.getElementById('countryDropdown');
-    btn.addEventListener('click', e => { e.stopPropagation(); drop.classList.toggle('show'); });
-    document.addEventListener('click', e => { if (!drop.contains(e.target) && e.target !== btn) drop.classList.remove('show'); });
-
-    document.getElementById('selectAllBtn').addEventListener('click', () => {
-        document.querySelectorAll('#countryCheckboxes input').forEach(x => x.checked = true);
-        updateCountryLabel(); refresh();
-    });
-    document.getElementById('clearAllBtn').addEventListener('click', () => {
-        document.querySelectorAll('#countryCheckboxes input').forEach(x => x.checked = false);
-        updateCountryLabel(); refresh();
-    });
-}
-
-// ── Data summarisation ───────────────────────────────────────────────────────
-function buildLoadSeries(year, selectedCountries, mFrom, mTo) {
-    const byHour = Array.from({ length: 24 }, () => ({ sum: 0, cnt: 0 }));
-
-    loadData.forEach(r => {
-        if (r.year !== year || r.month < mFrom || r.month > mTo) return;
-        let rowSum = 0;
-        let hasValue = false;
-
-        selectedCountries.forEach(c => {
-            const v = r.values[c];
-            if (Number.isFinite(v)) {
-                rowSum += v;
-                hasValue = true;
-            }
-        });
-
-        if (hasValue && r.hour >= 0 && r.hour < 24) {
-            byHour[r.hour].sum += rowSum;
-            byHour[r.hour].cnt += 1;
-        }
-    });
-
-    return byHour.map(x => x.cnt ? +((x.sum / x.cnt).toFixed(2)) : null);
-}
-
-function summarizeYear(year, selectedCountries, mFrom, mTo) {
-    const techLabelByKey = {};
-    const byHour = {};
-    for (let h = 0; h < 24; h++) byHour[h] = { techSum: {}, techCnt: {} };
-    const mergedByTs = {};
-
-    selectedCountries.forEach(c => {
-        (countryData[c] || []).forEach(r => {
-            if (isNaN(r.value)) return;
-            const dt = parseDate(r.date);
-            if (!dt || dt.year !== year || dt.month < mFrom || dt.month > mTo) return;
-
-            const key = `${dt.year}-${dt.month}-${dt.day}-${dt.hour}`;
-            if (!mergedByTs[key]) mergedByTs[key] = { hour: dt.hour, tech: {} };
-
-            const cat = normalizeCategory(r.category);
-            const ck  = canonicalKey(cat);
-
-            // Load now comes only from /data/load.csv
-            if (ck === 'load') return;
-            if (ck.includes('renewable share')) return;
-
-            if (!techLabelByKey[ck]) techLabelByKey[ck] = cat;
-            mergedByTs[key].tech[ck] = (mergedByTs[key].tech[ck] || 0) + r.value;
-        });
-    });
-
-    Object.values(mergedByTs).forEach(b => {
-        const h = b.hour;
-        Object.entries(b.tech).forEach(([ck, v]) => {
-            byHour[h].techSum[ck] = (byHour[h].techSum[ck] || 0) + v;
-            byHour[h].techCnt[ck] = (byHour[h].techCnt[ck] || 0) + 1;
-        });
-    });
-
-    const techKeys = Object.keys(techLabelByKey).sort((a, b) => techLabelByKey[a].localeCompare(techLabelByKey[b]));
-    const techs = techKeys.map(k => techLabelByKey[k]);
-    const load = buildLoadSeries(year, selectedCountries, mFrom, mTo);
-    const techSeries = {};
-    techs.forEach(t => techSeries[t] = []);
-
-    for (let h = 0; h < 24; h++) {
-        const x = byHour[h];
-        techKeys.forEach((k, i) => {
-            const label = techs[i];
-            const s = x.techSum[k] || 0, cnt = x.techCnt[k] || 0;
-            techSeries[label].push(cnt ? +((s / cnt).toFixed(2)) : 0);
-        });
-    }
-
-    return { techs, techSeries, load };
-}
-
-// ── Chart drawing ────────────────────────────────────────────────────────────
-let allSeriesNames = [];
-let allSeriesColors = {};
-
-function buildSeriesForYear(year, selectedCountries, mFrom, mTo) {
-    const { techs, techSeries, load } = summarizeYear(year, selectedCountries, mFrom, mTo);
-    const hours = Array.from({ length: 24 }, (_, i) => String(i + 1));
-
-    const series = techs.map(t => {
-        const col = typeToColor(t);
-        const visible = legendState[t] !== false;
-        if (visible) {
-            return {
-                name: t, type: 'line', stack: 'gen', smooth: false, symbol: 'none',
-                data: techSeries[t], itemStyle: { color: col },
-                lineStyle: { width: 1.6, color: col }, areaStyle: { opacity: 1, color: col },
-            };
-        } else {
-            return {
-                name: t, type: 'line', smooth: false, symbol: 'none',
-                data: techSeries[t], itemStyle: { color: col },
-                lineStyle: { width: 0, color: col }, areaStyle: { opacity: 0, color: col },
-                silent: true,
-            };
-        }
-    });
-
-    const loadVisible = legendState['Load'] !== false;
-    series.push({
-        name: 'Load', type: 'line', smooth: false, symbol: 'none',
-        data: load, itemStyle: { color: '#111827' },
-        lineStyle: { width: loadVisible ? 2.2 : 0, color: '#111827' },
-        areaStyle: { opacity: 0 }, silent: !loadVisible,
-    });
-
-    series.forEach(s => {
-        if (!allSeriesColors[s.name]) allSeriesColors[s.name] = s.itemStyle.color;
-        if (!allSeriesNames.includes(s.name)) allSeriesNames.push(s.name);
-    });
-
-    return { series, hours };
-}
-
-function applyYearChart(chart, year, selectedCountries, mFrom, mTo) {
-    if (!selectedCountries.length || mFrom > mTo) { chart.clear(); return; }
-    const { series, hours } = buildSeriesForYear(year, selectedCountries, mFrom, mTo);
-
-    chart.setOption({
-        tooltip: {
-            trigger: 'axis',
-            valueFormatter: v => (v == null || Number.isNaN(v) ? '-' : Number(v).toFixed(2))
-        },
-        legend: { show: false },
-        grid: { left: 52, right: 16, top: 12, bottom: 42 },
-        xAxis: { type: 'category', data: hours, name: 'Hour', nameGap: 24 },
-        yAxis: { type: 'value', name: 'Power (MW)' },
-        series
-    }, true);
-}
-
-// ── HTML shared legend ────────────────────────────────────────────────────────
-function buildHtmlLegend() {
-    const wrap = document.getElementById('sharedLegend');
-    wrap.innerHTML = '';
-    const names = allSeriesNames.filter(n => n !== 'Load').sort((a,b) => a.localeCompare(b));
-    if (allSeriesNames.includes('Load')) names.push('Load');
-
-    names.forEach(name => {
-        const visible = legendState[name] !== false;
-        const item = document.createElement('div');
-        item.className = 'leg-item' + (visible ? '' : ' hidden');
-        item.dataset.name = name;
-
-        const swatch = document.createElement('div');
-        swatch.className = 'leg-swatch';
-
-        const color = allSeriesColors[name] || '#90a4ae';
-        // line-style legend swatch (including Load)
-        swatch.style.height = '0';
-        swatch.style.width = '16px';
-        swatch.style.borderRadius = '0';
-        swatch.style.background = 'transparent';
-        swatch.style.borderTop = `${name === 'Load' ? 2.5 : 2}px solid ${color}`;
-
-        const label = document.createElement('span');
-        label.textContent = name;
-
-        item.appendChild(swatch);
-        item.appendChild(label);
-        item.addEventListener('click', () => toggleSeries(name));
-        wrap.appendChild(item);
-    });
-}
-
-function toggleSeries(name) {
-    legendState[name] = legendState[name] === false ? true : false;
-    const selected = getSelectedCountries();
-    const mFrom = parseInt(document.getElementById('monthFrom').value, 10);
-    const mTo   = parseInt(document.getElementById('monthTo').value, 10);
-    [[charts.chart2024, 2024],[charts.chart2025, 2025],[charts.chart2026, 2026]].forEach(([c, y]) => {
-        applyYearChart(c, y, selected, mFrom, mTo);
-    });
-    document.querySelectorAll('.leg-item').forEach(el => {
-        const vis = legendState[el.dataset.name] !== false;
-        el.classList.toggle('hidden', !vis);
-    });
-}
-
-function refresh() {
-    updateCountryLabel();
-    const selected = getSelectedCountries();
-    const mFrom = parseInt(document.getElementById('monthFrom').value, 10);
-    const mTo   = parseInt(document.getElementById('monthTo').value, 10);
-
-    allSeriesNames = [];
-    allSeriesColors = {};
-
-    applyYearChart(charts.chart2024, 2024, selected, mFrom, mTo);
-    applyYearChart(charts.chart2025, 2025, selected, mFrom, mTo);
-    applyYearChart(charts.chart2026, 2026, selected, mFrom, mTo);
-
-    buildHtmlLegend();
-}
-
-// ── Init ─────────────────────────────────────────────────────────────────────
-async function init() {
-    if (typeof echarts === 'undefined') {
-        document.getElementById('loadingMsg').textContent = 'ECharts failed to load (CDN blocked or unavailable).';
+    if (id3Col < 0 || daCol < 0) {
+        document.getElementById('hmSpinner').classList.remove('show');
+        document.getElementById('hmNoData').style.display = 'block';
         return;
     }
 
-    await loadAllCountries();
-    buildCountryCheckboxes();
-    initControls();
+    const hmAcc = {};
+    YEARS.forEach(yr => {
+        hmAcc[yr] = Array.from({length:24}, () =>
+            Array.from({length:12}, () => ({sum:0, cnt:0})));
+    });
 
-    document.getElementById('loadingMsg').style.display = 'none';
-    document.getElementById('chartGrid').style.display = 'grid';
+    rawDayData = {};
+    const CHUNK = 5000;
 
-    charts.chart2024 = echarts.init(document.getElementById('chart2024'));
-    charts.chart2025 = echarts.init(document.getElementById('chart2025'));
-    charts.chart2026 = echarts.init(document.getElementById('chart2026'));
+    for (let i = 1; i < lines.length; i++) {
+        if (i % CHUNK === 0) await yieldFrame();
+        const cols = lines[i].split(sep);
+        if (cols.length < Math.max(id3Col, daCol) + 1) continue;
+        const dt = parseDate15min(cols[0]);
+        if (!dt || !YEARS.includes(dt.year)) continue;
+        const id3 = parseFloat(cols[id3Col].trim());
+        const da  = parseFloat(cols[daCol].trim());
+        if (isNaN(id3) || isNaN(da)) continue;
 
-    refresh();
+        const spread = id3 - da;
 
-    window.addEventListener('resize', () => Object.values(charts).forEach(c => c.resize()));
+        // Heatmap accumulation (spread, averaged at hour level)
+        hmAcc[dt.year][dt.hour][dt.month - 1].sum += spread;
+        hmAcc[dt.year][dt.hour][dt.month - 1].cnt += 1;
+
+        // Raw 15-min storage: store every quarter separately so we can
+        // later pick top-N quarters within a window for ID3 discharge calc.
+        const dKey = ${dt.year}-${String(dt.month).padStart(2,'0')}-${String(dt.day).padStart(2,'0')};
+        if (!rawDayData[dKey]) rawDayData[dKey] = { year: dt.year, month: dt.month, slots: {} };
+        const qKey = ${dt.hour}:${String(dt.minute).padStart(2,'0')};
+        rawDayData[dKey].slots[qKey] = { da, id3, hour: dt.hour, minute: dt.minute };
+    }
+
+    YEARS.forEach(yr => {
+        hmData[yr] = hmAcc[yr].map(hourRow =>
+            hourRow.map(b => b.cnt > 0 ? b.sum / b.cnt : null));
+    });
+
+    renderHeatmap();
+    renderUpliftPanel();
+    document.getElementById('hmSpinner').classList.remove('show');
 }
 
-init();
+/*
+ * Strategy definitions (fixed):
+ *
+ * CHARGE:  03:00–05:00 (hours 3 and 4, i.e. h=3 and h=4)
+ *   DA_charge = average DA price across those 2 hours (all quarters)
+ *
+ * DISCHARGE: 17:00–21:00 (hours 17,18,19,20 = 16 quarters total)
+ *   DA_discharge = average of top 2 hrs 
+ *   ID3_discharge = average of the TOP 8 ID3 quarters (highest 8 of 16)
+ *
+ * DAILY P&L:
+ *   netDA  = DA_discharge  − DA_charge
+ *   netID3 = ID3_discharge − DA_charge
+ *   spread = ID3_discharge − DA_discharge   
+ *
+ * MONTHLY: mean of daily values within month
+ *
+ * PREMIUM:
+ *   per-month: (netID3 − netDA) / |netDA| × 100  = (ID3_dis − DA_dis) / |DA_dis − DA_charge| × 100
+ */
+
+// Fixed hour windows
+const CHARGE_HOURS  = [3, 4];          // 03:00–05:00 (h=3 → 03:xx, h=4 → 04:xx)
+const DISCHARGE_HOURS = [17, 18, 19, 20]; // 17:00–21:00 (h=17..20 → 16 quarters)
+const TOP_Q_COUNT   = 8;               // top 8 of 16 quarters for ID3 discharge
+
+function buildDailySeries(year, sm, em) {
+    const days = [];
+
+    Object.entries(rawDayData).forEach(([date, meta]) => {
+        if (meta.year !== year) return;
+        if (meta.month < sm || meta.month > em) return;
+
+        const slots = meta.slots;
+
+        // ── DA charge (hours 3 & 4) ──
+        let chDASum = 0, chCnt = 0;
+        Object.values(slots).forEach(s => {
+            if (CHARGE_HOURS.includes(s.hour)) {
+                chDASum += s.da;
+                chCnt++;
+            }
+        });
+        if (chCnt === 0) return;
+        const DA_charge = chDASum / chCnt;
+
+        // ── Discharge window quarters ──
+        const disSlots = Object.values(slots).filter(s => DISCHARGE_HOURS.includes(s.hour));
+        if (disSlots.length === 0) return;
+
+        // DA discharge: top 2hr average
+        const hourlyDAMap = {};
+        disSlots.forEach(s => {
+            if (!hourlyDAMap[s.hour]) hourlyDAMap[s.hour] = { sum: 0, cnt: 0 };
+            hourlyDAMap[s.hour].sum += s.da;
+            hourlyDAMap[s.hour].cnt++;
+        });
+        const hourlyDAAvgs = Object.values(hourlyDAMap)
+            .map(b => b.sum / b.cnt)
+            .sort((a, b) => b - a);
+        const top2DA = hourlyDAAvgs.slice(0, 2);
+        if (top2DA.length === 0) return;
+        const DA_discharge = top2DA.reduce((s, v) => s + v, 0) / top2DA.length;
+
+        // ID3 discharge: average of top-8 ID3 quarters (sorted desc, take first TOP_Q_COUNT)
+        const id3Vals = disSlots.map(s => s.id3).sort((a, b) => b - a);
+        const topN    = id3Vals.slice(0, Math.min(TOP_Q_COUNT, id3Vals.length));
+        if (topN.length === 0) return;
+        const ID3_discharge = topN.reduce((s, v) => s + v, 0) / topN.length;
+
+        const netDA  = DA_discharge  - DA_charge;
+        const netID3 = ID3_discharge - DA_charge;
+        const spread = ID3_discharge - DA_discharge;  // uplift
+
+        days.push({
+            date,
+            month:   meta.month,
+            DA_discharge,
+            ID3_discharge,
+            DA_charge,
+            netDA,
+            netID3,
+            spread
+        });
+    });
+
+    days.sort((a, b) => a.date.localeCompare(b.date));
+    return days;
+}
+
+function buildMonthlySeries(days) {
+    const acc = {};
+    days.forEach(d => {
+        if (!acc[d.month]) acc[d.month] = { netDASum:0, netID3Sum:0, spreadSum:0, cnt:0 };
+        acc[d.month].netDASum  += d.netDA;
+        acc[d.month].netID3Sum += d.netID3;
+        acc[d.month].spreadSum += d.spread;
+        acc[d.month].cnt++;
+    });
+    return Object.entries(acc)
+        .map(([mo, v]) => ({
+            month:  parseInt(mo, 10),
+            netDA:  v.netDASum,   
+            netID3: v.netID3Sum,
+            spread: v.spreadSum,
+            cnt:    v.cnt
+        }))
+        .sort((a, b) => a.month - b.month);
+}
+
+/* ── Render uplift panel ── */
+function renderUpliftPanel() {
+    const { year, sm, em } = getFilters();
+
+    // Selected-month series (for chart + cumulative KPIs)
+    const days    = buildDailySeries(year, sm, em);
+    const months  = buildMonthlySeries(days);
+
+
+
+    const mLbl = ${MONTHS[sm-1]}–${MONTHS[em-1]};
+    // upliftDesc removed (info now shown in control bar)
+    document.getElementById('monthlyChartTitle').textContent =
+        Arbitrage DA vs ID3 · ${year}, ${mLbl};
+
+    if (!days.length || !months.length) {
+        ['kpiCum','kpiMonthly','kpiAvg'].forEach(id => document.getElementById(id).textContent = 'N/A');
+        document.getElementById('monthlyChart').innerHTML = '';
+        return;
+    }
+
+    // Cumulative uplift = sum of daily (ID3_dis − DA_dis) over selected months
+    const cum = days.reduce((s, d) => s + d.spread, 0);
+
+    // Monthly Avg Uplift = Cumulative uplift/select months
+    const avgMonthlyUplift = cum / months.length;
+
+    // Premium: mean across selected months only
+    // premium_per_month = (netID3 − netDA) / |netDA| × 100
+    const annualPremiums = months
+        .filter(m => Math.abs(m.netDA) > 0.01)
+        .map(m => (m.netID3 - m.netDA) / Math.abs(m.netDA) * 100);
+    const annualAvgPremium = annualPremiums.length
+        ? annualPremiums.reduce((s, v) => s + v, 0) / annualPremiums.length
+        : NaN;
+
+    document.getElementById('kpiCum').textContent     = ${cum.toFixed(1)} €/MWh;
+    document.getElementById('kpiMonthly').textContent = ${avgMonthlyUplift.toFixed(2)} €/MWh;
+    document.getElementById('kpiAvg').textContent     = isNaN(annualAvgPremium) ? 'N/A' : ${annualAvgPremium.toFixed(2)}%;
+
+    renderMonthlyChart(months);
+}
+
+/* ── Monthly bar chart: y-axis starts at 0, no decimal on axis labels ── */
+function renderMonthlyChart(months) {
+    const svg = document.getElementById('monthlyChart');
+    svg.innerHTML = '';
+    if (!months.length) return;
+
+    const W = 900, H = 320;
+    const m = { l: 52, r: 20, t: 14, b: 48 };
+    const cw = W - m.l - m.r, ch = H - m.t - m.b;
+    const n = months.length;
+
+    // Y-axis: always starts at 0 (bottom of chart area = 0)
+    const allVals = months.flatMap(d => [d.netDA, d.netID3]);
+    const vMax = Math.max(0, ...allVals);
+    const pad  = vMax * 0.15 || 2;
+    const yMin = 0;
+    const yMax = vMax + pad;
+
+    const groupW  = cw / n;
+    const barW    = groupW * 0.55;
+    const xCenter = i => m.l + (i + 0.5) * groupW;
+    // y=0 maps to bottom of chart area (m.t + ch)
+    const yScale  = v => m.t + ch - (v - yMin) / (yMax - yMin) * ch;
+    const zeroY   = m.t + ch;  // y=0 is at the bottom
+
+    // Gridlines + left axis ticks (integers only)
+    niceTicks(yMin, yMax, 6).forEach(t => {
+        const yt = yScale(t);
+        svg.appendChild(svgEl('line', { x1: m.l, x2: W - m.r, y1: yt, y2: yt, stroke: '#e9ecef', 'stroke-width': '1' }));
+        const lb = svgEl('text', { x: m.l - 6, y: yt + 4, 'text-anchor': 'end', 'font-size': '10', fill: '#6c757d' });
+        lb.textContent = Math.round(t);  // no decimals
+        svg.appendChild(lb);
+    });
+
+    // Zero / baseline
+    svg.appendChild(svgEl('line', { x1: m.l, x2: W - m.r, y1: zeroY, y2: zeroY, stroke: '#adb5bd', 'stroke-width': '1' }));
+
+    months.forEach((d, i) => {
+        const cx = xCenter(i);
+        const x0 = cx - barW / 2;
+
+        // ── DA arbitrage bar (netDA) — from 0 up ──
+        const daTopY = yScale(Math.max(0, d.netDA));
+        const daH    = Math.max(1, Math.abs(zeroY - daTopY));
+        svg.appendChild(svgEl('rect', {
+            x: x0, y: daTopY,
+            width: barW, height: daH,
+            fill: 'rgba(69,123,157,0.85)'
+        }));
+
+        // ── ID3 premium: from netDA level up to netID3 ──
+        const diff = d.netID3 - d.netDA;
+        if (Math.abs(diff) > 0.001) {
+            const id3TopY    = yScale(Math.max(d.netDA, d.netID3));
+            const id3BotY    = yScale(Math.min(d.netDA, d.netID3));
+            const deltaH     = Math.max(1, id3BotY - id3TopY);
+            svg.appendChild(svgEl('rect', {
+                x: x0, y: id3TopY,
+                width: barW, height: deltaH,
+                fill: diff >= 0 ? 'rgba(231,111,81,0.85)' : 'rgba(231,111,81,0.35)'
+            }));
+        }
+
+        // X label (month name)
+        const lb = svgEl('text', { x: cx, y: H - 28, 'text-anchor': 'middle', 'font-size': '11', fill: '#495057', 'font-weight': '600' });
+        lb.textContent = MONTHS[d.month - 1];
+        svg.appendChild(lb);
+
+        // Value label: netID3 above bar top (if meaningfully different from netDA)
+        if (Math.abs(d.netID3 - d.netDA) > 0.3) {
+            const topVal = Math.max(d.netDA, d.netID3);
+            const topY   = yScale(topVal);
+            const id3Lbl = svgEl('text', {
+                x: cx, y: topY - 4,
+                'text-anchor': 'middle', 'font-size': '9',
+                fill: 'rgba(231,111,81,1)', 'font-weight': '700'
+            });
+            id3Lbl.textContent = Math.round(d.netID3);
+            svg.appendChild(id3Lbl);
+        }
+
+        // DA value inside bar
+        if (daH > 12) {
+            const daLbl = svgEl('text', {
+                x: cx, y: daTopY + Math.min(daH - 2, 11),
+                'text-anchor': 'middle', 'font-size': '9',
+                fill: 'rgba(255,255,255,0.9)', 'font-weight': '700'
+            });
+            daLbl.textContent = Math.round(d.netDA);
+            svg.appendChild(daLbl);
+        }
+    });
+
+    // Axes
+    svg.appendChild(svgEl('line', { x1: m.l, x2: m.l,     y1: m.t,      y2: m.t + ch, stroke: '#6c757d', 'stroke-width': '1' }));
+    svg.appendChild(svgEl('line', { x1: m.l, x2: W - m.r, y1: m.t + ch, y2: m.t + ch, stroke: '#adb5bd', 'stroke-width': '1' }));
+
+    // Y axis label
+    const al = svgEl('text', { x: 12, y: m.t + ch / 2, 'text-anchor': 'middle', 'font-size': '11', fill: '#6c757d', transform: rotate(-90,12,${m.t + ch / 2}) });
+    al.textContent = '€/MWh';
+    svg.appendChild(al);
+}
+
+/* ── Heatmap ── */
+function renderHeatmap() {
+    const content = document.getElementById('hmContent');
+    document.getElementById('hmNoData').style.display = 'none';
+    const tooltip = document.getElementById('hmTooltip');
+    const outerDiv = document.createElement('div'); outerDiv.className = 'heatmap-outer';
+    const threeYear = document.createElement('div'); threeYear.className = 'three-year-hm';
+
+    YEARS.forEach(yr => {
+        const avg = hmData[yr] || null, hasData = !!avg;
+        let ymn=Infinity, ymx=-Infinity; const yVals=[];
+        if (hasData) avg.forEach(row => row.forEach(v => {
+            if (v!==null&&isFinite(v)) { ymn=Math.min(ymn,v); ymx=Math.max(ymx,v); yVals.push(v); }
+        }));
+        yVals.sort((a,b)=>a-b);
+        const ymid = yVals[Math.floor(yVals.length/2)];
+        const block = document.createElement('div'); block.className='year-hm-block';
+        const title = document.createElement('div'); title.className='year-hm-title'; title.textContent=String(yr);
+        block.appendChild(title);
+        const mhWrap = document.createElement('div'); mhWrap.className='hm-month-header';
+        mhWrap.appendChild(Object.assign(document.createElement('div'),{className:'hm-month-spacer'}));
+        const mlabels = document.createElement('div'); mlabels.className='hm-month-labels';
+        MONTHS.forEach(mo => mlabels.appendChild(Object.assign(document.createElement('div'),{className:'hm-month-label',textContent:mo})));
+        mhWrap.appendChild(mlabels); block.appendChild(mhWrap);
+
+        for (let h=0; h<24; h++) {
+            const row = document.createElement('div'); row.className='hm-row';
+            const yl = document.createElement('div'); yl.className='hm-ylabel';
+            yl.textContent=H${String(h+1).padStart(2,'0')}; row.appendChild(yl);
+            const cellsRow = document.createElement('div'); cellsRow.className='hm-cells-row';
+            for (let mo=0; mo<12; mo++) {
+                const cell = document.createElement('div'); cell.className='hm-cell';
+                const v = hasData ? avg[h][mo] : null;
+                cell.style.background = v!==null ? priceColor(v,ymn,ymx,ymid) : '#e9ecef';
+                cell.textContent = v!==null ? v.toFixed(1) : '';
+                cell.dataset.tip = v!==null
+                    ? ${yr} · ${MONTHS[mo]} · H${String(h+1).padStart(2,'0')} · ${v.toFixed(2)} €/MWh
+                    : ${yr} · ${MONTHS[mo]} · H${String(h+1).padStart(2,'0')} · no data;
+                cellsRow.appendChild(cell);
+            }
+            cellsRow.addEventListener('mousemove', e => {
+                const cell = e.target.closest('.hm-cell');
+                if (!cell) { tooltip.style.display='none'; return; }
+                tooltip.style.display='block';
+                tooltip.style.left=(e.clientX+14)+'px'; tooltip.style.top=(e.clientY+14)+'px';
+                const p = cell.dataset.tip.split(' · ');
+                tooltip.innerHTML=<b>${p[0]}</b> · ${p[1]} · ${p[2]}&nbsp;&nbsp;<span style="color:#f1c40f">${p[3]}</span>;
+            });
+            cellsRow.addEventListener('mouseleave', () => { tooltip.style.display='none'; });
+            row.appendChild(cellsRow); block.appendChild(row);
+        }
+
+        const legend = document.createElement('div'); legend.className='hm-year-legend';
+        if (hasData && isFinite(ymn)) {
+            legend.appendChild(Object.assign(document.createElement('span'),{className:'hm-legend-val',textContent:ymn.toFixed(1)}));
+            const bar = document.createElement('div'); bar.className='hm-legend-bar';
+            bar.style.background='linear-gradient(to right,rgb(44,123,182),rgb(171,217,233),rgb(255,255,191),rgb(253,174,97),rgb(215,25,28))';
+            legend.appendChild(bar);
+            legend.appendChild(Object.assign(document.createElement('span'),{className:'hm-legend-val',textContent:ymx.toFixed(1)+' €/MWh'}));
+        } else { legend.textContent='No data'; legend.style.color='#ced4da'; }
+        block.appendChild(legend); threeYear.appendChild(block);
+    });
+
+    outerDiv.appendChild(threeYear); content.appendChild(outerDiv);
+}
+
+/* ── Helpers ── */
+function svgEl(tag, attrs) {
+    const el = document.createElementNS('http://www.w3.org/2000/svg', tag);
+    Object.entries(attrs).forEach(([k,v]) => el.setAttribute(k,v));
+    return el;
+}
+function niceTicks(min, max, count) {
+    const range = max - min; if (range === 0) return [min];
+    const raw = range / count;
+    const mag = Math.pow(10, Math.floor(Math.log10(raw)));
+    const step = [1,2,2.5,5,10].map(f => f*mag).find(s => s >= raw) || mag*10;
+    const start = Math.ceil(min / step) * step;
+    const ticks = [];
+    for (let t = start; t <= max + step*0.01; t += step) ticks.push(parseFloat(t.toFixed(10)));
+    return ticks;
+}
+function priceColor(v, mn, mx, mid) {
+    if (!isFinite(mn)||!isFinite(mx)||mx===mn) return 'rgb(255,255,255)';
+    const stops=[[0,[44,123,182]],[0.25,[171,217,233]],[0.5,[255,255,191]],[0.75,[253,174,97]],[1,[215,25,28]]];
+    let t = v<=mid ? 0.5*Math.max(0,Math.min(1,(v-mn)/(mid-mn||1))) : 0.5+0.5*Math.max(0,Math.min(1,(v-mid)/(mx-mid||1)));
+    let i=0; while(i<stops.length-2&&t>stops[i+1][0])i++;
+    const [t0,c0]=stops[i],[t1,c1]=stops[i+1];
+    const f=t1===t0?0:(t-t0)/(t1-t0);
+    return rgb(${Math.round(c0[0]+f*(c1[0]-c0[0]))},${Math.round(c0[1]+f*(c1[1]-c0[1]))},${Math.round(c0[2]+f*(c1[2]-c0[2]))});
+}
+function yieldFrame() { return new Promise(res => requestAnimationFrame(() => requestAnimationFrame(res))); }
 </script>
 </body>
 </html>

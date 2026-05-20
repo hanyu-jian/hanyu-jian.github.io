@@ -348,18 +348,19 @@ async function processData(text) {
  *   DA_charge = average DA price across those 2 hours (all quarters)
  *
  * DISCHARGE: 17:00–21:00 (hours 17,18,19,20 = 16 quarters total)
- *   DA_discharge = average of top 2 hrs 
+ *   DA_discharge = 4小时中每小时DA均值，取最高2小时的均值
  *   ID3_discharge = average of the TOP 8 ID3 quarters (highest 8 of 16)
  *
  * DAILY P&L:
  *   netDA  = DA_discharge  − DA_charge
  *   netID3 = ID3_discharge − DA_charge
- *   spread = ID3_discharge − DA_discharge   
+ *   spread = ID3_discharge − DA_discharge   (pure ID3 uplift on discharge side)
  *
  * MONTHLY: mean of daily values within month
  *
  * PREMIUM:
  *   per-month: (netID3 − netDA) / |netDA| × 100  = (ID3_dis − DA_dis) / |DA_dis − DA_charge| × 100
+ *   annual avg premium: mean across ALL 12 months of the selected year (ignoring the month filter)
  */
 
 // Fixed hour windows
@@ -391,7 +392,7 @@ function buildDailySeries(year, sm, em) {
         const disSlots = Object.values(slots).filter(s => DISCHARGE_HOURS.includes(s.hour));
         if (disSlots.length === 0) return;
 
-        // DA discharge: top 2hr average
+        // DA discharge: 先按小时算DA均值，取最高2个小时的均值
         const hourlyDAMap = {};
         disSlots.forEach(s => {
             if (!hourlyDAMap[s.hour]) hourlyDAMap[s.hour] = { sum: 0, cnt: 0 };
@@ -443,7 +444,7 @@ function buildMonthlySeries(days) {
     return Object.entries(acc)
         .map(([mo, v]) => ({
             month:  parseInt(mo, 10),
-            netDA:  v.netDASum,   
+            netDA:  v.netDASum,   // 月度累计（每日加总）
             netID3: v.netID3Sum,
             spread: v.spreadSum,
             cnt:    v.cnt
@@ -475,7 +476,7 @@ function renderUpliftPanel() {
     // Cumulative uplift = sum of daily (ID3_dis − DA_dis) over selected months
     const cum = days.reduce((s, d) => s + d.spread, 0);
 
-    // Monthly Avg Uplift = Cumulative uplift/select months
+    // Monthly Avg Uplift = 选中月份累计总收益 / 月份数
     const avgMonthlyUplift = cum / months.length;
 
     // Premium: mean across selected months only

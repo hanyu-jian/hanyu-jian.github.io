@@ -479,18 +479,20 @@ function renderUpliftPanel() {
     // Monthly Avg Uplift = 选中月份累计总收益 / 月份数
     const avgMonthlyUplift = cum / months.length;
 
-    // Premium: mean across selected months only
-    // premium_per_month = (netID3 − netDA) / |netDA| × 100
-    const annualPremiums = months
-        .filter(m => Math.abs(m.netDA) > 0.01)
-        .map(m => (m.netID3 - m.netDA) / Math.abs(m.netDA) * 100);
-    const annualAvgPremium = annualPremiums.length
-        ? annualPremiums.reduce((s, v) => s + v, 0) / annualPremiums.length
+    // Premium: total premium over selected date range
+    // premium_total = (ΣnetID3 − ΣnetDA) / |ΣnetDA| × 100
+    const totalNetDA  = days.reduce((s, d) => s + d.netDA, 0);
+    const totalNetID3 = days.reduce((s, d) => s + d.netID3, 0);
+
+    const totalPremium = Math.abs(totalNetDA) > 0.01
+        ? ((totalNetID3 - totalNetDA) / Math.abs(totalNetDA)) * 100
         : NaN;
+    
 
     document.getElementById('kpiCum').textContent     = `${cum.toFixed(1)} €/MWh`;
     document.getElementById('kpiMonthly').textContent = `${avgMonthlyUplift.toFixed(2)} €/MWh`;
-    document.getElementById('kpiAvg').textContent     = isNaN(annualAvgPremium) ? 'N/A' : `${annualAvgPremium.toFixed(2)}%`;
+    document.getElementById('kpiAvg').textContent = isNaN(totalPremium) ? 'N/A' : `${totalPremium.toFixed(2)}%`;
+
 
     renderMonthlyChart(months);
 }

@@ -484,15 +484,18 @@ function renderUpliftPanel() {
     // Monthly Avg Uplift = Cumulative uplift/select months
     const avgMonthlyUplift = cum / months.length;
 
-    // Premium: mean across selected months only
-    // premium_per_month = (netID3 − netDA) / |netDA| × 100
-    const annualPremiums = months
-        .filter(m => Math.abs(m.netDA) > 0.01)
-        .map(m => (m.netID3 - m.netDA) / Math.abs(m.netDA) * 100);
-    const annualAvgPremium = annualPremiums.length
-        ? annualPremiums.reduce((s, v) => s + v, 0) / annualPremiums.length
-        : NaN;
 
+
+// Premium: compute daily, then average across all selected days
+// premium_per_day = (netID3 - netDA) / |netDA| * 100 = spread / |netDA| * 100
+    const dailyPremiums = days
+        .filter(d => Math.abs(d.netDA) > 0.01)
+        .map(d => (d.netID3 - d.netDA) / Math.abs(d.netDA) * 100);
+    
+    const annualAvgPremium = dailyPremiums.length
+        ? dailyPremiums.reduce((s, v) => s + v, 0) / dailyPremiums.length
+        : NaN;
+    
     document.getElementById('kpiCum').textContent     = `${cum.toFixed(1)} €/MWh`;
     document.getElementById('kpiMonthly').textContent = `${avgMonthlyUplift.toFixed(2)} €/MWh`;
     document.getElementById('kpiAvg').textContent     = isNaN(annualAvgPremium) ? 'N/A' : `${annualAvgPremium.toFixed(2)}%`;

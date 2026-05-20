@@ -264,7 +264,7 @@ function getFilters() {
 async function loadData() {
     try {
         const text = await fetch('data/intraday/HU.csv').then(r => {
-            if (!r.ok) throw new Error(HTTP ${r.status});
+            if (!r.ok) throw new Error(`HTTP ${r.status}`);
             return r.text();
         });
         await processData(text);
@@ -325,9 +325,9 @@ async function processData(text) {
 
         // Raw 15-min storage: store every quarter separately so we can
         // later pick top-N quarters within a window for ID3 discharge calc.
-        const dKey = ${dt.year}-${String(dt.month).padStart(2,'0')}-${String(dt.day).padStart(2,'0')};
+        const dKey = `${dt.year}-${String(dt.month).padStart(2,'0')}-${String(dt.day).padStart(2,'0')}`;
         if (!rawDayData[dKey]) rawDayData[dKey] = { year: dt.year, month: dt.month, slots: {} };
-        const qKey = ${dt.hour}:${String(dt.minute).padStart(2,'0')};
+        const qKey = `${dt.hour}:${String(dt.minute).padStart(2,'0')}`;
         rawDayData[dKey].slots[qKey] = { da, id3, hour: dt.hour, minute: dt.minute };
     }
 
@@ -461,10 +461,10 @@ function renderUpliftPanel() {
 
 
 
-    const mLbl = ${MONTHS[sm-1]}–${MONTHS[em-1]};
+    const mLbl = `${MONTHS[sm-1]}–${MONTHS[em-1]}`;
     // upliftDesc removed (info now shown in control bar)
     document.getElementById('monthlyChartTitle').textContent =
-        Arbitrage DA vs ID3 · ${year}, ${mLbl};
+        `Arbitrage DA vs ID3 · ${year}, ${mLbl}`;
 
     if (!days.length || !months.length) {
         ['kpiCum','kpiMonthly','kpiAvg'].forEach(id => document.getElementById(id).textContent = 'N/A');
@@ -487,9 +487,9 @@ function renderUpliftPanel() {
         ? annualPremiums.reduce((s, v) => s + v, 0) / annualPremiums.length
         : NaN;
 
-    document.getElementById('kpiCum').textContent     = ${cum.toFixed(1)} €/MWh;
-    document.getElementById('kpiMonthly').textContent = ${avgMonthlyUplift.toFixed(2)} €/MWh;
-    document.getElementById('kpiAvg').textContent     = isNaN(annualAvgPremium) ? 'N/A' : ${annualAvgPremium.toFixed(2)}%;
+    document.getElementById('kpiCum').textContent     = `${cum.toFixed(1)} €/MWh`;
+    document.getElementById('kpiMonthly').textContent = `${avgMonthlyUplift.toFixed(2)} €/MWh`;
+    document.getElementById('kpiAvg').textContent     = isNaN(annualAvgPremium) ? 'N/A' : `${annualAvgPremium.toFixed(2)}%`;
 
     renderMonthlyChart(months);
 }
@@ -592,7 +592,7 @@ function renderMonthlyChart(months) {
     svg.appendChild(svgEl('line', { x1: m.l, x2: W - m.r, y1: m.t + ch, y2: m.t + ch, stroke: '#adb5bd', 'stroke-width': '1' }));
 
     // Y axis label
-    const al = svgEl('text', { x: 12, y: m.t + ch / 2, 'text-anchor': 'middle', 'font-size': '11', fill: '#6c757d', transform: rotate(-90,12,${m.t + ch / 2}) });
+    const al = svgEl('text', { x: 12, y: m.t + ch / 2, 'text-anchor': 'middle', 'font-size': '11', fill: '#6c757d', transform: `rotate(-90,12,${m.t + ch / 2})` });
     al.textContent = '€/MWh';
     svg.appendChild(al);
 }
@@ -625,7 +625,7 @@ function renderHeatmap() {
         for (let h=0; h<24; h++) {
             const row = document.createElement('div'); row.className='hm-row';
             const yl = document.createElement('div'); yl.className='hm-ylabel';
-            yl.textContent=H${String(h+1).padStart(2,'0')}; row.appendChild(yl);
+            yl.textContent=`H${String(h+1).padStart(2,'0')}`; row.appendChild(yl);
             const cellsRow = document.createElement('div'); cellsRow.className='hm-cells-row';
             for (let mo=0; mo<12; mo++) {
                 const cell = document.createElement('div'); cell.className='hm-cell';
@@ -633,8 +633,8 @@ function renderHeatmap() {
                 cell.style.background = v!==null ? priceColor(v,ymn,ymx,ymid) : '#e9ecef';
                 cell.textContent = v!==null ? v.toFixed(1) : '';
                 cell.dataset.tip = v!==null
-                    ? ${yr} · ${MONTHS[mo]} · H${String(h+1).padStart(2,'0')} · ${v.toFixed(2)} €/MWh
-                    : ${yr} · ${MONTHS[mo]} · H${String(h+1).padStart(2,'0')} · no data;
+                    ? `${yr} · ${MONTHS[mo]} · H${String(h+1).padStart(2,'0')} · ${v.toFixed(2)} €/MWh`
+                    : `${yr} · ${MONTHS[mo]} · H${String(h+1).padStart(2,'0')} · no data`;
                 cellsRow.appendChild(cell);
             }
             cellsRow.addEventListener('mousemove', e => {
@@ -643,7 +643,7 @@ function renderHeatmap() {
                 tooltip.style.display='block';
                 tooltip.style.left=(e.clientX+14)+'px'; tooltip.style.top=(e.clientY+14)+'px';
                 const p = cell.dataset.tip.split(' · ');
-                tooltip.innerHTML=<b>${p[0]}</b> · ${p[1]} · ${p[2]}&nbsp;&nbsp;<span style="color:#f1c40f">${p[3]}</span>;
+                tooltip.innerHTML=`<b>${p[0]}</b> · ${p[1]} · ${p[2]}&nbsp;&nbsp;<span style="color:#f1c40f">${p[3]}</span>`;
             });
             cellsRow.addEventListener('mouseleave', () => { tooltip.style.display='none'; });
             row.appendChild(cellsRow); block.appendChild(row);
@@ -686,7 +686,7 @@ function priceColor(v, mn, mx, mid) {
     let i=0; while(i<stops.length-2&&t>stops[i+1][0])i++;
     const [t0,c0]=stops[i],[t1,c1]=stops[i+1];
     const f=t1===t0?0:(t-t0)/(t1-t0);
-    return rgb(${Math.round(c0[0]+f*(c1[0]-c0[0]))},${Math.round(c0[1]+f*(c1[1]-c0[1]))},${Math.round(c0[2]+f*(c1[2]-c0[2]))});
+    return `rgb(${Math.round(c0[0]+f*(c1[0]-c0[0]))},${Math.round(c0[1]+f*(c1[1]-c0[1]))},${Math.round(c0[2]+f*(c1[2]-c0[2]))})`;
 }
 function yieldFrame() { return new Promise(res => requestAnimationFrame(() => requestAnimationFrame(res))); }
 </script>

@@ -145306,9 +145306,9 @@ date,category,value
 2026/5/14 21:00,Solar,0.0
 2026/5/14 21:00,Wind,1090.25
 2026/5/14 22:00,Fossil Brown Coal/Lignite,600.6666666666666
-2026/5/14 22:00,Fossil Gas,3517.3333333333335
+2026/5/14 22:00,Fossil Gas,3517.333333333333
 2026/5/14 22:00,Fossil Oil,0.0
-2026/5/14 22:00,Hydro Pumped Storage,220.66666666666666
+2026/5/14 22:00,Hydro Pumped Storage,220.66666666666663
 2026/5/14 22:00,Hydro Water Reservoir,1053.6666666666667
 2026/5/14 22:00,Solar,0.0
 2026/5/14 22:00,Wind,1053.25
@@ -146327,3 +146327,171 @@ date,category,value
 2026/5/20 23:00,Hydro Water Reservoir,661.25
 2026/5/20 23:00,Solar,0.0
 2026/5/20 23:00,Wind,807.75
+2026/5/21 0:00,Fossil Brown Coal/Lignite,404.25
+2026/5/21 0:00,Fossil Gas,3239.25
+2026/5/21 0:00,Fossil Oil,0.0
+2026/5/21 0:00,Hydro Pumped Storage,0.0
+2026/5/21 0:00,Hydro Water Reservoir,463.25
+2026/5/21 0:00,Solar,0.0
+2026/5/21 0:00,Wind,832.0
+2026/5/21 1:00,Fossil Brown Coal/Lignite,348.5
+2026/5/21 1:00,Fossil Gas,3029.0
+2026/5/21 1:00,Fossil Oil,0.0
+2026/5/21 1:00,Hydro Pumped Storage,1.75
+2026/5/21 1:00,Hydro Water Reservoir,534.75
+2026/5/21 1:00,Solar,0.0
+2026/5/21 1:00,Wind,846.25
+2026/5/21 2:00,Fossil Brown Coal/Lignite,346.0
+2026/5/21 2:00,Fossil Gas,2920.75
+2026/5/21 2:00,Fossil Oil,0.0
+2026/5/21 2:00,Hydro Pumped Storage,98.75
+2026/5/21 2:00,Hydro Water Reservoir,544.25
+2026/5/21 2:00,Solar,0.0
+2026/5/21 2:00,Wind,859.75
+2026/5/21 3:00,Fossil Brown Coal/Lignite,347.5
+2026/5/21 3:00,Fossil Gas,2913.0
+2026/5/21 3:00,Fossil Oil,0.0
+2026/5/21 3:00,Hydro Pumped Storage,104.0
+2026/5/21 3:00,Hydro Water Reservoir,547.5
+2026/5/21 3:00,Solar,0.0
+2026/5/21 3:00,Wind,875.5
+2026/5/21 4:00,Fossil Brown Coal/Lignite,308.25
+2026/5/21 4:00,Fossil Gas,2983.75
+2026/5/21 4:00,Fossil Oil,0.0
+2026/5/21 4:00,Hydro Pumped Storage,104.0
+2026/5/21 4:00,Hydro Water Reservoir,597.0
+2026/5/21 4:00,Solar,0.0
+2026/5/21 4:00,Wind,907.0
+2026/5/21 5:00,Fossil Brown Coal/Lignite,319.0
+2026/5/21 5:00,Fossil Gas,2901.0
+2026/5/21 5:00,Fossil Oil,0.0
+2026/5/21 5:00,Hydro Pumped Storage,176.0
+2026/5/21 5:00,Hydro Water Reservoir,659.0
+2026/5/21 5:00,Solar,103.75
+2026/5/21 5:00,Wind,1053.0
+2026/5/21 6:00,Fossil Brown Coal/Lignite,336.75
+2026/5/21 6:00,Fossil Gas,2750.25
+2026/5/21 6:00,Fossil Oil,0.0
+2026/5/21 6:00,Hydro Pumped Storage,233.75
+2026/5/21 6:00,Hydro Water Reservoir,606.0
+2026/5/21 6:00,Solar,962.5
+2026/5/21 6:00,Wind,1099.0
+2026/5/21 7:00,Fossil Brown Coal/Lignite,331.5
+2026/5/21 7:00,Fossil Gas,1772.5
+2026/5/21 7:00,Fossil Oil,0.0
+2026/5/21 7:00,Hydro Pumped Storage,194.0
+2026/5/21 7:00,Hydro Water Reservoir,400.0
+2026/5/21 7:00,Solar,2724.75
+2026/5/21 7:00,Wind,1022.25
+2026/5/21 8:00,Fossil Brown Coal/Lignite,364.0
+2026/5/21 8:00,Fossil Gas,1195.0
+2026/5/21 8:00,Fossil Oil,0.0
+2026/5/21 8:00,Hydro Pumped Storage,59.75
+2026/5/21 8:00,Hydro Water Reservoir,105.75
+2026/5/21 8:00,Solar,4608.5
+2026/5/21 8:00,Wind,815.75
+2026/5/21 9:00,Fossil Brown Coal/Lignite,339.5
+2026/5/21 9:00,Fossil Gas,917.25
+2026/5/21 9:00,Fossil Oil,0.0
+2026/5/21 9:00,Hydro Pumped Storage,0.0
+2026/5/21 9:00,Hydro Water Reservoir,82.75
+2026/5/21 9:00,Solar,5739.333333333333
+2026/5/21 9:00,Wind,523.3333333333334
+2026/5/21 10:00,Fossil Brown Coal/Lignite,373.75
+2026/5/21 10:00,Fossil Gas,782.75
+2026/5/21 10:00,Fossil Oil,0.0
+2026/5/21 10:00,Hydro Pumped Storage,0.0
+2026/5/21 10:00,Hydro Water Reservoir,54.0
+2026/5/21 10:00,Solar,6505.0
+2026/5/21 10:00,Wind,423.0
+2026/5/21 11:00,Fossil Brown Coal/Lignite,331.5
+2026/5/21 11:00,Fossil Gas,793.5
+2026/5/21 11:00,Fossil Oil,0.0
+2026/5/21 11:00,Hydro Pumped Storage,0.0
+2026/5/21 11:00,Hydro Water Reservoir,62.0
+2026/5/21 11:00,Solar,6769.5
+2026/5/21 11:00,Wind,400.0
+2026/5/21 12:00,Fossil Brown Coal/Lignite,303.5
+2026/5/21 12:00,Fossil Gas,671.75
+2026/5/21 12:00,Fossil Oil,0.0
+2026/5/21 12:00,Hydro Pumped Storage,0.0
+2026/5/21 12:00,Hydro Water Reservoir,69.0
+2026/5/21 12:00,Solar,6839.5
+2026/5/21 12:00,Wind,475.0
+2026/5/21 13:00,Fossil Brown Coal/Lignite,302.5
+2026/5/21 13:00,Fossil Gas,663.25
+2026/5/21 13:00,Fossil Oil,0.0
+2026/5/21 13:00,Hydro Pumped Storage,0.0
+2026/5/21 13:00,Hydro Water Reservoir,59.75
+2026/5/21 13:00,Solar,6600.75
+2026/5/21 13:00,Wind,605.0
+2026/5/21 14:00,Fossil Brown Coal/Lignite,315.0
+2026/5/21 14:00,Fossil Gas,709.25
+2026/5/21 14:00,Fossil Oil,0.0
+2026/5/21 14:00,Hydro Pumped Storage,0.0
+2026/5/21 14:00,Hydro Water Reservoir,55.0
+2026/5/21 14:00,Solar,6071.25
+2026/5/21 14:00,Wind,642.75
+2026/5/21 15:00,Fossil Brown Coal/Lignite,426.75
+2026/5/21 15:00,Fossil Gas,1011.25
+2026/5/21 15:00,Fossil Oil,0.0
+2026/5/21 15:00,Hydro Pumped Storage,0.0
+2026/5/21 15:00,Hydro Water Reservoir,72.75
+2026/5/21 15:00,Solar,5176.75
+2026/5/21 15:00,Wind,558.0
+2026/5/21 16:00,Fossil Brown Coal/Lignite,399.75
+2026/5/21 16:00,Fossil Gas,1104.0
+2026/5/21 16:00,Fossil Oil,0.0
+2026/5/21 16:00,Hydro Pumped Storage,24.5
+2026/5/21 16:00,Hydro Water Reservoir,131.25
+2026/5/21 16:00,Solar,3838.5
+2026/5/21 16:00,Wind,522.25
+2026/5/21 17:00,Fossil Brown Coal/Lignite,359.0
+2026/5/21 17:00,Fossil Gas,1541.0
+2026/5/21 17:00,Fossil Oil,0.0
+2026/5/21 17:00,Hydro Pumped Storage,98.75
+2026/5/21 17:00,Hydro Water Reservoir,630.5
+2026/5/21 17:00,Solar,2305.0
+2026/5/21 17:00,Wind,460.0
+2026/5/21 18:00,Fossil Brown Coal/Lignite,484.25
+2026/5/21 18:00,Fossil Gas,2171.25
+2026/5/21 18:00,Fossil Oil,0.0
+2026/5/21 18:00,Hydro Pumped Storage,246.5
+2026/5/21 18:00,Hydro Water Reservoir,1058.5
+2026/5/21 18:00,Solar,853.75
+2026/5/21 18:00,Wind,407.25
+2026/5/21 19:00,Fossil Brown Coal/Lignite,304.25
+2026/5/21 19:00,Fossil Gas,2387.0
+2026/5/21 19:00,Fossil Oil,0.0
+2026/5/21 19:00,Hydro Pumped Storage,550.0
+2026/5/21 19:00,Hydro Water Reservoir,1209.25
+2026/5/21 19:00,Solar,89.0
+2026/5/21 19:00,Wind,561.25
+2026/5/21 20:00,Fossil Brown Coal/Lignite,302.75
+2026/5/21 20:00,Fossil Gas,2546.75
+2026/5/21 20:00,Fossil Oil,0.0
+2026/5/21 20:00,Hydro Pumped Storage,457.5
+2026/5/21 20:00,Hydro Water Reservoir,1207.0
+2026/5/21 20:00,Solar,0.0
+2026/5/21 20:00,Wind,699.25
+2026/5/21 21:00,Fossil Brown Coal/Lignite,305.0
+2026/5/21 21:00,Fossil Gas,2825.5
+2026/5/21 21:00,Fossil Oil,0.0
+2026/5/21 21:00,Hydro Pumped Storage,560.5
+2026/5/21 21:00,Hydro Water Reservoir,1196.5
+2026/5/21 21:00,Solar,0.0
+2026/5/21 21:00,Wind,684.25
+2026/5/21 22:00,Fossil Brown Coal/Lignite,332.0
+2026/5/21 22:00,Fossil Gas,2887.6666666666665
+2026/5/21 22:00,Fossil Oil,0.0
+2026/5/21 22:00,Hydro Pumped Storage,568.0
+2026/5/21 22:00,Hydro Water Reservoir,1160.6666666666667
+2026/5/21 22:00,Solar,0.0
+2026/5/21 22:00,Wind,809.0
+2026/5/21 23:00,Fossil Brown Coal/Lignite,325.75
+2026/5/21 23:00,Fossil Gas,2846.25
+2026/5/21 23:00,Fossil Oil,0.0
+2026/5/21 23:00,Hydro Pumped Storage,530.5
+2026/5/21 23:00,Hydro Water Reservoir,835.75
+2026/5/21 23:00,Solar,0.0
+2026/5/21 23:00,Wind,832.0

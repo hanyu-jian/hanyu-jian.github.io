@@ -13,6 +13,7 @@
     <title>Installed Capacity – European Electricity Dashboard</title>
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+    <script src="nav.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -28,30 +29,8 @@
             box-shadow: 0 4px 12px rgba(0,0,0,0.1);
             overflow: hidden;
         }
-        .header {
-            background: #2c3e50;
-            color: white;
-            padding: 20px 30px 0 30px;
-        }
-        .header-top { padding-bottom: 16px; }
-        .header-top h1 { font-size: 24px; font-weight: 500; letter-spacing: 0.2px; }
-        .main-nav { display: flex; gap: 2px; margin-top: 4px; }
-        .main-nav-link {
-            display: inline-flex; align-items: center; gap: 7px;
-            padding: 10px 24px; font-size: 14px; font-weight: 600;
-            color: rgba(255,255,255,0.65); text-decoration: none;
-            border-radius: 6px 6px 0 0;
-            background: rgba(255,255,255,0.06);
-            border: 1px solid transparent; border-bottom: none;
-            letter-spacing: 0.2px;
-            transition: background 0.2s, color 0.2s;
-            white-space: nowrap; position: relative; top: 1px;
-        }
-        .main-nav-link:hover { color: rgba(255,255,255,0.95); background: rgba(255,255,255,0.14); }
-        .main-nav-link.active {
-            color: #2c3e50; background: #f8f9fa;
-            border-color: #e6e9ed; border-bottom-color: #f8f9fa;
-        }
+        .loading { text-align: center; padding: 60px; color: #666; font-size: 16px; }
+
         .sub-nav {
             background: #f8f9fa; border-bottom: 2px solid #e6e9ed;
             padding: 0 30px; display: flex;
@@ -64,8 +43,6 @@
         }
         .sub-nav-link:hover { color: #2c3e50; }
         .sub-nav-link.active { color: #2c3e50; border-bottom-color: #2c3e50; }
-
-        .loading { text-align: center; padding: 60px; color: #666; font-size: 16px; }
 
         .content-area {
             display: flex; gap: 0; min-height: 500px;
@@ -244,7 +221,6 @@
         .forecast-table tr:last-child td { border-bottom: none; }
         .forecast-table tbody tr:hover { background: #f8fbff; }
 
-        /* 类型色点 */
         .type-dot-solar {
             display: inline-block; width: 9px; height: 9px;
             border-radius: 50%; background: #f9d923;
@@ -257,13 +233,6 @@
             margin-right: 6px; vertical-align: middle;
         }
 
-        /* 分隔竖线 */
-        .col-divider {
-            width: 1px;
-            padding: 0 !important;
-            background: #dde4ec;
-        }
-        /* 2030列高亮 */
         .td-forecast {
             background: #eef5ff;
             color: #1a56a0 !important;
@@ -300,16 +269,7 @@
             flex: 1;
         }
 
-        @media (max-width: 900px) {
-            .content-area { flex-direction: column; }
-            .map-panel { width: 100%; border-right: none; border-bottom: 1px solid #e6e9ed; }
-            .header { padding: 14px 14px 0; }
-            .header-top h1 { font-size: 18px; }
-            .chart-card { margin: 0 14px; }
-            .forecast-table-wrap { margin: 16px 14px 0 14px; }
-        }
-
-            /* info icon */
+        /* info icon */
         .info-icon {
             display: inline-flex;
             align-items: center;
@@ -324,14 +284,12 @@
             cursor: pointer;
             transition: all 0.2s;
         }
-        
         .info-icon:hover {
             background: #2c3e50;
             color: #fff;
         }
-        
         .info-tooltip {
-            position: absolute;
+            position: fixed;
             max-width: 280px;
             background: rgba(44,62,80,0.96);
             color: #fff;
@@ -343,21 +301,19 @@
             z-index: 9999;
             box-shadow: 0 4px 12px rgba(0,0,0,0.25);
         }
-        
+
+        @media (max-width: 900px) {
+            .content-area { flex-direction: column; }
+            .map-panel { width: 100%; border-right: none; border-bottom: 1px solid #e6e9ed; }
+            .chart-card { margin: 0 14px; }
+            .forecast-table-wrap { margin: 16px 14px 0 14px; }
+        }
     </style>
 </head>
 <body>
 <div class="container">
-    <div class="header">
-        <div class="header-top"><h1>European Electricity Dashboard</h1></div>
-        <div class="main-nav">
-            <a href="project.html" class="main-nav-link"><span>Projects</span></a>
-            <a href="price-overview.html" class="main-nav-link"><span>Price</span></a>
-            <a href="load.html" class="main-nav-link"><span>Load</span></a>
-            <a href="generation-overview.html" class="main-nav-link"><span>Generation</span></a>
-            <a href="capacity.html" class="main-nav-link active"><span>Installed Capacity</span></a>
-        </div>
-    </div>
+    <!-- nav.js injects the header here automatically -->
+
     <div class="sub-nav">
         <a class="sub-nav-link active" href="capacity.html">Overview</a>
     </div>
@@ -373,7 +329,6 @@
                     Installed Capacity by Country
                     <span class="info-icon" id="infoBtn">i</span>
                 </h3>
-                    
                 <p style="font-size:11px;color:#888;margin-top:3px;">
                     Click a country to explore
                 </p>
@@ -488,11 +443,9 @@ function initInfoTooltip() {
         tip.style.display = 'block';
         moveInfoTip(e);
     });
-
     btn.addEventListener('mouseleave', () => {
         tip.style.display = 'none';
     });
-
     btn.addEventListener('mousemove', (e) => {
         moveInfoTip(e);
     });
@@ -504,10 +457,6 @@ function moveInfoTip(e) {
     tip.style.top  = (e.clientY + 12) + 'px';
 }
 
-
-
-
-    
 const TARGET = ['AT','BG','DE','ES','FR','GR','HR','HU','IT','PL','RO','RS','SK'];
 const COUNTRY_LABEL = {
     AT:'Austria', BG:'Bulgaria', DE:'Germany', ES:'Spain', FR:'France',
@@ -515,13 +464,6 @@ const COUNTRY_LABEL = {
     PL:'Poland', RO:'Romania', RS:'Serbia', SK:'Slovakia'
 };
 
-// ═══════════════════════════════════════════════════════════════════════
-// ★ 2030 Forecast — 手动填写全部四个字段
-//   solar        : 2030年光伏装机容量预测 (GW)
-//   solarSharePct: 2030年光伏占总容量比例 (%)
-//   wind         : 2030年风电装机容量预测 (GW，含陆上+海上)
-//   windSharePct : 2030年风电占总容量比例 (%)
-// ═══════════════════════════════════════════════════════════════════════
 const FORECAST_2030 = {
     AT: { solar: 13.0,  solarSharePct: 18.5, wind: 11.0,  windSharePct: 15.5 },
     BG: { solar: 6.0,   solarSharePct: 14.2, wind: 4.0,   windSharePct: 9.5  },
@@ -538,23 +480,12 @@ const FORECAST_2030 = {
     SK: { solar: 2.0,   solarSharePct: 8.3,  wind: 0.5,   windSharePct: 2.1  },
 };
 
-// ═══════════════════════════
-// State
-// ═══════════════════════════
 const S = {
-    data: [],
-    allPeriods: [],
-    startPeriod: null,
-    endPeriod: null,
-    mapYear: null,
-    country: null,
-    geoFeatures: [],
+    data: [], allPeriods: [], startPeriod: null, endPeriod: null,
+    mapYear: null, country: null, geoFeatures: [],
 };
 let barInst = null;
 
-// ═══════════════════════════
-// Load CSV
-// ═══════════════════════════
 async function loadCSV() {
     return new Promise((res, rej) => {
         Papa.parse('data/capacity.csv', {
@@ -595,18 +526,12 @@ function parseData(raw) {
     S.mapYear = years[years.length - 1];
 }
 
-// ═══════════════════════════
-// Load GeoJSON
-// ═══════════════════════════
 async function loadGeoJSON() {
     const resp = await fetch('europe.geojson');
     const geo  = await resp.json();
     S.geoFeatures = geo.features || [];
 }
 
-// ═══════════════════════════
-// Period helpers
-// ═══════════════════════════
 function periodToNum(p) {
     if (p.includes('/')) {
         const [y, m] = p.split('/');
@@ -642,14 +567,10 @@ function getTotalForMapYear(country) {
         .reduce((s, r) => s + r.mw, 0);
 }
 
-// ═══════════════════════════════════════════════════════
-// 获取某国最新一期的 Solar / Wind 数值
-// ═══════════════════════════════════════════════════════
 function getSolarWindLatest(cc) {
     const periods = getPeriodsInRange();
     let lastPeriod = null;
     let rows = [];
-    // 从末尾往前找第一个有数据的 period
     for (let i = periods.length - 1; i >= 0; i--) {
         rows = getRowsForCountryPeriod(cc, periods[i]);
         if (rows.length > 0) { lastPeriod = periods[i]; break; }
@@ -657,46 +578,19 @@ function getSolarWindLatest(cc) {
     if (!rows.length || !lastPeriod) return null;
 
     const totalMW = rows.reduce((s, r) => s + r.mw, 0);
-
-    // Solar
-    const solarMW = rows
-        .filter(r => r.type.toLowerCase().includes('solar'))
-        .reduce((s, r) => s + r.mw, 0);
-
-    // Wind onshore
-    const windOnMW = rows
-        .filter(r => {
-            const tl = r.type.toLowerCase();
-            return tl.includes('wind') && tl.includes('on');
-        })
-        .reduce((s, r) => s + r.mw, 0);
-
-    // Wind offshore
-    const windOffMW = rows
-        .filter(r => {
-            const tl = r.type.toLowerCase();
-            return tl.includes('wind') && tl.includes('off');
-        })
-        .reduce((s, r) => s + r.mw, 0);
-
-    // 如果 onshore/offshore 都是 0，fallback 到所有 wind
+    const solarMW = rows.filter(r => r.type.toLowerCase().includes('solar')).reduce((s, r) => s + r.mw, 0);
+    const windOnMW = rows.filter(r => { const tl = r.type.toLowerCase(); return tl.includes('wind') && tl.includes('on'); }).reduce((s, r) => s + r.mw, 0);
+    const windOffMW = rows.filter(r => { const tl = r.type.toLowerCase(); return tl.includes('wind') && tl.includes('off'); }).reduce((s, r) => s + r.mw, 0);
     let windMW = windOnMW + windOffMW;
     if (windMW === 0) {
-        windMW = rows
-            .filter(r => r.type.toLowerCase().includes('wind'))
-            .reduce((s, r) => s + r.mw, 0);
+        windMW = rows.filter(r => r.type.toLowerCase().includes('wind')).reduce((s, r) => s + r.mw, 0);
     }
-
     return { solarMW, windMW, windOnMW, windOffMW, totalMW, period: lastPeriod };
 }
 
-// ═══════════════════════════════════════════════════════
-// Render Forecast Table  
-// ═══════════════════════════════════════════════════════
 function renderForecastTable(cc) {
     const bodyEl     = document.getElementById('forecastTableBody');
     const subtitleEl = document.getElementById('forecastSubtitle');
-
     const info = getSolarWindLatest(cc);
     const fc   = FORECAST_2030[cc] || null;
     const label = COUNTRY_LABEL[cc] || cc;
@@ -708,65 +602,37 @@ function renderForecastTable(cc) {
     }
 
     subtitleEl.textContent = `${label}  ·  Latest period: ${info.period}`;
-
-    // ── Current values
     const solarNowGW = info.solarMW / 1000;
     const windNowGW  = info.windMW  / 1000;
     const totalNowGW = info.totalMW / 1000;
-
     const nowSolarSharePct = totalNowGW > 0 ? (solarNowGW / totalNowGW * 100) : null;
     const nowWindSharePct  = totalNowGW > 0 ? (windNowGW  / totalNowGW * 100) : null;
-
-    // ── 2030 values — directly from manual input, no calculation
     const solar2030GW       = fc ? fc.solar         : null;
     const solar2030SharePct = fc ? fc.solarSharePct  : null;
     const wind2030GW        = fc ? fc.wind           : null;
     const wind2030SharePct  = fc ? fc.windSharePct   : null;
 
-    // ── Wind sub-label (show onshore / offshore breakdown if available)
     let windSubLabel = '';
     if (info.windOnMW > 0 && info.windOffMW > 0) {
-        windSubLabel =
-            `<span style="font-size:10px;color:#888;font-weight:400;margin-left:4px;">` +
-            `(On ${(info.windOnMW/1000).toFixed(1)} + Off ${(info.windOffMW/1000).toFixed(1)} GW)</span>`;
+        windSubLabel = `<span style="font-size:10px;color:#888;font-weight:400;margin-left:4px;">(On ${(info.windOnMW/1000).toFixed(1)} + Off ${(info.windOffMW/1000).toFixed(1)} GW)</span>`;
     } else if (info.windOnMW > 0) {
         windSubLabel = `<span style="font-size:10px;color:#888;font-weight:400;margin-left:4px;">(Onshore)</span>`;
     } else if (info.windOffMW > 0) {
         windSubLabel = `<span style="font-size:10px;color:#888;font-weight:400;margin-left:4px;">(Offshore)</span>`;
     }
 
-    // ── Format helpers
-    const fmtGW = v =>
-        (v === null || v === undefined || isNaN(v))
-            ? `<span style="color:#bbb">—</span>`
-            : `${v.toFixed(2)} GW`;
-
-    const fmtPct = v =>
-        (v === null || v === undefined || isNaN(v))
-            ? `<span style="color:#bbb">—</span>`
-            : `${v.toFixed(1)}%`;
+    const fmtGW = v => (v === null || v === undefined || isNaN(v)) ? `<span style="color:#bbb">—</span>` : `${v.toFixed(2)} GW`;
+    const fmtPct = v => (v === null || v === undefined || isNaN(v)) ? `<span style="color:#bbb">—</span>` : `${v.toFixed(1)}%`;
 
     bodyEl.innerHTML = `
         <table class="forecast-table">
             <thead>
                 <tr>
                     <th style="min-width:120px; text-align:left;">Energy Type</th>
-                    <th>Installed Capacity
-                        <br><span style="font-size:10px;font-weight:400;color:#666;">
-                            (${info.period}, GW)</span>
-                    </th>
-                    <th>Share of Total
-                        <br><span style="font-size:10px;font-weight:400;color:#666;">
-                            (${info.period}, %)</span>
-                    </th>
-                    <th class="th-forecast">2030 Forecast
-                        <br><span style="font-size:10px;font-weight:500;color:#3a72b8;">
-                            (GW)</span>
-                    </th>
-                    <th class="th-forecast">2030 Share of total
-                        <br><span style="font-size:10px;font-weight:500;color:#3a72b8;">
-                            (%)</span>
-                    </th>
+                    <th>Installed Capacity<br><span style="font-size:10px;font-weight:400;color:#666;">(${info.period}, GW)</span></th>
+                    <th>Share of Total<br><span style="font-size:10px;font-weight:400;color:#666;">(${info.period}, %)</span></th>
+                    <th class="th-forecast">2030 Forecast<br><span style="font-size:10px;font-weight:500;color:#3a72b8;">(GW)</span></th>
+                    <th class="th-forecast">2030 Share of total<br><span style="font-size:10px;font-weight:500;color:#3a72b8;">(%)</span></th>
                 </tr>
             </thead>
             <tbody>
@@ -791,9 +657,6 @@ function renderForecastTable(cc) {
         </div>`;
 }
 
-// ═══════════════════════════════════════════════════════
-// GeoJSON → SVG
-// ═══════════════════════════════════════════════════════
 const VIEW_W = 420, VIEW_H = 380;
 const LON_MIN = -12, LON_MAX = 36;
 const LAT_MIN = 32,  LAT_MAX = 60;
@@ -822,11 +685,8 @@ function featureToPathD(feature) {
         const d = coordsToD(ring);
         if (d) parts.push(d);
     });
-    if (geom.type === 'Polygon') {
-        processRings(geom.coordinates);
-    } else if (geom.type === 'MultiPolygon') {
-        geom.coordinates.forEach(poly => processRings(poly));
-    }
+    if (geom.type === 'Polygon') processRings(geom.coordinates);
+    else if (geom.type === 'MultiPolygon') geom.coordinates.forEach(poly => processRings(poly));
     return parts.join(' ');
 }
 
@@ -837,21 +697,14 @@ function getISO(feature) {
 
 function buildMap() {
     const svg = document.getElementById('europeSvg');
-    let html = `
-        <defs>
-            <filter id="shad" x="-20%" y="-20%" width="140%" height="140%">
-                <feDropShadow dx="0" dy="1" stdDeviation="1.2" flood-opacity="0.15"/>
-            </filter>
-        </defs>
-        <rect width="${VIEW_W}" height="${VIEW_H}" fill="#d4e8f5"/>`;
+    let html = `<defs><filter id="shad" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="1" stdDeviation="1.2" flood-opacity="0.15"/></filter></defs><rect width="${VIEW_W}" height="${VIEW_H}" fill="#d4e8f5"/>`;
 
     S.geoFeatures.forEach(f => {
         const cc = getISO(f);
         if (TARGET.includes(cc)) return;
         const d = featureToPathD(f);
         if (!d) return;
-        html += `<path d="${d}" fill="#c8dce8" stroke="#b0c8d8"
-                    stroke-width="0.6" stroke-linejoin="round"/>`;
+        html += `<path d="${d}" fill="#c8dce8" stroke="#b0c8d8" stroke-width="0.6" stroke-linejoin="round"/>`;
     });
 
     S.geoFeatures.forEach(f => {
@@ -859,38 +712,21 @@ function buildMap() {
         if (!TARGET.includes(cc)) return;
         const d = featureToPathD(f);
         if (!d) return;
-
         const isSelected = S.country === cc;
         const fill   = isSelected ? '#2c3e50' : '#7aafc8';
         const stroke = isSelected ? '#1a252f' : '#5a90b0';
         const sw     = isSelected ? 2 : 1.2;
         const total  = getTotalForMapYear(cc);
         const totalGW = (total / 1000).toFixed(1);
-
-        html += `<path d="${d}" fill="${fill}" stroke="${stroke}" stroke-width="${sw}"
-                    stroke-linejoin="round" filter="url(#shad)"
-                    style="cursor:pointer;transition:fill 0.15s;"
-                    onmouseenter="onMapHover(event,'${cc}')"
-                    onmouseleave="onMapLeave()"
-                    onclick="onMapClick('${cc}')"/>`;
-
+        html += `<path d="${d}" fill="${fill}" stroke="${stroke}" stroke-width="${sw}" stroke-linejoin="round" filter="url(#shad)" style="cursor:pointer;transition:fill 0.15s;" onmouseenter="onMapHover(event,'${cc}')" onmouseleave="onMapLeave()" onclick="onMapClick('${cc}')"/>`;
         const ctr = getFeatureCentroid(f);
         if (ctr) {
             const [cx, cy] = lonlatToXY(ctr[0], ctr[1]);
             const tcol  = isSelected ? '#ffffff' : '#1a3a52';
             const tcol2 = isSelected ? '#c0d4e8' : '#2a5a7a';
-            html += `
-                <text x="${cx.toFixed(1)}" y="${(cy-1).toFixed(1)}"
-                    text-anchor="middle" font-size="8" font-weight="800"
-                    fill="${tcol}" style="pointer-events:none;
-                    font-family:'Segoe UI',sans-serif;">${cc}</text>
-                <text x="${cx.toFixed(1)}" y="${(cy+7).toFixed(1)}"
-                    text-anchor="middle" font-size="6.5" fill="${tcol2}"
-                    style="pointer-events:none;font-family:'Segoe UI',sans-serif;">
-                    ${total > 0 ? totalGW + ' GW' : ''}</text>`;
+            html += `<text x="${cx.toFixed(1)}" y="${(cy-1).toFixed(1)}" text-anchor="middle" font-size="8" font-weight="800" fill="${tcol}" style="pointer-events:none;font-family:'Segoe UI',sans-serif;">${cc}</text><text x="${cx.toFixed(1)}" y="${(cy+7).toFixed(1)}" text-anchor="middle" font-size="6.5" fill="${tcol2}" style="pointer-events:none;font-family:'Segoe UI',sans-serif;">${total > 0 ? totalGW + ' GW' : ''}</text>`;
         }
     });
-
     svg.innerHTML = html;
 }
 
@@ -898,14 +734,9 @@ function getFeatureCentroid(feature) {
     const geom = feature.geometry;
     if (!geom) return null;
     let best = null, bestLen = 0;
-    const checkRing = ring => {
-        if (ring.length > bestLen) { bestLen = ring.length; best = ring; }
-    };
-    if (geom.type === 'Polygon') {
-        geom.coordinates.forEach(checkRing);
-    } else if (geom.type === 'MultiPolygon') {
-        geom.coordinates.forEach(poly => poly.forEach(checkRing));
-    }
+    const checkRing = ring => { if (ring.length > bestLen) { bestLen = ring.length; best = ring; } };
+    if (geom.type === 'Polygon') geom.coordinates.forEach(checkRing);
+    else if (geom.type === 'MultiPolygon') geom.coordinates.forEach(poly => poly.forEach(checkRing));
     if (!best) return null;
     let sx = 0, sy = 0;
     best.forEach(([lon, lat]) => { sx += lon; sy += lat; });
@@ -915,14 +746,11 @@ function getFeatureCentroid(feature) {
 function onMapHover(e, cc) {
     const tip   = document.getElementById('mapTip');
     const total = getTotalForMapYear(cc);
-    tip.innerHTML = `<b>${COUNTRY_LABEL[cc] || cc}</b><br/>
-                     Total (${S.mapYear}): ${(total/1000).toFixed(2)} GW`;
+    tip.innerHTML = `<b>${COUNTRY_LABEL[cc] || cc}</b><br/>Total (${S.mapYear}): ${(total/1000).toFixed(2)} GW`;
     tip.style.display = 'block';
     moveTip(e);
 }
-function onMapLeave() {
-    document.getElementById('mapTip').style.display = 'none';
-}
+function onMapLeave() { document.getElementById('mapTip').style.display = 'none'; }
 document.addEventListener('mousemove', e => {
     if (document.getElementById('mapTip').style.display === 'block') moveTip(e);
 });
@@ -939,15 +767,10 @@ function onMapClick(cc) {
     renderDetail(cc);
     renderBar(cc);
     renderForecastTable(cc);
-    document.getElementById('barTitle').textContent =
-        `Installed Capacity — ${COUNTRY_LABEL[cc]} (${cc})`;
-    document.getElementById('barSubLine').textContent =
-        `ENTSO-E · Unit: GW · ${S.startPeriod} → ${S.endPeriod}`;
+    document.getElementById('barTitle').textContent = `Installed Capacity — ${COUNTRY_LABEL[cc]} (${cc})`;
+    document.getElementById('barSubLine').textContent = `ENTSO-E · Unit: GW · ${S.startPeriod} → ${S.endPeriod}`;
 }
 
-// ═══════════════════════════
-// Country detail panel
-// ═══════════════════════════
 function renderDetail(cc) {
     const periods    = getPeriodsInRange();
     const lastPeriod = periods[periods.length - 1];
@@ -959,45 +782,24 @@ function renderDetail(cc) {
         el.innerHTML = `<div class="detail-hint">No data for this selection</div>`;
         return;
     }
-
     const sorted   = [...rows].sort((a, b) => b.mw - a.mw);
     const rowsHTML = sorted.map(r => {
         const gw = (r.mw / 1000).toFixed(2);
-        return `
-        <div class="detail-row">
-            <div class="detail-dot" style="background:${typeToColor(r.type)}"></div>
-            <span class="detail-type" title="${r.type}">${r.type}</span>
-            <span class="detail-gw">${gw} GW</span>
-        </div>`;
+        return `<div class="detail-row"><div class="detail-dot" style="background:${typeToColor(r.type)}"></div><span class="detail-type" title="${r.type}">${r.type}</span><span class="detail-gw">${gw} GW</span></div>`;
     }).join('');
-
     const totalGW = (total / 1000).toFixed(2);
-    el.innerHTML = `
-        <div class="detail-header">
-            <span class="detail-country-name">${COUNTRY_LABEL[cc]} (${cc})</span>
-            <span class="detail-total">Total: ${totalGW} GW</span>
-        </div>
-        <div style="font-size:10px;color:#aaa;margin-bottom:4px;padding-left:2px;">
-            As of ${lastPeriod}
-        </div>
-        <div class="detail-rows">${rowsHTML}</div>`;
+    el.innerHTML = `<div class="detail-header"><span class="detail-country-name">${COUNTRY_LABEL[cc]} (${cc})</span><span class="detail-total">Total: ${totalGW} GW</span></div><div style="font-size:10px;color:#aaa;margin-bottom:4px;padding-left:2px;">As of ${lastPeriod}</div><div class="detail-rows">${rowsHTML}</div>`;
 }
 
-// ═══════════════════════════════════════════════════════════
-// Bar chart
-// ═══════════════════════════════════════════════════════════
 function renderBar(cc) {
     const el = document.getElementById('barChart');
     if (!barInst) {
         barInst = echarts.init(el);
         window.addEventListener('resize', () => barInst && barInst.resize());
     }
-
     const periods = getPeriodsInRange();
     const typeSet = new Set();
-    periods.forEach(p =>
-        getRowsForCountryPeriod(cc, p).forEach(r => typeSet.add(r.type))
-    );
+    periods.forEach(p => getRowsForCountryPeriod(cc, p).forEach(r => typeSet.add(r.type)));
     const typeTotals = {};
     typeSet.forEach(t => {
         typeTotals[t] = periods.reduce((s, p) => {
@@ -1006,54 +808,31 @@ function renderBar(cc) {
         }, 0);
     });
     const types = [...typeSet].sort((a, b) => typeTotals[b] - typeTotals[a]);
-
-    const periodTotalsGW = periods.map(p =>
-        getRowsForCountryPeriod(cc, p).reduce((s, r) => s + r.mw, 0) / 1000
-    );
+    const periodTotalsGW = periods.map(p => getRowsForCountryPeriod(cc, p).reduce((s, r) => s + r.mw, 0) / 1000);
     const maxTotal = Math.max(...periodTotalsGW, 0);
     const yMax = Math.ceil(maxTotal * 1.18);
 
     const series = types.map(type => ({
-        name:        type,
-        type:        'bar',
-        stack:       'total',
-        barMaxWidth: 55,
-        emphasis:    { focus: 'series' },
-        itemStyle: {
-            color:       typeToColor(type),
-            borderColor: typeToColor(type) === '#f9d923' ? '#ccb800' : undefined,
-            borderWidth: typeToColor(type) === '#f9d923' ? 0.5 : 0,
-        },
-        data: periods.map(p => {
-            const row = getRowsForCountryPeriod(cc, p).find(r => r.type === type);
-            return row ? +(row.mw / 1000).toFixed(3) : 0;
-        }),
+        name: type, type: 'bar', stack: 'total', barMaxWidth: 55,
+        emphasis: { focus: 'series' },
+        itemStyle: { color: typeToColor(type), borderColor: typeToColor(type) === '#f9d923' ? '#ccb800' : undefined, borderWidth: typeToColor(type) === '#f9d923' ? 0.5 : 0 },
+        data: periods.map(p => { const row = getRowsForCountryPeriod(cc, p).find(r => r.type === type); return row ? +(row.mw / 1000).toFixed(3) : 0; }),
     }));
 
     const capSeries = {
-        name:        '_cap',
-        type:        'bar',
-        stack:       'total',
-        barMaxWidth: 55,
-        itemStyle:   { color: 'transparent', borderWidth: 0 },
-        emphasis:    { disabled: true },
-        silent:      true,
-        legendHoverLink: false,
+        name: '_cap', type: 'bar', stack: 'total', barMaxWidth: 55,
+        itemStyle: { color: 'transparent', borderWidth: 0 },
+        emphasis: { disabled: true }, silent: true, legendHoverLink: false,
         label: {
             show: true, position: 'top', distance: 4,
             color: '#2c3e50', fontSize: 10, fontWeight: 700,
             formatter: params => {
-                const chart = barInst;
-                const option = chart.getOption();
+                const option = barInst.getOption();
                 const selected = option.legend[0].selected || {};
                 let sum = 0;
                 option.series.forEach(series => {
                     if (series.name === '_cap') return;
-                    const isOn = selected[series.name] !== false;
-                    if (isOn) {
-                        const val = series.data[params.dataIndex] || 0;
-                        sum += val;
-                    }
+                    if (selected[series.name] !== false) sum += (series.data[params.dataIndex] || 0);
                 });
                 return sum > 0 ? sum.toFixed(1) + ' GW' : '';
             },
@@ -1063,64 +842,40 @@ function renderBar(cc) {
     };
 
     barInst.setOption({
-        backgroundColor: 'transparent',
-        animation: true,
+        backgroundColor: 'transparent', animation: true,
         tooltip: {
-            trigger: 'axis',
-            axisPointer: { type: 'shadow' },
-            backgroundColor: '#fff',
-            borderColor: '#e0e0e0',
+            trigger: 'axis', axisPointer: { type: 'shadow' },
+            backgroundColor: '#fff', borderColor: '#e0e0e0',
             textStyle: { color: '#2c3e50', fontSize: 12 },
             extraCssText: 'box-shadow:0 4px 12px rgba(0,0,0,0.15);border-radius:6px;',
             formatter(params) {
                 const per   = params[0].axisValue;
-                const items = params
-                    .filter(p => p.seriesName !== '_cap' && p.value > 0)
-                    .sort((a, b) => b.value - a.value);
+                const items = params.filter(p => p.seriesName !== '_cap' && p.value > 0).sort((a, b) => b.value - a.value);
                 const total = items.reduce((s, p) => s + p.value, 0);
-                let html = `<div style="font-weight:700;margin-bottom:6px;color:#2c3e50">
-                                ${per} · ${COUNTRY_LABEL[cc]}</div>`;
+                let html = `<div style="font-weight:700;margin-bottom:6px;color:#2c3e50">${per} · ${COUNTRY_LABEL[cc]}</div>`;
                 items.forEach(p => {
-                    const dot = `<span style="display:inline-block;width:9px;height:9px;
-                        border-radius:50%;background:${typeToColor(p.seriesName)};
-                        border:1px solid #ddd;margin-right:5px;vertical-align:middle;"></span>`;
-                    html += `<div style="display:flex;justify-content:space-between;
-                                gap:18px;margin:2px 0;font-size:11px;">
-                                <span>${dot}${p.seriesName}</span>
-                                <span style="font-weight:600">${p.value.toFixed(2)} GW</span>
-                             </div>`;
+                    html += `<div style="display:flex;justify-content:space-between;gap:18px;margin:2px 0;font-size:11px;"><span><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${typeToColor(p.seriesName)};border:1px solid #ddd;margin-right:5px;vertical-align:middle;"></span>${p.seriesName}</span><span style="font-weight:600">${p.value.toFixed(2)} GW</span></div>`;
                 });
-                html += `<div style="margin-top:7px;padding-top:5px;border-top:1px solid #eee;
-                            font-weight:700;color:#2c3e50;font-size:12px;">
-                             Total: ${total.toFixed(2)} GW</div>`;
+                html += `<div style="margin-top:7px;padding-top:5px;border-top:1px solid #eee;font-weight:700;color:#2c3e50;font-size:12px;">Total: ${total.toFixed(2)} GW</div>`;
                 return html;
             },
         },
-        legend: {           
+        legend: {
             type: 'plain', bottom: 0, left: 'center', width: '85%',
             itemWidth: 12, itemHeight: 12,
             textStyle: { color: '#444', fontSize: 11 },
-            pageTextStyle: { color: '#888' },
             data: types.map(t => ({ name: t, itemStyle: { color: typeToColor(t) } })),
-            selector: [
-                { type: 'all', title: 'Select All' },
-                { type: 'inverse', title: 'Clear All' }
-                ]
+            selector: [{ type: 'all', title: 'Select All' }, { type: 'inverse', title: 'Clear All' }]
         },
         grid: { top: 36, left: 64, right: 20, bottom: 110 },
         xAxis: {
             type: 'category', data: periods,
-            axisLine:  { lineStyle: { color: '#ccc' } },
-            axisTick:  { lineStyle: { color: '#ccc' } },
-            axisLabel: {
-                color: '#2c3e50', fontSize: 12, fontWeight: 600,
-                rotate: periods.length > 8 ? 35 : 0, interval: 0,
-            },
+            axisLine: { lineStyle: { color: '#ccc' } }, axisTick: { lineStyle: { color: '#ccc' } },
+            axisLabel: { color: '#2c3e50', fontSize: 12, fontWeight: 600, rotate: periods.length > 8 ? 35 : 0, interval: 0 },
         },
         yAxis: {
             type: 'value', name: 'GW', min: 0, max: yMax,
-            nameTextStyle: { color: '#999', fontSize: 11 },
-            axisLine: { show: false }, axisTick: { show: false },
+            nameTextStyle: { color: '#999', fontSize: 11 }, axisLine: { show: false }, axisTick: { show: false },
             axisLabel: { color: '#999', fontSize: 11, formatter: v => v.toFixed(0) },
             splitLine: { lineStyle: { color: '#f0f2f5' } },
         },
@@ -1128,9 +883,6 @@ function renderBar(cc) {
     }, true);
 }
 
-// ═══════════════════════════
-// Controls init
-// ═══════════════════════════
 function formatPeriodLabel(p) {
     if (p.includes('/')) {
         const [y, m] = p.split('/');
@@ -1155,23 +907,17 @@ function initControls() {
 
     startSel.addEventListener('change', () => {
         S.startPeriod = startSel.value;
-        if (periodToNum(S.endPeriod) < periodToNum(S.startPeriod)) {
-            S.endPeriod = S.startPeriod; endSel.value = S.endPeriod;
-        }
+        if (periodToNum(S.endPeriod) < periodToNum(S.startPeriod)) { S.endPeriod = S.startPeriod; endSel.value = S.endPeriod; }
         refreshAll();
     });
     endSel.addEventListener('change', () => {
         S.endPeriod = endSel.value;
-        if (periodToNum(S.startPeriod) > periodToNum(S.endPeriod)) {
-            S.startPeriod = S.endPeriod; startSel.value = S.startPeriod;
-        }
+        if (periodToNum(S.startPeriod) > periodToNum(S.endPeriod)) { S.startPeriod = S.endPeriod; startSel.value = S.startPeriod; }
         refreshAll();
     });
 
     const years = [...new Set(S.data.map(r => r.year))].sort();
-    years.forEach(y => {
-        mapYearSel.innerHTML += `<option value="${y}">${y}</option>`;
-    });
+    years.forEach(y => { mapYearSel.innerHTML += `<option value="${y}">${y}</option>`; });
     mapYearSel.value = S.mapYear;
     mapYearSel.addEventListener('change', () => {
         S.mapYear = +mapYearSel.value;
@@ -1186,30 +932,21 @@ function refreshAll() {
         renderDetail(S.country);
         renderBar(S.country);
         renderForecastTable(S.country);
-        document.getElementById('barSubLine').textContent =
-            `ENTSO-E · Unit: GW · ${S.startPeriod} → ${S.endPeriod}`;
+        document.getElementById('barSubLine').textContent = `ENTSO-E · Unit: GW · ${S.startPeriod} → ${S.endPeriod}`;
     }
 }
 
-// ═══════════════════════════
-// Init
-// ═══════════════════════════
 async function init() {
     try {
         const [raw] = await Promise.all([loadCSV(), loadGeoJSON()]);
         parseData(raw);
         initControls();
-
         document.getElementById('loadingMsg').style.display  = 'none';
         document.getElementById('contentArea').style.display = 'flex';
         document.getElementById('footerInfo').style.display  = 'block';
-
         requestAnimationFrame(() => buildMap());
         initInfoTooltip();
-        window.addEventListener('resize', () => {
-            buildMap();
-            barInst && barInst.resize();
-        });
+        window.addEventListener('resize', () => { buildMap(); barInst && barInst.resize(); });
     } catch (e) {
         console.error(e);
         document.getElementById('loadingMsg').textContent = '❌ Failed to load: ' + e.message;

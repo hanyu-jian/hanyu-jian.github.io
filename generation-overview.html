@@ -155,7 +155,7 @@
         <div class="chart-card">
             <div class="chart-card-header">
                 <h3>Load vs Generation by Hour (Monthly Range Avg)</h3>
-                <div class="subtitle">Generation = sum of technologies excluding Cross border; CEE = HU + RO + RS + HR + PL + BG];</div>
+                <div class="subtitle">Generation = sum of technologies excluding Cross border; CEE=HU+RO+RS+HR+PL+BG.</div>
             </div>
             <div class="year-row">
                 <div class="year-card"><div class="year-title">2024</div><div id="chart2024" class="year-chart"></div></div>
@@ -208,6 +208,18 @@ let charts = {};
 let loadReport = { ok: [], fail: [] };
 let loadFailReason = {};
 let legendState = {};
+
+// ── [优化1] summarizeYear 缓存 ───────────────────────────────────────────────
+// key = "countriesSorted|year|mFrom|mTo"，每次 refresh 前清空
+const _summarizeCache = new Map();
+
+function _summarizeCacheKey(year, selectedCountries, mFrom, mTo) {
+    return selectedCountries.slice().sort().join(',') + '|' + year + '|' + mFrom + '|' + mTo;
+}
+
+function clearSummarizeCache() {
+    _summarizeCache.clear();
+}
 
 // ── Colour helpers ───────────────────────────────────────────────────────────
 function typeToColor(t) {
@@ -317,13 +329,14 @@ function parseLoadCSV(text) {
 }
 
 // ── Data loading ─────────────────────────────────────────────────────────────
+// [优化2] 去掉 cache: 'no-store'，让浏览器正常缓存 CSV 文件
 async function loadAllCountries() {
     loadReport = { ok: [], fail: [] };
     loadFailReason = {};
 
     await Promise.all(BASE_COUNTRIES.map(async c => {
         try {
-            const res = await fetch(`/data/generation/${c}.csv`, { cache: 'no-store' });
+            const res = await fetch(`/data/generation/${c}.csv`);
             if (!res.ok) { loadReport.fail.push(c); loadFailReason[c] = `HTTP ${res.status}`; return; }
             const text = await res.text();
             const rows = parseCSV(text);
@@ -336,7 +349,7 @@ async function loadAllCountries() {
         }
     }));
 
-    const loadRes = await fetch('/data/load.csv', { cache: 'no-store' });
+    const loadRes = await fetch('/data/load.csv');
     if (!loadRes.ok) throw new Error(`load.csv HTTP ${loadRes.status}`);
     const loadText = await loadRes.text();
     loadData = parseLoadCSV(loadText);
@@ -409,7 +422,7 @@ function initControls() {
     });
 }
 
-// ── Data summarisation (图一口径保持不变) ────────────────────────────────────
+// ── Data summarisation ────────────────────────────────────────────────────────
 function buildLoadSeries(year, selectedCountries, mFrom, mTo) {
     const byHour = Array.from({ length: 24 }, () => ({ sum: 0, cnt: 0 }));
 
@@ -435,7 +448,13 @@ function buildLoadSeries(year, selectedCountries, mFrom, mTo) {
     return byHour.map(x => x.cnt ? +((x.sum / x.cnt).toFixed(2)) : null);
 }
 
+// [优化3] summarizeYear 加 memoization，相同参数直接返回缓存结果
 function summarizeYear(year, selectedCountries, mFrom, mTo) {
+    const cacheKey = _summarizeCacheKey(year, selectedCountries, mFrom, mTo);
+    if (_summarizeCache.has(cacheKey)) {
+        return _summarizeCache.get(cacheKey);
+    }
+
     const techLabelByKey = {};
     const byHour = {};
     for (let h = 0; h < 24; h++) byHour[h] = { techSum: {}, techCnt: {} };
@@ -484,10 +503,12 @@ function summarizeYear(year, selectedCountries, mFrom, mTo) {
         });
     }
 
-    return { techs, techSeries, load };
+    const result = { techs, techSeries, load };
+    _summarizeCache.set(cacheKey, result);
+    return result;
 }
 
-// ── 图二：全年电量（基于 summarizeYear 同口径延伸） ──────────────────────────
+// ── 图二：全年电量 ────────────────────────────────────────────────────────────
 function classifyPrimaryGroup(tech) {
     const t = tech.toLowerCase();
     if (t.includes('nuclear')) return 'Nuclear';
@@ -529,7 +550,7 @@ function renderAnnualCharts(selectedCountries, year) {
             type: 'pie',
             radius: ['44%', '70%'],
             center: ['50%', '50%'],
-            minShowLabelAngle: 3.6, // 约等于1%
+            minShowLabelAngle: 3.6,
             itemStyle: { borderColor: '#fff', borderWidth: 2 },
             label: {
                 show: true,
@@ -581,11 +602,12 @@ function renderAnnualCharts(selectedCountries, year) {
     });
 }
 
-// ── Y-axis max calculation ───────────────────────────────────────────────────
+// ── [优化3续] Y-axis max：复用已缓存的 summarizeYear，不再重复计算 ──────────────
 function calcGlobalYMax(selected, mFrom, mTo, visibilityFilter) {
     if (!selected.length || mFrom > mTo) return undefined;
     let globalMax = 0;
     [2024, 2025, 2026].forEach(year => {
+        // summarizeYear 此时已被上面的 applyYearChart 调用并缓存，直接取缓存
         const { techSeries, load } = summarizeYear(year, selected, mFrom, mTo);
         for (let h = 0; h < 24; h++) {
             let stackedSum = 0;
@@ -709,6 +731,7 @@ function toggleSeries(name) {
     const mFrom = parseInt(document.getElementById('monthFrom').value, 10);
     const mTo   = parseInt(document.getElementById('monthTo').value, 10);
 
+    // toggleSeries 只改可见性，不改数据，缓存仍然有效，无需清空
     const yMax = calcGlobalYMax(selected, mFrom, mTo, seriesName => legendState[seriesName] !== false);
 
     [[charts.chart2024, 2024],[charts.chart2025, 2025],[charts.chart2026, 2026]].forEach(([c, y]) => {
@@ -730,11 +753,23 @@ function refresh() {
     allSeriesNames = [];
     allSeriesColors = {};
 
+    // [优化3] 每次 refresh 参数变了，清空旧缓存，避免内存无限增长
+    clearSummarizeCache();
+
+    // 先调用3个年份图（同时填充缓存），calcGlobalYMax 直接复用缓存，无额外计算
+    applyYearChart(charts.chart2024, 2024, selected, mFrom, mTo, undefined);
+    applyYearChart(charts.chart2025, 2025, selected, mFrom, mTo, undefined);
+    applyYearChart(charts.chart2026, 2026, selected, mFrom, mTo, undefined);
+
+    // 此时缓存已有3个年份结果，calcGlobalYMax 零重复计算
     const yMax = calcGlobalYMax(selected, mFrom, mTo, null);
 
-    applyYearChart(charts.chart2024, 2024, selected, mFrom, mTo, yMax);
-    applyYearChart(charts.chart2025, 2025, selected, mFrom, mTo, yMax);
-    applyYearChart(charts.chart2026, 2026, selected, mFrom, mTo, yMax);
+    // 用统一 yMax 重新设置 y 轴（只改 yAxis.max，开销极小）
+    [[charts.chart2024, 2024],[charts.chart2025, 2025],[charts.chart2026, 2026]].forEach(([c, y]) => {
+        if (selected.length && mFrom <= mTo) {
+            c.setOption({ yAxis: { max: yMax } });
+        }
+    });
 
     buildHtmlLegend();
 

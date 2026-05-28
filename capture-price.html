@@ -985,12 +985,12 @@ function getTableYears() {
 function tableAggregate(hours, filterFn) {
     const filtered = hours.filter(filterFn);
     if (!filtered.length) return null;
-    let sumPr=0, cntPr=0, sumGen=0, sumGenPost=0, sumRev=0, sumRevPre=0, sumNeg=0;
+    let sumPr=0, cntPr=0, sumGen=0, sumGenPost=0, sumRev=0, sumRevPre=0, sumNonPos=0;
     filtered.forEach(h => {
         sumPr += h.pr; cntPr++;
         sumGen += h.gen; sumGenPost += h.genPost;
         sumRev += h.rev; sumRevPre += h.revPre;
-        sumNeg += h.isNeg;
+        sumNonPos += h.isNonPos;
     });
     const baseload  = cntPr > 0     ? sumPr     / cntPr      : null;
     const capPost   = sumGenPost > 0 ? sumRev    / sumGenPost : null;
@@ -998,7 +998,7 @@ function tableAggregate(hours, filterFn) {
     const curtPct   = sumGen     > 0 ? (sumGen - sumGenPost) / sumGen * 100 : null;
     const ratioPost = (baseload && capPost !== null) ? capPost / baseload * 100 : null;
     const ratioPre  = (baseload && capPre  !== null) ? capPre  / baseload * 100 : null;
-    return { baseload, capPost, capPre, curtPct, ratioPost, ratioPre, nonPosHours: sumNeg };
+    return { baseload, capPost, capPre, curtPct, ratioPost, ratioPre, nonPosHours: sumNonPos };
 }
 
 /* Build all row data for the table */

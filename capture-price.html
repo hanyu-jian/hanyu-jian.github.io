@@ -998,7 +998,7 @@ function tableAggregate(hours, filterFn) {
     const curtPct   = sumGen     > 0 ? (sumGen - sumGenPost) / sumGen * 100 : null;
     const ratioPost = (baseload && capPost !== null) ? capPost / baseload * 100 : null;
     const ratioPre  = (baseload && capPre  !== null) ? capPre  / baseload * 100 : null;
-    return { baseload, capPost, capPre, curtPct, ratioPost, ratioPre, negHours: sumNeg };
+    return { baseload, capPost, capPre, curtPct, ratioPost, ratioPre, nonPosHours: sumNeg };
 }
 
 /* Build all row data for the table */
@@ -1079,7 +1079,7 @@ function renderSummaryTable() {
         { key: 'baseload',  label: 'Baseload (EUR/MWh)',                    fmt: fmtEur,   colorFn: null,          span: years.length },
         { key: 'ratioPost', label: 'post-Curtailment (%)',                  fmt: fmtPct,   colorFn: ratioCellClass, span: years.length },
         { key: 'ratioPre',  label: 'pre-Curtailment (%)',                   fmt: fmtPct,   colorFn: ratioCellClass, span: years.length },
-        { key: 'negHours',  label: 'Negative price hours',                  fmt: fmtHours, colorFn: null,          span: years.length }
+        { key: 'nonPosHours',  label: 'Negative price hours',                  fmt: fmtHours, colorFn: null,          span: years.length }
     ];
 
     let html = '<thead>';

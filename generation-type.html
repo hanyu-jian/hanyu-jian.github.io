@@ -440,11 +440,16 @@ async function refresh() {
     await loadCountry(country);
 
     document.getElementById('loadingMsg').style.display = 'none';
+    // Show grid BEFORE touching the chart so the container has real dimensions
     document.getElementById('mainContent').style.display = 'grid';
 
-    const totals = buildMonthlyTotals(country, typeName);
-    renderChart(totals, country, typeName);
-    renderTable(totals, typeName);
+    // Give the browser one frame to lay out the grid, then resize + render
+    requestAnimationFrame(() => {
+        if (barChart) barChart.resize();
+        const totals = buildMonthlyTotals(country, typeName);
+        renderChart(totals, country, typeName);
+        renderTable(totals, typeName);
+    });
 }
 
 async function init() {
@@ -452,8 +457,15 @@ async function init() {
         document.getElementById('loadingMsg').textContent = 'ECharts failed to load.';
         return;
     }
+
+    // Init chart only after the container is visible — show it briefly first
+    document.getElementById('mainContent').style.display = 'grid';
+    document.getElementById('loadingMsg').style.display = 'block';
+
     barChart = echarts.init(document.getElementById('barChart'));
     window.addEventListener('resize', () => barChart && barChart.resize());
+
+    document.getElementById('mainContent').style.display = 'none';
 
     document.getElementById('countrySelect').addEventListener('change', refresh);
     document.getElementById('typeSelect').addEventListener('change', refresh);

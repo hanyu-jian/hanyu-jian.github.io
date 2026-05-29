@@ -1,13 +1,21 @@
 name: Daily Energy Data Update
 on:
   schedule:
-    - cron: "0 6 * * *"   # 每天 UTC 06:00
+    - cron: "0 6 * * *"
   workflow_dispatch:
     inputs:
       full_mode:
         description: "全量拉取（初始化）"
         type: boolean
         default: false
+      repair_country:
+        description: "单独修复某国 generation（如 DE），留空=跑正常流程"
+        type: string
+        default: ""
+      repair_start:
+        description: "修复起始日期（如 2024-01-01），留空=从 FULL_START_DATE 开始"
+        type: string
+        default: ""
 
 jobs:
   update:
@@ -29,7 +37,107 @@ jobs:
       - name: Install dependencies
         run: pip install pandas requests lxml
 
-      - name: Run update script
+      - name: Write repair script
+        if: ${{ github.event.inputs.repair_country != '' }}
+        run: |
+          cat > repair_country_gen.py << 'PYEOF'
+          import argparse
+          import os
+          import sys
+          from datetime import datetime, timedelta
+          from pathlib import Path
+
+          import pandas as pd
+
+          sys.path.insert(0, str(Path(__file__).parent))
+          from fetch_entsoe import (
+              FULL_START_DATE, DATA_DIR, RAW_DIR, ENTSOE_DISPLAY_TZ,
+              fetch_generation, build_generation_result,
+              merge_and_save_generation, merge_and_save_raw_generation,
+              _fmt_dt_hourly,
+          )
+
+          # 修正后的 CTY EIC 映射（bzn_eic 与 gen_eic 不同的国家都列在这里）
+          GEN_EIC_OVERRIDE = {
+              "DE": "10Y1001A1001A83F",
+              "IT": "10YIT-GRTN-----B",
+          }
+
+          def main():
+              parser = argparse.ArgumentParser()
+              parser.add_argument("--country", required=True,
+                                  help="国家代码大写，如 DE")
+              parser.add_argument("--start", default="",
+                                  help="起始日期 YYYY-MM-DD，留空=FULL_START_DATE")
+              args = parser.parse_args()
+
+              cc = args.country.upper()
+              start_date = args.start if args.start else FULL_START_DATE
+              end_date   = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
+
+              if cc not in GEN_EIC_OVERRIDE:
+                  # 没有特别覆盖的国家，从 COUNTRY_CONFIG 里取 gen_eic 或 bzn_eic
+                  from fetch_entsoe import COUNTRY_CONFIG
+                  cfg = COUNTRY_CONFIG.get(cc.lower())
+                  if cfg is None:
+                      print(f"[ERROR] 未知国家: {cc}")
+                      sys.exit(1)
+                  in_domain = cfg.get("gen_eic", cfg["bzn_eic"])
+              else:
+                  in_domain = GEN_EIC_OVERRIDE[cc]
+
+              cutoff_naive = (
+                  pd.Timestamp(end_date)
+                    .tz_localize(ENTSOE_DISPLAY_TZ)
+                  + timedelta(days=1)
+              ).tz_localize(None)
+
+              print(f"修复 {cc} generation: {start_date} → {end_date}  in_domain={in_domain}")
+
+              DATA_DIR.mkdir(exist_ok=True)
+              RAW_DIR.mkdir(exist_ok=True)
+
+              hourly_dict, raw_dict = fetch_generation(in_domain, start_date, end_date)
+              result = build_generation_result(hourly_dict)
+
+              gen_df   = result.get("generation", pd.DataFrame())
+              gen_rows = []
+              if not gen_df.empty:
+                  gen_df = gen_df[gen_df.index < cutoff_naive]
+                  for cat in gen_df.columns:
+                      for dt, val in gen_df[cat].items():
+                          gen_rows.append({
+                              "date":     _fmt_dt_hourly(dt),
+                              "country":  cc,
+                              "category": cat,
+                              "value":    val,
+                          })
+
+              merge_and_save_generation(gen_rows, DATA_DIR / "generation")
+
+              if raw_dict:
+                  raw_gen = {
+                      cc: {k: v[v.index < cutoff_naive] for k, v in raw_dict.items()}
+                  }
+                  merge_and_save_raw_generation(raw_gen, RAW_DIR / "generation")
+
+              print("完成")
+
+          if __name__ == "__main__":
+              main()
+          PYEOF
+
+      - name: Run repair script
+        if: ${{ github.event.inputs.repair_country != '' }}
+        env:
+          ENTSOE_TOKEN: ${{ secrets.ENTSOE_TOKEN }}
+        run: |
+          python repair_country_gen.py \
+            --country "${{ github.event.inputs.repair_country }}" \
+            ${{ github.event.inputs.repair_start != '' && format('--start "{0}"', github.event.inputs.repair_start) || '' }}
+
+      - name: Run normal update script
+        if: ${{ github.event.inputs.repair_country == '' }}
         env:
           ENTSOE_TOKEN: ${{ secrets.ENTSOE_TOKEN }}
         run: |

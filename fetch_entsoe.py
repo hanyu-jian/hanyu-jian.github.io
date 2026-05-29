@@ -51,7 +51,10 @@ API_URL      = "https://web-api.tp.entsoe.eu/api"
 ENTSOE_DISPLAY_TZ = "Europe/Brussels"
 
 COUNTRY_CONFIG = {
-    "de": {"bzn_eic": "10Y1001A1001A82H"},
+    "de": {
+        "bzn_eic": "10Y1001A1001A82H",   # （价格/负荷）
+        "gen_eic": "10Y1001A1001A83F",   # 发电（全国 CTY）
+    },
     "fr": {"bzn_eic": "10YFR-RTE------C"},
     "es": {"bzn_eic": "10YES-REE------0"},
     "it": {

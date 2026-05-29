@@ -1,100 +1,46 @@
-- name: Run repair
-        if: ${{ github.event.inputs.repair_country != '' }}
+name: Daily Energy Data Update
+on:
+  schedule:
+    - cron: "0 6 * * *"   # 每天 UTC 06:00
+  workflow_dispatch:
+    inputs:
+      full_mode:
+        description: "全量拉取（初始化）"
+        type: boolean
+        default: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: pip install pandas requests lxml
+
+      - name: Run update script
         env:
           ENTSOE_TOKEN: ${{ secrets.ENTSOE_TOKEN }}
         run: |
-          python - << 'PYEOF'
-import sys
-from datetime import datetime, timedelta
-from pathlib import Path
-import pandas as pd
+          MODE=${{ github.event.inputs.full_mode == 'true' && 'full' || 'incremental' }}
+          python fetch_entsoe.py --mode $MODE
 
-sys.path.insert(0, str(Path(".").resolve()))
-from fetch_entsoe import (
-    FULL_START_DATE, DATA_DIR, RAW_DIR, ENTSOE_DISPLAY_TZ,
-    COUNTRY_CONFIG,
-    fetch_load, fetch_generation, build_generation_result,
-    merge_and_save_wide, merge_and_save_generation,
-    merge_and_save_raw_wide, merge_and_save_raw_generation,
-    _fmt_dt_hourly,
-)
-
-cc         = "${{ github.event.inputs.repair_country }}".upper()
-start_date = "${{ github.event.inputs.repair_start }}" or FULL_START_DATE
-end_date   = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
-
-cfg = COUNTRY_CONFIG.get(cc.lower())
-if cfg is None:
-    print(f"[ERROR] 未知国家: {cc}")
-    sys.exit(1)
-
-bzn_eic     = cfg["bzn_eic"]
-load_domain = cfg.get("load_eic", bzn_eic)
-gen_domain  = cfg.get("gen_eic",  bzn_eic)
-
-cutoff_naive = (
-    pd.Timestamp(end_date).tz_localize(ENTSOE_DISPLAY_TZ) + timedelta(days=1)
-).tz_localize(None)
-
-print(f"修复 {cc}  load+generation: {start_date} → {end_date}")
-print(f"  load_domain = {load_domain}")
-print(f"  gen_domain  = {gen_domain}")
-
-DATA_DIR.mkdir(exist_ok=True)
-RAW_DIR.mkdir(exist_ok=True)
-
-# ── load ──────────────────────────────────────────────
-print(f"\n→ A65 load  eic={load_domain}")
-s_hourly, s_raw = fetch_load(load_domain, start_date, end_date)
-if s_hourly is not None:
-    s_hourly = s_hourly[s_hourly.index < cutoff_naive]
-    s_raw    = s_raw[s_raw.index < cutoff_naive]
-    merge_and_save_wide({cc: s_hourly}, DATA_DIR / "load.csv", "load")
-    merge_and_save_raw_wide({cc: s_raw}, RAW_DIR / "A65.csv",  "A65 load")
-    print(f"  ✓ {s_hourly.notna().sum()} 有效值(1h) | {s_raw.notna().sum()} 原始点")
-else:
-    print("  [WARN] 无 load 数据")
-
-# ── generation ────────────────────────────────────────
-print(f"\n→ A75 gen  in_Domain={gen_domain}")
-hourly_dict, raw_dict = fetch_generation(gen_domain, start_date, end_date)
-result = build_generation_result(hourly_dict)
-
-gen_df   = result.get("generation", pd.DataFrame())
-gen_rows = []
-if not gen_df.empty:
-    gen_df = gen_df[gen_df.index < cutoff_naive]
-    for cat in gen_df.columns:
-        for dt, val in gen_df[cat].items():
-            gen_rows.append({"date": _fmt_dt_hourly(dt),
-                             "country": cc, "category": cat, "value": val})
-merge_and_save_generation(gen_rows, DATA_DIR / "generation")
-
-if raw_dict:
-    raw_gen = {cc: {k: v[v.index < cutoff_naive] for k, v in raw_dict.items()}}
-    merge_and_save_raw_generation(raw_gen, RAW_DIR / "generation")
-
-# ── solar / wind ──────────────────────────────────────
-for field, fname in [("solar", "solar.csv"), ("wind", "wind.csv")]:
-    s = result.get(field)
-    if s is not None:
-        s = s[s.index < cutoff_naive]
-        merge_and_save_wide({cc: s}, DATA_DIR / fname, field)
-        print(f"  ✓ {field} 已更新")
-
-# ── residual_load ─────────────────────────────────────
-load_s  = s_hourly if s_hourly is not None else None
-solar_s = result.get("solar")
-wind_s  = result.get("wind")
-if load_s is not None and (solar_s is not None or wind_s is not None):
-    renewables = pd.Series(0.0, index=load_s.index)
-    for rs in [solar_s, wind_s]:
-        if rs is not None:
-            renewables = renewables.add(
-                rs.reindex(load_s.index, fill_value=0), fill_value=0)
-    residual = load_s - renewables
-    merge_and_save_wide({cc: residual}, DATA_DIR / "residual_load.csv", "residual_load")
-    print(f"  ✓ residual_load 已更新")
-
-print("\n完成")
-PYEOF
+      - name: Commit and push updated data
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/ raw_data/
+          git diff --cached --quiet || \
+            git commit -m "chore: auto update energy data $(date -u +'%Y-%m-%d')"
+          git push --force-with-lease

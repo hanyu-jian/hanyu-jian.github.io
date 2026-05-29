@@ -54,12 +54,14 @@ COUNTRY_CONFIG = {
     "de": {
         "bzn_eic": "10Y1001A1001A82H",   # （价格/负荷）
         "gen_eic": "10Y1001A1001A83F",   # 发电（全国 CTY）
+        "load_eic": "10Y1001A1001A83F",
     },
     "fr": {"bzn_eic": "10YFR-RTE------C"},
     "es": {"bzn_eic": "10YES-REE------0"},
     "it": {
     "bzn_eic": "10Y1001A1001A73I",   # IT-North BZ（价格/负荷）
     "gen_eic": "10YIT-GRTN-----B",   # IT 全国控制区（发电）
+    "load_eic": "10YIT-GRTN-----B",
     },
     "gr": {"bzn_eic": "10YGR-HTSO-----Y"},
     "ro": {"bzn_eic": "10YRO-TEL------P"},
@@ -727,6 +729,7 @@ def main():
     for cc in COUNTRIES:
         cfg     = COUNTRY_CONFIG[cc]
         bzn_eic = cfg["bzn_eic"]
+        load_domain = cfg.get("load_eic", bzn_eic)
         gen_domain = cfg.get("gen_eic", bzn_eic)  
         col     = cc.upper()
 
@@ -745,7 +748,7 @@ def main():
             print(f"     [WARN] 无价格数据")
 
         print(f"  → A65 load   eic={bzn_eic}")
-        s_hourly, s_raw = fetch_load(bzn_eic, start_date, end_date)
+        s_hourly, s_raw = fetch_load(load_domain, start_date, end_date)
         if s_hourly is not None:
             s_hourly = s_hourly[s_hourly.index < cutoff_naive]
             load_cols[col]     = s_hourly

@@ -10,6 +10,7 @@ ENTSOE API 数据更新脚本（增量更新版）
     --mode incremental  仅更新最近7天（默认）
     --mode full         全量拉取 FULL_START_DATE → yesterday
 
+
 时间轴说明：
 - ENTSOE 所有文档（A44/A65/A75）的时间轴统一使用 CET/CEST（Europe/Brussels）
 - 与 ENTSOE 网站下载的 CSV 时间列完全一致

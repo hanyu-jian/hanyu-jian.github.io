@@ -293696,7 +293696,7 @@ date,category,value
 2026/5/25 2:00,Fossil Hard Coal,
 2026/5/25 2:00,Fossil Oil,9.0
 2026/5/25 2:00,Geothermal,532.0
-2026/5/25 2:00,Hydro Pumped Storage,219.33333333333334
+2026/5/25 2:00,Hydro Pumped Storage,219.33333333333331
 2026/5/25 2:00,Hydro Run-of-river and Poundage,2956.5
 2026/5/25 2:00,Hydro Water Reservoir,289.0
 2026/5/25 2:00,Other,1686.0
@@ -293781,7 +293781,7 @@ date,category,value
 2026/5/25 8:00,Solar,8916.0
 2026/5/25 8:00,Wind,2363.0
 2026/5/25 9:00,Biomass,690.25
-2026/5/25 9:00,Energy Storage,225.66666666666666
+2026/5/25 9:00,Energy Storage,225.66666666666663
 2026/5/25 9:00,Fossil Coal-derived Gas,381.0
 2026/5/25 9:00,Fossil Gas,2865.5
 2026/5/25 9:00,Fossil Hard Coal,
@@ -295847,3 +295847,315 @@ date,category,value
 2026/5/31 23:00,Other,1675.0
 2026/5/31 23:00,Solar,0.0
 2026/5/31 23:00,Wind,2001.5
+2026/6/1 0:00,Biomass,754.75
+2026/6/1 0:00,Energy Storage,190.66666666666666
+2026/6/1 0:00,Fossil Coal-derived Gas,341.75
+2026/6/1 0:00,Fossil Gas,7470.25
+2026/6/1 0:00,Fossil Hard Coal,187.25
+2026/6/1 0:00,Fossil Oil,21.0
+2026/6/1 0:00,Geothermal,587.75
+2026/6/1 0:00,Hydro Pumped Storage,
+2026/6/1 0:00,Hydro Run-of-river and Poundage,3549.25
+2026/6/1 0:00,Hydro Water Reservoir,393.5
+2026/6/1 0:00,Other,1638.75
+2026/6/1 0:00,Solar,0.0
+2026/6/1 0:00,Wind,2171.75
+2026/6/1 1:00,Biomass,758.0
+2026/6/1 1:00,Energy Storage,385.0
+2026/6/1 1:00,Fossil Coal-derived Gas,341.75
+2026/6/1 1:00,Fossil Gas,7116.75
+2026/6/1 1:00,Fossil Hard Coal,163.25
+2026/6/1 1:00,Fossil Oil,21.0
+2026/6/1 1:00,Geothermal,588.75
+2026/6/1 1:00,Hydro Pumped Storage,
+2026/6/1 1:00,Hydro Run-of-river and Poundage,3520.75
+2026/6/1 1:00,Hydro Water Reservoir,359.75
+2026/6/1 1:00,Other,1628.75
+2026/6/1 1:00,Solar,0.0
+2026/6/1 1:00,Wind,2380.0
+2026/6/1 2:00,Biomass,756.75
+2026/6/1 2:00,Energy Storage,
+2026/6/1 2:00,Fossil Coal-derived Gas,342.5
+2026/6/1 2:00,Fossil Gas,6941.5
+2026/6/1 2:00,Fossil Hard Coal,162.0
+2026/6/1 2:00,Fossil Oil,21.0
+2026/6/1 2:00,Geothermal,589.75
+2026/6/1 2:00,Hydro Pumped Storage,
+2026/6/1 2:00,Hydro Run-of-river and Poundage,3417.0
+2026/6/1 2:00,Hydro Water Reservoir,326.25
+2026/6/1 2:00,Other,1624.0
+2026/6/1 2:00,Solar,0.0
+2026/6/1 2:00,Wind,2632.5
+2026/6/1 3:00,Biomass,749.75
+2026/6/1 3:00,Energy Storage,
+2026/6/1 3:00,Fossil Coal-derived Gas,343.0
+2026/6/1 3:00,Fossil Gas,6661.0
+2026/6/1 3:00,Fossil Hard Coal,162.5
+2026/6/1 3:00,Fossil Oil,21.0
+2026/6/1 3:00,Geothermal,590.0
+2026/6/1 3:00,Hydro Pumped Storage,
+2026/6/1 3:00,Hydro Run-of-river and Poundage,3352.0
+2026/6/1 3:00,Hydro Water Reservoir,307.5
+2026/6/1 3:00,Other,1627.5
+2026/6/1 3:00,Solar,0.0
+2026/6/1 3:00,Wind,2755.5
+2026/6/1 4:00,Biomass,757.25
+2026/6/1 4:00,Energy Storage,
+2026/6/1 4:00,Fossil Coal-derived Gas,343.75
+2026/6/1 4:00,Fossil Gas,6388.25
+2026/6/1 4:00,Fossil Hard Coal,163.25
+2026/6/1 4:00,Fossil Oil,21.0
+2026/6/1 4:00,Geothermal,590.5
+2026/6/1 4:00,Hydro Pumped Storage,
+2026/6/1 4:00,Hydro Run-of-river and Poundage,3394.0
+2026/6/1 4:00,Hydro Water Reservoir,318.75
+2026/6/1 4:00,Other,1633.75
+2026/6/1 4:00,Solar,0.0
+2026/6/1 4:00,Wind,2983.75
+2026/6/1 5:00,Biomass,767.75
+2026/6/1 5:00,Energy Storage,
+2026/6/1 5:00,Fossil Coal-derived Gas,343.25
+2026/6/1 5:00,Fossil Gas,6584.75
+2026/6/1 5:00,Fossil Hard Coal,163.0
+2026/6/1 5:00,Fossil Oil,21.0
+2026/6/1 5:00,Geothermal,591.0
+2026/6/1 5:00,Hydro Pumped Storage,
+2026/6/1 5:00,Hydro Run-of-river and Poundage,3505.25
+2026/6/1 5:00,Hydro Water Reservoir,366.0
+2026/6/1 5:00,Other,1634.0
+2026/6/1 5:00,Solar,21.75
+2026/6/1 5:00,Wind,2983.0
+2026/6/1 6:00,Biomass,758.25
+2026/6/1 6:00,Energy Storage,999.5
+2026/6/1 6:00,Fossil Coal-derived Gas,338.5
+2026/6/1 6:00,Fossil Gas,6842.0
+2026/6/1 6:00,Fossil Hard Coal,182.75
+2026/6/1 6:00,Fossil Oil,21.0
+2026/6/1 6:00,Geothermal,591.0
+2026/6/1 6:00,Hydro Pumped Storage,331.0
+2026/6/1 6:00,Hydro Run-of-river and Poundage,3868.25
+2026/6/1 6:00,Hydro Water Reservoir,500.75
+2026/6/1 6:00,Other,1651.5
+2026/6/1 6:00,Solar,917.0
+2026/6/1 6:00,Wind,2874.25
+2026/6/1 7:00,Biomass,746.75
+2026/6/1 7:00,Energy Storage,468.25
+2026/6/1 7:00,Fossil Coal-derived Gas,338.0
+2026/6/1 7:00,Fossil Gas,6717.5
+2026/6/1 7:00,Fossil Hard Coal,206.25
+2026/6/1 7:00,Fossil Oil,21.0
+2026/6/1 7:00,Geothermal,589.75
+2026/6/1 7:00,Hydro Pumped Storage,659.0
+2026/6/1 7:00,Hydro Run-of-river and Poundage,4006.0
+2026/6/1 7:00,Hydro Water Reservoir,494.0
+2026/6/1 7:00,Other,1660.0
+2026/6/1 7:00,Solar,3913.75
+2026/6/1 7:00,Wind,2530.75
+2026/6/1 8:00,Biomass,749.75
+2026/6/1 8:00,Energy Storage,54.0
+2026/6/1 8:00,Fossil Coal-derived Gas,338.0
+2026/6/1 8:00,Fossil Gas,6017.5
+2026/6/1 8:00,Fossil Hard Coal,205.0
+2026/6/1 8:00,Fossil Oil,21.0
+2026/6/1 8:00,Geothermal,587.75
+2026/6/1 8:00,Hydro Pumped Storage,1090.0
+2026/6/1 8:00,Hydro Run-of-river and Poundage,3752.25
+2026/6/1 8:00,Hydro Water Reservoir,357.0
+2026/6/1 8:00,Other,1654.0
+2026/6/1 8:00,Solar,7813.25
+2026/6/1 8:00,Wind,2307.25
+2026/6/1 9:00,Biomass,740.75
+2026/6/1 9:00,Energy Storage,145.0
+2026/6/1 9:00,Fossil Coal-derived Gas,338.25
+2026/6/1 9:00,Fossil Gas,4219.25
+2026/6/1 9:00,Fossil Hard Coal,203.75
+2026/6/1 9:00,Fossil Oil,20.25
+2026/6/1 9:00,Geothermal,585.5
+2026/6/1 9:00,Hydro Pumped Storage,435.3333333333333
+2026/6/1 9:00,Hydro Run-of-river and Poundage,3539.25
+2026/6/1 9:00,Hydro Water Reservoir,344.0
+2026/6/1 9:00,Other,1638.5
+2026/6/1 9:00,Solar,11072.25
+2026/6/1 9:00,Wind,2213.25
+2026/6/1 10:00,Biomass,719.75
+2026/6/1 10:00,Energy Storage,278.0
+2026/6/1 10:00,Fossil Coal-derived Gas,341.25
+2026/6/1 10:00,Fossil Gas,2029.5
+2026/6/1 10:00,Fossil Hard Coal,202.0
+2026/6/1 10:00,Fossil Oil,20.0
+2026/6/1 10:00,Geothermal,583.25
+2026/6/1 10:00,Hydro Pumped Storage,298.6666666666667
+2026/6/1 10:00,Hydro Run-of-river and Poundage,3302.0
+2026/6/1 10:00,Hydro Water Reservoir,232.5
+2026/6/1 10:00,Other,1624.25
+2026/6/1 10:00,Solar,13987.75
+2026/6/1 10:00,Wind,2487.75
+2026/6/1 11:00,Biomass,704.75
+2026/6/1 11:00,Energy Storage,425.0
+2026/6/1 11:00,Fossil Coal-derived Gas,343.0
+2026/6/1 11:00,Fossil Gas,1488.75
+2026/6/1 11:00,Fossil Hard Coal,199.25
+2026/6/1 11:00,Fossil Oil,20.0
+2026/6/1 11:00,Geothermal,581.5
+2026/6/1 11:00,Hydro Pumped Storage,1025.25
+2026/6/1 11:00,Hydro Run-of-river and Poundage,3050.25
+2026/6/1 11:00,Hydro Water Reservoir,145.0
+2026/6/1 11:00,Other,1613.25
+2026/6/1 11:00,Solar,15748.25
+2026/6/1 11:00,Wind,2736.25
+2026/6/1 12:00,Biomass,698.75
+2026/6/1 12:00,Energy Storage,1199.3333333333333
+2026/6/1 12:00,Fossil Coal-derived Gas,344.5
+2026/6/1 12:00,Fossil Gas,1881.75
+2026/6/1 12:00,Fossil Hard Coal,205.0
+2026/6/1 12:00,Fossil Oil,20.0
+2026/6/1 12:00,Geothermal,580.0
+2026/6/1 12:00,Hydro Pumped Storage,1675.5
+2026/6/1 12:00,Hydro Run-of-river and Poundage,2900.0
+2026/6/1 12:00,Hydro Water Reservoir,136.5
+2026/6/1 12:00,Other,1614.75
+2026/6/1 12:00,Solar,16588.75
+2026/6/1 12:00,Wind,2920.25
+2026/6/1 13:00,Biomass,711.25
+2026/6/1 13:00,Energy Storage,1258.75
+2026/6/1 13:00,Fossil Coal-derived Gas,343.0
+2026/6/1 13:00,Fossil Gas,2100.25
+2026/6/1 13:00,Fossil Hard Coal,207.0
+2026/6/1 13:00,Fossil Oil,20.0
+2026/6/1 13:00,Geothermal,579.0
+2026/6/1 13:00,Hydro Pumped Storage,1820.5
+2026/6/1 13:00,Hydro Run-of-river and Poundage,2968.0
+2026/6/1 13:00,Hydro Water Reservoir,137.75
+2026/6/1 13:00,Other,1607.75
+2026/6/1 13:00,Solar,16264.0
+2026/6/1 13:00,Wind,3216.75
+2026/6/1 14:00,Biomass,719.0
+2026/6/1 14:00,Energy Storage,1160.75
+2026/6/1 14:00,Fossil Coal-derived Gas,341.25
+2026/6/1 14:00,Fossil Gas,1865.5
+2026/6/1 14:00,Fossil Hard Coal,191.0
+2026/6/1 14:00,Fossil Oil,20.0
+2026/6/1 14:00,Geothermal,577.0
+2026/6/1 14:00,Hydro Pumped Storage,1316.0
+2026/6/1 14:00,Hydro Run-of-river and Poundage,2970.75
+2026/6/1 14:00,Hydro Water Reservoir,157.5
+2026/6/1 14:00,Other,1610.25
+2026/6/1 14:00,Solar,15273.5
+2026/6/1 14:00,Wind,3888.75
+2026/6/1 15:00,Biomass,691.5
+2026/6/1 15:00,Energy Storage,
+2026/6/1 15:00,Fossil Coal-derived Gas,343.0
+2026/6/1 15:00,Fossil Gas,1642.25
+2026/6/1 15:00,Fossil Hard Coal,159.0
+2026/6/1 15:00,Fossil Oil,20.0
+2026/6/1 15:00,Geothermal,576.0
+2026/6/1 15:00,Hydro Pumped Storage,1341.0
+2026/6/1 15:00,Hydro Run-of-river and Poundage,3055.0
+2026/6/1 15:00,Hydro Water Reservoir,190.0
+2026/6/1 15:00,Other,1605.75
+2026/6/1 15:00,Solar,13631.25
+2026/6/1 15:00,Wind,4454.0
+2026/6/1 16:00,Biomass,698.0
+2026/6/1 16:00,Energy Storage,
+2026/6/1 16:00,Fossil Coal-derived Gas,341.0
+2026/6/1 16:00,Fossil Gas,2597.0
+2026/6/1 16:00,Fossil Hard Coal,161.0
+2026/6/1 16:00,Fossil Oil,20.0
+2026/6/1 16:00,Geothermal,575.0
+2026/6/1 16:00,Hydro Pumped Storage,659.25
+2026/6/1 16:00,Hydro Run-of-river and Poundage,3194.0
+2026/6/1 16:00,Hydro Water Reservoir,295.0
+2026/6/1 16:00,Other,1607.75
+2026/6/1 16:00,Solar,11669.5
+2026/6/1 16:00,Wind,4901.25
+2026/6/1 17:00,Biomass,717.0
+2026/6/1 17:00,Energy Storage,8.0
+2026/6/1 17:00,Fossil Coal-derived Gas,345.0
+2026/6/1 17:00,Fossil Gas,5114.0
+2026/6/1 17:00,Fossil Hard Coal,163.5
+2026/6/1 17:00,Fossil Oil,22.25
+2026/6/1 17:00,Geothermal,578.25
+2026/6/1 17:00,Hydro Pumped Storage,468.0
+2026/6/1 17:00,Hydro Run-of-river and Poundage,3510.75
+2026/6/1 17:00,Hydro Water Reservoir,346.0
+2026/6/1 17:00,Other,1612.0
+2026/6/1 17:00,Solar,8867.5
+2026/6/1 17:00,Wind,5283.75
+2026/6/1 18:00,Biomass,724.25
+2026/6/1 18:00,Energy Storage,49.5
+2026/6/1 18:00,Fossil Coal-derived Gas,347.5
+2026/6/1 18:00,Fossil Gas,8609.5
+2026/6/1 18:00,Fossil Hard Coal,185.25
+2026/6/1 18:00,Fossil Oil,22.75
+2026/6/1 18:00,Geothermal,579.75
+2026/6/1 18:00,Hydro Pumped Storage,1522.0
+2026/6/1 18:00,Hydro Run-of-river and Poundage,3854.5
+2026/6/1 18:00,Hydro Water Reservoir,465.5
+2026/6/1 18:00,Other,1653.0
+2026/6/1 18:00,Solar,5052.75
+2026/6/1 18:00,Wind,5018.5
+2026/6/1 19:00,Biomass,719.0
+2026/6/1 19:00,Energy Storage,1467.0
+2026/6/1 19:00,Fossil Coal-derived Gas,346.0
+2026/6/1 19:00,Fossil Gas,10842.5
+2026/6/1 19:00,Fossil Hard Coal,267.25
+2026/6/1 19:00,Fossil Oil,22.25
+2026/6/1 19:00,Geothermal,581.25
+2026/6/1 19:00,Hydro Pumped Storage,538.3333333333334
+2026/6/1 19:00,Hydro Run-of-river and Poundage,4268.0
+2026/6/1 19:00,Hydro Water Reservoir,682.25
+2026/6/1 19:00,Other,1672.75
+2026/6/1 19:00,Solar,1490.25
+2026/6/1 19:00,Wind,4282.0
+2026/6/1 20:00,Biomass,720.0
+2026/6/1 20:00,Energy Storage,1534.25
+2026/6/1 20:00,Fossil Coal-derived Gas,345.25
+2026/6/1 20:00,Fossil Gas,11241.25
+2026/6/1 20:00,Fossil Hard Coal,269.5
+2026/6/1 20:00,Fossil Oil,22.75
+2026/6/1 20:00,Geothermal,582.25
+2026/6/1 20:00,Hydro Pumped Storage,797.75
+2026/6/1 20:00,Hydro Run-of-river and Poundage,4506.25
+2026/6/1 20:00,Hydro Water Reservoir,875.75
+2026/6/1 20:00,Other,1687.0
+2026/6/1 20:00,Solar,165.0
+2026/6/1 20:00,Wind,3912.0
+2026/6/1 21:00,Biomass,727.75
+2026/6/1 21:00,Energy Storage,1286.5
+2026/6/1 21:00,Fossil Coal-derived Gas,344.5
+2026/6/1 21:00,Fossil Gas,11380.0
+2026/6/1 21:00,Fossil Hard Coal,269.5
+2026/6/1 21:00,Fossil Oil,20.75
+2026/6/1 21:00,Geothermal,583.0
+2026/6/1 21:00,Hydro Pumped Storage,556.25
+2026/6/1 21:00,Hydro Run-of-river and Poundage,4427.0
+2026/6/1 21:00,Hydro Water Reservoir,915.75
+2026/6/1 21:00,Other,1692.5
+2026/6/1 21:00,Solar,2.5
+2026/6/1 21:00,Wind,3108.0
+2026/6/1 22:00,Biomass,726.5
+2026/6/1 22:00,Energy Storage,608.3333333333334
+2026/6/1 22:00,Fossil Coal-derived Gas,337.0
+2026/6/1 22:00,Fossil Gas,11459.0
+2026/6/1 22:00,Fossil Hard Coal,228.25
+2026/6/1 22:00,Fossil Oil,21.75
+2026/6/1 22:00,Geothermal,583.5
+2026/6/1 22:00,Hydro Pumped Storage,431.5
+2026/6/1 22:00,Hydro Run-of-river and Poundage,4287.5
+2026/6/1 22:00,Hydro Water Reservoir,741.75
+2026/6/1 22:00,Other,1687.5
+2026/6/1 22:00,Solar,0.0
+2026/6/1 22:00,Wind,2200.25
+2026/6/1 23:00,Biomass,724.5
+2026/6/1 23:00,Energy Storage,
+2026/6/1 23:00,Fossil Coal-derived Gas,344.0
+2026/6/1 23:00,Fossil Gas,10905.5
+2026/6/1 23:00,Fossil Hard Coal,161.5
+2026/6/1 23:00,Fossil Oil,20.5
+2026/6/1 23:00,Geothermal,584.0
+2026/6/1 23:00,Hydro Pumped Storage,468.25
+2026/6/1 23:00,Hydro Run-of-river and Poundage,3997.5
+2026/6/1 23:00,Hydro Water Reservoir,556.75
+2026/6/1 23:00,Other,1675.25
+2026/6/1 23:00,Solar,0.0
+2026/6/1 23:00,Wind,1531.0

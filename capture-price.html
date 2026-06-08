@@ -499,19 +499,19 @@
                 <div class="chart-card-header">
                     <div>
                         <h3 id="card4Title">Capture Price Summary Table – HU</h3>
-                        <div class="subtitle">Monthly · Quarterly · Half-yearly · Yearly breakdown across all available years</div>
+                        <div class="subtitle">Monthly  · Yearly breakdown across all available years</div>
                     </div>
                     <div class="chart-card-controls">
+                        <label>Month Range</label>
+                        <select class="ctrl-select" id="tableRangeStart" style="min-width:70px;"></select>
+                        <span style="font-size:13px;color:#6c757d;">to</span>
+                        <select class="ctrl-select" id="tableRangeEnd" style="min-width:70px;"></select>
                         <label>Country</label>
                         <select class="ctrl-select" id="tableCountrySelect"></select>
                         <div class="table-source-toggle">
                             <button class="table-source-btn solar active" id="tableBtnSolar">☀ Solar</button>
                             <button class="table-source-btn wind"         id="tableBtnWind">💨 Wind</button>
                         </div>
-                        <label style="margin-left:8px;">Custom Range</label>
-                        <select class="ctrl-select" id="tableRangeStart" style="min-width:70px;"></select>
-                        <span style="font-size:13px;color:#6c757d;">→</span>
-                        <select class="ctrl-select" id="tableRangeEnd" style="min-width:70px;"></select>
                     </div>
                 </div>
                 <div class="summary-table-wrap">

@@ -151,6 +151,26 @@
                 <option value="Waste">Waste</option>
                 <option value="Other">Other</option>
             </select>
+
+        <div class="control-group">
+            <label>Start Month</label>
+            <select id="startMonth">
+                <option value="1">Jan</option><option value="2">Feb</option><option value="3">Mar</option>
+                <option value="4">Apr</option><option value="5">May</option><option value="6">Jun</option>
+                <option value="7">Jul</option><option value="8">Aug</option><option value="9">Sep</option>
+                <option value="10">Oct</option><option value="11">Nov</option><option value="12">Dec</option>
+            </select>
+        </div>
+        <div class="control-group">
+            <label>End Month</label>
+            <select id="endMonth">
+                <option value="1">Jan</option><option value="2">Feb</option><option value="3">Mar</option>
+                <option value="4">Apr</option><option value="5">May</option><option value="6">Jun</option>
+                <option value="7">Jul</option><option value="8">Aug</option><option value="9">Sep</option>
+                <option value="10">Oct</option><option value="11">Nov</option><option value="12" selected>Dec</option>
+            </select>
+        </div>
+
         </div>
     </div>
 
@@ -164,6 +184,7 @@
             </div>
             <div id="barChart"></div>
             <div id="chartLegend"></div>
+            <div id="summaryTable"></div>
         </div>
 
         <div class="table-card">
@@ -490,6 +511,64 @@ function renderTable(totals, typeName) {
     document.getElementById('tableTitle').textContent = `YoY Change – ${typeName}`;
 }
 
+
+let loadData = [];
+
+async function loadLoadData(){
+    if(loadData.length) return;
+    const res = await fetch('/data/load.csv');
+    const txt = await res.text();
+    const lines = txt.trim().split(/\r?\n/);
+    const headers = lines[0].split(',');
+    for(let i=1;i<lines.length;i++){
+        const p=lines[i].split(',');
+        const dt=parseDate(p[0]);
+        if(!dt) continue;
+        const row={year:dt.year,month:dt.month};
+        headers.slice(1).forEach((h,j)=>row[h]=parseFloat(p[j+1])||0);
+        loadData.push(row);
+    }
+}
+
+function aggregateGeneration(monthly,startM,endM){
+ const r={};
+ YEARS.forEach(y=>{
+  let s=0;
+  for(let m=startM;m<=endM;m++) if(monthly[y][m]) s+=monthly[y][m];
+  r[y]=s/1000;
+ });
+ return r;
+}
+
+function buildLoadTotals(country,startM,endM){
+ const r={2024:0,2025:0,2026:0};
+ loadData.forEach(x=>{
+   if(x.month<startM||x.month>endM||!r.hasOwnProperty(x.year)) return;
+   r[x.year]+=x[country]||0;
+ });
+ Object.keys(r).forEach(y=>r[y]/=1000000);
+ return r;
+}
+
+function yoy(a,b){ return (!b||b===0)?null:(a-b)/b*100; }
+
+function renderSummary(country){
+ const sm=parseInt(document.getElementById('startMonth').value);
+ const em=parseInt(document.getElementById('endMonth').value);
+ const typeName=document.getElementById('typeSelect').value;
+ const gen=aggregateGeneration(buildMonthlyTotals(country,typeName),sm,em);
+ const load=buildLoadTotals(country,sm,em);
+ let html='<table class="yoy-table"><thead><tr><th>Year</th><th>Load(TWh)</th><th>Load YoY</th><th>'+typeName+'(TWh)</th><th>Gen YoY</th><th>Share</th></tr></thead><tbody>';
+ YEARS.forEach((y,i)=>{
+  const ly=i?yoy(load[y],load[YEARS[i-1]]):null;
+  const gy=i?yoy(gen[y],gen[YEARS[i-1]]):null;
+  const sh=load[y]>0?gen[y]/load[y]*100:null;
+  html+=`<tr><td>${y}</td><td>${load[y].toFixed(2)}</td><td>${fmtPct(ly)}</td><td>${gen[y].toFixed(2)}</td><td>${fmtPct(gy)}</td><td>${sh?sh.toFixed(1):'-'}%</td></tr>`;
+ });
+ html+='</tbody></table>';
+ document.getElementById('summaryTable').innerHTML=html;
+}
+
 async function refresh() {
     const country  = document.getElementById('countrySelect').value;
     const typeName = document.getElementById('typeSelect').value;
@@ -498,6 +577,7 @@ async function refresh() {
     document.getElementById('mainContent').style.display = 'none';
 
     await loadCountry(country);
+    await loadLoadData();
 
     document.getElementById('loadingMsg').style.display = 'none';
     // Show grid BEFORE touching the chart so the container has real dimensions
@@ -509,6 +589,7 @@ async function refresh() {
         const totals = buildMonthlyTotals(country, typeName);
         renderChart(totals, country, typeName);
         renderTable(totals, typeName);
+        renderSummary(country);
     });
 }
 
@@ -529,6 +610,8 @@ async function init() {
 
     document.getElementById('countrySelect').addEventListener('change', refresh);
     document.getElementById('typeSelect').addEventListener('change', refresh);
+    document.getElementById('startMonth').addEventListener('change', refresh);
+    document.getElementById('endMonth').addEventListener('change', refresh);
 
     await refresh();
 }

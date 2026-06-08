@@ -343,14 +343,11 @@ function buildMonthlyTotals(country, typeName) {
     const result = {};
     YEARS.forEach(y => {
         result[y] = {};
-        const isLeap = (y % 4 === 0 && (y % 100 !== 0 || y % 400 === 0));
         for (let m = 1; m <= 12; m++) {
             const { sum, cnt } = agg[y][m];
             if (cnt === 0) { result[y][m] = null; continue; }
-            const days = (m === 2 && isLeap) ? 29 : DAYS_IN_MONTH[m];
-            const avgMW = sum / cnt;
-            // MWh → GWh for display
-            result[y][m] = +(avgMW * days * 24 / 1000).toFixed(2);
+            result[y][m] =
+                +(sum / 1000).toFixed(2);
         }
     });
     return result;

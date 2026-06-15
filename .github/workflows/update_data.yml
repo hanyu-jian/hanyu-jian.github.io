@@ -1,5 +1,4 @@
 name: Daily Energy Data Update
-
 on:
   schedule:
     - cron: "0 6 * * *"
@@ -21,13 +20,24 @@ on:
         description: "Repair end date, for example 2024-12-31. Empty uses yesterday."
         type: string
         default: ""
+      price_only:
+        description: "Only fetch price data (updates data/price.csv and raw_data/A44.csv)"
+        type: boolean
+        default: false
+      price_start:
+        description: "Price-only start date, for example 2024-01-01. Empty uses FULL_START_DATE."
+        type: string
+        default: ""
+      price_end:
+        description: "Price-only end date, for example 2024-12-31. Empty uses yesterday."
+        type: string
+        default: ""
 
 jobs:
   update:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -60,8 +70,24 @@ jobs:
           fi
           python repair_entsoe.py "${args[@]}"
 
+      - name: Run price-only update
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.price_only == true && inputs.repair_country == '' }}
+        env:
+          ENTSOE_TOKEN: ${{ secrets.ENTSOE_TOKEN }}
+          PRICE_START: ${{ inputs.price_start }}
+          PRICE_END: ${{ inputs.price_end }}
+        run: |
+          args=(--mode price_only)
+          if [ -n "$PRICE_START" ]; then
+            args+=(--start "$PRICE_START")
+          fi
+          if [ -n "$PRICE_END" ]; then
+            args+=(--end "$PRICE_END")
+          fi
+          python fetch_entsoe.py "${args[@]}"
+
       - name: Run normal update script
-        if: ${{ github.event_name != 'workflow_dispatch' || inputs.repair_country == '' }}
+        if: ${{ github.event_name != 'workflow_dispatch' || (inputs.repair_country == '' && inputs.price_only == false) }}
         env:
           ENTSOE_TOKEN: ${{ secrets.ENTSOE_TOKEN }}
           FULL_MODE: ${{ github.event_name == 'workflow_dispatch' && inputs.full_mode || false }}

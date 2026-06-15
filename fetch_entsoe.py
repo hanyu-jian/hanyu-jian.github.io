@@ -708,6 +708,7 @@ def main():
     parser.add_argument(
         "--mode", choices=["incremental", "full", "price_only"], default="incremental",
     )
+    parser.add_argument("--country", default="", help="只跑指定国家，例如 DE，为空则跑全部")
     parser.add_argument("--start", default="", help="自定义起始日期 YYYY-MM-DD")
     parser.add_argument("--end",   default="", help="自定义结束日期 YYYY-MM-DD")
     args = parser.parse_args()
@@ -739,11 +740,21 @@ def main():
 
     # ── price_only 分支 ──────────────────────────────────────
     if args.mode == "price_only":
-        print(f"国家数量: {len(COUNTRIES)}\n")
+        # 过滤国家列表
+        if args.country:
+            cc_filter = args.country.lower()
+            if cc_filter not in COUNTRY_CONFIG:
+                print(f"[ERROR] 未知国家: {args.country}")
+                return
+            countries_to_run = [cc_filter]
+        else:
+            countries_to_run = COUNTRIES
+
+        print(f"国家: {[c.upper() for c in countries_to_run]}\n")
         price_cols:     dict[str, pd.Series] = {}
         raw_price_cols: dict[str, pd.Series] = {}
 
-        for cc in COUNTRIES:
+        for cc in countries_to_run:   # ← 原来是 COUNTRIES，改成这个
             cfg     = COUNTRY_CONFIG[cc]
             bzn_eic = cfg["bzn_eic"]
             col     = cc.upper()
@@ -763,10 +774,7 @@ def main():
         print("保存/合并文件...")
         merge_and_save_wide(price_cols, DATA_DIR / "price.csv", "price")
         merge_and_save_raw_wide(raw_price_cols, RAW_DIR / "A44.csv", "A44 price")
-
-        print("=" * 62)
-        print(f"完成！{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-        print("=" * 62)
+        
         return
 
     price_cols:    dict[str, pd.Series] = {}

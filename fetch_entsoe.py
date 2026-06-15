@@ -302,22 +302,27 @@ def _parse_period_raw(period_el: ET.Element,
 
 def _filter_ts_by_sequence_position(
     ts_list: list[ET.Element],
-    position: int = 1  # position=1 是你需要的
+    position: int = 1
 ) -> list[ET.Element]:
-    tagged = [
-        ts for ts in ts_list
-        if ts.find(".//{*}classificationSequence_AttributeInstanceComponent.position") is not None
-    ]
-    if not tagged:
-        return ts_list  # 其他国家无此标签，直接返回
+    SEQ_TAG = ".//{*}classificationSequence_AttributeInstanceComponent.position"
 
-    return [
-        ts for ts in tagged
-        if ts.findtext(
-            ".//{*}classificationSequence_AttributeInstanceComponent.position"
-        ) == str(position)
-    ]
+    tagged   = [ts for ts in ts_list if ts.find(SEQ_TAG) is not None]
+    untagged = [ts for ts in ts_list if ts.find(SEQ_TAG) is None]
 
+    # 西班牙情况：tagged 和 untagged 同时存在，取无 sequence tag 的那条
+    if tagged and untagged:
+        return untagged
+
+    # 其他国家：全部都有 sequence tag，按 position 过滤（德国/奥地利等）
+    if tagged:
+        return [
+            ts for ts in tagged
+            if ts.findtext(SEQ_TAG) == str(position)
+        ]
+
+    # 所有国家都没有 sequence tag（无需过滤，直接返回）
+    return ts_list
+    
 
 
 # ← CHANGED: 去掉 tz 参数

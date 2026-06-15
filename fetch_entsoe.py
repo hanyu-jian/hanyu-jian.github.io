@@ -706,35 +706,68 @@ def merge_and_save_raw_generation(raw_gen_by_country: dict[str, dict[str, pd.Ser
 def main():
     parser = argparse.ArgumentParser(description="ENTSOE 数据更新")
     parser.add_argument(
-        "--mode", choices=["incremental", "full"], default="incremental",
-        help="incremental=仅最近7天(默认), full=全量拉取"
+        "--mode", choices=["incremental", "full", "price_only"], default="incremental",
     )
+    parser.add_argument("--start", default="", help="自定义起始日期 YYYY-MM-DD")
+    parser.add_argument("--end",   default="", help="自定义结束日期 YYYY-MM-DD")
     args = parser.parse_args()
 
     today     = datetime.now()
     yesterday = today - timedelta(days=1)
-    end_date  = yesterday.strftime("%Y-%m-%d")
+    end_date  = args.end   if args.end   else yesterday.strftime("%Y-%m-%d")
 
     if args.mode == "full":
-        start_date = FULL_START_DATE
+        start_date = args.start if args.start else FULL_START_DATE
         mode_label = "全量模式"
+    elif args.mode == "price_only":
+        start_date = args.start if args.start else FULL_START_DATE
+        mode_label = "仅价格模式"
     else:
-        start_date = (today - timedelta(days=LOOKBACK_DAYS)).strftime("%Y-%m-%d")
+        start_date = args.start if args.start else (today - timedelta(days=LOOKBACK_DAYS)).strftime("%Y-%m-%d")
         mode_label = f"增量模式（最近 {LOOKBACK_DAYS} 天）"
 
-    # ← CHANGED: cutoff 也基于 CET/CEST 的午夜，而非 UTC
     cutoff_local = pd.Timestamp(end_date).tz_localize(ENTSOE_DISPLAY_TZ) + timedelta(days=1)
-    cutoff_naive = cutoff_local.tz_localize(None)  # strip tz，用于与 naive index 比较
+    cutoff_naive = cutoff_local.tz_localize(None)
 
     print("=" * 62)
     print(f"ENTSOE 数据更新  [{mode_label}]")
     print("=" * 62)
     print(f"数据范围: {start_date} → {end_date}（含，CET/CEST）")
-    print(f"国家数量: {len(COUNTRIES)}")
-    print()
 
     DATA_DIR.mkdir(exist_ok=True)
     RAW_DIR.mkdir(exist_ok=True)
+
+    # ── price_only 分支 ──────────────────────────────────────
+    if args.mode == "price_only":
+        print(f"国家数量: {len(COUNTRIES)}\n")
+        price_cols:     dict[str, pd.Series] = {}
+        raw_price_cols: dict[str, pd.Series] = {}
+
+        for cc in COUNTRIES:
+            cfg     = COUNTRY_CONFIG[cc]
+            bzn_eic = cfg["bzn_eic"]
+            col     = cc.upper()
+            print(f"[{col}]")
+            print(f"  → A44 price  eic={bzn_eic}")
+            s_hourly, s_raw = fetch_price(bzn_eic, start_date, end_date)
+            if s_hourly is not None:
+                s_hourly = s_hourly[s_hourly.index < cutoff_naive]
+                price_cols[col]     = s_hourly
+                raw_price_cols[col] = s_raw[s_raw.index < cutoff_naive]
+                print(f"     ✓ {price_cols[col].notna().sum()} 有效值(1h) | "
+                      f"{raw_price_cols[col].notna().sum()} 原始点")
+            else:
+                print(f"     [WARN] 无价格数据")
+            print()
+
+        print("保存/合并文件...")
+        merge_and_save_wide(price_cols, DATA_DIR / "price.csv", "price")
+        merge_and_save_raw_wide(raw_price_cols, RAW_DIR / "A44.csv", "A44 price")
+
+        print("=" * 62)
+        print(f"完成！{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        print("=" * 62)
+        return
 
     price_cols:    dict[str, pd.Series] = {}
     load_cols:     dict[str, pd.Series] = {}

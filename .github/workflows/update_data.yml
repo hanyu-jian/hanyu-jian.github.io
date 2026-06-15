@@ -24,6 +24,10 @@ on:
         description: "Only fetch price data (updates data/price.csv and raw_data/A44.csv)"
         type: boolean
         default: false
+      price_country:
+        description: "Price-only specific country, for example DE. Empty runs all countries."
+        type: string
+        default: ""
       price_start:
         description: "Price-only start date, for example 2024-01-01. Empty uses FULL_START_DATE."
         type: string
@@ -74,10 +78,14 @@ jobs:
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.price_only == true && inputs.repair_country == '' }}
         env:
           ENTSOE_TOKEN: ${{ secrets.ENTSOE_TOKEN }}
+          PRICE_COUNTRY: ${{ inputs.price_country }}
           PRICE_START: ${{ inputs.price_start }}
           PRICE_END: ${{ inputs.price_end }}
         run: |
           args=(--mode price_only)
+          if [ -n "$PRICE_COUNTRY" ]; then
+            args+=(--country "$PRICE_COUNTRY")
+          fi
           if [ -n "$PRICE_START" ]; then
             args+=(--start "$PRICE_START")
           fi

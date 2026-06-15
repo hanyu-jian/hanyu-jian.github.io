@@ -300,6 +300,25 @@ def _parse_period_raw(period_el: ET.Element,
     )
     return s, res_min
 
+def _filter_ts_by_sequence_position(
+    ts_list: list[ET.Element],
+    position: int = 1  # position=1 是你需要的
+) -> list[ET.Element]:
+    tagged = [
+        ts for ts in ts_list
+        if ts.find(".//{*}classificationSequence_AttributeInstanceComponent.position") is not None
+    ]
+    if not tagged:
+        return ts_list  # 其他国家无此标签，直接返回
+
+    return [
+        ts for ts in tagged
+        if ts.findtext(
+            ".//{*}classificationSequence_AttributeInstanceComponent.position"
+        ) == str(position)
+    ]
+
+
 
 # ← CHANGED: 去掉 tz 参数
 def _ts_list_to_raw_series(ts_list: list[ET.Element],
@@ -419,6 +438,7 @@ def fetch_price(bzn_eic: str, start: str,
         print(f"     chunk {i}/{len(chunks)}: {cs} → {ce}")
         ts_list = _get_all_timeseries(_price_params(bzn_eic, cs, ce), f"price {bzn_eic}")
         time.sleep(REQUEST_DELAY)
+        ts_list = _filter_ts_by_sequence_position(ts_list, position=1)
         raw = _ts_list_to_raw_series(ts_list, value_tag="price.amount")
         if raw is not None:
             raw_parts.append(raw)

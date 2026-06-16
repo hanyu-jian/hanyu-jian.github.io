@@ -82,6 +82,18 @@
             display: flex; flex-wrap: wrap; gap: 8px 16px; justify-content: center;
             border-top: none;
         }
+        .legend-row {
+            display: flex; align-items: flex-start; gap: 12px; margin-top: 6px;
+        }
+        .legend-btns {
+            display: flex; flex-direction: column; gap: 4px; flex-shrink: 0; padding-top: 2px;
+        }
+        .legend-btns button {
+            padding: 3px 9px; font-size: 11px; background: #e9ecef;
+            border: 1px solid #ccc; border-radius: 4px; cursor: pointer;
+            white-space: nowrap; font-family: inherit;
+        }
+        .legend-btns button:hover { background: #d0d3d8; }
         .leg-item {
             display: flex; align-items: center; gap: 7px;
             font-size: 13px; color: #333; cursor: pointer;
@@ -163,7 +175,13 @@
                 <div class="year-card"><div class="year-title">2025</div><div id="chart2025" class="year-chart"></div></div>
                 <div class="year-card"><div class="year-title">2026</div><div id="chart2026" class="year-chart"></div></div>
             </div>
-            <div id="sharedLegend"></div>
+            <div class="legend-row">
+                <div class="legend-btns">
+                    <button id="legendSelectAll">All</button>
+                    <button id="legendClearAll">Clear</button>
+                </div>
+                <div id="sharedLegend"></div>
+            </div>
         </div>
 
         <div class="chart-card">
@@ -446,6 +464,29 @@ function initControls() {
         document.querySelectorAll('#countryCheckboxes input').forEach(x => x.checked = false);
         updateCountryLabel(); refresh();
     });
+
+    // Legend select all / clear all
+    document.getElementById('legendSelectAll').addEventListener('click', () => {
+        allSeriesNames.forEach(n => { legendState[n] = true; });
+        const selected = getSelectedCountries();
+        const mFrom = parseInt(document.getElementById('monthFrom').value, 10);
+        const mTo   = parseInt(document.getElementById('monthTo').value, 10);
+        const yMax = calcGlobalYMax(selected, mFrom, mTo, null);
+        [[charts.chart2024, 2024],[charts.chart2025, 2025],[charts.chart2026, 2026]].forEach(([c, y]) => {
+            applyYearChart(c, y, selected, mFrom, mTo, yMax);
+        });
+        buildHtmlLegend();
+    });
+    document.getElementById('legendClearAll').addEventListener('click', () => {
+        allSeriesNames.forEach(n => { legendState[n] = false; });
+        const selected = getSelectedCountries();
+        const mFrom = parseInt(document.getElementById('monthFrom').value, 10);
+        const mTo   = parseInt(document.getElementById('monthTo').value, 10);
+        [[charts.chart2024, 2024],[charts.chart2025, 2025],[charts.chart2026, 2026]].forEach(([c, y]) => {
+            applyYearChart(c, y, selected, mFrom, mTo, undefined);
+        });
+        buildHtmlLegend();
+    });
 }
 
 // ── Data summarisation ────────────────────────────────────────────────────────
@@ -689,10 +730,12 @@ function buildSeriesForYear(year, selectedCountries, mFrom, mTo) {
     const series = techs.map(t => {
         const col = typeToColor(t);
         const visible = legendState[t] !== false;
+        // When hidden: keep stack name but zero out data so it doesn't contribute to stack height
         return {
             name: t, type: 'line', stack: 'gen', smooth: false, symbol: 'none',
             yAxisIndex: 0,
-            data: techSeries[t], itemStyle: { color: col },
+            data: visible ? techSeries[t] : techSeries[t].map(() => 0),
+            itemStyle: { color: col },
             lineStyle: { width: visible ? 1.6 : 0, color: col },
             areaStyle: { opacity: visible ? 1 : 0, color: col },
             silent: !visible,
@@ -704,7 +747,8 @@ function buildSeriesForYear(year, selectedCountries, mFrom, mTo) {
     series.push({
         name: 'Load', type: 'line', smooth: false, symbol: 'none',
         yAxisIndex: 0,
-        data: load, itemStyle: { color: '#111827' },
+        data: loadVisible ? load : load.map(() => null),
+        itemStyle: { color: '#111827' },
         lineStyle: { width: loadVisible ? 2.2 : 0, color: '#111827' },
         areaStyle: { opacity: 0 },
         silent: !loadVisible,
@@ -716,7 +760,7 @@ function buildSeriesForYear(year, selectedCountries, mFrom, mTo) {
     series.push({
         name: PRICE_SERIES_NAME, type: 'line', smooth: false, symbol: 'none',
         yAxisIndex: 1,
-        data: priceSeries,
+        data: priceVisible ? priceSeries : priceSeries.map(() => null),
         itemStyle: { color: '#e53935' },
         lineStyle: { width: priceVisible ? 2 : 0, color: '#e53935' },
         areaStyle: { opacity: 0 },
@@ -772,28 +816,36 @@ function applyYearChart(chart, year, selectedCountries, mFrom, mTo, yMax) {
             }
         },
         legend: { show: false },
-        grid: { left: 60, right: 68, top: 12, bottom: 42 },
+        grid: { left: 68, right: 68, top: 24, bottom: 42 },
         xAxis: { type: 'category', data: hours, name: 'Hour', nameGap: 24 },
         yAxis: [
             {
-                type: 'value', name: 'Power (MW)', max: yMax,
+                type: 'value',
+                name: 'MW',
+                nameLocation: 'middle',
+                nameGap: 48,
+                nameRotate: 90,
+                max: yMax,
                 nameTextStyle: { color: '#555' },
                 axisLabel: { color: '#555' },
+                axisLine: { show: true, lineStyle: { color: '#aaa' } },
+                axisTick: { lineStyle: { color: '#aaa' } },
+                splitLine: { lineStyle: { color: '#e6e9ed' } },
             },
             {
                 type: 'value',
                 name: '€/MWh',
                 nameLocation: 'middle',
-                nameGap: 48,
+                nameGap: 52,
                 nameRotate: 270,
                 position: 'right',
                 splitLine: { show: false },
                 min: priceMin,
                 max: priceMax,
-                axisLabel: { color: '#e53935' },
-                axisLine: { show: true, lineStyle: { color: '#e53935' } },
-                axisTick: { lineStyle: { color: '#e53935' } },
-                nameTextStyle: { color: '#e53935' },
+                nameTextStyle: { color: '#555' },
+                axisLabel: { color: '#555' },
+                axisLine: { show: true, lineStyle: { color: '#aaa' } },
+                axisTick: { lineStyle: { color: '#aaa' } },
             }
         ],
         series

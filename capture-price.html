@@ -1094,7 +1094,7 @@ function renderSummaryTable() {
         { key: 'baseload',  label: 'Baseload (EUR/MWh)',                    fmt: fmtEur,   colorFn: null,          span: years.length },
         { key: 'ratioPost', label: 'post-Curtailment (%)',                  fmt: fmtPct,   colorFn: ratioCellClass, span: years.length },
         { key: 'ratioPre',  label: 'pre-Curtailment (%)',                   fmt: fmtPct,   colorFn: ratioCellClass, span: years.length },
-        { key: 'nonPosHours',  label: 'Negative price hours',                  fmt: fmtHours, colorFn: null,          span: years.length }
+        { key: 'nonPosHours',  label: 'Non-positive hours',                 fmt: fmtHours, colorFn: null,          span: years.length }
     ];
 
     let html = '<thead>';

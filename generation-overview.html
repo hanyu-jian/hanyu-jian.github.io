@@ -156,7 +156,7 @@
         <div class="chart-card">
             <div class="chart-card-header">
                 <h3>Load vs Generation by Hour (Monthly Range Avg)</h3>
-                <div class="subtitle">Generation = sum of technologies excluding Cross border; CEE=HU+RO+RS+HR+PL+BG.</div>
+                <div class="subtitle">Generation = sum of technologies excluding Cross border; CEE=HU+RO+RS+HR+PL+BG. Price = simple average of selected countries (€/MWh, right axis).</div>
             </div>
             <div class="year-row">
                 <div class="year-card"><div class="year-title">2024</div><div id="chart2024" class="year-chart"></div></div>
@@ -205,13 +205,13 @@ const YEAR_DAYS = { 2024: 366, 2025: 365, 2026: 365 };
 
 let countryData = {};
 let loadData = [];
+let priceData = [];
 let charts = {};
 let loadReport = { ok: [], fail: [] };
 let loadFailReason = {};
 let legendState = {};
 
-// ── [优化1] summarizeYear 缓存 ───────────────────────────────────────────────
-// key = "countriesSorted|year|mFrom|mTo"，每次 refresh 前清空
+// ── summarizeYear cache ───────────────────────────────────────────────────────
 const _summarizeCache = new Map();
 
 function _summarizeCacheKey(year, selectedCountries, mFrom, mTo) {
@@ -222,7 +222,7 @@ function clearSummarizeCache() {
     _summarizeCache.clear();
 }
 
-// ── Colour helpers ───────────────────────────────────────────────────────────
+// ── Colour helpers ────────────────────────────────────────────────────────────
 function typeToColor(t) {
     if (!t) return '#90a4ae';
     const tl = t.toLowerCase();
@@ -248,7 +248,7 @@ function typeToColor(t) {
     return '#90a4ae';
 }
 
-// ── CSV / date parsing ───────────────────────────────────────────────────────
+// ── CSV / date parsing ────────────────────────────────────────────────────────
 function parseDate(s) {
     if (!s) return null;
     let m = s.match(/^(\d{4})[\/-](\d{1,2})[\/-](\d{1,2})\s+(\d{1,2}):(\d{2})/);
@@ -292,7 +292,7 @@ function parseCSV(text) {
 function normalizeCategory(cat) { return (cat || '').replace(/\s+/g, ' ').trim(); }
 function canonicalKey(cat) { return normalizeCategory(cat).toLowerCase().replace(/[-/]/g, ' ').replace(/\s+/g, ' ').trim(); }
 
-// ── Load CSV parsing (/data/load.csv) ────────────────────────────────────────
+// ── Load CSV parsing ──────────────────────────────────────────────────────────
 function parseLoadCSV(text) {
     const lines = text.trim().split(/\r?\n/).filter(Boolean);
     if (!lines.length) return [];
@@ -311,26 +311,48 @@ function parseLoadCSV(text) {
         if (!cols.length) continue;
         const dt = parseDate(cols[dateIdx]);
         if (!dt) continue;
-
         const values = {};
         countryCols.forEach(c => {
             const v = Number(cols[c.idx]);
             values[c.code] = Number.isFinite(v) ? v : null;
         });
-
-        out.push({
-            year: dt.year,
-            month: dt.month,
-            day: dt.day,
-            hour: dt.hour,
-            values
-        });
+        out.push({ year: dt.year, month: dt.month, day: dt.day, hour: dt.hour, values });
     }
     return out;
 }
 
-// ── Data loading ─────────────────────────────────────────────────────────────
-// [优化2] 去掉 cache: 'no-store'，让浏览器正常缓存 CSV 文件
+// ── Price CSV parsing (tab-separated) ────────────────────────────────────────
+function parsePriceCSV(text) {
+    const lines = text.trim().split(/\r?\n/).filter(Boolean);
+    if (!lines.length) return [];
+
+    // Support both tab and comma separated
+    const sep = lines[0].includes('\t') ? '\t' : ',';
+    const headers = lines[0].split(sep).map(h => h.trim());
+    const dateIdx = headers.findIndex(h => h.toLowerCase() === 'date');
+    if (dateIdx < 0) return [];
+
+    const countryCols = headers
+        .map((h, i) => ({ code: h, idx: i }))
+        .filter(x => x.idx !== dateIdx);
+
+    const out = [];
+    for (let i = 1; i < lines.length; i++) {
+        const cols = lines[i].split(sep).map(x => x.trim());
+        if (!cols.length) continue;
+        const dt = parseDate(cols[dateIdx]);
+        if (!dt) continue;
+        const values = {};
+        countryCols.forEach(c => {
+            const v = Number(cols[c.idx]);
+            values[c.code] = Number.isFinite(v) ? v : null;
+        });
+        out.push({ year: dt.year, month: dt.month, day: dt.day, hour: dt.hour, values });
+    }
+    return out;
+}
+
+// ── Data loading ──────────────────────────────────────────────────────────────
 async function loadAllCountries() {
     loadReport = { ok: [], fail: [] };
     loadFailReason = {};
@@ -352,11 +374,14 @@ async function loadAllCountries() {
 
     const loadRes = await fetch('/data/load.csv');
     if (!loadRes.ok) throw new Error(`load.csv HTTP ${loadRes.status}`);
-    const loadText = await loadRes.text();
-    loadData = parseLoadCSV(loadText);
+    loadData = parseLoadCSV(await loadRes.text());
+
+    const priceRes = await fetch('/data/price.csv');
+    if (!priceRes.ok) throw new Error(`price.csv HTTP ${priceRes.status}`);
+    priceData = parsePriceCSV(await priceRes.text());
 }
 
-// ── Country selector ─────────────────────────────────────────────────────────
+// ── Country selector ──────────────────────────────────────────────────────────
 function buildCountryCheckboxes() {
     const wrap = document.getElementById('countryCheckboxes');
     wrap.innerHTML = '';
@@ -434,10 +459,7 @@ function buildLoadSeries(year, selectedCountries, mFrom, mTo) {
 
         selectedCountries.forEach(c => {
             const v = r.values[c];
-            if (Number.isFinite(v)) {
-                rowSum += v;
-                hasValue = true;
-            }
+            if (Number.isFinite(v)) { rowSum += v; hasValue = true; }
         });
 
         if (hasValue && r.hour >= 0 && r.hour < 24) {
@@ -449,12 +471,31 @@ function buildLoadSeries(year, selectedCountries, mFrom, mTo) {
     return byHour.map(x => x.cnt ? +((x.sum / x.cnt).toFixed(2)) : null);
 }
 
-// [优化3] summarizeYear 加 memoization，相同参数直接返回缓存结果
+// ── Price series builder ──────────────────────────────────────────────────────
+function buildPriceSeries(year, selectedCountries, mFrom, mTo) {
+    const byHour = Array.from({ length: 24 }, () => ({ sum: 0, cnt: 0 }));
+    // price.csv has no 'CEE' column — use real country codes only
+    const priceCols = selectedCountries.filter(c => c !== 'CEE');
+
+    priceData.forEach(r => {
+        if (r.year !== year || r.month < mFrom || r.month > mTo) return;
+        let rowSum = 0, rowCnt = 0;
+        priceCols.forEach(c => {
+            const v = r.values[c];
+            if (Number.isFinite(v)) { rowSum += v; rowCnt++; }
+        });
+        if (rowCnt > 0 && r.hour >= 0 && r.hour < 24) {
+            byHour[r.hour].sum += rowSum / rowCnt; // average across countries first
+            byHour[r.hour].cnt += 1;
+        }
+    });
+
+    return byHour.map(x => x.cnt ? +((x.sum / x.cnt).toFixed(3)) : null);
+}
+
 function summarizeYear(year, selectedCountries, mFrom, mTo) {
     const cacheKey = _summarizeCacheKey(year, selectedCountries, mFrom, mTo);
-    if (_summarizeCache.has(cacheKey)) {
-        return _summarizeCache.get(cacheKey);
-    }
+    if (_summarizeCache.has(cacheKey)) return _summarizeCache.get(cacheKey);
 
     const techLabelByKey = {};
     const byHour = {};
@@ -509,14 +550,7 @@ function summarizeYear(year, selectedCountries, mFrom, mTo) {
     return result;
 }
 
-// ── 图二：全年电量 ────────────────────────────────────────────────────────────
-function classifyPrimaryGroup(tech) {
-    const t = tech.toLowerCase();
-    if (t.includes('nuclear')) return 'Nuclear';
-    if (t.includes('coal') || t.includes('gas') || t.includes('oil') || t.includes('peat') || t.includes('fossil') || t.includes('waste non')) return 'Fossil';
-    return 'Renewable';
-}
-
+// ── Count actual data days (for 2026 YTD calculation) ────────────────────────
 function countActualDays(year, selectedCountries, mFrom, mTo) {
     const daySet = new Set();
     selectedCountries.forEach(c => {
@@ -526,23 +560,29 @@ function countActualDays(year, selectedCountries, mFrom, mTo) {
             daySet.add(`${dt.year}-${dt.month}-${dt.day}`);
         });
     });
-    return daySet.size || 1; // 至少1天，避免除以0
+    return daySet.size || 1;
+}
+
+// ── Annual generation ─────────────────────────────────────────────────────────
+function classifyPrimaryGroup(tech) {
+    const t = tech.toLowerCase();
+    if (t.includes('nuclear')) return 'Nuclear';
+    if (t.includes('coal') || t.includes('gas') || t.includes('oil') || t.includes('peat') || t.includes('fossil') || t.includes('waste non')) return 'Fossil';
+    return 'Renewable';
 }
 
 function buildAnnualTechTotals(year, selectedCountries) {
     const { techs, techSeries } = summarizeYear(year, selectedCountries, 1, 12);
-    
-    // 2026年用实际覆盖天数，其余年份用全年天数
+
+    // 2026: use actual data days (YTD); other years: full calendar days
     const days = year === 2026
         ? countActualDays(year, selectedCountries, 1, 12)
         : (YEAR_DAYS[year] || 365);
-    
+
     const out = [];
     techs.forEach(t => {
         const arr = techSeries[t] || [];
-        const avgHourMW = arr.length
-            ? arr.reduce((a, b) => a + (Number.isFinite(b) ? b : 0), 0) / arr.length
-            : 0;
+        const avgHourMW = arr.length ? arr.reduce((a,b) => a + (Number.isFinite(b) ? b : 0), 0) / arr.length : 0;
         const annualMWh = avgHourMW * 24 * days;
         if (annualMWh > 0) out.push({ name: t, value: annualMWh, color: typeToColor(t) });
     });
@@ -559,16 +599,14 @@ function renderAnnualCharts(selectedCountries, year) {
 
     const groupData = [
         { name: 'Renewable', value: groupTotals.Renewable, itemStyle: { color: '#fcc428' } },
-        { name: 'Fossil', value: groupTotals.Fossil, itemStyle: { color: '#f5821f' } },
-        { name: 'Nuclear', value: groupTotals.Nuclear, itemStyle: { color: '#e53935' } }
+        { name: 'Fossil',    value: groupTotals.Fossil,    itemStyle: { color: '#f5821f' } },
+        { name: 'Nuclear',   value: groupTotals.Nuclear,   itemStyle: { color: '#e53935' } }
     ];
 
     charts.annualDetail.setOption({
         tooltip: { trigger: 'item', valueFormatter: v => `${(v/1e6).toFixed(2)} TWh` },
         series: [{
-            type: 'pie',
-            radius: ['44%', '70%'],
-            center: ['50%', '50%'],
+            type: 'pie', radius: ['44%', '70%'], center: ['50%', '50%'],
             minShowLabelAngle: 3.6,
             itemStyle: { borderColor: '#fff', borderWidth: 2 },
             label: {
@@ -580,9 +618,7 @@ function renderAnnualCharts(selectedCountries, year) {
             data: detail.map(x => ({ name: x.name, value: x.value, itemStyle: { color: x.color } }))
         }],
         graphic: [{
-            type: 'text',
-            left: 'center',
-            top: '45%',
+            type: 'text', left: 'center', top: '45%',
             style: { text: `${(total/1e6).toFixed(2)} TWh`, fill: '#4b5563', font: '500 20px Segoe UI', textAlign: 'center' }
         }]
     }, true);
@@ -590,9 +626,7 @@ function renderAnnualCharts(selectedCountries, year) {
     charts.annualGroup.setOption({
         tooltip: { trigger: 'item', valueFormatter: v => `${(v/1e6).toFixed(2)} TWh` },
         series: [{
-            type: 'pie',
-            radius: ['44%', '70%'],
-            center: ['50%', '50%'],
+            type: 'pie', radius: ['44%', '70%'], center: ['50%', '50%'],
             minShowLabelAngle: 3.6,
             itemStyle: { borderColor: '#fff', borderWidth: 2 },
             label: {
@@ -604,9 +638,7 @@ function renderAnnualCharts(selectedCountries, year) {
             data: groupData
         }],
         graphic: [{
-            type: 'text',
-            left: 'center',
-            top: '45%',
+            type: 'text', left: 'center', top: '45%',
             style: { text: `${(total/1e6).toFixed(2)} TWh`, fill: '#4b5563', font: '500 20px Segoe UI', textAlign: 'center' }
         }]
     }, true);
@@ -621,16 +653,17 @@ function renderAnnualCharts(selectedCountries, year) {
     });
 }
 
-// ── [优化3续] Y-axis max：复用已缓存的 summarizeYear，不再重复计算 ──────────────
+// ── Y-axis max (left axis only, excludes price) ───────────────────────────────
 function calcGlobalYMax(selected, mFrom, mTo, visibilityFilter) {
     if (!selected.length || mFrom > mTo) return undefined;
     let globalMax = 0;
     [2024, 2025, 2026].forEach(year => {
-        // summarizeYear 此时已被上面的 applyYearChart 调用并缓存，直接取缓存
         const { techSeries, load } = summarizeYear(year, selected, mFrom, mTo);
         for (let h = 0; h < 24; h++) {
             let stackedSum = 0;
             Object.entries(techSeries).forEach(([name, arr]) => {
+                // Never include price series in left-axis max calculation
+                if (name === 'Price (€/MWh)') return;
                 if (visibilityFilter ? visibilityFilter(name) : true) {
                     if (arr[h] > 0) stackedSum += arr[h];
                 }
@@ -643,9 +676,11 @@ function calcGlobalYMax(selected, mFrom, mTo, visibilityFilter) {
     return globalMax > 0 ? Math.ceil(globalMax * 1.05 / 1000) * 1000 : undefined;
 }
 
-// ── Chart drawing ────────────────────────────────────────────────────────────
+// ── Chart drawing ─────────────────────────────────────────────────────────────
 let allSeriesNames = [];
 let allSeriesColors = {};
+
+const PRICE_SERIES_NAME = 'Price (€/MWh)';
 
 function buildSeriesForYear(year, selectedCountries, mFrom, mTo) {
     const { techs, techSeries, load } = summarizeYear(year, selectedCountries, mFrom, mTo);
@@ -654,30 +689,42 @@ function buildSeriesForYear(year, selectedCountries, mFrom, mTo) {
     const series = techs.map(t => {
         const col = typeToColor(t);
         const visible = legendState[t] !== false;
-        if (visible) {
-            return {
-                name: t, type: 'line', stack: 'gen', smooth: false, symbol: 'none',
-                data: techSeries[t], itemStyle: { color: col },
-                lineStyle: { width: 1.6, color: col }, areaStyle: { opacity: 1, color: col },
-            };
-        } else {
-            return {
-                name: t, type: 'line', smooth: false, symbol: 'none',
-                data: techSeries[t], itemStyle: { color: col },
-                lineStyle: { width: 0, color: col }, areaStyle: { opacity: 0, color: col },
-                silent: true,
-            };
-        }
+        return {
+            name: t, type: 'line', stack: 'gen', smooth: false, symbol: 'none',
+            yAxisIndex: 0,
+            data: techSeries[t], itemStyle: { color: col },
+            lineStyle: { width: visible ? 1.6 : 0, color: col },
+            areaStyle: { opacity: visible ? 1 : 0, color: col },
+            silent: !visible,
+        };
     });
 
+    // Load line (left axis)
     const loadVisible = legendState['Load'] !== false;
     series.push({
         name: 'Load', type: 'line', smooth: false, symbol: 'none',
+        yAxisIndex: 0,
         data: load, itemStyle: { color: '#111827' },
         lineStyle: { width: loadVisible ? 2.2 : 0, color: '#111827' },
-        areaStyle: { opacity: 0 }, silent: !loadVisible,
+        areaStyle: { opacity: 0 },
+        silent: !loadVisible,
     });
 
+    // Price line (right axis)
+    const priceVisible = legendState[PRICE_SERIES_NAME] !== false;
+    const priceSeries = buildPriceSeries(year, selectedCountries, mFrom, mTo);
+    series.push({
+        name: PRICE_SERIES_NAME, type: 'line', smooth: false, symbol: 'none',
+        yAxisIndex: 1,
+        data: priceSeries,
+        itemStyle: { color: '#e53935' },
+        lineStyle: { width: priceVisible ? 2 : 0, color: '#e53935' },
+        areaStyle: { opacity: 0 },
+        silent: !priceVisible,
+        z: 10,
+    });
+
+    // Register in global legend tracking
     series.forEach(s => {
         if (!allSeriesColors[s.name]) allSeriesColors[s.name] = s.itemStyle.color;
         if (!allSeriesNames.includes(s.name)) allSeriesNames.push(s.name);
@@ -690,25 +737,78 @@ function applyYearChart(chart, year, selectedCountries, mFrom, mTo, yMax) {
     if (!selectedCountries.length || mFrom > mTo) { chart.clear(); return; }
     const { series, hours } = buildSeriesForYear(year, selectedCountries, mFrom, mTo);
 
+    // Compute right-axis (price) range dynamically
+    const priceSerie = series.find(s => s.name === PRICE_SERIES_NAME);
+    let priceMin, priceMax;
+    if (priceSerie) {
+        const vals = priceSerie.data.filter(Number.isFinite);
+        if (vals.length) {
+            const rawMin = Math.min(...vals);
+            const rawMax = Math.max(...vals);
+            const pad = Math.max((rawMax - rawMin) * 0.15, 10);
+            priceMin = Math.floor((rawMin - pad) / 10) * 10;
+            priceMax = Math.ceil((rawMax + pad) / 10) * 10;
+        }
+    }
+
     chart.setOption({
         tooltip: {
             trigger: 'axis',
-            valueFormatter: v => (v == null || Number.isNaN(v) ? '-' : Number(v).toFixed(2))
+            formatter: params => {
+                let html = `<div style="font-size:13px;font-weight:600;margin-bottom:4px;">Hour ${params[0]?.axisValue}</div>`;
+                params.forEach(p => {
+                    if (p.value == null || isNaN(p.value)) return;
+                    const isPrice = p.seriesName === PRICE_SERIES_NAME;
+                    const val = isPrice
+                        ? `${Number(p.value).toFixed(2)} €/MWh`
+                        : `${Number(p.value).toFixed(2)} MW`;
+                    html += `<div style="display:flex;align-items:center;gap:6px;margin:1px 0;">
+                        <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${p.color};flex-shrink:0;"></span>
+                        <span style="flex:1">${p.seriesName}</span>
+                        <span style="font-weight:600;margin-left:8px;">${val}</span>
+                    </div>`;
+                });
+                return html;
+            }
         },
         legend: { show: false },
-        grid: { left: 52, right: 16, top: 12, bottom: 42 },
+        grid: { left: 60, right: 68, top: 12, bottom: 42 },
         xAxis: { type: 'category', data: hours, name: 'Hour', nameGap: 24 },
-        yAxis: { type: 'value', name: 'Power (MW)', max: yMax },
+        yAxis: [
+            {
+                type: 'value', name: 'Power (MW)', max: yMax,
+                nameTextStyle: { color: '#555' },
+                axisLabel: { color: '#555' },
+            },
+            {
+                type: 'value',
+                name: '€/MWh',
+                nameLocation: 'middle',
+                nameGap: 48,
+                nameRotate: 270,
+                position: 'right',
+                splitLine: { show: false },
+                min: priceMin,
+                max: priceMax,
+                axisLabel: { color: '#e53935' },
+                axisLine: { show: true, lineStyle: { color: '#e53935' } },
+                axisTick: { lineStyle: { color: '#e53935' } },
+                nameTextStyle: { color: '#e53935' },
+            }
+        ],
         series
     }, true);
 }
 
-// ── HTML shared legend ───────────────────────────────────────────────────────
+// ── HTML shared legend ────────────────────────────────────────────────────────
 function buildHtmlLegend() {
     const wrap = document.getElementById('sharedLegend');
     wrap.innerHTML = '';
-    const names = allSeriesNames.filter(n => n !== 'Load').sort((a,b) => a.localeCompare(b));
+    const names = allSeriesNames
+        .filter(n => n !== 'Load' && n !== PRICE_SERIES_NAME)
+        .sort((a, b) => a.localeCompare(b));
     if (allSeriesNames.includes('Load')) names.push('Load');
+    if (allSeriesNames.includes(PRICE_SERIES_NAME)) names.push(PRICE_SERIES_NAME);
 
     names.forEach(name => {
         const visible = legendState[name] !== false;
@@ -720,7 +820,8 @@ function buildHtmlLegend() {
         swatch.className = 'leg-swatch';
         const color = allSeriesColors[name] || '#90a4ae';
 
-        if (name === 'Load') {
+        if (name === 'Load' || name === PRICE_SERIES_NAME) {
+            // Line swatch for Load and Price
             swatch.style.width = '22px';
             swatch.style.height = '0';
             swatch.style.borderRadius = '0';
@@ -750,7 +851,6 @@ function toggleSeries(name) {
     const mFrom = parseInt(document.getElementById('monthFrom').value, 10);
     const mTo   = parseInt(document.getElementById('monthTo').value, 10);
 
-    // toggleSeries 只改可见性，不改数据，缓存仍然有效，无需清空
     const yMax = calcGlobalYMax(selected, mFrom, mTo, seriesName => legendState[seriesName] !== false);
 
     [[charts.chart2024, 2024],[charts.chart2025, 2025],[charts.chart2026, 2026]].forEach(([c, y]) => {
@@ -771,22 +871,16 @@ function refresh() {
 
     allSeriesNames = [];
     allSeriesColors = {};
-
-    // [优化3] 每次 refresh 参数变了，清空旧缓存，避免内存无限增长
     clearSummarizeCache();
 
-    // 先调用3个年份图（同时填充缓存），calcGlobalYMax 直接复用缓存，无额外计算
     applyYearChart(charts.chart2024, 2024, selected, mFrom, mTo, undefined);
     applyYearChart(charts.chart2025, 2025, selected, mFrom, mTo, undefined);
     applyYearChart(charts.chart2026, 2026, selected, mFrom, mTo, undefined);
 
-    // 此时缓存已有3个年份结果，calcGlobalYMax 零重复计算
     const yMax = calcGlobalYMax(selected, mFrom, mTo, null);
-
-    // 用统一 yMax 重新设置 y 轴（只改 yAxis.max，开销极小）
     [[charts.chart2024, 2024],[charts.chart2025, 2025],[charts.chart2026, 2026]].forEach(([c, y]) => {
         if (selected.length && mFrom <= mTo) {
-            c.setOption({ yAxis: { max: yMax } });
+            c.setOption({ yAxis: [{ max: yMax }, {}] });
         }
     });
 
@@ -801,7 +895,7 @@ function refresh() {
     }
 }
 
-// ── Init ─────────────────────────────────────────────────────────────────────
+// ── Init ──────────────────────────────────────────────────────────────────────
 async function init() {
     if (typeof echarts === 'undefined') {
         document.getElementById('loadingMsg').textContent = 'ECharts failed to load (CDN blocked or unavailable).';
@@ -815,11 +909,11 @@ async function init() {
     document.getElementById('loadingMsg').style.display = 'none';
     document.getElementById('chartGrid').style.display = 'grid';
 
-    charts.chart2024 = echarts.init(document.getElementById('chart2024'));
-    charts.chart2025 = echarts.init(document.getElementById('chart2025'));
-    charts.chart2026 = echarts.init(document.getElementById('chart2026'));
-    charts.annualDetail = echarts.init(document.getElementById('annualDetailChart'));
-    charts.annualGroup = echarts.init(document.getElementById('annualGroupChart'));
+    charts.chart2024     = echarts.init(document.getElementById('chart2024'));
+    charts.chart2025     = echarts.init(document.getElementById('chart2025'));
+    charts.chart2026     = echarts.init(document.getElementById('chart2026'));
+    charts.annualDetail  = echarts.init(document.getElementById('annualDetailChart'));
+    charts.annualGroup   = echarts.init(document.getElementById('annualGroupChart'));
 
     refresh();
 

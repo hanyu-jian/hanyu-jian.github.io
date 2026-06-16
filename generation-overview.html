@@ -517,19 +517,37 @@ function classifyPrimaryGroup(tech) {
     return 'Renewable';
 }
 
+function countActualDays(year, selectedCountries, mFrom, mTo) {
+    const daySet = new Set();
+    selectedCountries.forEach(c => {
+        (countryData[c] || []).forEach(r => {
+            const dt = parseDate(r.date);
+            if (!dt || dt.year !== year || dt.month < mFrom || dt.month > mTo) return;
+            daySet.add(`${dt.year}-${dt.month}-${dt.day}`);
+        });
+    });
+    return daySet.size || 1; // 至少1天，避免除以0
+}
+
 function buildAnnualTechTotals(year, selectedCountries) {
     const { techs, techSeries } = summarizeYear(year, selectedCountries, 1, 12);
-    const days = YEAR_DAYS[year] || 365;
+    
+    // 2026年用实际覆盖天数，其余年份用全年天数
+    const days = year === 2026
+        ? countActualDays(year, selectedCountries, 1, 12)
+        : (YEAR_DAYS[year] || 365);
+    
     const out = [];
-
     techs.forEach(t => {
         const arr = techSeries[t] || [];
-        const avgHourMW = arr.length ? arr.reduce((a,b) => a + (Number.isFinite(b) ? b : 0), 0) / arr.length : 0;
+        const avgHourMW = arr.length
+            ? arr.reduce((a, b) => a + (Number.isFinite(b) ? b : 0), 0) / arr.length
+            : 0;
         const annualMWh = avgHourMW * 24 * days;
         if (annualMWh > 0) out.push({ name: t, value: annualMWh, color: typeToColor(t) });
     });
 
-    return out.sort((a,b) => b.value - a.value);
+    return out.sort((a, b) => b.value - a.value);
 }
 
 function renderAnnualCharts(selectedCountries, year) {

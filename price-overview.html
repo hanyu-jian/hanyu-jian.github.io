@@ -579,11 +579,11 @@
 
         <div class="controls">
             <div class="control-group">
-                <label>📅 Year</label>
+                <label> Year</label>
                 <select id="yearSelect" disabled></select>
             </div>
             <div class="control-group">
-                <label>🌍 Countries</label>
+                <label> Countries</label>
                 <div class="country-select-wrapper">
                     <div class="country-select-btn" id="countrySelectBtn">
                         <span id="countrySelectText">Select...</span>
@@ -1030,9 +1030,7 @@
                     axisPointer: { type: 'cross', lineStyle: { color: '#bbb' } },
                     formatter: tooltipFmt
                 },
-                // ✅ Legend 格式与 Price Difference 完全一致，位于右上角，默认支持点击切换系列
                 legend: { ...commonLegendStyle, top: 5, right: 8 },
-                // ✅ 增大 grid.left，确保纵坐标标题 "€/MWh" 完全可见
                 grid: { left: 75, right: 20, top: 35, bottom: 40 },
                 xAxis: {
                     type: 'category',

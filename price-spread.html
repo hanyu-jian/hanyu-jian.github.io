@@ -15,6 +15,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>Price Spread – European Electricity Dashboard</title>
     <script src="nav.js"></script>
+    <!-- ▼ ADDED: Chart.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -229,6 +231,18 @@
         .tab-btn:hover { color: #2c3e50; }
         .tab-btn.active { color: #2c3e50; border-bottom-color: #2c3e50; }
 
+        /* ▼ ADDED: Chart container styles */
+        .chart-wrap {
+            padding: 20px 20px 8px;
+            border-bottom: 1px solid #e6e9ed;
+            background: #fff;
+        }
+        .chart-wrap canvas {
+            display: block;
+            width: 100% !important;
+            height: 280px !important;
+        }
+
         .table-wrap { overflow-x: auto; }
         table { width: 100%; border-collapse: collapse; font-size: 13px; }
         thead tr { background: #f8f9fa; }
@@ -242,7 +256,6 @@
             text-align: center; font-size: 12px; color: #2c3e50;
             border-left: 2px solid #dee2e6; letter-spacing: 0.5px;
         }
-        /* 列头颜色 */
         thead th.th-peak   { color: #6c757d; }
         thead th.th-valley { color: #6c757d; }
         thead th.th-spread { color: #6c757d; }
@@ -362,6 +375,11 @@
                 <button class="tab-btn" onclick="switchTab('weekly',this)">Weekly</button>
             </div>
 
+            <!-- ▼ ADDED: Chart container -->
+            <div class="chart-wrap" id="spChartWrap" style="display:none">
+                <canvas id="spChart"></canvas>
+            </div>
+
             <div class="spinner-wrap" id="spSpinner"><div class="spinner"></div> Calculating…</div>
 
             <div id="spContent">
@@ -398,6 +416,9 @@ let allCountries   = [];
 let currentCountry = 'HU';
 let currentTab     = 'monthly';
 let renderDebounce = null;
+
+// ▼ ADDED: Chart.js instance reference
+let spreadChartInstance = null;
 
 window.addEventListener('DOMContentLoaded', () => {
     fetchCSV();
@@ -554,7 +575,6 @@ function _renderHeatmap() {
     const threeYear = document.createElement('div');
     threeYear.className = 'three-year-hm';
 
-    // ── 收集所有年份所有值，算全局 mid ──────────────────────────
     const allVals = [];
     YEARS.forEach(yr => {
         const avg = (dataByCountryYear[currentCountry] || {})[yr] || null;
@@ -568,7 +588,6 @@ function _renderHeatmap() {
     const gmn  = allVals[0];
     const gmx  = allVals[allVals.length - 1];
     const gmid = allVals[Math.floor(allVals.length / 2)];
-    // ────────────────────────────────────────────────────────────
 
     YEARS.forEach(yr => {
         const avg    = (dataByCountryYear[currentCountry] || {})[yr] || null;
@@ -594,7 +613,6 @@ function _renderHeatmap() {
         title.textContent = String(yr);
         block.appendChild(title);
 
-        // 月份表头
         const mhWrap = document.createElement('div');
         mhWrap.className = 'hm-month-header';
         mhWrap.appendChild(Object.assign(document.createElement('div'), {className:'hm-month-spacer'}));
@@ -607,7 +625,6 @@ function _renderHeatmap() {
         mhWrap.appendChild(mlabels);
         block.appendChild(mhWrap);
 
-        // 24行
         for (let h = 0; h < 24; h++) {
             const row = document.createElement('div');
             row.className = 'hm-row';
@@ -625,12 +642,10 @@ function _renderHeatmap() {
                 cell.className = 'hm-cell';
                 const v = hasData ? avg[h][mo] : null;
 
-                // ── 用全局 gmn / ymx / ymid 着色 ──
                 cell.style.background = v !== null
                     ? priceColor(v, ymn, ymx, ymid)
                     : '#e9ecef';
 
-                // 常驻数值
                 cell.textContent = v !== null ? v.toFixed(1) : '';
 
                 cell.dataset.tip = v !== null
@@ -655,7 +670,6 @@ function _renderHeatmap() {
             block.appendChild(row);
         }
 
-        // 图例
         const legend = document.createElement('div');
         legend.className = 'hm-year-legend';
         if (hasData && isFinite(ymn)) {
@@ -689,15 +703,15 @@ function _renderHeatmap() {
 }
 
 
-/* --------------color (mid percentage number)-------------- */
+/* -------------- color -------------- */
 function priceColor(v, mn, mx, mid) {
     if (!isFinite(mn) || !isFinite(mx) || mx === mn) return 'rgb(255,255,255)';
     const stops = [
-        [  0.00, [ 44, 123, 182]],   // 深蓝
-        [  0.25, [171, 217, 233]],   // 浅蓝
-        [  0.50, [255, 255, 191]],   // 浅黄白（中位数）
-        [  0.75, [253, 174,  97]],   // 橙
-        [  1.00, [215,  25,  28]],   // 深红
+        [  0.00, [ 44, 123, 182]],
+        [  0.25, [171, 217, 233]],
+        [  0.50, [255, 255, 191]],
+        [  0.75, [253, 174,  97]],
+        [  1.00, [215,  25,  28]],
     ];
 
     let t;
@@ -810,9 +824,130 @@ function _renderSpread() {
         tableRows.push(annual);
     }
 
+    // ▼ ADDED: render chart before table
+    renderSpreadChart(tableRows);
+
     renderCompareTable(tableRows, hasRange);
     document.getElementById('spNoData').style.display    = 'none';
     document.getElementById('spTableWrap').style.display = 'block';
+}
+
+// ▼ ADDED: Chart rendering function
+function renderSpreadChart(tableRows) {
+    const wrap = document.getElementById('spChartWrap');
+    const canvas = document.getElementById('spChart');
+
+    // Filter out the "Annual" total row for the chart
+    const dataRows = tableRows.filter(r => !r.isTotal);
+    if (!dataRows.length) { wrap.style.display = 'none'; return; }
+
+    wrap.style.display = 'block';
+
+    const labels = dataRows.map(r => r.label);
+
+    // Year colors: 2024 steel blue, 2025 orange, 2026 teal
+    const yearStyles = {
+        2024: { color: '#5a8fc2', bg: 'rgba(90,143,194,0.10)' },
+        2025: { color: '#e67e22', bg: 'rgba(230,126,34,0.10)'  },
+        2026: { color: '#27ae60', bg: 'rgba(39,174,96,0.10)'   },
+    };
+
+    const datasets = YEARS.map(yr => {
+        const style = yearStyles[yr];
+        return {
+            label: String(yr),
+            data: dataRows.map(r => {
+                const d = r[yr];
+                return (d && d.spread !== null) ? parseFloat(d.spread.toFixed(2)) : null;
+            }),
+            borderColor: style.color,
+            backgroundColor: style.bg,
+            pointBackgroundColor: style.color,
+            pointRadius: dataRows.length > 30 ? 2 : 4,
+            pointHoverRadius: 6,
+            borderWidth: 2,
+            tension: 0.3,
+            fill: false,
+            spanGaps: false,
+        };
+    });
+
+    // Destroy old chart if exists
+    if (spreadChartInstance) {
+        spreadChartInstance.destroy();
+        spreadChartInstance = null;
+    }
+
+    spreadChartInstance = new Chart(canvas, {
+        type: 'line',
+        data: { labels, datasets },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+                mode: 'index',
+                intersect: false,
+            },
+            plugins: {
+                legend: {
+                    position: 'top',
+                    align: 'end',
+                    labels: {
+                        boxWidth: 12,
+                        boxHeight: 2,
+                        padding: 16,
+                        font: { size: 12, family: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif" },
+                        color: '#495057',
+                        usePointStyle: true,
+                        pointStyle: 'line',
+                    }
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(44,62,80,0.92)',
+                    titleColor: '#ecf0f1',
+                    bodyColor: '#bdc3c7',
+                    padding: 10,
+                    titleFont: { size: 12, weight: '600' },
+                    bodyFont: { size: 12 },
+                    callbacks: {
+                        label: ctx => {
+                            const v = ctx.parsed.y;
+                            if (v === null) return `${ctx.dataset.label}: —`;
+                            return `${ctx.dataset.label}: ${v >= 0 ? '+' : ''}${v.toFixed(2)} €/MWh`;
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    grid: { color: 'rgba(0,0,0,0.05)', drawBorder: false },
+                    ticks: {
+                        font: { size: 11, family: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif" },
+                        color: '#6c757d',
+                        maxRotation: dataRows.length > 30 ? 45 : 0,
+                        autoSkip: true,
+                        maxTicksLimit: dataRows.length > 30 ? 26 : 20,
+                    },
+                    border: { display: false }
+                },
+                y: {
+                    grid: { color: 'rgba(0,0,0,0.06)', drawBorder: false },
+                    ticks: {
+                        font: { size: 11, family: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif" },
+                        color: '#6c757d',
+                        callback: v => v.toFixed(0) + ' €/MWh',
+                    },
+                    border: { display: false },
+                    title: {
+                        display: true,
+                        text: 'Spread (€/MWh)',
+                        color: '#6c757d',
+                        font: { size: 11 }
+                    }
+                }
+            }
+        }
+    });
 }
 
 function agg(days) {
@@ -843,17 +978,14 @@ function renderCompareTable(tableRows, hasRange) {
 
     const tr2 = document.createElement('tr');
     YEARS.forEach((_,yi) => {
-        // Peak 列头
         const thPk = document.createElement('th');
         thPk.textContent = 'Peak (€/MWh)';
         thPk.className = 'th-peak' + (yi===0 ? ' col-sep' : '');
         tr2.appendChild(thPk);
-        // Valley 列头
         const thVl = document.createElement('th');
         thVl.textContent = 'Valley (€/MWh)';
         thVl.className = 'th-valley';
         tr2.appendChild(thVl);
-        // Spread 列头
         const thSp = document.createElement('th');
         thSp.textContent = 'Spread (€/MWh)';
         thSp.className = 'th-spread';
@@ -881,19 +1013,16 @@ function renderCompareTable(tableRows, hasRange) {
             const d = row[yr]||{peak:null,valley:null,spread:null};
             const sep = yi===0;
 
-            // Peak 单元格
             const tdPk = document.createElement('td');
             tdPk.className = 'col-peak' + (sep ? ' col-sep' : '');
             tdPk.textContent = d.peak!==null ? d.peak.toFixed(2) : '—';
             tr.appendChild(tdPk);
 
-            // Valley 单元格
             const tdVl = document.createElement('td');
             tdVl.className = 'col-valley';
             tdVl.textContent = d.valley!==null ? d.valley.toFixed(2) : '—';
             tr.appendChild(tdVl);
 
-            // Spread 
             const tdSp = document.createElement('td');
             if (d.spread !== null) {
                 if (Math.abs(d.spread) < 0.005) {
@@ -904,7 +1033,7 @@ function renderCompareTable(tableRows, hasRange) {
                     tdSp.textContent = d.spread.toFixed(2);
                 } else {
                     tdSp.className = 'col-spread';
-                    tdSp.textContent = d.spread.toFixed(2);   // 无 + 号
+                    tdSp.textContent = d.spread.toFixed(2);
                 }
             } else {
                 tdSp.className = 'col-na';

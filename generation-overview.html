@@ -817,7 +817,7 @@ function applyYearChart(chart, year, selectedCountries, mFrom, mTo, yMax) {
         },
         legend: { show: false },
         grid: { left: 68, right: 68, top: 24, bottom: 42 },
-        xAxis: { type: 'category', data: hours, name: 'Hour', nameGap: 24 },
+        xAxis: { type: 'category', data: hours},
         yAxis: [
             {
                 type: 'value',
@@ -836,7 +836,7 @@ function applyYearChart(chart, year, selectedCountries, mFrom, mTo, yMax) {
                 type: 'value',
                 name: '€/MWh',
                 nameLocation: 'middle',
-                nameGap: 52,
+                nameGap: 48,
                 nameRotate: 270,
                 position: 'right',
                 splitLine: { show: false },

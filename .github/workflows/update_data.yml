@@ -36,6 +36,22 @@ on:
         description: "Price-only end date, for example 2024-12-31. Empty uses yesterday."
         type: string
         default: ""
+      imbalance_only:
+        description: "Only fetch imbalance price data (updates data/imbalance_price.csv and raw_data/A85.csv)"
+        type: boolean
+        default: false
+      imbalance_country:
+        description: "Imbalance-only specific country, for example AT. Empty runs all countries."
+        type: string
+        default: ""
+      imbalance_start:
+        description: "Imbalance-only start date, for example 2024-01-01. Empty uses FULL_START_DATE."
+        type: string
+        default: ""
+      imbalance_end:
+        description: "Imbalance-only end date, for example 2024-12-31. Empty uses yesterday."
+        type: string
+        default: ""
 
 jobs:
   update:
@@ -57,6 +73,7 @@ jobs:
       - name: Install dependencies
         run: pip install pandas requests lxml
 
+      # ── repair ──────────────────────────────────────────────
       - name: Run repair
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.repair_country != '' }}
         env:
@@ -74,6 +91,7 @@ jobs:
           fi
           python repair_entsoe.py "${args[@]}"
 
+      # ── price only ──────────────────────────────────────────
       - name: Run price-only update
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.price_only == true && inputs.repair_country == '' }}
         env:
@@ -94,8 +112,33 @@ jobs:
           fi
           python fetch_entsoe.py "${args[@]}"
 
+      # ── imbalance only ──────────────────────────────────────
+      - name: Run imbalance-only update
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.imbalance_only == true && inputs.repair_country == '' && inputs.price_only == false }}
+        env:
+          ENTSOE_TOKEN: ${{ secrets.ENTSOE_TOKEN }}
+          IMBALANCE_COUNTRY: ${{ inputs.imbalance_country }}
+          IMBALANCE_START: ${{ inputs.imbalance_start }}
+          IMBALANCE_END: ${{ inputs.imbalance_end }}
+        run: |
+          args=(--mode incremental)
+          if [ -n "$IMBALANCE_COUNTRY" ]; then
+            args+=(--country "$IMBALANCE_COUNTRY")
+          fi
+          if [ -n "$IMBALANCE_START" ]; then
+            args+=(--start "$IMBALANCE_START")
+            # 有自定义起始日期时切换为 full 模式，避免被 LOOKBACK_DAYS 截断
+            args[0]="--mode"
+            args[1]="full"
+          fi
+          if [ -n "$IMBALANCE_END" ]; then
+            args+=(--end "$IMBALANCE_END")
+          fi
+          python fetch_imbalance.py "${args[@]}"
+
+      # ── normal update（fetch_entsoe + fetch_imbalance）──────
       - name: Run normal update script
-        if: ${{ github.event_name != 'workflow_dispatch' || (inputs.repair_country == '' && inputs.price_only == false) }}
+        if: ${{ github.event_name != 'workflow_dispatch' || (inputs.repair_country == '' && inputs.price_only == false && inputs.imbalance_only == false) }}
         env:
           ENTSOE_TOKEN: ${{ secrets.ENTSOE_TOKEN }}
           FULL_MODE: ${{ github.event_name == 'workflow_dispatch' && inputs.full_mode || false }}
@@ -106,7 +149,9 @@ jobs:
             MODE=incremental
           fi
           python fetch_entsoe.py --mode "$MODE"
+          python fetch_imbalance.py --mode "$MODE"
 
+      # ── commit ──────────────────────────────────────────────
       - name: Commit and push updated data
         run: |
           git config user.name "github-actions[bot]"

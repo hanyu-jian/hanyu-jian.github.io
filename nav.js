@@ -23,7 +23,7 @@
     { label: 'Load',               href: 'load.html' },
     { label: 'Generation',         href: 'generation-overview.html' },
     { label: 'Installed Capacity', href: 'capacity.html' },
-    { label: 'Balancing',          href: 'imbalance.html' },
+    { label: 'Balancing',          href: 'imbalance.html' }
   ];
 
   /* ── 2. Disclaimer text ─────────────────────────────────────────────── */

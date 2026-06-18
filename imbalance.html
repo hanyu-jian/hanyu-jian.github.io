@@ -231,7 +231,7 @@
     <!-- ===== HEADER (nav injected by nav.js if present) ===== -->
     <div class="header">
         <div class="header-top">
-            <h1> European Electricity Dashboard</h1>
+            <h1>European Electricity Dashboard</h1>
         </div>
         <nav class="main-nav" id="mainNav"></nav>
     </div>
@@ -260,7 +260,7 @@
         </div>
         <div class="control-group">
             <label>&nbsp;</label>
-            <span class="currency-note">Rate：<a href="https://www.mnb.hu/" target="_blank">MNB</a></span>
+            <span class="currency-note">汇率来源：<a href="https://www.mnb.hu/" target="_blank">MNB</a>（月均，HU: HUF→EUR，RO: RON→EUR）</span>
         </div>
     </div>
 
@@ -568,6 +568,42 @@ function buildYearMarkArea(keys) {
 }
 
 /* ================================================================
+   CHART STYLE HELPERS
+================================================================ */
+function tooltipFmt(params) {
+    let html = `<div style="font-weight:600;margin-bottom:5px;color:#2c3e50">${params[0]?.axisValue}</div>`;
+    params.forEach(p => {
+        if (p.value == null) return;
+        html += `<div style="display:flex;align-items:center;gap:8px;margin:2px 0;font-size:12px">
+            <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${p.color}"></span>
+            <span style="flex:1;color:#555">${p.seriesName}</span>
+            <span style="font-weight:600;color:#2c3e50">${Number(p.value).toFixed(2)} €/MWh</span>
+        </div>`;
+    });
+    return html;
+}
+
+const axisStyle = {
+    axisLine:  { lineStyle: { color: '#ccc' } },
+    axisLabel: { color: '#6c757d', fontSize: 11 },
+    splitLine: { lineStyle: { color: '#f0f2f5' } }
+};
+
+const commonLegend = {
+    type: 'scroll', icon: 'circle',
+    itemWidth: 10, itemHeight: 10,
+    textStyle: { color: '#2c3e50', fontSize: 12 }
+};
+
+const dataZoomCfg = [
+    { type: 'slider', xAxisIndex: 0, bottom: 10, height: 22,
+      borderColor: '#e6e9ed', fillerColor: 'rgba(44,62,80,0.08)',
+      handleStyle: { color: '#2c3e50' }, textStyle: { color: '#6c757d', fontSize: 10 },
+      brushSelect: false },
+    { type: 'inside', xAxisIndex: 0, zoomOnMouseWheel: true, moveOnMouseMove: true }
+];
+
+/* ================================================================
    CHART 1 – TREND
 ================================================================ */
 function drawTrend() {
@@ -650,123 +686,6 @@ function drawCompare() {
                 ...(yearArea ? { markArea: yearArea } : {})
             },
             ...(spotResult ? [{
-                name: `${country} Day-Ahead`,
-                type: 'line',
-                data: keys.map(k => spotMap[k] ?? null),
-                connectNulls: false,
-                lineStyle: { width: 2, color: '#e74c3c' },
-                itemStyle: { color: '#e74c3c' },
-                symbol: 'circle', symbolSize: 5
-            }] : [])
-        ]
-    }, true);
-}
-function tooltipFmt(params) {
-    let html = `<div style="font-weight:600;margin-bottom:5px;color:#2c3e50">${params[0]?.axisValue}</div>`;
-    params.forEach(p => {
-        if (p.value == null) return;
-        html += `<div style="display:flex;align-items:center;gap:8px;margin:2px 0;font-size:12px">
-            <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${p.color}"></span>
-            <span style="flex:1;color:#555">${p.seriesName}</span>
-            <span style="font-weight:600;color:#2c3e50">${Number(p.value).toFixed(2)} €/MWh</span>
-        </div>`;
-    });
-    return html;
-}
-
-const axisStyle = {
-    axisLine:  { lineStyle: { color: '#ccc' } },
-    axisLabel: { color: '#6c757d', fontSize: 11 },
-    splitLine: { lineStyle: { color: '#f0f2f5' } }
-};
-
-const commonLegend = {
-    type: 'scroll', icon: 'circle',
-    itemWidth: 10, itemHeight: 10,
-    textStyle: { color: '#2c3e50', fontSize: 12 }
-};
-
-const dataZoomCfg = [
-    { type: 'slider', xAxisIndex: 0, bottom: 10, height: 22,
-      borderColor: '#e6e9ed', fillerColor: 'rgba(44,62,80,0.08)',
-      handleStyle: { color: '#2c3e50' }, textStyle: { color: '#6c757d', fontSize: 10 },
-      brushSelect: false },
-    { type: 'inside', xAxisIndex: 0, zoomOnMouseWheel: true, moveOnMouseMove: true }
-];
-
-/* ================================================================
-   CHART 1 – TREND
-================================================================ */
-function drawTrend() {
-    if (!trendChart || !imbalanceData) return;
-    const countries = getSelectedCountries();
-    if (!countries.length) { trendChart.setOption({ series: [] }, true); return; }
-
-    const freq = state.freq;
-    const { keys, series } = aggregateMultiCountry(imbalanceData.data, countries, freq);
-    const rotate = (freq === 'daily' || freq === 'weekly') && keys.length > 60 ? 30 : 0;
-
-    trendChart.setOption({
-        tooltip: { trigger: 'axis', axisPointer: { type: 'cross', lineStyle: { color: '#bbb' } },
-            formatter: tooltipFmt },
-        legend: { ...commonLegend, top: 4, right: 8 },
-        dataZoom: dataZoomCfg,
-        grid: { left: 65, right: 20, top: 40, bottom: 70 },
-        xAxis: { type: 'category', data: keys, ...axisStyle,
-            axisLabel: { ...axisStyle.axisLabel, rotate, interval: 'auto' } },
-        yAxis: { type: 'value', name: '€/MWh',
-            nameTextStyle: { color: '#6c757d', fontSize: 11 }, ...axisStyle },
-        series: countries.map(c => ({
-            name: c, type: 'line', showSymbol: false,
-            data: series[c], connectNulls: false,
-            lineStyle: { width: freq === 'daily' ? 1.4 : 2 }
-        }))
-    }, true);
-}
-
-/* ================================================================
-   CHART 2 – COMPARE (imbalance vs spot)
-================================================================ */
-function drawCompare() {
-    if (!compareChart || !imbalanceData) return;
-    const country = document.getElementById('compareCountrySelect').value;
-    if (!country) return;
-
-    const imbal = aggregateMonthly(imbalanceData.data, country);
-    const allKeys = new Set(imbal.keys);
-    let spotKeys = [], spotVals = [];
-    if (spotData) {
-        const sp = aggregateMonthly(spotData.data, country);
-        spotKeys = sp.keys;
-        spotVals = sp.vals;
-        sp.keys.forEach(k => allKeys.add(k));
-    }
-    const keys = [...allKeys].sort();
-
-    const imbalMap = Object.fromEntries(imbal.keys.map((k,i) => [k, imbal.vals[i]]));
-    const spotMap  = spotData ? Object.fromEntries(spotKeys.map((k,i) => [k, spotVals[i]])) : {};
-
-    compareChart.setOption({
-        tooltip: { trigger: 'axis', axisPointer: { type: 'cross', lineStyle: { color: '#bbb' } },
-            formatter: tooltipFmt },
-        legend: { ...commonLegend, top: 4, right: 8 },
-        dataZoom: dataZoomCfg,
-        grid: { left: 65, right: 20, top: 40, bottom: 70 },
-        xAxis: { type: 'category', data: keys, ...axisStyle,
-            axisLabel: { ...axisStyle.axisLabel, rotate: 0, interval: 'auto' } },
-        yAxis: { type: 'value', name: '€/MWh',
-            nameTextStyle: { color: '#6c757d', fontSize: 11 }, ...axisStyle },
-        series: [
-            {
-                name: `${country} Imbalance`,
-                type: 'line',
-                data: keys.map(k => imbalMap[k] ?? null),
-                connectNulls: false,
-                lineStyle: { width: 2, color: '#2980b9' },
-                itemStyle: { color: '#2980b9' },
-                symbol: 'circle', symbolSize: 5
-            },
-            ...(spotData ? [{
                 name: `${country} Day-Ahead`,
                 type: 'line',
                 data: keys.map(k => spotMap[k] ?? null),

@@ -199,13 +199,14 @@
         .info a { color: #5a8fc2; text-decoration: none; }
         .info a:hover { text-decoration: underline; }
 
-        /* ── Currency note badge ── */
+        /* ── Currency note ── */
         .currency-note {
-            display: inline-flex; align-items: center; gap: 6px;
-            background: #eaf3fb; border: 1px solid #b8d9f0;
-            border-radius: 20px; padding: 4px 12px;
-            font-size: 12px; color: #2471a3; font-weight: 500;
+            font-size: 12px; color: #888; font-style: italic;
         }
+        .currency-note a {
+            color: #5a8fc2; text-decoration: none;
+        }
+        .currency-note a:hover { text-decoration: underline; }
 
         @media (max-width: 900px) {
             .chart-grid { grid-template-columns: 1fr; }
@@ -259,7 +260,7 @@
         </div>
         <div class="control-group">
             <label>&nbsp;</label>
-            <span class="currency-note"> HU &amp; RO converted to EUR/MWh via MNB monthly avg rates</span>
+            <span class="currency-note">Rate：<a href="https://www.mnb.hu/" target="_blank">MNB</a></span>
         </div>
     </div>
 
@@ -294,7 +295,7 @@
             <div class="chart-card-header">
                 <div>
                     <h3>Imbalance Price vs Day-Ahead Price</h3>
-                    <div class="subtitle">Monthly averages – imbalance (blue) vs day-ahead spot (red), 2024 – present</div>
+                    <div class="subtitle">Imbalance (blue) vs day-ahead spot (red) – same frequency as chart above</div>
                 </div>
                 <div class="chart-card-controls">
                     <label>Country</label>
@@ -312,7 +313,6 @@
 
     <div class="info">
         Data source: <a href="https://www.entsoe.eu/" target="_blank">ENTSO-E Transparency Platform</a>
-        &nbsp;|&nbsp; Exchange rates: <a href="https://www.mnb.hu/" target="_blank">MNB</a>
         &nbsp;|&nbsp; Unit: €/MWh &nbsp;|&nbsp; Author: Hanyu Jian
     </div>
 </div><!-- end .container -->
@@ -507,13 +507,13 @@ function aggregateMultiCountry(data, countries, freq) {
     return { keys, series };
 }
 
-function aggregateMonthly(data, country) {
+function aggregateByFreq(data, country, freq) {
     const acc = {};
     data.forEach(pt => {
         const v = pt.values[country];
         if (v == null || isNaN(v)) return;
-        const key = `${pt.year}-${String(pt.month).padStart(2,'0')}`;
-        if (!acc[key]) acc[key] = { sum: 0, cnt: 0 };
+        const key = groupKey(pt, freq);
+        if (!acc[key]) acc[key] = { sum: 0, cnt: 0, year: pt.year };
         acc[key].sum += v;
         acc[key].cnt++;
     });
@@ -522,9 +522,145 @@ function aggregateMonthly(data, country) {
     return { keys, vals };
 }
 
+/* ----------------------------------------------------------------
+   Year band markArea helper
+   Generates alternating shaded bands per calendar year
+---------------------------------------------------------------- */
+const YEAR_BAND_COLORS = [
+    'rgba(44,62,80,0.04)',
+    'rgba(52,152,219,0.06)'
+];
+
+function buildYearMarkArea(keys) {
+    if (!keys.length) return null;
+    const bands = [];
+    let curYear = null, startIdx = 0;
+
+    for (let i = 0; i <= keys.length; i++) {
+        const key = keys[i];
+        // derive year from key string
+        const yr = key ? parseInt(key.slice(0, 4)) : null;
+        if (yr !== curYear) {
+            if (curYear !== null) {
+                const bandIdx = (curYear - 2024) % YEAR_BAND_COLORS.length;
+                bands.push([
+                    {
+                        name: String(curYear),
+                        xAxis: keys[startIdx],
+                        itemStyle: { color: YEAR_BAND_COLORS[bandIdx] },
+                        label: {
+                            show: true,
+                            position: 'insideTopLeft',
+                            color: '#aaa',
+                            fontSize: 11,
+                            fontWeight: '600',
+                            offset: [4, 4]
+                        }
+                    },
+                    { xAxis: keys[i - 1] }
+                ]);
+            }
+            curYear = yr;
+            startIdx = i;
+        }
+    }
+    return { silent: true, data: bands };
+}
+
 /* ================================================================
-   CHART STYLE HELPERS
+   CHART 1 – TREND
 ================================================================ */
+function drawTrend() {
+    if (!trendChart || !imbalanceData) return;
+    const countries = getSelectedCountries();
+    if (!countries.length) { trendChart.setOption({ series: [] }, true); return; }
+
+    const freq = state.freq;
+    const { keys, series } = aggregateMultiCountry(imbalanceData.data, countries, freq);
+    const rotate = (freq === 'daily' || freq === 'weekly') && keys.length > 60 ? 30 : 0;
+    const yearArea = buildYearMarkArea(keys);
+
+    // Attach markArea to first series only
+    const seriesArr = countries.map((c, idx) => ({
+        name: c, type: 'line', showSymbol: false,
+        data: series[c], connectNulls: false,
+        lineStyle: { width: freq === 'daily' ? 1.4 : 2 },
+        ...(idx === 0 && yearArea ? { markArea: yearArea } : {})
+    }));
+
+    trendChart.setOption({
+        tooltip: { trigger: 'axis', axisPointer: { type: 'cross', lineStyle: { color: '#bbb' } },
+            formatter: tooltipFmt },
+        legend: { ...commonLegend, top: 4, right: 8 },
+        dataZoom: dataZoomCfg,
+        grid: { left: 65, right: 20, top: 40, bottom: 70 },
+        xAxis: { type: 'category', data: keys, ...axisStyle,
+            axisLabel: { ...axisStyle.axisLabel, rotate, interval: 'auto' } },
+        yAxis: { type: 'value', name: '€/MWh',
+            nameTextStyle: { color: '#6c757d', fontSize: 11 }, ...axisStyle },
+        series: seriesArr
+    }, true);
+}
+
+/* ================================================================
+   CHART 2 – COMPARE (imbalance vs spot, shared freq)
+================================================================ */
+function drawCompare() {
+    if (!compareChart || !imbalanceData) return;
+    const country = document.getElementById('compareCountrySelect').value;
+    if (!country) return;
+
+    const freq = state.freq;
+    const imbal = aggregateByFreq(imbalanceData.data, country, freq);
+    const allKeys = new Set(imbal.keys);
+    let spotResult = null;
+    if (spotData) {
+        spotResult = aggregateByFreq(spotData.data, country, freq);
+        spotResult.keys.forEach(k => allKeys.add(k));
+    }
+    const keys = [...allKeys].sort();
+
+    const imbalMap = Object.fromEntries(imbal.keys.map((k, i) => [k, imbal.vals[i]]));
+    const spotMap  = spotResult
+        ? Object.fromEntries(spotResult.keys.map((k, i) => [k, spotResult.vals[i]]))
+        : {};
+
+    const yearArea = buildYearMarkArea(keys);
+    const rotate = (freq === 'daily' || freq === 'weekly') && keys.length > 60 ? 30 : 0;
+
+    compareChart.setOption({
+        tooltip: { trigger: 'axis', axisPointer: { type: 'cross', lineStyle: { color: '#bbb' } },
+            formatter: tooltipFmt },
+        legend: { ...commonLegend, top: 4, right: 8 },
+        dataZoom: dataZoomCfg,
+        grid: { left: 65, right: 20, top: 40, bottom: 70 },
+        xAxis: { type: 'category', data: keys, ...axisStyle,
+            axisLabel: { ...axisStyle.axisLabel, rotate, interval: 'auto' } },
+        yAxis: { type: 'value', name: '€/MWh',
+            nameTextStyle: { color: '#6c757d', fontSize: 11 }, ...axisStyle },
+        series: [
+            {
+                name: `${country} Imbalance`,
+                type: 'line',
+                data: keys.map(k => imbalMap[k] ?? null),
+                connectNulls: false,
+                lineStyle: { width: 2, color: '#2980b9' },
+                itemStyle: { color: '#2980b9' },
+                symbol: 'circle', symbolSize: 5,
+                ...(yearArea ? { markArea: yearArea } : {})
+            },
+            ...(spotResult ? [{
+                name: `${country} Day-Ahead`,
+                type: 'line',
+                data: keys.map(k => spotMap[k] ?? null),
+                connectNulls: false,
+                lineStyle: { width: 2, color: '#e74c3c' },
+                itemStyle: { color: '#e74c3c' },
+                symbol: 'circle', symbolSize: 5
+            }] : [])
+        ]
+    }, true);
+}
 function tooltipFmt(params) {
     let html = `<div style="font-weight:600;margin-bottom:5px;color:#2c3e50">${params[0]?.axisValue}</div>`;
     params.forEach(p => {
@@ -716,6 +852,7 @@ function initFreqButtons() {
         btn.classList.add('active');
         state.freq = btn.dataset.freq;
         drawTrend();
+        drawCompare();
     });
 }
 

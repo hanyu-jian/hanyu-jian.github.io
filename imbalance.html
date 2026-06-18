@@ -305,8 +305,7 @@
                     <div class="subtitle">Average imbalance price per period across selected countries (€/MWh), 2024 – present</div>
                 </div>
                 <div class="chart-card-controls" style="gap:16px;">
-                    <div style="display:flex;align-items:center;gap:8px;">
-                        <label>Day type</label>
+                    <div style="display:flex;align-items:center;gap:10px;">
                         <div class="daytype-group">
                             <label class="daytype-item">
                                 <input type="checkbox" id="cbWeekday" checked> Weekday
@@ -319,9 +318,9 @@
                     <div style="display:flex;align-items:center;gap:8px;">
                         <label>Hours</label>
                         <div class="hour-range-group">
-                            <input type="number" id="hourStart" value="0" min="0" max="23" title="Start hour (0–23)">
+                            <select id="hourStart" style="height:30px;padding:0 6px;border:1px solid #ccc;border-radius:6px;font-size:13px;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;color:#2c3e50;cursor:pointer;"></select>
                             <span>–</span>
-                            <input type="number" id="hourEnd" value="23" min="0" max="23" title="End hour (0–23)">
+                            <select id="hourEnd" style="height:30px;padding:0 6px;border:1px solid #ccc;border-radius:6px;font-size:13px;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;color:#2c3e50;cursor:pointer;"></select>
                         </div>
                     </div>
                     <div style="display:flex;align-items:center;gap:8px;">
@@ -380,7 +379,7 @@ const state = {
     weekday: true,
     weekend: true,
     hourStart: 0,
-    hourEnd: 23
+    hourEnd: 23   // inclusive; 24:00 in dropdown maps to hour 23
 };
 
 /* ================================================================
@@ -838,6 +837,15 @@ function initCompareSelect() {
    CHART 1 CONTROLS (freq + day type + hour range)
 ================================================================ */
 function initChart1Controls() {
+    // Populate hour dropdowns 00:00 – 24:00
+    const hourOpts = Array.from({ length: 25 }, (_, i) =>
+        `<option value="${i}">${String(i).padStart(2,'0')}:00</option>`
+    ).join('');
+    document.getElementById('hourStart').innerHTML = hourOpts;
+    document.getElementById('hourEnd').innerHTML   = hourOpts;
+    document.getElementById('hourStart').value = 0;
+    document.getElementById('hourEnd').value   = 24;
+
     // Frequency buttons
     document.getElementById('freqGroup1').addEventListener('click', e => {
         const btn = e.target.closest('button[data-freq]');
@@ -845,13 +853,11 @@ function initChart1Controls() {
         document.querySelectorAll('#freqGroup1 button').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         state.freq = btn.dataset.freq;
-        drawTrend();
-        drawCompare();
+        drawTrend(); drawCompare();
     });
 
     // Day type checkboxes
     document.getElementById('cbWeekday').addEventListener('change', function() {
-        // prevent both unchecked
         if (!this.checked && !document.getElementById('cbWeekend').checked) {
             this.checked = true; return;
         }
@@ -866,19 +872,17 @@ function initChart1Controls() {
         drawTrend(); drawCompare();
     });
 
-    // Hour range inputs
+    // Hour range selects
     function applyHourRange() {
         let s = parseInt(document.getElementById('hourStart').value);
         let e = parseInt(document.getElementById('hourEnd').value);
-        if (isNaN(s)) s = 0;
-        if (isNaN(e)) e = 23;
-        s = Math.max(0, Math.min(23, s));
-        e = Math.max(0, Math.min(23, e));
-        if (s > e) { const tmp = s; s = e; e = tmp; }  // swap if inverted
-        document.getElementById('hourStart').value = s;
-        document.getElementById('hourEnd').value   = e;
+        // if start > end, snap end to start
+        if (s > e) {
+            e = s;
+            document.getElementById('hourEnd').value = e;
+        }
         state.hourStart = s;
-        state.hourEnd   = e;
+        state.hourEnd   = e === 24 ? 23 : e - 1;  // 24:00 means up to end of hour 23
         drawTrend(); drawCompare();
     }
     document.getElementById('hourStart').addEventListener('change', applyHourRange);

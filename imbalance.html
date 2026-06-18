@@ -208,6 +208,34 @@
         }
         .currency-note a:hover { text-decoration: underline; }
 
+        /* ── Hour range inputs ── */
+        .hour-range-group {
+            display: inline-flex; align-items: center; gap: 6px;
+        }
+        .hour-range-group input[type="number"] {
+            width: 52px; height: 30px; padding: 0 6px;
+            border: 1px solid #ccc; border-radius: 6px;
+            font-size: 13px; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            text-align: center; color: #2c3e50;
+        }
+        .hour-range-group input[type="number"]:focus {
+            outline: none; border-color: #2c3e50;
+        }
+        .hour-range-group span { font-size: 12px; color: #6c757d; }
+
+        /* ── Day type checkboxes ── */
+        .daytype-group {
+            display: inline-flex; align-items: center; gap: 10px;
+        }
+        .daytype-item {
+            display: inline-flex; align-items: center; gap: 5px;
+            cursor: pointer; font-size: 13px; color: #2c3e50;
+        }
+        .daytype-item input[type="checkbox"] {
+            width: 14px; height: 14px; margin: 0;
+            cursor: pointer; accent-color: #2c3e50;
+        }
+
         @media (max-width: 900px) {
             .chart-grid { grid-template-columns: 1fr; }
             .controls { flex-direction: column; align-items: stretch; }
@@ -231,7 +259,7 @@
     <!-- ===== HEADER (nav injected by nav.js if present) ===== -->
     <div class="header">
         <div class="header-top">
-            <h1>European Electricity Dashboard</h1>
+            <h1>⚡ European Electricity Dashboard</h1>
         </div>
         <nav class="main-nav" id="mainNav"></nav>
     </div>
@@ -260,7 +288,7 @@
         </div>
         <div class="control-group">
             <label>&nbsp;</label>
-            <span class="currency-note">Rate：<a href="https://www.mnb.hu/" target="_blank">MNB</a></span>
+            <span class="currency-note">Exchange rates: <a href="https://www.mnb.hu/" target="_blank">MNB</a> monthly avg (HU: HUF→EUR, RO: RON→EUR)</span>
         </div>
     </div>
 
@@ -276,14 +304,35 @@
                     <h3>Imbalance Price Trends</h3>
                     <div class="subtitle">Average imbalance price per period across selected countries (€/MWh), 2024 – present</div>
                 </div>
-                <div class="chart-card-controls">
-                    <label>Frequency</label>
-                    <div class="btn-group-inline" id="freqGroup1">
-                        <button data-freq="daily"     class="active">Daily</button>
-                        <button data-freq="weekly">Weekly</button>
-                        <button data-freq="monthly">Monthly</button>
-                        <button data-freq="quarterly">Quarterly</button>
-                        <button data-freq="yearly">Yearly</button>
+                <div class="chart-card-controls" style="gap:16px;">
+                    <div style="display:flex;align-items:center;gap:8px;">
+                        <label>Day type</label>
+                        <div class="daytype-group">
+                            <label class="daytype-item">
+                                <input type="checkbox" id="cbWeekday" checked> Weekday
+                            </label>
+                            <label class="daytype-item">
+                                <input type="checkbox" id="cbWeekend" checked> Weekend
+                            </label>
+                        </div>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:8px;">
+                        <label>Hours</label>
+                        <div class="hour-range-group">
+                            <input type="number" id="hourStart" value="0" min="0" max="23" title="Start hour (0–23)">
+                            <span>–</span>
+                            <input type="number" id="hourEnd" value="23" min="0" max="23" title="End hour (0–23)">
+                        </div>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:8px;">
+                        <label>Frequency</label>
+                        <div class="btn-group-inline" id="freqGroup1">
+                            <button data-freq="daily"     class="active">Daily</button>
+                            <button data-freq="weekly">Weekly</button>
+                            <button data-freq="monthly">Monthly</button>
+                            <button data-freq="quarterly">Quarterly</button>
+                            <button data-freq="yearly">Yearly</button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -326,7 +375,13 @@ let spotData       = null;   // same shape, from price.csv
 let trendChart     = null;
 let compareChart   = null;
 
-const state = { freq: 'daily' };
+const state = {
+    freq: 'daily',
+    weekday: true,
+    weekend: true,
+    hourStart: 0,
+    hourEnd: 23
+};
 
 /* ================================================================
    CSV HELPERS
@@ -481,10 +536,28 @@ function groupKey(pt, freq) {
     return String(pt.year);
 }
 
-function aggregateMultiCountry(data, countries, freq) {
+/* Returns day-of-week (0=Sun … 6=Sat) for a dateStr "YYYY-MM-DD" */
+function dowFromDateStr(dateStr) {
+    return new Date(dateStr + 'T00:00:00Z').getUTCDay();
+}
+
+/* Shared point filter: returns true if pt passes weekday/weekend + hour filters */
+function passesFilter(pt, opts) {
+    // Hour range
+    if (pt.hour < opts.hourStart || pt.hour > opts.hourEnd) return false;
+    // Day type
+    const dow = dowFromDateStr(pt.dateStr);
+    const isWeekend = (dow === 0 || dow === 6);
+    if (isWeekend && !opts.weekend) return false;
+    if (!isWeekend && !opts.weekday) return false;
+    return true;
+}
+
+function aggregateMultiCountry(data, countries, freq, opts) {
     const acc = {};
     countries.forEach(c => acc[c] = {});
     data.forEach(pt => {
+        if (!passesFilter(pt, opts)) return;
         const key = groupKey(pt, freq);
         countries.forEach(c => {
             const v = pt.values[c];
@@ -507,9 +580,10 @@ function aggregateMultiCountry(data, countries, freq) {
     return { keys, series };
 }
 
-function aggregateByFreq(data, country, freq) {
+function aggregateByFreq(data, country, freq, opts) {
     const acc = {};
     data.forEach(pt => {
+        if (opts && !passesFilter(pt, opts)) return;
         const v = pt.values[country];
         if (v == null || isNaN(v)) return;
         const key = groupKey(pt, freq);
@@ -612,7 +686,7 @@ function drawTrend() {
     if (!countries.length) { trendChart.setOption({ series: [] }, true); return; }
 
     const freq = state.freq;
-    const { keys, series } = aggregateMultiCountry(imbalanceData.data, countries, freq);
+    const { keys, series } = aggregateMultiCountry(imbalanceData.data, countries, freq, state);
     const rotate = (freq === 'daily' || freq === 'weekly') && keys.length > 60 ? 30 : 0;
     const yearArea = buildYearMarkArea(keys);
 
@@ -647,11 +721,11 @@ function drawCompare() {
     if (!country) return;
 
     const freq = state.freq;
-    const imbal = aggregateByFreq(imbalanceData.data, country, freq);
+    const imbal = aggregateByFreq(imbalanceData.data, country, freq, state);
     const allKeys = new Set(imbal.keys);
     let spotResult = null;
     if (spotData) {
-        spotResult = aggregateByFreq(spotData.data, country, freq);
+        spotResult = aggregateByFreq(spotData.data, country, freq, state);
         spotResult.keys.forEach(k => allKeys.add(k));
     }
     const keys = [...allKeys].sort();
@@ -761,9 +835,10 @@ function initCompareSelect() {
 }
 
 /* ================================================================
-   FREQ BUTTONS
+   CHART 1 CONTROLS (freq + day type + hour range)
 ================================================================ */
-function initFreqButtons() {
+function initChart1Controls() {
+    // Frequency buttons
     document.getElementById('freqGroup1').addEventListener('click', e => {
         const btn = e.target.closest('button[data-freq]');
         if (!btn) return;
@@ -773,6 +848,41 @@ function initFreqButtons() {
         drawTrend();
         drawCompare();
     });
+
+    // Day type checkboxes
+    document.getElementById('cbWeekday').addEventListener('change', function() {
+        // prevent both unchecked
+        if (!this.checked && !document.getElementById('cbWeekend').checked) {
+            this.checked = true; return;
+        }
+        state.weekday = this.checked;
+        drawTrend(); drawCompare();
+    });
+    document.getElementById('cbWeekend').addEventListener('change', function() {
+        if (!this.checked && !document.getElementById('cbWeekday').checked) {
+            this.checked = true; return;
+        }
+        state.weekend = this.checked;
+        drawTrend(); drawCompare();
+    });
+
+    // Hour range inputs
+    function applyHourRange() {
+        let s = parseInt(document.getElementById('hourStart').value);
+        let e = parseInt(document.getElementById('hourEnd').value);
+        if (isNaN(s)) s = 0;
+        if (isNaN(e)) e = 23;
+        s = Math.max(0, Math.min(23, s));
+        e = Math.max(0, Math.min(23, e));
+        if (s > e) { const tmp = s; s = e; e = tmp; }  // swap if inverted
+        document.getElementById('hourStart').value = s;
+        document.getElementById('hourEnd').value   = e;
+        state.hourStart = s;
+        state.hourEnd   = e;
+        drawTrend(); drawCompare();
+    }
+    document.getElementById('hourStart').addEventListener('change', applyHourRange);
+    document.getElementById('hourEnd').addEventListener('change',   applyHourRange);
 }
 
 /* ================================================================
@@ -800,7 +910,7 @@ async function init() {
     buildCountryCheckboxes();
     initDropdown();
     initCompareSelect();
-    initFreqButtons();
+    initChart1Controls();
 
     document.getElementById('selectAllBtn').addEventListener('click', () => {
         document.querySelectorAll('#countryCheckboxes input').forEach(cb => cb.checked = true);

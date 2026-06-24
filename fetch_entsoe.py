@@ -477,6 +477,43 @@ def fetch_load(bzn_eic: str, start: str,
     hourly = raw_combined.resample("h").mean()
     return hourly, raw_combined
 
+def _select_best_timeseries_per_window(
+    ts_list: list[ET.Element],
+) -> list[ET.Element]:
+    """
+    同一时间窗口可能有多条 TimeSeries（不同修订版或聚合类型）。
+    优先保留 objectAggregation=A08，并在相同窗口内取 Point 数最多的那条。
+    """
+    from collections import defaultdict
+
+    # key = (start, end)，value = list of (point_count, ts_element)
+    window_map: dict[tuple, list] = defaultdict(list)
+
+    for ts in ts_list:
+        obj_agg = ts.findtext(".//{*}objectAggregation", "")
+        # 跳过非实际值（A08=实际，A01=计划）
+        # 如果没有 objectAggregation 标签则保留（部分国家不带此字段）
+        if obj_agg and obj_agg != "A08":
+            continue
+
+        for period in ts.findall(".//{*}Period"):
+            start = period.findtext(".//{*}start", "")
+            end   = period.findtext(".//{*}end",   "")
+            pts   = len(period.findall(".//{*}Point"))
+            window_map[(start, end)].append((pts, ts))
+
+    # 每个窗口只取 point 数最多的 TimeSeries
+    seen_ts_ids = set()
+    result = []
+    for candidates in window_map.values():
+        best_ts = max(candidates, key=lambda x: x[0])[1]
+        ts_id   = id(best_ts)
+        if ts_id not in seen_ts_ids:
+            seen_ts_ids.add(ts_id)
+            result.append(best_ts)
+
+    return result if result else ts_list  # 兜底：过滤后为空则返回原列表
+
 
 def fetch_generation(in_domain: str, start: str,
                      end_inclusive: str) -> tuple[dict[str, pd.Series], dict[str, pd.Series]]:
@@ -494,6 +531,7 @@ def fetch_generation(in_domain: str, start: str,
                 timeout=GEN_TIMEOUT,
             )
             time.sleep(REQUEST_DELAY)
+            filtered = _select_best_timeseries_per_window(ts_list)
             for ts in ts_list:
                 for period in ts.findall(".//{*}Period"):
                     s, _res = _parse_period_raw(period, value_tag="quantity")

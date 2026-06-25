@@ -749,7 +749,7 @@ def merge_and_save_raw_generation(raw_gen_by_country: dict[str, dict[str, pd.Ser
 def main():
     parser = argparse.ArgumentParser(description="ENTSOE 数据更新")
     parser.add_argument(
-        "--mode", choices=["incremental", "full", "price_only"], default="incremental",
+        "--mode", choices=["incremental", "full", "price_only", "gen_load"], default="incremental",
     )
     parser.add_argument("--country", default="", help="只跑指定国家，例如 DE，为空则跑全部")
     parser.add_argument("--start", default="", help="自定义起始日期 YYYY-MM-DD")
@@ -766,6 +766,10 @@ def main():
     elif args.mode == "price_only":
         start_date = args.start if args.start else FULL_START_DATE
         mode_label = "仅价格模式"
+    elif args.mode == "gen_load":
+        start_date = args.start if args.start else FULL_START_DATE
+        mode_label = "仅发电+负荷模式"
+
     else:
         start_date = args.start if args.start else (today - timedelta(days=LOOKBACK_DAYS)).strftime("%Y-%m-%d")
         mode_label = f"增量模式（最近 {LOOKBACK_DAYS} 天）"
@@ -820,6 +824,114 @@ def main():
         
         return
 
+
+  # ── gen_load 分支 ────────────────────────────────────────
+    if args.mode == "gen_load":
+        if args.country:
+            cc_filter = args.country.lower()
+            if cc_filter not in COUNTRY_CONFIG:
+                print(f"[ERROR] 未知国家: {args.country}")
+                return
+            countries_to_run = [cc_filter]
+        else:
+            countries_to_run = COUNTRIES
+
+        start_date = args.start if args.start else (
+            FULL_START_DATE if not args.start
+            else (datetime.now() - timedelta(days=LOOKBACK_DAYS)).strftime("%Y-%m-%d")
+        )
+        # gen_load 模式的 start_date 已在上面 mode_label 块里算好，直接用即可
+
+        print(f"国家: {[c.upper() for c in countries_to_run]}\n")
+
+        load_cols:     dict[str, pd.Series] = {}
+        solar_cols:    dict[str, pd.Series] = {}
+        wind_cols:     dict[str, pd.Series] = {}
+        residual_cols: dict[str, pd.Series] = {}
+        gen_rows:      list[dict]           = []
+        raw_load_cols:      dict[str, pd.Series]            = {}
+        raw_gen_by_country: dict[str, dict[str, pd.Series]] = {}
+
+        for cc in countries_to_run:
+            cfg         = COUNTRY_CONFIG[cc]
+            bzn_eic     = cfg["bzn_eic"]
+            load_domain = cfg.get("load_eic", bzn_eic)
+            gen_domain  = cfg.get("gen_eic",  bzn_eic)
+            col         = cc.upper()
+            print(f"[{col}]")
+
+            print(f"  → A65 load   eic={load_domain}")
+            s_hourly, s_raw = fetch_load(load_domain, start_date, end_date)
+            if s_hourly is not None:
+                s_hourly = s_hourly[s_hourly.index < cutoff_naive]
+                load_cols[col]     = s_hourly
+                raw_load_cols[col] = s_raw[s_raw.index < cutoff_naive]
+                print(f"     ✓ {load_cols[col].notna().sum()} 有效值(1h) | "
+                      f"{raw_load_cols[col].notna().sum()} 原始点")
+            else:
+                print(f"     [WARN] 无负荷数据")
+
+            print(f"  → A75 gen    in_Domain={gen_domain}")
+            hourly_dict, raw_dict = fetch_generation(gen_domain, start_date, end_date)
+            result = build_generation_result(hourly_dict)
+
+            if raw_dict:
+                raw_gen_by_country[col] = {
+                    k: v[v.index < cutoff_naive] for k, v in raw_dict.items()
+                }
+
+            for field, target_dict, lbl in [
+                ("solar", solar_cols, "solar"),
+                ("wind",  wind_cols,  "wind"),
+            ]:
+                s = result.get(field)
+                if s is not None:
+                    target_dict[col] = s[s.index < cutoff_naive]
+                    print(f"     ✓ {lbl:<8} {target_dict[col].notna().sum()} 有效值")
+                else:
+                    print(f"     [WARN] {lbl} 无数据")
+
+            load_s  = load_cols.get(col)
+            solar_s = solar_cols.get(col)
+            wind_s  = wind_cols.get(col)
+            if load_s is not None and (solar_s is not None or wind_s is not None):
+                renewables = pd.Series(0.0, index=load_s.index)
+                for rs in [solar_s, wind_s]:
+                    if rs is not None:
+                        renewables = renewables.add(
+                            rs.reindex(load_s.index, fill_value=0), fill_value=0)
+                residual_cols[col] = load_s - renewables
+                print(f"     ✓ residual  {residual_cols[col].notna().sum()} 有效值（计算值）")
+
+            gen_df: pd.DataFrame = result.get("generation", pd.DataFrame())
+            if not gen_df.empty:
+                gen_df = gen_df[gen_df.index < cutoff_naive]
+                for cat in gen_df.columns:
+                    for dt, val in gen_df[cat].items():
+                        gen_rows.append({
+                            "date":     _fmt_dt_hourly(dt),
+                            "country":  col,
+                            "category": cat,
+                            "value":    val,
+                        })
+                print(f"     ✓ generation {len(gen_df.columns)} 类型, {len(gen_df)} 行")
+            print()
+
+        print("保存/合并文件 [data/]...")
+        merge_and_save_wide(load_cols,     DATA_DIR / "load.csv",          "load")
+        merge_and_save_wide(solar_cols,    DATA_DIR / "solar.csv",         "solar")
+        merge_and_save_wide(wind_cols,     DATA_DIR / "wind.csv",          "wind")
+        merge_and_save_wide(residual_cols, DATA_DIR / "residual_load.csv", "residual_load")
+        merge_and_save_generation(gen_rows, DATA_DIR / "generation")
+        print()
+
+        print("保存/合并原始数据 [raw_data/]...")
+        merge_and_save_raw_wide(raw_load_cols, RAW_DIR / "A65.csv", "A65 load")
+        merge_and_save_raw_generation(raw_gen_by_country, RAW_DIR / "generation")
+        return
+
+
+    
     price_cols:    dict[str, pd.Series] = {}
     load_cols:     dict[str, pd.Series] = {}
     solar_cols:    dict[str, pd.Series] = {}

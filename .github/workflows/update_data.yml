@@ -36,6 +36,22 @@ on:
         description: "Price-only end date, for example 2024-12-31. Empty uses yesterday."
         type: string
         default: ""
+      generation_load_only:
+        description: "Only fetch generation+load data (runs fetch_entsoe.py --mode gen_load)"
+        type: boolean
+        default: false
+      gen_load_country:
+        description: "Generation+load-only specific country, for example DE. Empty runs all countries."
+        type: string
+        default: ""
+      gen_load_start:
+        description: "Generation+load-only start date, for example 2024-01-01. Empty uses FULL_START_DATE."
+        type: string
+        default: ""
+      gen_load_end:
+        description: "Generation+load-only end date, for example 2024-12-31. Empty uses yesterday."
+        type: string
+        default: ""
       imbalance_only:
         description: "Only fetch imbalance price data (updates data/imbalance_price.csv and raw_data/A85.csv)"
         type: boolean
@@ -112,9 +128,30 @@ jobs:
           fi
           python fetch_entsoe.py "${args[@]}"
 
+      # ── generation+load only ────────────────────────────────
+      - name: Run generation+load-only update
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.generation_load_only == true && inputs.repair_country == '' && inputs.price_only == false }}
+        env:
+          ENTSOE_TOKEN: ${{ secrets.ENTSOE_TOKEN }}
+          GEN_LOAD_COUNTRY: ${{ inputs.gen_load_country }}
+          GEN_LOAD_START: ${{ inputs.gen_load_start }}
+          GEN_LOAD_END: ${{ inputs.gen_load_end }}
+        run: |
+          args=(--mode gen_load)
+          if [ -n "$GEN_LOAD_COUNTRY" ]; then
+            args+=(--country "$GEN_LOAD_COUNTRY")
+          fi
+          if [ -n "$GEN_LOAD_START" ]; then
+            args+=(--start "$GEN_LOAD_START")
+          fi
+          if [ -n "$GEN_LOAD_END" ]; then
+            args+=(--end "$GEN_LOAD_END")
+          fi
+          python fetch_entsoe.py "${args[@]}"
+
       # ── imbalance only ──────────────────────────────────────
       - name: Run imbalance-only update
-        if: ${{ github.event_name == 'workflow_dispatch' && inputs.imbalance_only == true && inputs.repair_country == '' && inputs.price_only == false }}
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.imbalance_only == true && inputs.repair_country == '' && inputs.price_only == false && inputs.generation_load_only == false }}
         env:
           ENTSOE_TOKEN: ${{ secrets.ENTSOE_TOKEN }}
           IMBALANCE_COUNTRY: ${{ inputs.imbalance_country }}
@@ -127,7 +164,6 @@ jobs:
           fi
           if [ -n "$IMBALANCE_START" ]; then
             args+=(--start "$IMBALANCE_START")
-            # 有自定义起始日期时切换为 full 模式，避免被 LOOKBACK_DAYS 截断
             args[0]="--mode"
             args[1]="full"
           fi
@@ -138,7 +174,7 @@ jobs:
 
       # ── normal update（fetch_entsoe + fetch_imbalance）──────
       - name: Run normal update script
-        if: ${{ github.event_name != 'workflow_dispatch' || (inputs.repair_country == '' && inputs.price_only == false && inputs.imbalance_only == false) }}
+        if: ${{ github.event_name != 'workflow_dispatch' || (inputs.repair_country == '' && inputs.price_only == false && inputs.generation_load_only == false && inputs.imbalance_only == false) }}
         env:
           ENTSOE_TOKEN: ${{ secrets.ENTSOE_TOKEN }}
           FULL_MODE: ${{ github.event_name == 'workflow_dispatch' && inputs.full_mode || false }}

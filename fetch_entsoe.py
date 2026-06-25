@@ -26,6 +26,11 @@ ENTSOE API 数据更新脚本（增量更新版）
 ENTSOE API 限制：
 - 每次请求时间跨度 ≤ 1 年 → 按年分段请求
 - 每次响应最多 100 条 TimeSeries → 用 offset 参数翻页
+
+A75 发电数据去重策略（修复 0 值问题）：
+- 同一时间戳出现在多个 Period/TimeSeries 时，取来自 Point 数最多的 Period 的值
+- 不再依赖 keep="last"（concat 顺序不可控）
+- 对每个时间戳，只保留数据最完整的那条 Period 的值
 """
 
 import argparse
@@ -46,22 +51,20 @@ import requests
 ENTSOE_TOKEN = os.environ["ENTSOE_TOKEN"]
 API_URL      = "https://web-api.tp.entsoe.eu/api"
 
-# ← CHANGED: 新增统一展示时区常量
-# ENTSOE 网站所有文档时间轴均基于 CET/CEST，与各国本地时区无关
 ENTSOE_DISPLAY_TZ = "Europe/Brussels"
 
 COUNTRY_CONFIG = {
     "de": {
-        "bzn_eic": "10Y1001A1001A82H",   # （价格/负荷）
-        "gen_eic": "10Y1001A1001A83F",   # 发电（全国 CTY）
+        "bzn_eic":  "10Y1001A1001A82H",
+        "gen_eic":  "10Y1001A1001A83F",
         "load_eic": "10Y1001A1001A83F",
     },
     "fr": {"bzn_eic": "10YFR-RTE------C"},
     "es": {"bzn_eic": "10YES-REE------0"},
     "it": {
-    "bzn_eic": "10Y1001A1001A73I",   # IT-North BZ（价格/负荷）
-    "gen_eic": "10YIT-GRTN-----B",   # IT 全国控制区（发电）
-    "load_eic": "10YIT-GRTN-----B",
+        "bzn_eic":  "10Y1001A1001A73I",
+        "gen_eic":  "10YIT-GRTN-----B",
+        "load_eic": "10YIT-GRTN-----B",
     },
     "gr": {"bzn_eic": "10YGR-HTSO-----Y"},
     "ro": {"bzn_eic": "10YRO-TEL------P"},
@@ -98,18 +101,18 @@ PSR_TYPE_MAP = {
     "B25": "Energy Storage",
 }
 
-COUNTRIES            = list(COUNTRY_CONFIG.keys())
-FULL_START_DATE      = "2024-01-01"
-LOOKBACK_DAYS        = 7
-REQUEST_DELAY        = 1.5
-CHUNK_DAYS           = 365
-PRICE_CHUNK_DAYS     = 30
-PAGE_SIZE            = 100
-DEFAULT_TIMEOUT      = 90
-GEN_TIMEOUT          = 120
-DATA_DIR             = Path("data")
-RAW_DIR              = Path("raw_data")
-ENTSOE_FMT           = "%Y%m%d%H%M"
+COUNTRIES             = list(COUNTRY_CONFIG.keys())
+FULL_START_DATE       = "2024-01-01"
+LOOKBACK_DAYS         = 7
+REQUEST_DELAY         = 1.5
+CHUNK_DAYS            = 365
+PRICE_CHUNK_DAYS      = 30
+PAGE_SIZE             = 100
+DEFAULT_TIMEOUT       = 90
+GEN_TIMEOUT           = 120
+DATA_DIR              = Path("data")
+RAW_DIR               = Path("raw_data")
+ENTSOE_FMT            = "%Y%m%d%H%M"
 HOURLY_ROUND_DECIMALS = 6
 
 
@@ -129,13 +132,7 @@ def _to_entsoe_dt(date_str: str) -> str:
     return datetime.strptime(date_str, "%Y-%m-%d").strftime(ENTSOE_FMT)
 
 
-# ← CHANGED: 统一用 ENTSOE_DISPLAY_TZ（CET/CEST）作为请求边界的本地时间基准
-# 原来按各国 tz 转换会导致东欧国家（RO/BG/GR 等）请求边界偏移 1 小时
 def _date_to_entsoe_utc_dt(date_str: str) -> str:
-    """
-    把日期字符串的 CET/CEST 00:00 转换为 ENTSOE API 需要的 UTC 时间字符串。
-    所有国家统一用 CET/CEST 作为边界，与 ENTSOE 网站时间轴一致。
-    """
     local_midnight = pd.Timestamp(date_str).tz_localize(ENTSOE_DISPLAY_TZ)
     utc_dt = local_midnight.tz_convert("UTC")
     return utc_dt.strftime(ENTSOE_FMT)
@@ -189,7 +186,6 @@ def _get_all_timeseries(base_params: dict, label: str,
     return all_ts
 
 
-# ← CHANGED: 所有 params 函数去掉 tz 参数，统一调用 _date_to_entsoe_utc_dt
 def _price_params(bzn_eic: str, start: str, end: str) -> dict:
     return {
         "documentType": "A44",
@@ -233,7 +229,6 @@ RES_MINUTES = {
 }
 
 
-# ← CHANGED: 时区转换固定用 ENTSOE_DISPLAY_TZ，不再接收 tz 参数用于时间轴
 def _parse_period_raw(period_el: ET.Element,
                       value_tag: str = "quantity") -> tuple[pd.Series, int]:
     start_el = period_el.find(".//{*}start")
@@ -267,7 +262,7 @@ def _parse_period_raw(period_el: ET.Element,
             pass
 
     if end_el is not None:
-        end_utc = datetime.strptime(end_el.text.strip(), "%Y-%m-%dT%H:%MZ")
+        end_utc     = datetime.strptime(end_el.text.strip(), "%Y-%m-%dT%H:%MZ")
         total_slots = int((end_utc - start_utc) / delta)
     elif point_values:
         total_slots = max(point_values.keys())
@@ -290,7 +285,6 @@ def _parse_period_raw(period_el: ET.Element,
         return pd.Series(dtype=float), res_min
 
     s = pd.Series(records)
-    # ← CHANGED: 固定转换到 CET/CEST，与 ENTSOE 网站时间轴对齐
     s.index = (
         pd.DatetimeIndex(s.index)
           .tz_localize("UTC")
@@ -298,6 +292,7 @@ def _parse_period_raw(period_el: ET.Element,
           .tz_localize(None)
     )
     return s, res_min
+
 
 def _filter_ts_by_sequence_position(
     ts_list: list[ET.Element],
@@ -308,23 +303,13 @@ def _filter_ts_by_sequence_position(
     tagged   = [ts for ts in ts_list if ts.find(SEQ_TAG) is not None]
     untagged = [ts for ts in ts_list if ts.find(SEQ_TAG) is None]
 
-    # 西班牙情况：tagged 和 untagged 同时存在，取无 sequence tag 的那条
     if tagged and untagged:
         return untagged
-
-    # 其他国家：全部都有 sequence tag，按 position 过滤（德国/奥地利等）
     if tagged:
-        return [
-            ts for ts in tagged
-            if ts.findtext(SEQ_TAG) == str(position)
-        ]
-
-    # 所有国家都没有 sequence tag（无需过滤，直接返回）
+        return [ts for ts in tagged if ts.findtext(SEQ_TAG) == str(position)]
     return ts_list
-    
 
 
-# ← CHANGED: 去掉 tz 参数
 def _ts_list_to_raw_series(ts_list: list[ET.Element],
                            value_tag: str = "quantity") -> pd.Series | None:
     parts = []
@@ -337,6 +322,37 @@ def _ts_list_to_raw_series(ts_list: list[ET.Element],
         return None
     combined = pd.concat(parts).sort_index()
     combined = combined[~combined.index.duplicated(keep="last")]
+    return combined
+
+
+def _merge_gen_periods_best_wins(
+    period_series_list: list[tuple[int, pd.Series]]
+) -> pd.Series | None:
+    """
+    A75 发电数据专用合并：同一时间戳有多个来源时，
+    取来自「Point 数最多的 Period」的值，而不是 keep="last"。
+
+    period_series_list: [(point_count, series), ...]
+    逻辑：
+    1. 按 point_count 降序排列（最完整的 Period 优先）
+    2. 对每个时间戳，第一次赋值后不再覆盖（最完整的 Period 优先）
+    """
+    if not period_series_list:
+        return None
+
+    # 按 point_count 降序：点数多的 Period 优先
+    sorted_parts = sorted(period_series_list, key=lambda x: x[0], reverse=True)
+
+    result: dict = {}
+    for _, s in sorted_parts:
+        for ts, val in s.items():
+            if ts not in result:          # 只在该时间戳尚未被更完整的 Period 覆盖时才写入
+                result[ts] = val
+
+    if not result:
+        return None
+
+    combined = pd.Series(result).sort_index()
     return combined
 
 
@@ -433,7 +449,6 @@ def fmt_index_15min(index: pd.DatetimeIndex) -> list[str]:
     return [_fmt_dt_15min(dt) for dt in index]
 
 
-# ← CHANGED: 去掉所有 fetch_* 函数的 tz 参数
 def fetch_price(bzn_eic: str, start: str,
                 end_inclusive: str) -> tuple[pd.Series | None, pd.Series | None]:
     raw_parts = []
@@ -476,43 +491,6 @@ def fetch_load(bzn_eic: str, start: str,
     hourly = raw_combined.resample("h").mean()
     return hourly, raw_combined
 
-def _select_best_timeseries_per_window(
-    ts_list: list[ET.Element],
-) -> list[ET.Element]:
-    """
-    同一时间窗口可能有多条 TimeSeries（不同修订版或聚合类型）。
-    优先保留 objectAggregation=A08，并在相同窗口内取 Point 数最多的那条。
-    """
-    from collections import defaultdict
-
-    # key = (start, end)，value = list of (point_count, ts_element)
-    window_map: dict[tuple, list] = defaultdict(list)
-
-    for ts in ts_list:
-        obj_agg = ts.findtext(".//{*}objectAggregation", "")
-        # 跳过非实际值（A08=实际，A01=计划）
-        # 如果没有 objectAggregation 标签则保留（部分国家不带此字段）
-        if obj_agg and obj_agg != "A08":
-            continue
-
-        for period in ts.findall(".//{*}Period"):
-            start = period.findtext(".//{*}start", "")
-            end   = period.findtext(".//{*}end",   "")
-            pts   = len(period.findall(".//{*}Point"))
-            window_map[(start, end)].append((pts, ts))
-
-    # 每个窗口只取 point 数最多的 TimeSeries
-    seen_ts_ids = set()
-    result = []
-    for candidates in window_map.values():
-        best_ts = max(candidates, key=lambda x: x[0])[1]
-        ts_id   = id(best_ts)
-        if ts_id not in seen_ts_ids:
-            seen_ts_ids.add(ts_id)
-            result.append(best_ts)
-
-    return result if result else ts_list  # 兜底：过滤后为空则返回原列表
-
 
 def fetch_generation(in_domain: str, start: str,
                      end_inclusive: str) -> tuple[dict[str, pd.Series], dict[str, pd.Series]]:
@@ -521,7 +499,8 @@ def fetch_generation(in_domain: str, start: str,
     chunks = date_chunks(start, end_inclusive, chunk_days=CHUNK_DAYS)
 
     for psr_code, psr_name in PSR_TYPE_MAP.items():
-        r_parts = []
+        # 收集 (point_count, series) 对，用于后续 best-wins 合并
+        period_series_list: list[tuple[int, pd.Series]] = []
 
         for cs, ce in chunks:
             ts_list = _get_all_timeseries(
@@ -530,18 +509,18 @@ def fetch_generation(in_domain: str, start: str,
                 timeout=GEN_TIMEOUT,
             )
             time.sleep(REQUEST_DELAY)
-            filtered = _select_best_timeseries_per_window(ts_list)
+
             for ts in ts_list:
                 for period in ts.findall(".//{*}Period"):
+                    point_count = len(period.findall(".//{*}Point"))
                     s, _res = _parse_period_raw(period, value_tag="quantity")
                     if not s.empty:
-                        r_parts.append(s)
+                        period_series_list.append((point_count, s))
 
-        if r_parts:
-            raw_c = pd.concat(r_parts).sort_index()
-            raw_c = raw_c[~raw_c.index.duplicated(keep="last")]
+        # ← CHANGED: 用 best-wins 合并替代 keep="last"
+        raw_c = _merge_gen_periods_best_wins(period_series_list)
+        if raw_c is not None:
             raw_series[psr_name] = raw_c
-
             h_c = raw_c.resample("h").mean()
             hourly_series[psr_name] = h_c
             print(f"     ✓ {psr_name:<35} {h_c.notna().sum()} 有效值(1h) | "
@@ -757,7 +736,7 @@ def main():
 
     today     = datetime.now()
     yesterday = today - timedelta(days=1)
-    end_date  = args.end   if args.end   else yesterday.strftime("%Y-%m-%d")
+    end_date  = args.end if args.end else yesterday.strftime("%Y-%m-%d")
 
     if args.mode == "full":
         start_date = args.start if args.start else FULL_START_DATE
@@ -768,7 +747,6 @@ def main():
     elif args.mode == "gen_load":
         start_date = args.start if args.start else FULL_START_DATE
         mode_label = "仅发电+负荷模式"
-
     else:
         start_date = args.start if args.start else (today - timedelta(days=LOOKBACK_DAYS)).strftime("%Y-%m-%d")
         mode_label = f"增量模式（最近 {LOOKBACK_DAYS} 天）"
@@ -784,23 +762,23 @@ def main():
     DATA_DIR.mkdir(exist_ok=True)
     RAW_DIR.mkdir(exist_ok=True)
 
+    # 通用：国家过滤
+    if args.country:
+        cc_filter = args.country.lower()
+        if cc_filter not in COUNTRY_CONFIG:
+            print(f"[ERROR] 未知国家: {args.country}")
+            return
+        countries_to_run = [cc_filter]
+    else:
+        countries_to_run = COUNTRIES
+
     # ── price_only 分支 ──────────────────────────────────────
     if args.mode == "price_only":
-        # 过滤国家列表
-        if args.country:
-            cc_filter = args.country.lower()
-            if cc_filter not in COUNTRY_CONFIG:
-                print(f"[ERROR] 未知国家: {args.country}")
-                return
-            countries_to_run = [cc_filter]
-        else:
-            countries_to_run = COUNTRIES
-
         print(f"国家: {[c.upper() for c in countries_to_run]}\n")
         price_cols:     dict[str, pd.Series] = {}
         raw_price_cols: dict[str, pd.Series] = {}
 
-        for cc in countries_to_run:   # ← 原来是 COUNTRIES，改成这个
+        for cc in countries_to_run:
             cfg     = COUNTRY_CONFIG[cc]
             bzn_eic = cfg["bzn_eic"]
             col     = cc.upper()
@@ -820,27 +798,10 @@ def main():
         print("保存/合并文件...")
         merge_and_save_wide(price_cols, DATA_DIR / "price.csv", "price")
         merge_and_save_raw_wide(raw_price_cols, RAW_DIR / "A44.csv", "A44 price")
-        
         return
 
-
-  # ── gen_load 分支 ────────────────────────────────────────
+    # ── gen_load 分支 ────────────────────────────────────────
     if args.mode == "gen_load":
-        if args.country:
-            cc_filter = args.country.lower()
-            if cc_filter not in COUNTRY_CONFIG:
-                print(f"[ERROR] 未知国家: {args.country}")
-                return
-            countries_to_run = [cc_filter]
-        else:
-            countries_to_run = COUNTRIES
-
-        start_date = args.start if args.start else (
-            FULL_START_DATE if not args.start
-            else (datetime.now() - timedelta(days=LOOKBACK_DAYS)).strftime("%Y-%m-%d")
-        )
-        # gen_load 模式的 start_date 已在上面 mode_label 块里算好，直接用即可
-
         print(f"国家: {[c.upper() for c in countries_to_run]}\n")
 
         load_cols:     dict[str, pd.Series] = {}
@@ -923,14 +884,14 @@ def main():
         merge_and_save_wide(residual_cols, DATA_DIR / "residual_load.csv", "residual_load")
         merge_and_save_generation(gen_rows, DATA_DIR / "generation")
         print()
-
         print("保存/合并原始数据 [raw_data/]...")
         merge_and_save_raw_wide(raw_load_cols, RAW_DIR / "A65.csv", "A65 load")
         merge_and_save_raw_generation(raw_gen_by_country, RAW_DIR / "generation")
         return
 
+    # ── incremental / full 分支 ──────────────────────────────
+    print(f"国家: {[c.upper() for c in countries_to_run]}\n")
 
-    
     price_cols:    dict[str, pd.Series] = {}
     load_cols:     dict[str, pd.Series] = {}
     solar_cols:    dict[str, pd.Series] = {}
@@ -942,16 +903,15 @@ def main():
     raw_load_cols:      dict[str, pd.Series]            = {}
     raw_gen_by_country: dict[str, dict[str, pd.Series]] = {}
 
-    for cc in COUNTRIES:
-        cfg     = COUNTRY_CONFIG[cc]
-        bzn_eic = cfg["bzn_eic"]
+    for cc in countries_to_run:
+        cfg         = COUNTRY_CONFIG[cc]
+        bzn_eic     = cfg["bzn_eic"]
         load_domain = cfg.get("load_eic", bzn_eic)
-        gen_domain = cfg.get("gen_eic", bzn_eic)  
-        col     = cc.upper()
+        gen_domain  = cfg.get("gen_eic",  bzn_eic)
+        col         = cc.upper()
 
         print(f"[{col}]")
 
-        # ← CHANGED: fetch_* 不再传 tz 参数
         print(f"  → A44 price  eic={bzn_eic}")
         s_hourly, s_raw = fetch_price(bzn_eic, start_date, end_date)
         if s_hourly is not None:
@@ -963,7 +923,7 @@ def main():
         else:
             print(f"     [WARN] 无价格数据")
 
-        print(f"  → A65 load   eic={bzn_eic}")
+        print(f"  → A65 load   eic={load_domain}")
         s_hourly, s_raw = fetch_load(load_domain, start_date, end_date)
         if s_hourly is not None:
             s_hourly = s_hourly[s_hourly.index < cutoff_naive]
@@ -974,7 +934,7 @@ def main():
         else:
             print(f"     [WARN] 无负荷数据")
 
-        print(f"  → A75 gen    in_Domain={bzn_eic}")
+        print(f"  → A75 gen    in_Domain={gen_domain}")
         hourly_dict, raw_dict = fetch_generation(gen_domain, start_date, end_date)
         result = build_generation_result(hourly_dict)
 

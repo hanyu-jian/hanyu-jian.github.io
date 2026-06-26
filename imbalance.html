@@ -301,8 +301,8 @@
         <div class="chart-card full-width-card">
             <div class="chart-card-header">
                 <div>
-                    <h3>Imbalance Volume (A85) – 15-min</h3>
-                    <div class="subtitle">Raw 15-minute imbalance volume per country, 2021 – present</div>
+                    <h3>Imbalance Price (A85) – 15-min</h3>
+                    <div class="subtitle">Raw 15-minute imbalance price per country, 2021 – present</div>
                 </div>
                 <div class="chart-card-controls">
                     <label>Countries</label>
@@ -565,7 +565,7 @@ async function fetchAllData() {
         fetch('data/solar.csv'),
         fetch('data/wind.csv'),
         fetch('data/load.csv'),
-        fetch('data/A85.csv')
+        fetch('raw data/A85.csv')
     ]);
 
     if (!imbalRes.ok) throw new Error('Failed to load imbalance_price.csv');
@@ -912,9 +912,9 @@ function drawTrend() {
     trendChart.setOption({
         tooltip: { trigger: 'axis', axisPointer: { type: 'cross', lineStyle: { color: '#bbb' } },
             formatter: tooltipFmt },
-        legend: { ...commonLegend, top: 4, right: 8 },
+        legend: { ...commonLegend, top: 4, left: 'center', right: hasRenewable ? 80 : 30 },
         dataZoom: dataZoomCfg,
-        grid: { left: 65, right: hasRenewable ? 65 : 20, top: 40, bottom: 70 },
+        grid: { left: 65, right: hasRenewable ? 70 : 20, top: 50, bottom: 70 },
         xAxis: { type: 'category', data: keys, ...axisStyle,
             axisLabel: { ...axisStyle.axisLabel, rotate, interval: 'auto' } },
         yAxis: [
@@ -1081,7 +1081,7 @@ function drawA85() {
                 const c = p.seriesName;
                 return `<div style="font-weight:600;color:#2c3e50;margin-bottom:4px">${p.value[0]}</div>
                     <div style="font-size:12px"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${p.color};margin-right:6px"></span>
-                    <b>${c}</b>: ${Number(p.value[1]).toFixed(2)} MWh</div>`;
+                    <b>${c}</b>: ${Number(p.value[1]).toFixed(2)} €/MWh</div>`;
             }
         },
         legend: { ...commonLegend, top: 4, right: 8 },
@@ -1101,7 +1101,7 @@ function drawA85() {
             max: now.toISOString().slice(0, 10)
         },
         yAxis: {
-            type: 'value', name: 'MWh',
+            type: 'value', name: '€/MWh',
             nameTextStyle: { color: '#6c757d', fontSize: 11 },
             ...axisStyle
         },

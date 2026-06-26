@@ -382,7 +382,7 @@
 ================================================================ */
 let imbalanceData  = null;   // { countries, data: [{dateStr,year,month,day,hour,values}] }
 let spotData       = null;   // same shape, from price.csv
-let rawScatterData = null;   // same shape, 15-minute data from raw data/A85.csv
+let rawScatterData = null;   // same shape, 15-minute data from raw_data/A85.csv
 let rawScatterChart = null;
 let trendChart     = null;
 let compareChart   = null;
@@ -531,7 +531,7 @@ async function fetchAllData() {
         loadMNBRates(),
         fetch('data/imbalance_price.csv'),
         fetch('data/price.csv'),
-        fetch('raw data/A85.csv')
+        fetch('raw_data/A85.csv')
     ]);
 
     if (!imbalRes.ok) throw new Error('Failed to load imbalance_price.csv');
@@ -847,7 +847,7 @@ function drawRawScatter() {
     if (!rawScatterData) {
         rawScatterChart.setOption({
             title: {
-                text: 'raw data/A85.csv not found',
+                text: 'raw data not found',
                 left: 'center',
                 top: 'middle',
                 textStyle: { color: '#888', fontSize: 14, fontWeight: 400 }

@@ -302,7 +302,7 @@
             <div class="chart-card-header">
                 <div>
                     <h3>Imbalance Price (A85) – 15-min</h3>
-                    <div class="subtitle">Raw 15-minute imbalance price per country, 2021 – present (daily avg)</div>
+                    <div class="subtitle">Raw 15-minute imbalance price per country, 2021 – present (all 96 intervals per day shown)</div>
                 </div>
             </div>
             <div id="a85Chart" style="width:100%; height:420px;"></div>
@@ -378,12 +378,12 @@
 /* ================================================================
    GLOBALS
 ================================================================ */
-let imbalanceData  = null;   // { countries, data: [{dateStr,year,month,day,hour,values}] }
-let spotData       = null;   // same shape, from price.csv
-let solarData      = null;   // from solar.csv
-let windData       = null;   // from wind.csv
-let loadData       = null;   // from load.csv
-let a85Data        = null;   // from raw data/A85.csv – 15-min granularity
+let imbalanceData  = null;
+let spotData       = null;
+let solarData      = null;
+let windData       = null;
+let loadData       = null;
+let a85Data        = null;   // 15-min granularity, MNB-converted
 let trendChart     = null;
 let compareChart   = null;
 let a85Chart       = null;
@@ -393,7 +393,7 @@ const state = {
     weekday: true,
     weekend: true,
     hourStart: 0,
-    hourEnd: 23   // inclusive; 24:00 in dropdown maps to hour 23
+    hourEnd: 23
 };
 
 /* ================================================================
@@ -419,14 +419,11 @@ function parseCSV(text) {
     return rows;
 }
 
-// Parse "YYYY/M/D H:MM" or "YYYY-MM-DD HH:MM" or "YYYY-MM-DDTHH:MM:SS"
 function parseDateStr(s) {
     if (!s) return null;
     let m;
-    // YYYY/M/D H:MM
     m = s.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})\s+(\d{1,2}):(\d{2})/);
     if (!m) {
-        // YYYY-MM-DD HH:MM or YYYY-MM-DDTHH:MM
         m = s.match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})/);
     }
     if (!m) return null;
@@ -437,7 +434,6 @@ function parseDateStr(s) {
     };
 }
 
-// Parse MNB date "YYYY/M/D" or "YYYY-M-D"
 function parseMNBDate(s) {
     if (!s) return null;
     const m = s.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
@@ -453,7 +449,6 @@ async function loadMNBRates() {
     if (!res.ok) throw new Error('Failed to load MNB.csv');
     const rows = parseCSV(await res.text());
 
-    // Build monthly averages: { "YYYY-MM": { EUR: avg_HUF_per_EUR, RON: avg_HUF_per_RON } }
     const acc = {};
     for (const row of rows) {
         const dt = parseMNBDate(row['Date'] || row['date']);
@@ -488,17 +483,13 @@ function transformPriceCSV(rows, mnbRates, isImbalance) {
             if (k === 'Date' || k === 'datetime') continue;
             let n = parseFloat(v);
             if (isNaN(n)) continue;
-            // Currency conversion for imbalance data
             if (isImbalance && mnbRates) {
                 const r = mnbRates[mKey];
                 if (k === 'HU' && r && r.EUR) {
-                    n = n / r.EUR;   // HUF/MWh ÷ HUF/EUR = EUR/MWh
+                    n = n / r.EUR;
                 } else if (k === 'RO' && r && r.EUR && r.RON) {
-                    // n is in RON/MWh; 1 EUR = r.EUR HUF; 1 RON = r.RON HUF → 1 EUR = r.EUR/r.RON RON
-                    const hufPerRon = r.RON;          // 1 RON = this many HUF  (column header says RON but value is HUF per RON based on user description)
+                    const hufPerRon = r.RON;
                     const hufPerEur = r.EUR;
-                    // Actually per user: EUR col = HUF per EUR, RON col = HUF per RON
-                    // So RON/MWh → EUR/MWh: divide by (hufPerEur / hufPerRon) = multiply by hufPerRon / hufPerEur
                     n = n * hufPerRon / hufPerEur;
                 }
             }
@@ -510,7 +501,7 @@ function transformPriceCSV(rows, mnbRates, isImbalance) {
     return { countries: [...cSet].sort(), data };
 }
 
-// Parse "YYYY/M/D H:MM" or "YYYY-MM-DD HH:MM" – also handles :15/:30/:45 minutes
+// Parse 15-min timestamps: "YYYY/M/D H:MM" or "YYYY-MM-DD HH:MM"
 function parseDateStr15(s) {
     if (!s) return null;
     let m;
@@ -519,23 +510,38 @@ function parseDateStr15(s) {
     if (!m) return null;
     const [, y, mo, d, h, mn] = m.map(Number);
     const dateStr = `${y}-${String(mo).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-    // encode as fractional hour for scatter x-axis: use full ISO string as label
+    // Full ISO-like label used as scatter x-value
     const label = `${dateStr} ${String(h).padStart(2,'0')}:${String(mn).padStart(2,'0')}`;
     return { year: y, month: mo, day: d, hour: h, minute: mn, dateStr, label };
 }
 
-function transformA85CSV(rows) {
+/* ----------------------------------------------------------------
+   transformA85CSV – same MNB currency conversion as imbalance data
+---------------------------------------------------------------- */
+function transformA85CSV(rows, mnbRates) {
     const data = [], cSet = new Set();
     for (const row of rows) {
         const dtStr = row['Date'] || row['datetime'];
         if (!dtStr) continue;
         const p = parseDateStr15(dtStr);
         if (!p) continue;
+        const mKey = `${p.year}-${String(p.month).padStart(2,'0')}`;
         const values = {};
         for (const [k, v] of Object.entries(row)) {
             if (k === 'Date' || k === 'datetime') continue;
-            const n = parseFloat(v);
-            if (!isNaN(n)) { values[k] = n; cSet.add(k); }
+            let n = parseFloat(v);
+            if (isNaN(n)) continue;
+            // Apply MNB conversion identical to imbalance_price.csv
+            if (mnbRates) {
+                const r = mnbRates[mKey];
+                if (k === 'HU' && r && r.EUR) {
+                    n = n / r.EUR;                    // HUF/MWh → EUR/MWh
+                } else if (k === 'RO' && r && r.EUR && r.RON) {
+                    n = n * r.RON / r.EUR;            // RON/MWh → EUR/MWh
+                }
+            }
+            values[k] = n;
+            cSet.add(k);
         }
         data.push({ ...p, values });
     }
@@ -562,7 +568,8 @@ async function fetchAllData() {
     if (solarRes.ok) { solarData = transformPriceCSV(parseCSV(await solarRes.text()), null, false); }
     if (windRes.ok)  { windData  = transformPriceCSV(parseCSV(await windRes.text()),  null, false); }
     if (loadRes.ok)  { loadData  = transformPriceCSV(parseCSV(await loadRes.text()),  null, false); }
-    if (a85Res.ok)   { a85Data   = transformA85CSV(parseCSV(await a85Res.text())); }
+    // ← Pass mnbRates so A85 also gets HU/RO currency conversion
+    if (a85Res.ok)   { a85Data   = transformA85CSV(parseCSV(await a85Res.text()), mnbRates); }
 }
 
 /* ================================================================
@@ -585,16 +592,12 @@ function groupKey(pt, freq) {
     return String(pt.year);
 }
 
-/* Returns day-of-week (0=Sun … 6=Sat) for a dateStr "YYYY-MM-DD" */
 function dowFromDateStr(dateStr) {
     return new Date(dateStr + 'T00:00:00Z').getUTCDay();
 }
 
-/* Shared point filter: returns true if pt passes weekday/weekend + hour filters */
 function passesFilter(pt, opts) {
-    // Hour range
     if (pt.hour < opts.hourStart || pt.hour > opts.hourEnd) return false;
-    // Day type
     const dow = dowFromDateStr(pt.dateStr);
     const isWeekend = (dow === 0 || dow === 6);
     if (isWeekend && !opts.weekend) return false;
@@ -645,12 +648,9 @@ function aggregateByFreq(data, country, freq, opts) {
     return { keys, vals };
 }
 
-/* Aggregate (solar+wind)/load ratio per bucket for one country.
-   Returns { keys, vals } where vals are ratios (0–1+). */
 function aggregateRenewableRatio(country, freq, opts) {
     if (!solarData || !windData || !loadData) return null;
 
-    // Build lookup maps: dateStr+hour → value, for each source
     function buildMap(src) {
         const m = {};
         src.data.forEach(pt => {
@@ -685,11 +685,10 @@ function aggregateRenewableRatio(country, freq, opts) {
 
 /* ----------------------------------------------------------------
    Year band markArea helper
-   Generates alternating shaded bands per calendar year
 ---------------------------------------------------------------- */
 const YEAR_BAND_COLORS = [
-    'rgba(44,62,80,0.04)',    // even years
-    'rgba(52,152,219,0.06)'   // odd years
+    'rgba(44,62,80,0.04)',
+    'rgba(52,152,219,0.06)'
 ];
 
 function buildYearMarkArea(keys) {
@@ -702,7 +701,7 @@ function buildYearMarkArea(keys) {
         const yr = key ? parseInt(key.slice(0, 4)) : null;
         if (yr !== curYear) {
             if (curYear !== null) {
-                const bandIdx = curYear % 2;   // consistent: even/odd year, not offset
+                const bandIdx = curYear % 2;
                 bands.push([
                     {
                         name: String(curYear),
@@ -727,15 +726,10 @@ function buildYearMarkArea(keys) {
     return { silent: true, data: bands };
 }
 
-/* ----------------------------------------------------------------
-   Generate a complete, gapless key sequence for a frequency range.
-   startYear → today, so the axis is always fixed regardless of data gaps.
----------------------------------------------------------------- */
 function generateFullKeyRange(freq, startYear) {
     const now = new Date();
     const endYear  = now.getUTCFullYear();
     const endMonth = now.getUTCMonth() + 1;
-    const endDate  = now.toISOString().slice(0, 10);
     const keys = [];
 
     if (freq === 'yearly') {
@@ -758,18 +752,17 @@ function generateFullKeyRange(freq, startYear) {
         return keys;
     }
     if (freq === 'weekly') {
-        // step through Mondays
-        const d = new Date(Date.UTC(startYear, 0, 4)); // first Thursday of startYear → gives week 1
-        d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7)); // back to Monday
+        const d = new Date(Date.UTC(startYear, 0, 4));
+        d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7));
         const endMs = now.getTime();
         while (d.getTime() <= endMs) {
             const iso = d.toISOString().slice(0, 10);
             keys.push(getISOWeek(iso));
             d.setUTCDate(d.getUTCDate() + 7);
         }
-        return [...new Set(keys)]; // deduplicate
+        return [...new Set(keys)];
     }
-    // daily (default)
+    // daily
     const d = new Date(Date.UTC(startYear, 0, 1));
     const endMs = now.getTime();
     while (d.getTime() <= endMs) {
@@ -829,19 +822,16 @@ function drawTrend() {
 
     const freq = state.freq;
 
-    // Determine start year from actual data (could be 2021 or earlier)
     const dataMinYear = imbalanceData.data.length
         ? imbalanceData.data.reduce((mn, pt) => Math.min(mn, pt.year), Infinity)
         : 2024;
     const startYear = Math.min(dataMinYear, 2024);
 
-    // Fixed gapless axis
     const keys = generateFullKeyRange(freq, startYear);
 
     const { series } = aggregateMultiCountry(imbalanceData.data, countries, freq, state);
     const hasRenewable = !!(solarData && windData && loadData);
 
-    // Renewable ratio — also mapped onto full key range
     const renewableSeriesArr = [];
     if (hasRenewable) {
         countries.forEach(c => {
@@ -854,10 +844,8 @@ function drawTrend() {
     const rotate = (freq === 'daily' || freq === 'weekly') && keys.length > 60 ? 30 : 0;
     const yearArea = buildYearMarkArea(keys);
 
-    // Price series mapped onto full keys (gaps → null)
     const priceSeriesArr = countries.map((c, idx) => {
         const valMap = {};
-        // aggregateMultiCountry gives us keys from data only — re-aggregate into a map
         const acc = {};
         imbalanceData.data.forEach(pt => {
             if (!passesFilter(pt, state)) return;
@@ -880,7 +868,6 @@ function drawTrend() {
         };
     });
 
-    // Renewable ratio series – dashed, right Y-axis
     const ratioSeriesArr = renewableSeriesArr.map(r => {
         const valMap = Object.fromEntries(r.keys.map((k, i) => [k, r.vals[i]]));
         return {
@@ -934,14 +921,12 @@ function drawCompare() {
 
     const freq = state.freq;
 
-    // Fixed gapless axis — same start year logic as drawTrend
     const dataMinYear = imbalanceData.data.length
         ? imbalanceData.data.reduce((mn, pt) => Math.min(mn, pt.year), Infinity)
         : 2024;
     const startYear = Math.min(dataMinYear, 2024);
     const keys = generateFullKeyRange(freq, startYear);
 
-    // Aggregate into maps keyed by bucket
     function aggMap(srcData) {
         const acc = {};
         srcData.forEach(pt => {
@@ -998,7 +983,9 @@ function drawCompare() {
 }
 
 /* ================================================================
-   CHART 0 – A85 SCATTER (15-min, daily avg, uses main country selector)
+   CHART 0 – A85 SCATTER
+   Shows ALL 96 fifteen-minute intervals per day (no daily averaging).
+   MNB conversion is already applied in transformA85CSV.
 ================================================================ */
 function drawA85() {
     if (!a85Chart || !a85Data) return;
@@ -1007,42 +994,33 @@ function drawA85() {
 
     const dataMinYear = a85Data.data.reduce((mn, pt) => Math.min(mn, pt.year), Infinity);
     const startYear   = isFinite(dataMinYear) ? dataMinYear : 2021;
+    const now         = new Date();
 
-    // Aggregate to daily averages per country
-    const acc = {};
-    countries.forEach(c => acc[c] = {});
-    a85Data.data.forEach(pt => {
-        countries.forEach(c => {
-            const n = pt.values[c];
-            if (n == null || isNaN(n)) return;
-            if (!acc[c][pt.dateStr]) acc[c][pt.dateStr] = { sum: 0, cnt: 0 };
-            acc[c][pt.dateStr].sum += n;
-            acc[c][pt.dateStr].cnt++;
-        });
-    });
-
-    // Gapless daily axis
+    // Build gapless daily date list for year-band markArea only
     const allDates = [];
     const cursor = new Date(Date.UTC(startYear, 0, 1));
-    const now = new Date();
     while (cursor <= now) {
         allDates.push(cursor.toISOString().slice(0, 10));
         cursor.setUTCDate(cursor.getUTCDate() + 1);
     }
-
     const yearArea = buildYearMarkArea(allDates);
 
+    // Each point: [ISO datetime string "YYYY-MM-DD HH:MM", value]
+    // No aggregation – every 15-min row becomes one scatter point
     const seriesArr = countries.map((c, idx) => ({
         name: c,
         type: 'scatter',
-        data: allDates
-            .map(date => {
-                const g = acc[c][date];
-                return g ? [date, +(g.sum / g.cnt).toFixed(2)] : null;
+        data: a85Data.data
+            .map(pt => {
+                const n = pt.values[c];
+                if (n == null || isNaN(n)) return null;
+                return [pt.label, +n.toFixed(2)];   // pt.label = "YYYY-MM-DD HH:MM"
             })
             .filter(Boolean),
-        symbolSize: 3,
-        itemStyle: { opacity: 0.65 },
+        symbolSize: 2,
+        itemStyle: { opacity: 0.45 },
+        large: true,          // ECharts large-mode for performance with many points
+        largeThreshold: 2000,
         ...(idx === 0 && yearArea ? { markArea: yearArea } : {})
     }));
 
@@ -1095,7 +1073,7 @@ function buildCountryCheckboxes() {
         cb.type = 'checkbox';
         cb.value = country;
         cb.id = `cb_${country}`;
-        cb.checked = (country === 'HU'); // default: HU only
+        cb.checked = (country === 'HU');
         cb.addEventListener('change', () => { updateCountryLabel(); drawTrend(); drawA85(); });
         const span = document.createElement('span');
         span.textContent = country;
@@ -1148,7 +1126,6 @@ function initCompareSelect() {
    CHART 1 CONTROLS (freq + day type + hour range)
 ================================================================ */
 function initChart1Controls() {
-    // Populate hour dropdowns 00:00 – 24:00
     const hourOpts = Array.from({ length: 25 }, (_, i) =>
         `<option value="${i}">${String(i).padStart(2,'0')}:00</option>`
     ).join('');
@@ -1157,7 +1134,6 @@ function initChart1Controls() {
     document.getElementById('hourStart').value = 0;
     document.getElementById('hourEnd').value   = 24;
 
-    // Frequency buttons
     document.getElementById('freqGroup1').addEventListener('click', e => {
         const btn = e.target.closest('button[data-freq]');
         if (!btn) return;
@@ -1167,7 +1143,6 @@ function initChart1Controls() {
         drawTrend(); drawCompare();
     });
 
-    // Day type checkboxes
     document.getElementById('cbWeekday').addEventListener('change', function() {
         if (!this.checked && !document.getElementById('cbWeekend').checked) {
             this.checked = true; return;
@@ -1183,17 +1158,15 @@ function initChart1Controls() {
         drawTrend(); drawCompare();
     });
 
-    // Hour range selects
     function applyHourRange() {
         let s = parseInt(document.getElementById('hourStart').value);
         let e = parseInt(document.getElementById('hourEnd').value);
-        // if start > end, snap end to start
         if (s > e) {
             e = s;
             document.getElementById('hourEnd').value = e;
         }
         state.hourStart = s;
-        state.hourEnd   = e === 24 ? 23 : e - 1;  // 24:00 means up to end of hour 23
+        state.hourEnd   = e === 24 ? 23 : e - 1;
         drawTrend(); drawCompare();
     }
     document.getElementById('hourStart').addEventListener('change', applyHourRange);

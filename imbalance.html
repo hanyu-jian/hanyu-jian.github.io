@@ -302,7 +302,7 @@
             <div class="chart-card-header">
                 <div>
                     <h3>15-minute Raw Imbalance Scatter</h3>
-                    <div class="subtitle">Raw 15-minute observations from raw_data/A85.csv across selected countries</div>
+                    <div class="subtitle">Raw 15-minute observations from raw data/A85.csv across selected countries</div>
                 </div>
             </div>
             <div id="rawScatterChart" style="width:100%; height:420px;"></div>
@@ -382,7 +382,7 @@
 ================================================================ */
 let imbalanceData  = null;   // { countries, data: [{dateStr,year,month,day,hour,values}] }
 let spotData       = null;   // same shape, from price.csv
-let rawScatterData = null;   // same shape, 15-minute data from raw_data/A85.csv
+let rawScatterData = null;   // same shape, 15-minute data from raw data/A85.csv
 let rawScatterChart = null;
 let trendChart     = null;
 let compareChart   = null;
@@ -401,7 +401,7 @@ const state = {
 function parseCSV(text) {
     const lines = text.trim().split(/\r?\n/);
     if (!lines.length) return [];
-    let headers = lines[0].split(',').map(h => h.trim());
+    let headers = lines[0].split(',').map(h => h.replace(/^\uFEFF/, '').trim());
     while (headers.length && headers[headers.length - 1] === '') headers.pop();
     const rows = [];
     for (let i = 1; i < lines.length; i++) {
@@ -451,8 +451,11 @@ function parseMNBDate(s) {
    LOAD & CONVERT DATA
 ================================================================ */
 async function loadMNBRates() {
-    const res = await fetch('data/MNB.csv');
-    if (!res.ok) throw new Error('Failed to load MNB.csv');
+    const res = await fetch('data/MNB.csv').catch(() => null);
+    if (!res || !res.ok) {
+        console.warn('MNB.csv unavailable; HU/RO imbalance values will be shown without FX conversion.');
+        return {};
+    }
     const rows = parseCSV(await res.text());
 
     // Build monthly averages: { "YYYY-MM": { EUR: avg_HUF_per_EUR, RON: avg_HUF_per_RON } }
@@ -480,14 +483,14 @@ async function loadMNBRates() {
 function transformPriceCSV(rows, mnbRates, isImbalance) {
     const data = [], cSet = new Set();
     for (const row of rows) {
-        const dtStr = row['Date'] || row['datetime'];
+        const dtStr = row['Date'] || row['date'] || row['datetime'] || row['Datetime'] || row['DateTime'];
         if (!dtStr) continue;
         const p = parseDateStr(dtStr);
         if (!p) continue;
         const mKey = `${p.year}-${String(p.month).padStart(2,'0')}`;
         const values = {};
         for (const [k, v] of Object.entries(row)) {
-            if (k === 'Date' || k === 'datetime') continue;
+            if (['Date', 'date', 'datetime', 'Datetime', 'DateTime'].includes(k)) continue;
             let n = parseFloat(v);
             if (isNaN(n)) continue;
             // Currency conversion for imbalance data
@@ -529,25 +532,32 @@ function transformRawCSV(rows) {
 async function fetchAllData() {
     const [mnbRates, imbalRes, spotRes, rawRes] = await Promise.all([
         loadMNBRates(),
-        fetch('data/imbalance_price.csv'),
-        fetch('data/price.csv'),
-        fetch('raw_data/A85.csv')
+        fetch('data/imbalance_price.csv').catch(() => null),
+        fetch('data/price.csv').catch(() => null),
+        fetch('raw data/A85.csv').catch(() => null)
     ]);
 
-    if (!imbalRes.ok) throw new Error('Failed to load imbalance_price.csv');
-
-    const imbalRows = parseCSV(await imbalRes.text());
-    imbalanceData = transformPriceCSV(imbalRows, mnbRates, true);
+    imbalanceData = { countries: [], data: [] };
+    if (imbalRes && imbalRes.ok) {
+        const imbalRows = parseCSV(await imbalRes.text());
+        imbalanceData = transformPriceCSV(imbalRows, mnbRates, true);
+    } else {
+        console.warn('imbalance_price.csv unavailable; trend and compare charts will wait for imbalance data.');
+    }
 
     // spot price is optional – if missing, compareChart will just show imbalance
-    if (spotRes.ok) {
+    if (spotRes && spotRes.ok) {
         const spotRows = parseCSV(await spotRes.text());
         spotData = transformPriceCSV(spotRows, null, false);
     }
 
-    if (rawRes.ok) {
+    if (rawRes && rawRes.ok) {
         const rawRows = parseCSV(await rawRes.text());
         rawScatterData = transformRawCSV(rawRows);
+    }
+
+    if (!imbalanceData.data.length && (!rawScatterData || !rawScatterData.data.length)) {
+        throw new Error('No chart data loaded. Check data/imbalance_price.csv or raw data/A85.csv.');
     }
 }
 
@@ -837,6 +847,14 @@ const dataZoomCfg = [
     { type: 'inside', xAxisIndex: 0, zoomOnMouseWheel: true, moveOnMouseMove: true }
 ];
 
+function safeDraw(name, fn) {
+    try {
+        fn();
+    } catch (e) {
+        console.error(`${name} failed`, e);
+    }
+}
+
 /* ================================================================
    CHART 1 – TREND
 ================================================================ */
@@ -847,7 +865,7 @@ function drawRawScatter() {
     if (!rawScatterData) {
         rawScatterChart.setOption({
             title: {
-                text: 'raw data not found',
+                text: 'raw data/A85.csv not found',
                 left: 'center',
                 top: 'middle',
                 textStyle: { color: '#888', fontSize: 14, fontWeight: 400 }
@@ -1003,6 +1021,7 @@ function buildCountryCheckboxes() {
         ...(imbalanceData ? imbalanceData.countries : []),
         ...(rawScatterData ? rawScatterData.countries : [])
     ])].sort();
+    const defaultCountry = countryList.includes('HU') ? 'HU' : countryList[0];
     countryList.forEach(country => {
         const item = document.createElement('div');
         item.className = 'country-item';
@@ -1010,8 +1029,12 @@ function buildCountryCheckboxes() {
         cb.type = 'checkbox';
         cb.value = country;
         cb.id = `cb_${country}`;
-        cb.checked = (country === 'HU'); // default: HU only
-        cb.addEventListener('change', () => { updateCountryLabel(); drawRawScatter(); drawTrend(); });
+        cb.checked = (country === defaultCountry);
+        cb.addEventListener('change', () => {
+            updateCountryLabel();
+            safeDraw('raw scatter', drawRawScatter);
+            safeDraw('trend chart', drawTrend);
+        });
         const span = document.createElement('span');
         span.textContent = country;
         item.addEventListener('click', e => {
@@ -1054,9 +1077,14 @@ function initDropdown() {
 ================================================================ */
 function initCompareSelect() {
     const sel = document.getElementById('compareCountrySelect');
+    if (!imbalanceData || !imbalanceData.countries.length) {
+        sel.innerHTML = '<option value="">No imbalance data</option>';
+        sel.disabled = true;
+        return;
+    }
     sel.innerHTML = imbalanceData.countries.map(c => `<option value="${c}">${c}</option>`).join('');
     sel.value = imbalanceData.countries.includes('HU') ? 'HU' : imbalanceData.countries[0];
-    sel.addEventListener('change', drawCompare);
+    sel.addEventListener('change', () => safeDraw('compare chart', drawCompare));
 }
 
 /* ================================================================
@@ -1079,7 +1107,8 @@ function initChart1Controls() {
         document.querySelectorAll('#freqGroup1 button').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         state.freq = btn.dataset.freq;
-        drawTrend(); drawCompare();
+        safeDraw('trend chart', drawTrend);
+        safeDraw('compare chart', drawCompare);
     });
 
     // Day type checkboxes
@@ -1088,14 +1117,16 @@ function initChart1Controls() {
             this.checked = true; return;
         }
         state.weekday = this.checked;
-        drawTrend(); drawCompare();
+        safeDraw('trend chart', drawTrend);
+        safeDraw('compare chart', drawCompare);
     });
     document.getElementById('cbWeekend').addEventListener('change', function() {
         if (!this.checked && !document.getElementById('cbWeekday').checked) {
             this.checked = true; return;
         }
         state.weekend = this.checked;
-        drawTrend(); drawCompare();
+        safeDraw('trend chart', drawTrend);
+        safeDraw('compare chart', drawCompare);
     });
 
     // Hour range selects
@@ -1109,7 +1140,8 @@ function initChart1Controls() {
         }
         state.hourStart = s;
         state.hourEnd   = e === 24 ? 23 : e - 1;  // 24:00 means up to end of hour 23
-        drawTrend(); drawCompare();
+        safeDraw('trend chart', drawTrend);
+        safeDraw('compare chart', drawCompare);
     }
     document.getElementById('hourStart').addEventListener('change', applyHourRange);
     document.getElementById('hourEnd').addEventListener('change',   applyHourRange);
@@ -1146,16 +1178,20 @@ async function init() {
 
     document.getElementById('selectAllBtn').addEventListener('click', () => {
         document.querySelectorAll('#countryCheckboxes input').forEach(cb => cb.checked = true);
-        updateCountryLabel(); drawRawScatter(); drawTrend();
+        updateCountryLabel();
+        safeDraw('raw scatter', drawRawScatter);
+        safeDraw('trend chart', drawTrend);
     });
     document.getElementById('clearAllBtn').addEventListener('click', () => {
         document.querySelectorAll('#countryCheckboxes input').forEach(cb => cb.checked = false);
-        updateCountryLabel(); drawRawScatter(); drawTrend();
+        updateCountryLabel();
+        safeDraw('raw scatter', drawRawScatter);
+        safeDraw('trend chart', drawTrend);
     });
 
-    drawRawScatter();
-    drawTrend();
-    drawCompare();
+    safeDraw('raw scatter', drawRawScatter);
+    safeDraw('trend chart', drawTrend);
+    safeDraw('compare chart', drawCompare);
 }
 
 init();

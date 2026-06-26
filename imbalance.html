@@ -288,7 +288,7 @@
         </div>
         <div class="control-group">
             <label>&nbsp;</label>
-            <span class="currency-note">Exchange rates: <a href="https://www.mnb.hu/" target="_blank">MNB</a> monthly avg (HU: HUF→EUR, RO: RON→EUR)</span>
+            <span class="currency-note">Exchange rates: <a href="https://www.mnb.hu/" target="_blank">MNB</a> monthly avg</span>
         </div>
     </div>
 
@@ -297,16 +297,18 @@
     <!-- ===== CHART GRID ===== -->
     <div class="chart-grid" style="display:none;" id="chartGrid">
 
-        <!-- Chart 0: A85 15-min Scatter -->
+        <!-- Chart 0: Raw 15-minute Scatter -->
         <div class="chart-card full-width-card">
             <div class="chart-card-header">
                 <div>
-                    <h3>Imbalance Price (A85) – 15-min</h3>
-                    <div class="subtitle">Raw 15-minute imbalance price per country, 2021 – present (daily avg)</div>
+                    <h3>15-minute Raw Imbalance Scatter</h3>
+                    <div class="subtitle">Raw 15-minute observations from raw data/A85.csv across selected countries</div>
                 </div>
             </div>
-            <div id="a85Chart" style="width:100%; height:420px;"></div>
+            <div id="rawScatterChart" style="width:100%; height:420px;"></div>
         </div>
+
+        <!-- Chart 1: Imbalance Price Trends -->
         <div class="chart-card full-width-card">
             <div class="chart-card-header">
                 <div>
@@ -380,13 +382,10 @@
 ================================================================ */
 let imbalanceData  = null;   // { countries, data: [{dateStr,year,month,day,hour,values}] }
 let spotData       = null;   // same shape, from price.csv
-let solarData      = null;   // from solar.csv
-let windData       = null;   // from wind.csv
-let loadData       = null;   // from load.csv
-let a85Data        = null;   // from raw data/A85.csv – 15-min granularity
+let rawScatterData = null;   // same shape, 15-minute data from raw data/A85.csv
+let rawScatterChart = null;
 let trendChart     = null;
 let compareChart   = null;
-let a85Chart       = null;
 
 const state = {
     freq: 'daily',
@@ -430,10 +429,13 @@ function parseDateStr(s) {
         m = s.match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})/);
     }
     if (!m) return null;
-    const [, y, mo, d, h] = m.map(Number);
+    const [, y, mo, d, h, mi] = m.map(Number);
+    const dateStr = `${y}-${String(mo).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
     return {
-        year: y, month: mo, day: d, hour: h,
-        dateStr: `${y}-${String(mo).padStart(2,'0')}-${String(d).padStart(2,'0')}`
+        year: y, month: mo, day: d, hour: h, minute: mi,
+        dateStr,
+        dateTimeStr: `${dateStr} ${String(h).padStart(2,'0')}:${String(mi).padStart(2,'0')}`,
+        timestamp: Date.UTC(y, mo - 1, d, h, mi)
     };
 }
 
@@ -505,51 +507,30 @@ function transformPriceCSV(rows, mnbRates, isImbalance) {
             values[k] = n;
             cSet.add(k);
         }
-        data.push({ dateStr: p.dateStr, year: p.year, month: p.month, day: p.day, hour: p.hour, values });
+        data.push({
+            dateStr: p.dateStr,
+            dateTimeStr: p.dateTimeStr,
+            timestamp: p.timestamp,
+            year: p.year,
+            month: p.month,
+            day: p.day,
+            hour: p.hour,
+            minute: p.minute,
+            values
+        });
     }
     return { countries: [...cSet].sort(), data };
 }
 
-// Parse "YYYY/M/D H:MM" or "YYYY-MM-DD HH:MM" – also handles :15/:30/:45 minutes
-function parseDateStr15(s) {
-    if (!s) return null;
-    let m;
-    m = s.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})\s+(\d{1,2}):(\d{2})/);
-    if (!m) m = s.match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})/);
-    if (!m) return null;
-    const [, y, mo, d, h, mn] = m.map(Number);
-    const dateStr = `${y}-${String(mo).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-    // encode as fractional hour for scatter x-axis: use full ISO string as label
-    const label = `${dateStr} ${String(h).padStart(2,'0')}:${String(mn).padStart(2,'0')}`;
-    return { year: y, month: mo, day: d, hour: h, minute: mn, dateStr, label };
-}
-
-function transformA85CSV(rows) {
-    const data = [], cSet = new Set();
-    for (const row of rows) {
-        const dtStr = row['Date'] || row['datetime'];
-        if (!dtStr) continue;
-        const p = parseDateStr15(dtStr);
-        if (!p) continue;
-        const values = {};
-        for (const [k, v] of Object.entries(row)) {
-            if (k === 'Date' || k === 'datetime') continue;
-            const n = parseFloat(v);
-            if (!isNaN(n)) { values[k] = n; cSet.add(k); }
-        }
-        data.push({ ...p, values });
-    }
-    return { countries: [...cSet].sort(), data };
+function transformRawCSV(rows) {
+    return transformPriceCSV(rows, null, false);
 }
 
 async function fetchAllData() {
-    const [mnbRates, imbalRes, spotRes, solarRes, windRes, loadRes, a85Res] = await Promise.all([
+    const [mnbRates, imbalRes, spotRes, rawRes] = await Promise.all([
         loadMNBRates(),
         fetch('data/imbalance_price.csv'),
         fetch('data/price.csv'),
-        fetch('data/solar.csv'),
-        fetch('data/wind.csv'),
-        fetch('data/load.csv'),
         fetch('raw data/A85.csv')
     ]);
 
@@ -558,11 +539,16 @@ async function fetchAllData() {
     const imbalRows = parseCSV(await imbalRes.text());
     imbalanceData = transformPriceCSV(imbalRows, mnbRates, true);
 
-    if (spotRes.ok)  { spotData  = transformPriceCSV(parseCSV(await spotRes.text()),  null, false); }
-    if (solarRes.ok) { solarData = transformPriceCSV(parseCSV(await solarRes.text()), null, false); }
-    if (windRes.ok)  { windData  = transformPriceCSV(parseCSV(await windRes.text()),  null, false); }
-    if (loadRes.ok)  { loadData  = transformPriceCSV(parseCSV(await loadRes.text()),  null, false); }
-    if (a85Res.ok)   { a85Data   = transformA85CSV(parseCSV(await a85Res.text())); }
+    // spot price is optional – if missing, compareChart will just show imbalance
+    if (spotRes.ok) {
+        const spotRows = parseCSV(await spotRes.text());
+        spotData = transformPriceCSV(spotRows, null, false);
+    }
+
+    if (rawRes.ok) {
+        const rawRows = parseCSV(await rawRes.text());
+        rawScatterData = transformRawCSV(rawRows);
+    }
 }
 
 /* ================================================================
@@ -583,6 +569,87 @@ function groupKey(pt, freq) {
     if (freq === 'monthly')   return pt.dateStr.slice(0, 7);
     if (freq === 'quarterly') return `${pt.year}-Q${Math.ceil(pt.month / 3)}`;
     return String(pt.year);
+}
+
+function formatDateUTC(d) {
+    return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2,'0')}-${String(d.getUTCDate()).padStart(2,'0')}`;
+}
+
+function isoWeekStartDate(key) {
+    const m = key.match(/^(\d{4})-W(\d{2})$/);
+    if (!m) return null;
+    const year = +m[1], week = +m[2];
+    const jan4 = new Date(Date.UTC(year, 0, 4));
+    const jan4Dow = (jan4.getUTCDay() + 6) % 7;
+    const monday = new Date(jan4);
+    monday.setUTCDate(jan4.getUTCDate() - jan4Dow + (week - 1) * 7);
+    return monday;
+}
+
+function quarterToNumber(key) {
+    const m = key.match(/^(\d{4})-Q([1-4])$/);
+    return m ? (+m[1] * 4 + (+m[2] - 1)) : null;
+}
+
+function numberToQuarter(n) {
+    const year = Math.floor(n / 4);
+    return `${year}-Q${(n % 4) + 1}`;
+}
+
+function buildFullKeys(keys, freq) {
+    if (!keys.length) return [];
+    const sorted = [...keys].sort();
+    const out = [];
+
+    if (freq === 'daily') {
+        const start = new Date(sorted[0] + 'T00:00:00Z');
+        const end = new Date(sorted[sorted.length - 1] + 'T00:00:00Z');
+        for (let d = new Date(start); d <= end; d.setUTCDate(d.getUTCDate() + 1)) {
+            out.push(formatDateUTC(d));
+        }
+        return out;
+    }
+
+    if (freq === 'weekly') {
+        const start = isoWeekStartDate(sorted[0]);
+        const end = isoWeekStartDate(sorted[sorted.length - 1]);
+        if (!start || !end) return sorted;
+        for (let d = new Date(start); d <= end; d.setUTCDate(d.getUTCDate() + 7)) {
+            out.push(getISOWeek(formatDateUTC(d)));
+        }
+        return out;
+    }
+
+    if (freq === 'monthly') {
+        const [sy, sm] = sorted[0].split('-').map(Number);
+        const [ey, em] = sorted[sorted.length - 1].split('-').map(Number);
+        for (let y = sy, m = sm; y < ey || (y === ey && m <= em); m++) {
+            if (m > 12) { y++; m = 1; }
+            out.push(`${y}-${String(m).padStart(2,'0')}`);
+        }
+        return out;
+    }
+
+    if (freq === 'quarterly') {
+        const start = quarterToNumber(sorted[0]);
+        const end = quarterToNumber(sorted[sorted.length - 1]);
+        if (start == null || end == null) return sorted;
+        for (let n = start; n <= end; n++) out.push(numberToQuarter(n));
+        return out;
+    }
+
+    if (freq === 'yearly') {
+        const start = parseInt(sorted[0], 10);
+        const end = parseInt(sorted[sorted.length - 1], 10);
+        for (let y = start; y <= end; y++) out.push(String(y));
+        return out;
+    }
+
+    return sorted;
+}
+
+function getYearFromKey(key) {
+    return parseInt(String(key).slice(0, 4), 10);
 }
 
 /* Returns day-of-week (0=Sun … 6=Sat) for a dateStr "YYYY-MM-DD" */
@@ -618,7 +685,7 @@ function aggregateMultiCountry(data, countries, freq, opts) {
     });
     const keySet = new Set();
     countries.forEach(c => Object.keys(acc[c]).forEach(k => keySet.add(k)));
-    const keys = [...keySet].sort();
+    const keys = buildFullKeys([...keySet], freq);
     const series = {};
     countries.forEach(c => {
         series[c] = keys.map(k => {
@@ -640,46 +707,8 @@ function aggregateByFreq(data, country, freq, opts) {
         acc[key].sum += v;
         acc[key].cnt++;
     });
-    const keys = Object.keys(acc).sort();
-    const vals  = keys.map(k => +(acc[k].sum / acc[k].cnt).toFixed(3));
-    return { keys, vals };
-}
-
-/* Aggregate (solar+wind)/load ratio per bucket for one country.
-   Returns { keys, vals } where vals are ratios (0–1+). */
-function aggregateRenewableRatio(country, freq, opts) {
-    if (!solarData || !windData || !loadData) return null;
-
-    // Build lookup maps: dateStr+hour → value, for each source
-    function buildMap(src) {
-        const m = {};
-        src.data.forEach(pt => {
-            if (!passesFilter(pt, opts)) return;
-            const v = pt.values[country];
-            if (v == null || isNaN(v)) return;
-            const k = groupKey(pt, freq);
-            if (!m[k]) m[k] = { sum: 0, cnt: 0 };
-            m[k].sum += v;
-            m[k].cnt++;
-        });
-        return m;
-    }
-
-    const solar = buildMap(solarData);
-    const wind  = buildMap(windData);
-    const load  = buildMap(loadData);
-
-    const allKeys = new Set([...Object.keys(solar), ...Object.keys(wind), ...Object.keys(load)]);
-    const keys = [...allKeys].sort();
-
-    const vals = keys.map(k => {
-        const s = solar[k] ? solar[k].sum / solar[k].cnt : 0;
-        const w = wind[k]  ? wind[k].sum  / wind[k].cnt  : 0;
-        const l = load[k]  ? load[k].sum  / load[k].cnt  : null;
-        if (!l || l === 0) return null;
-        return +((s + w) / l).toFixed(4);
-    });
-
+    const keys = buildFullKeys(Object.keys(acc), freq);
+    const vals  = keys.map(k => acc[k] ? +(acc[k].sum / acc[k].cnt).toFixed(3) : null);
     return { keys, vals };
 }
 
@@ -688,8 +717,8 @@ function aggregateRenewableRatio(country, freq, opts) {
    Generates alternating shaded bands per calendar year
 ---------------------------------------------------------------- */
 const YEAR_BAND_COLORS = [
-    'rgba(44,62,80,0.04)',    // even years
-    'rgba(52,152,219,0.06)'   // odd years
+    'rgba(44,62,80,0.04)',
+    'rgba(52,152,219,0.06)'
 ];
 
 function buildYearMarkArea(keys) {
@@ -699,10 +728,10 @@ function buildYearMarkArea(keys) {
 
     for (let i = 0; i <= keys.length; i++) {
         const key = keys[i];
-        const yr = key ? parseInt(key.slice(0, 4)) : null;
+        const yr = key ? getYearFromKey(key) : null;
         if (yr !== curYear) {
             if (curYear !== null) {
-                const bandIdx = curYear % 2;   // consistent: even/odd year, not offset
+                const bandIdx = Math.abs(curYear) % YEAR_BAND_COLORS.length;
                 bands.push([
                     {
                         name: String(curYear),
@@ -727,56 +756,35 @@ function buildYearMarkArea(keys) {
     return { silent: true, data: bands };
 }
 
-/* ----------------------------------------------------------------
-   Generate a complete, gapless key sequence for a frequency range.
-   startYear → today, so the axis is always fixed regardless of data gaps.
----------------------------------------------------------------- */
-function generateFullKeyRange(freq, startYear) {
-    const now = new Date();
-    const endYear  = now.getUTCFullYear();
-    const endMonth = now.getUTCMonth() + 1;
-    const endDate  = now.toISOString().slice(0, 10);
-    const keys = [];
+function buildTimeYearMarkArea(minTs, maxTs) {
+    if (minTs == null || maxTs == null) return null;
+    const startYear = new Date(minTs).getUTCFullYear();
+    const endYear = new Date(maxTs).getUTCFullYear();
+    const bands = [];
 
-    if (freq === 'yearly') {
-        for (let y = startYear; y <= endYear; y++) keys.push(String(y));
-        return keys;
+    for (let year = startYear; year <= endYear; year++) {
+        const start = Date.UTC(year, 0, 1);
+        const end = Date.UTC(year, 11, 31, 23, 59, 59);
+        const bandIdx = Math.abs(year) % YEAR_BAND_COLORS.length;
+        bands.push([
+            {
+                name: String(year),
+                xAxis: Math.max(start, minTs),
+                itemStyle: { color: YEAR_BAND_COLORS[bandIdx] },
+                label: {
+                    show: true,
+                    position: 'insideTopLeft',
+                    color: '#aaa',
+                    fontSize: 11,
+                    fontWeight: '600',
+                    offset: [4, 4]
+                }
+            },
+            { xAxis: Math.min(end, maxTs) }
+        ]);
     }
-    if (freq === 'quarterly') {
-        for (let y = startYear; y <= endYear; y++) {
-            const qMax = (y === endYear) ? Math.ceil(endMonth / 3) : 4;
-            for (let q = 1; q <= qMax; q++) keys.push(`${y}-Q${q}`);
-        }
-        return keys;
-    }
-    if (freq === 'monthly') {
-        for (let y = startYear; y <= endYear; y++) {
-            const mMax = (y === endYear) ? endMonth : 12;
-            for (let m = 1; m <= mMax; m++)
-                keys.push(`${y}-${String(m).padStart(2,'0')}`);
-        }
-        return keys;
-    }
-    if (freq === 'weekly') {
-        // step through Mondays
-        const d = new Date(Date.UTC(startYear, 0, 4)); // first Thursday of startYear → gives week 1
-        d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7)); // back to Monday
-        const endMs = now.getTime();
-        while (d.getTime() <= endMs) {
-            const iso = d.toISOString().slice(0, 10);
-            keys.push(getISOWeek(iso));
-            d.setUTCDate(d.getUTCDate() + 7);
-        }
-        return [...new Set(keys)]; // deduplicate
-    }
-    // daily (default)
-    const d = new Date(Date.UTC(startYear, 0, 1));
-    const endMs = now.getTime();
-    while (d.getTime() <= endMs) {
-        keys.push(d.toISOString().slice(0, 10));
-        d.setUTCDate(d.getUTCDate() + 1);
-    }
-    return keys;
+
+    return { silent: true, data: bands };
 }
 
 /* ================================================================
@@ -786,17 +794,27 @@ function tooltipFmt(params) {
     let html = `<div style="font-weight:600;margin-bottom:5px;color:#2c3e50">${params[0]?.axisValue}</div>`;
     params.forEach(p => {
         if (p.value == null) return;
-        const isRatio = p.seriesName && p.seriesName.includes('(S+W)/L');
-        const valStr  = isRatio
-            ? (Number(p.value) * 100).toFixed(1) + ' %'
-            : Number(p.value).toFixed(2) + ' €/MWh';
         html += `<div style="display:flex;align-items:center;gap:8px;margin:2px 0;font-size:12px">
             <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${p.color}"></span>
             <span style="flex:1;color:#555">${p.seriesName}</span>
-            <span style="font-weight:600;color:#2c3e50">${valStr}</span>
+            <span style="font-weight:600;color:#2c3e50">${Number(p.value).toFixed(2)} €/MWh</span>
         </div>`;
     });
     return html;
+}
+
+function scatterTooltipFmt(p) {
+    const value = Array.isArray(p.value) ? p.value : [];
+    const ts = value[0];
+    const n = value[1];
+    const d = new Date(ts);
+    const label = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2,'0')}-${String(d.getUTCDate()).padStart(2,'0')} ${String(d.getUTCHours()).padStart(2,'0')}:${String(d.getUTCMinutes()).padStart(2,'0')}`;
+    return `<div style="font-weight:600;margin-bottom:5px;color:#2c3e50">${label}</div>
+        <div style="display:flex;align-items:center;gap:8px;margin:2px 0;font-size:12px">
+            <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${p.color}"></span>
+            <span style="flex:1;color:#555">${p.seriesName}</span>
+            <span style="font-weight:600;color:#2c3e50">${Number(n).toFixed(2)} 鈧?MWh</span>
+        </div>`;
 }
 
 const axisStyle = {
@@ -822,105 +840,96 @@ const dataZoomCfg = [
 /* ================================================================
    CHART 1 – TREND
 ================================================================ */
+function drawRawScatter() {
+    if (!rawScatterChart) return;
+    const countries = getSelectedCountries();
+
+    if (!rawScatterData) {
+        rawScatterChart.setOption({
+            title: {
+                text: 'raw data/A85.csv not found',
+                left: 'center',
+                top: 'middle',
+                textStyle: { color: '#888', fontSize: 14, fontWeight: 400 }
+            },
+            series: []
+        }, true);
+        return;
+    }
+
+    if (!countries.length) { rawScatterChart.setOption({ series: [] }, true); return; }
+
+    const timestamps = rawScatterData.data.map(pt => pt.timestamp).filter(ts => ts != null && !isNaN(ts));
+    if (!timestamps.length) { rawScatterChart.setOption({ series: [] }, true); return; }
+    const minTs = Math.min(...timestamps);
+    const maxTs = Math.max(...timestamps);
+    const yearArea = buildTimeYearMarkArea(minTs, maxTs);
+
+    const seriesArr = countries
+        .filter(c => rawScatterData.countries.includes(c))
+        .map((c, idx) => ({
+            name: c,
+            type: 'scatter',
+            data: rawScatterData.data
+                .map(pt => {
+                    const v = pt.values[c];
+                    return v == null || isNaN(v) ? null : [pt.timestamp, +v.toFixed(3)];
+                })
+                .filter(Boolean),
+            symbolSize: 4,
+            large: true,
+            emphasis: { focus: 'series' },
+            ...(idx === 0 && yearArea ? { markArea: yearArea } : {})
+        }));
+
+    rawScatterChart.setOption({
+        title: { show: false },
+        tooltip: { trigger: 'item', formatter: scatterTooltipFmt },
+        legend: { ...commonLegend, top: 4, right: 8 },
+        dataZoom: dataZoomCfg,
+        grid: { left: 65, right: 20, top: 40, bottom: 70 },
+        xAxis: {
+            type: 'time',
+            min: minTs,
+            max: maxTs,
+            ...axisStyle,
+            axisLabel: { ...axisStyle.axisLabel, hideOverlap: true }
+        },
+        yAxis: { type: 'value', name: '鈧?MWh',
+            nameTextStyle: { color: '#6c757d', fontSize: 11 }, ...axisStyle },
+        series: seriesArr
+    }, true);
+}
+
 function drawTrend() {
     if (!trendChart || !imbalanceData) return;
     const countries = getSelectedCountries();
     if (!countries.length) { trendChart.setOption({ series: [] }, true); return; }
 
     const freq = state.freq;
-
-    // Determine start year from actual data (could be 2021 or earlier)
-    const dataMinYear = imbalanceData.data.length
-        ? imbalanceData.data.reduce((mn, pt) => Math.min(mn, pt.year), Infinity)
-        : 2024;
-    const startYear = Math.min(dataMinYear, 2024);
-
-    // Fixed gapless axis
-    const keys = generateFullKeyRange(freq, startYear);
-
-    const { series } = aggregateMultiCountry(imbalanceData.data, countries, freq, state);
-    const hasRenewable = !!(solarData && windData && loadData);
-
-    // Renewable ratio — also mapped onto full key range
-    const renewableSeriesArr = [];
-    if (hasRenewable) {
-        countries.forEach(c => {
-            const r = aggregateRenewableRatio(c, freq, state);
-            if (!r) return;
-            renewableSeriesArr.push({ country: c, keys: r.keys, vals: r.vals });
-        });
-    }
-
+    const { keys, series } = aggregateMultiCountry(imbalanceData.data, countries, freq, state);
     const rotate = (freq === 'daily' || freq === 'weekly') && keys.length > 60 ? 30 : 0;
     const yearArea = buildYearMarkArea(keys);
 
-    // Price series mapped onto full keys (gaps → null)
-    const priceSeriesArr = countries.map((c, idx) => {
-        const valMap = {};
-        // aggregateMultiCountry gives us keys from data only — re-aggregate into a map
-        const acc = {};
-        imbalanceData.data.forEach(pt => {
-            if (!passesFilter(pt, state)) return;
-            const v = pt.values[c];
-            if (v == null || isNaN(v)) return;
-            const k = groupKey(pt, freq);
-            if (!acc[k]) acc[k] = { sum: 0, cnt: 0 };
-            acc[k].sum += v; acc[k].cnt++;
-        });
-        Object.keys(acc).forEach(k => { valMap[k] = acc[k].sum / acc[k].cnt; });
-        return {
-            name: c,
-            type: 'line',
-            yAxisIndex: 0,
-            showSymbol: false,
-            data: keys.map(k => valMap[k] != null ? +valMap[k].toFixed(3) : null),
-            connectNulls: false,
-            lineStyle: { width: freq === 'daily' ? 1.4 : 2 },
-            ...(idx === 0 && yearArea ? { markArea: yearArea } : {})
-        };
-    });
-
-    // Renewable ratio series – dashed, right Y-axis
-    const ratioSeriesArr = renewableSeriesArr.map(r => {
-        const valMap = Object.fromEntries(r.keys.map((k, i) => [k, r.vals[i]]));
-        return {
-            name: `${r.country} (S+W)/L`,
-            type: 'line',
-            yAxisIndex: 1,
-            showSymbol: false,
-            data: keys.map(k => valMap[k] ?? null),
-            connectNulls: false,
-            lineStyle: { width: freq === 'daily' ? 1.2 : 1.8, type: 'dashed', opacity: 0.85 }
-        };
-    });
+    // Attach markArea to first series only
+    const seriesArr = countries.map((c, idx) => ({
+        name: c, type: 'line', showSymbol: false,
+        data: series[c], connectNulls: false,
+        lineStyle: { width: freq === 'daily' ? 1.4 : 2 },
+        ...(idx === 0 && yearArea ? { markArea: yearArea } : {})
+    }));
 
     trendChart.setOption({
         tooltip: { trigger: 'axis', axisPointer: { type: 'cross', lineStyle: { color: '#bbb' } },
             formatter: tooltipFmt },
-        legend: { ...commonLegend, top: 4, left: 'center', right: hasRenewable ? 80 : 30 },
+        legend: { ...commonLegend, top: 4, right: 8 },
         dataZoom: dataZoomCfg,
-        grid: { left: 65, right: hasRenewable ? 70 : 20, top: 50, bottom: 70 },
+        grid: { left: 65, right: 20, top: 40, bottom: 70 },
         xAxis: { type: 'category', data: keys, ...axisStyle,
             axisLabel: { ...axisStyle.axisLabel, rotate, interval: 'auto' } },
-        yAxis: [
-            {
-                type: 'value', name: '€/MWh',
-                nameTextStyle: { color: '#6c757d', fontSize: 11 },
-                ...axisStyle
-            },
-            {
-                type: 'value',
-                name: '(S+W)/L',
-                show: hasRenewable,
-                position: 'right',
-                nameTextStyle: { color: '#6c757d', fontSize: 11 },
-                axisLine:  { lineStyle: { color: '#ccc' } },
-                axisLabel: { color: '#6c757d', fontSize: 11,
-                    formatter: v => (v * 100).toFixed(0) + '%' },
-                splitLine: { show: false }
-            }
-        ],
-        series: [...priceSeriesArr, ...ratioSeriesArr]
+        yAxis: { type: 'value', name: '€/MWh',
+            nameTextStyle: { color: '#6c757d', fontSize: 11 }, ...axisStyle },
+        series: seriesArr
     }, true);
 }
 
@@ -933,32 +942,19 @@ function drawCompare() {
     if (!country) return;
 
     const freq = state.freq;
-
-    // Fixed gapless axis — same start year logic as drawTrend
-    const dataMinYear = imbalanceData.data.length
-        ? imbalanceData.data.reduce((mn, pt) => Math.min(mn, pt.year), Infinity)
-        : 2024;
-    const startYear = Math.min(dataMinYear, 2024);
-    const keys = generateFullKeyRange(freq, startYear);
-
-    // Aggregate into maps keyed by bucket
-    function aggMap(srcData) {
-        const acc = {};
-        srcData.forEach(pt => {
-            if (!passesFilter(pt, state)) return;
-            const v = pt.values[country];
-            if (v == null || isNaN(v)) return;
-            const k = groupKey(pt, freq);
-            if (!acc[k]) acc[k] = { sum: 0, cnt: 0 };
-            acc[k].sum += v; acc[k].cnt++;
-        });
-        const m = {};
-        Object.keys(acc).forEach(k => { m[k] = acc[k].sum / acc[k].cnt; });
-        return m;
+    const imbal = aggregateByFreq(imbalanceData.data, country, freq, state);
+    const allKeys = new Set(imbal.keys);
+    let spotResult = null;
+    if (spotData) {
+        spotResult = aggregateByFreq(spotData.data, country, freq, state);
+        spotResult.keys.forEach(k => allKeys.add(k));
     }
+    const keys = buildFullKeys([...allKeys], freq);
 
-    const imbalMap = aggMap(imbalanceData.data);
-    const spotMap  = spotData ? aggMap(spotData.data) : null;
+    const imbalMap = Object.fromEntries(imbal.keys.map((k, i) => [k, imbal.vals[i]]));
+    const spotMap  = spotResult
+        ? Object.fromEntries(spotResult.keys.map((k, i) => [k, spotResult.vals[i]]))
+        : {};
 
     const yearArea = buildYearMarkArea(keys);
     const rotate = (freq === 'daily' || freq === 'weekly') && keys.length > 60 ? 30 : 0;
@@ -977,108 +973,23 @@ function drawCompare() {
             {
                 name: `${country} Imbalance`,
                 type: 'line',
-                data: keys.map(k => imbalMap[k] != null ? +imbalMap[k].toFixed(3) : null),
+                data: keys.map(k => imbalMap[k] ?? null),
                 connectNulls: false,
                 lineStyle: { width: 2, color: '#2980b9' },
                 itemStyle: { color: '#2980b9' },
-                symbol: 'none',
+                symbol: 'circle', symbolSize: 5,
                 ...(yearArea ? { markArea: yearArea } : {})
             },
-            ...(spotMap ? [{
+            ...(spotResult ? [{
                 name: `${country} Day-Ahead`,
                 type: 'line',
-                data: keys.map(k => spotMap[k] != null ? +spotMap[k].toFixed(3) : null),
+                data: keys.map(k => spotMap[k] ?? null),
                 connectNulls: false,
                 lineStyle: { width: 2, color: '#e74c3c' },
                 itemStyle: { color: '#e74c3c' },
-                symbol: 'none'
+                symbol: 'circle', symbolSize: 5
             }] : [])
         ]
-    }, true);
-}
-
-/* ================================================================
-   CHART 0 – A85 SCATTER (15-min, daily avg, uses main country selector)
-================================================================ */
-function drawA85() {
-    if (!a85Chart || !a85Data) return;
-    const countries = getSelectedCountries();
-    if (!countries.length) { a85Chart.setOption({ series: [] }, true); return; }
-
-    const dataMinYear = a85Data.data.reduce((mn, pt) => Math.min(mn, pt.year), Infinity);
-    const startYear   = isFinite(dataMinYear) ? dataMinYear : 2021;
-
-    // Aggregate to daily averages per country
-    const acc = {};
-    countries.forEach(c => acc[c] = {});
-    a85Data.data.forEach(pt => {
-        countries.forEach(c => {
-            const n = pt.values[c];
-            if (n == null || isNaN(n)) return;
-            if (!acc[c][pt.dateStr]) acc[c][pt.dateStr] = { sum: 0, cnt: 0 };
-            acc[c][pt.dateStr].sum += n;
-            acc[c][pt.dateStr].cnt++;
-        });
-    });
-
-    // Gapless daily axis
-    const allDates = [];
-    const cursor = new Date(Date.UTC(startYear, 0, 1));
-    const now = new Date();
-    while (cursor <= now) {
-        allDates.push(cursor.toISOString().slice(0, 10));
-        cursor.setUTCDate(cursor.getUTCDate() + 1);
-    }
-
-    const yearArea = buildYearMarkArea(allDates);
-
-    const seriesArr = countries.map((c, idx) => ({
-        name: c,
-        type: 'scatter',
-        data: allDates
-            .map(date => {
-                const g = acc[c][date];
-                return g ? [date, +(g.sum / g.cnt).toFixed(2)] : null;
-            })
-            .filter(Boolean),
-        symbolSize: 3,
-        itemStyle: { opacity: 0.65 },
-        ...(idx === 0 && yearArea ? { markArea: yearArea } : {})
-    }));
-
-    a85Chart.setOption({
-        tooltip: {
-            trigger: 'item',
-            formatter: p =>
-                `<div style="font-weight:600;color:#2c3e50;margin-bottom:4px">${p.value[0]}</div>
-                 <div style="font-size:12px">
-                   <span style="display:inline-block;width:10px;height:10px;border-radius:50%;
-                     background:${p.color};margin-right:6px"></span>
-                   <b>${p.seriesName}</b>: ${Number(p.value[1]).toFixed(2)} €/MWh
-                 </div>`
-        },
-        legend: { ...commonLegend, top: 4, left: 'center' },
-        dataZoom: [
-            { type: 'slider', xAxisIndex: 0, bottom: 10, height: 22,
-              borderColor: '#e6e9ed', fillerColor: 'rgba(44,62,80,0.08)',
-              handleStyle: { color: '#2c3e50' }, textStyle: { color: '#6c757d', fontSize: 10 },
-              brushSelect: false },
-            { type: 'inside', xAxisIndex: 0 }
-        ],
-        grid: { left: 65, right: 20, top: 50, bottom: 70 },
-        xAxis: {
-            type: 'time',
-            ...axisStyle,
-            min: `${startYear}-01-01`,
-            max: now.toISOString().slice(0, 10),
-            axisLabel: { ...axisStyle.axisLabel, hideOverlap: true }
-        },
-        yAxis: {
-            type: 'value', name: '€/MWh',
-            nameTextStyle: { color: '#6c757d', fontSize: 11 },
-            ...axisStyle
-        },
-        series: seriesArr
     }, true);
 }
 
@@ -1088,7 +999,11 @@ function drawA85() {
 function buildCountryCheckboxes() {
     const container = document.getElementById('countryCheckboxes');
     container.innerHTML = '';
-    imbalanceData.countries.forEach(country => {
+    const countryList = [...new Set([
+        ...(imbalanceData ? imbalanceData.countries : []),
+        ...(rawScatterData ? rawScatterData.countries : [])
+    ])].sort();
+    countryList.forEach(country => {
         const item = document.createElement('div');
         item.className = 'country-item';
         const cb = document.createElement('input');
@@ -1096,7 +1011,7 @@ function buildCountryCheckboxes() {
         cb.value = country;
         cb.id = `cb_${country}`;
         cb.checked = (country === 'HU'); // default: HU only
-        cb.addEventListener('change', () => { updateCountryLabel(); drawTrend(); drawA85(); });
+        cb.addEventListener('change', () => { updateCountryLabel(); drawRawScatter(); drawTrend(); });
         const span = document.createElement('span');
         span.textContent = country;
         item.addEventListener('click', e => {
@@ -1214,14 +1129,14 @@ async function init() {
     document.getElementById('loadingMsg').style.display = 'none';
     document.getElementById('chartGrid').style.display  = 'grid';
 
-    trendChart   = echarts.init(document.getElementById('trendChart'));
-    compareChart = echarts.init(document.getElementById('compareChart'));
-    a85Chart     = echarts.init(document.getElementById('a85Chart'));
+    rawScatterChart = echarts.init(document.getElementById('rawScatterChart'));
+    trendChart      = echarts.init(document.getElementById('trendChart'));
+    compareChart    = echarts.init(document.getElementById('compareChart'));
 
     window.addEventListener('resize', () => {
+        rawScatterChart.resize();
         trendChart.resize();
         compareChart.resize();
-        a85Chart.resize();
     });
 
     buildCountryCheckboxes();
@@ -1231,14 +1146,14 @@ async function init() {
 
     document.getElementById('selectAllBtn').addEventListener('click', () => {
         document.querySelectorAll('#countryCheckboxes input').forEach(cb => cb.checked = true);
-        updateCountryLabel(); drawTrend(); drawA85();
+        updateCountryLabel(); drawRawScatter(); drawTrend();
     });
     document.getElementById('clearAllBtn').addEventListener('click', () => {
         document.querySelectorAll('#countryCheckboxes input').forEach(cb => cb.checked = false);
-        updateCountryLabel(); drawTrend(); drawA85();
+        updateCountryLabel(); drawRawScatter(); drawTrend();
     });
 
-    drawA85();
+    drawRawScatter();
     drawTrend();
     drawCompare();
 }

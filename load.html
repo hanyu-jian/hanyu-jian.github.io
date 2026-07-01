@@ -531,7 +531,7 @@ function computeMovingAvg(data, country, showWeekday, showWeekend) {
         series.push({
             name: String(year), type: 'line', data: avg,
             lineStyle: { width: 2, color }, itemStyle: { color },
-            symbol: 'none', connectNulls: false, animation: false,
+            symbol: 'none', connectNulls: false, animation: true,
             large: true, largeThreshold: 200, sampling: 'lttb'
         });
 

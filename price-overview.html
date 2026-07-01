@@ -732,6 +732,18 @@
         const YOY_COLORS = { 2024: '#5a9bd4', 2025: '#e8783a', 2026: '#3aab6d' };
         const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
+        // 需要重点区分的国家配色（色相差异大，避免相近），
+        // drawOverview 和 drawHourlyAvg 共用，保证同一国家颜色一致
+        const HIGHLIGHT_COLORS = {
+            BG: '#d95f02', // 橙色
+            HU: '#e7298a', // 品红
+            AT: '#66a61e', // 绿色
+            DE: '#7570b3', // 紫色
+            RO: '#e6ab02', // 芥末黄
+            GR: '#1b9e77', // 青绿色
+            RS: '#a6761d'  // 棕色
+        };
+
         const state = {
             freq: 'hourly',
             diffPairs: [
@@ -933,14 +945,18 @@
                         interval: 'auto' } },
                 yAxis: { type: 'value', name: '€/MWh', nameTextStyle: { color: '#6c757d', fontSize: 11 },
                 ...axisStyle },
-                series: countries.map(c => ({
-                    name: c,
-                    type: 'line',
-                    showSymbol: false,
-                    data: series[c],
-                    connectNulls: false,
-                    lineStyle: { width: freq === 'hourly' ? 1.2 : 2 }
-                }))
+                series: countries.map(c => {
+                    const color = HIGHLIGHT_COLORS[c];
+                    return {
+                        name: c,
+                        type: 'line',
+                        showSymbol: false,
+                        data: series[c],
+                        connectNulls: false,
+                        lineStyle: { width: freq === 'hourly' ? 1.2 : 2, color },
+                        itemStyle: color ? { color } : undefined
+                    };
+                })
             }, true);
         }
 
@@ -974,15 +990,19 @@
                 xAxis: { type: 'category', data: hours, ...axisStyle },
                 yAxis: { type: 'value', name: '€/MWh', nameTextStyle: { color: '#6c757d', fontSize: 11 },
                 ...axisStyle },
-                series: countries.map(c => ({
-                    name: c,
-                    type: 'line',
-                    data: sum[c].map((s, i) => cnt[c][i] > 0 ? s / cnt[c][i] : null),
-                    connectNulls: false,
-                    lineStyle: { width: 2 },
-                    symbol: 'circle',
-                    symbolSize: 6
-                })),
+                series: countries.map(c => {
+                    const color = HIGHLIGHT_COLORS[c];
+                    return {
+                        name: c,
+                        type: 'line',
+                        data: sum[c].map((s, i) => cnt[c][i] > 0 ? s / cnt[c][i] : null),
+                        connectNulls: false,
+                        lineStyle: { width: 2, color },
+                        itemStyle: color ? { color } : undefined,
+                        symbol: 'circle',
+                        symbolSize: 6
+                    };
+                }),
                 grid: { bottom: 60 }
             }, true);
         }

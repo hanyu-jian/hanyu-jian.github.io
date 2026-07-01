@@ -732,16 +732,22 @@
         const YOY_COLORS = { 2024: '#5a9bd4', 2025: '#e8783a', 2026: '#3aab6d' };
         const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
-        // 需要重点区分的国家配色（色相差异大，避免相近），
-        // drawOverview 和 drawHourlyAvg 共用，保证同一国家颜色一致
-        const HIGHLIGHT_COLORS = {
-            BG: '#d95f02', // 橙色
-            HU: '#e7298a', // 品红
-            AT: '#66a61e', // 绿色
-            DE: '#7570b3', // 紫色
-            RO: '#e6ab02', // 芥末黄
-            GR: '#1b9e77', // 青绿色
-            RS: '#a6761d'  // 棕色
+        // 13个国家固定专属配色（Tableau 经典配色，柔和且区分度高），
+        // drawOverview 和 drawHourlyAvg 共用，保证同一国家颜色始终一致
+        const COUNTRY_COLORS = {
+            DE: '#4E79A7', // 蓝色
+            FR: '#F28E2B', // 橙色
+            IT: '#E15759', // 红色
+            ES: '#76B7B2', // 青色
+            AT: '#59A14F', // 绿色
+            HU: '#EDC948', // 黄色
+            RO: '#B07AA1', // 紫色
+            GR: '#FF9DA7', // 粉色
+            RS: '#9C755F', // 棕色
+            HR: '#BAB0AC', // 灰色
+            BG: '#D37295', // 玫红色
+            SK: '#499894', // 深青色
+            PL: '#FFBE7D'  // 浅橙色
         };
 
         const state = {
@@ -946,16 +952,19 @@
                 yAxis: { type: 'value', name: '€/MWh', nameTextStyle: { color: '#6c757d', fontSize: 11 },
                 ...axisStyle },
                 series: countries.map(c => {
-                    const color = HIGHLIGHT_COLORS[c];
-                    return {
+                    const color = COUNTRY_COLORS[c];
+                    const lineStyle = { width: freq === 'hourly' ? 1.2 : 2 };
+                    if (color) lineStyle.color = color;
+                    const seriesItem = {
                         name: c,
                         type: 'line',
                         showSymbol: false,
                         data: series[c],
                         connectNulls: false,
-                        lineStyle: { width: freq === 'hourly' ? 1.2 : 2, color },
-                        itemStyle: color ? { color } : undefined
+                        lineStyle
                     };
+                    if (color) seriesItem.itemStyle = { color };
+                    return seriesItem;
                 })
             }, true);
         }
@@ -991,17 +1000,20 @@
                 yAxis: { type: 'value', name: '€/MWh', nameTextStyle: { color: '#6c757d', fontSize: 11 },
                 ...axisStyle },
                 series: countries.map(c => {
-                    const color = HIGHLIGHT_COLORS[c];
-                    return {
+                    const color = COUNTRY_COLORS[c];
+                    const lineStyle = { width: 2 };
+                    if (color) lineStyle.color = color;
+                    const seriesItem = {
                         name: c,
                         type: 'line',
                         data: sum[c].map((s, i) => cnt[c][i] > 0 ? s / cnt[c][i] : null),
                         connectNulls: false,
-                        lineStyle: { width: 2, color },
-                        itemStyle: color ? { color } : undefined,
+                        lineStyle,
                         symbol: 'circle',
                         symbolSize: 6
                     };
+                    if (color) seriesItem.itemStyle = { color };
+                    return seriesItem;
                 }),
                 grid: { bottom: 60 }
             }, true);

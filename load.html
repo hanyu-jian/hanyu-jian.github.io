@@ -507,14 +507,18 @@ function computeMovingAvg(data, country, showWeekday, showWeekend) {
 
         // 7-day average
         const avg = new Array(366).fill(null);
-        for (let i = 6; i < days; i++) {
-            let s = 0, validCnt = 0;
-            for (let j = i - 6; j <= i; j++) {
-                if (raw[j] != null) { s += raw[j]; validCnt++; }
-            }
-            if (raw[i] != null && validCnt >= 1) avg[i] = s / validCnt;
-        }
+        const validQueue = [];
+        for (let i = 0; i < days; i++) {
+            if (raw[i] != null) {
+                validQueue.push(raw[i]);
+                if (validQueue.length > 7) validQueue.shift();
 
+                if (validQueue.length === 7) {
+                    const s = validQueue.reduce((a, b) => a + b, 0);
+                    avg[i] = s / 7;
+                }
+            }
+        }
         
         // max/min
         let maxIdx = -1, minIdx = -1;

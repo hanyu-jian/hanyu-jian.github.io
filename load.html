@@ -267,6 +267,16 @@
                         <label><input type="checkbox" id="showWeekend" checked> Weekend (Sat–Sun)</label>
                         <span class="hint-text">(Both checked = all days)</span>
                     </div>
+
+                    <!-- hour range selection -->
+                    <div class="control-group">
+                        <label>🕐 Start Hour</label>
+                        <select id="maStartHour"></select>
+                    </div>
+                    <div class="control-group">
+                        <label>🕐 End Hour</label>
+                        <select id="maEndHour"></select>
+                    </div>
                 </div>
 
                 <!--  -->
@@ -293,22 +303,7 @@
     <div id="multiCountrySection" style="display:none;">
         <div class="controls" style="margin-top:24px;">
             <div class="control-group">
-                <label>🌍 Countries</label>
-                <div class="country-select-wrapper">
-                    <div class="country-select-btn" id="countrySelectBtn">
-                        <span id="countrySelectText">Select...</span>
-                    </div>
-                    <div class="country-dropdown" id="countryDropdown">
-                        <div class="country-dropdown-header">
-                            <button id="selectAllBtn" class="btn-small">Select All</button>
-                            <button id="clearAllBtn" class="btn-small">Clear All</button>
-                        </div>
-                        <div id="countryCheckboxes" class="country-grid"></div>
-                    </div>
-                </div>
-            </div>
-            <div class="control-group">
-                <label>📅 Year</label>
+                <label>📅 Year (Map)</label>
                 <select id="yearSelect" disabled></select>
             </div>
         </div>
@@ -367,6 +362,7 @@ let movingAvgPending = false;
 let movingAvgRunning = false;
 
 const YEAR_COLORS = { 2024: '#ffaa00', 2025: '#222222', 2026: '#cc0000' };
+const TREND_YEARS = [2024, 2025];
 
 // ─────────────────────────────────────────────
 // CSV 
@@ -440,6 +436,7 @@ function buildMaCountryDropdown() {
             document.getElementById('maCountryText').textContent = e.target.value;
             document.getElementById('maCountryDropdown').classList.remove('show');
             scheduleMovingAvg();
+            refreshMultiCharts();
         }
     });
 }
@@ -458,9 +455,41 @@ function getMaCountry() {
 }
 
 // ─────────────────────────────────────────────
+// Hour range selects
+// ─────────────────────────────────────────────
+function buildHourSelects() {
+    const startSel = document.getElementById('maStartHour');
+    const endSel   = document.getElementById('maEndHour');
+    let opts = '';
+    for (let h = 0; h < 24; h++) {
+        const label = `${String(h).padStart(2, '0')}:00`;
+        opts += `<option value="${h}">${label}</option>`;
+    }
+    startSel.innerHTML = opts;
+    endSel.innerHTML = opts;
+    startSel.value = '0';
+    endSel.value = '23';
+
+    startSel.addEventListener('change', scheduleMovingAvg);
+    endSel.addEventListener('change', scheduleMovingAvg);
+}
+
+function getMaHourRange() {
+    const start = +document.getElementById('maStartHour').value;
+    const end   = +document.getElementById('maEndHour').value;
+    return { start, end };
+}
+
+function hourInRange(hour, start, end) {
+    if (start <= end) return hour >= start && hour <= end;
+    // wraps past midnight (e.g. 22:00 – 05:00, useful for "night" ranges)
+    return hour >= start || hour <= end;
+}
+
+// ─────────────────────────────────────────────
 // caculation 7-Day Moving Average
 // ─────────────────────────────────────────────
-function computeMovingAvg(data, country, showWeekday, showWeekend) {
+function computeMovingAvg(data, country, showWeekday, showWeekend, hourStart, hourEnd) {
     const selectedYears = fullData.years;
     const byYear = {};
     selectedYears.forEach(y => { byYear[y] = {}; });
@@ -468,6 +497,7 @@ function computeMovingAvg(data, country, showWeekday, showWeekend) {
 
     for (const d of data) {
         if (!byYear[d.year]) continue;
+        if (!hourInRange(d.hour, hourStart, hourEnd)) continue;
         if (!includeBoth) {
             const dow = new Date(Date.UTC(d.year, d.month - 1, d.day)).getUTCDay();
             const isWD = dow >= 1 && dow <= 5;
@@ -505,7 +535,8 @@ function computeMovingAvg(data, country, showWeekday, showWeekend) {
             if (slot && slot.cnt > 0) raw[i] = slot.total / slot.cnt;
         }
 
-        // 7-day average
+        // 7-day average — based on the last 7 *valid* daily points, so
+        // filtering (weekday/weekend, hour range) never breaks the line.
         const avg = new Array(366).fill(null);
         const validQueue = [];
         for (let i = 0; i < days; i++) {
@@ -531,7 +562,7 @@ function computeMovingAvg(data, country, showWeekday, showWeekend) {
         series.push({
             name: String(year), type: 'line', data: avg,
             lineStyle: { width: 2, color }, itemStyle: { color },
-            symbol: 'none', connectNulls: false, animation: true,
+            symbol: 'none', connectNulls: true, animation: false,
             large: true, largeThreshold: 200, sampling: 'lttb'
         });
 
@@ -608,6 +639,7 @@ function runMovingAvg() {
     const showWeekday = document.getElementById('showWeekday').checked;
     const showWeekend = document.getElementById('showWeekend').checked;
     const country     = getMaCountry();
+    const { start: hourStart, end: hourEnd } = getMaHourRange();
     const chart       = charts.movingAvg;
     if (!chart) return;
 
@@ -623,7 +655,7 @@ function runMovingAvg() {
         setTimeout(() => {
             try {
                 const { xAxis, series, mainSeriesNames, averages, changes } =
-                    computeMovingAvg(fullData.data, country, showWeekday, showWeekend);
+                    computeMovingAvg(fullData.data, country, showWeekday, showWeekend, hourStart, hourEnd);
 
                 chart.setOption({
                     animation: false,
@@ -714,90 +746,131 @@ function runMovingAvg() {
 }
 
 // ─────────────────────────────────────────────
-// 
+// Shared reference calendar (2024, leap year) — used to build
+// month/day (and month/day/hour) labels independent of the actual year,
+// so that 2024 and 2025 lines can be overlaid on the same axis.
 // ─────────────────────────────────────────────
-function getSelectedCountries() {
-    return [...document.querySelectorAll('.country-cb-item')]
-        .filter(c => c.checked).map(c => c.value);
+function buildDayRefs() {
+    const refs = [];
+    for (let i = 1; i <= 366; i++) {
+        const d = new Date(Date.UTC(2024, 0, i));
+        if (d.getUTCFullYear() !== 2024) break;
+        refs.push({ month: d.getUTCMonth() + 1, day: d.getUTCDate() });
+    }
+    return refs;
 }
+const DAY_REFS = buildDayRefs();
 
-function drawHourly(year, countries) {
+// ─────────────────────────────────────────────
+// Hourly Load Trends — single country (from MA selector), one line per year
+// ─────────────────────────────────────────────
+function drawHourly(country) {
     const chart = charts.hourly;
-    if (!chart || !countries.length || !year) { chart?.setOption({ series: [] }, true); return; }
-    const pts = fullData.data.filter(d => d.year === year)
-        .sort((a, b) =>
-            new Date(Date.UTC(a.year, a.month-1, a.day, a.hour)) -
-            new Date(Date.UTC(b.year, b.month-1, b.day, b.hour))
-        );
-    const xData = pts.map(d =>
-        `${d.year}/${String(d.month).padStart(2,'0')}/${String(d.day).padStart(2,'0')} ${String(d.hour).padStart(2,'0')}:00`
-    );
-    const series = countries.map(c => ({
-        name: c, type: 'line',
-        data: pts.map(d => d.values[c] ?? null),
-        connectNulls: false, lineStyle: { width: 1.5 }, showSymbol: false,
-        animation: false, large: true, sampling: 'lttb'
-    }));
+    if (!chart || !country) { chart?.setOption({ series: [] }, true); return; }
+
+    // xAxis: every hour of the reference year (month/day hour:00)
+    const xAxis = [];
+    for (const ref of DAY_REFS) {
+        for (let h = 0; h < 24; h++) {
+            xAxis.push(`${ref.month}/${ref.day} ${String(h).padStart(2,'0')}:00`);
+        }
+    }
+
+    // Index rows by year -> "month-day-hour" for fast lookup
+    const byYear = {};
+    for (const d of fullData.data) {
+        if (!TREND_YEARS.includes(d.year)) continue;
+        const v = d.values[country];
+        if (v == null || isNaN(v)) continue;
+        (byYear[d.year] || (byYear[d.year] = {}))[`${d.month}-${d.day}-${d.hour}`] = v;
+    }
+
+    const series = TREND_YEARS.filter(y => fullData.years.includes(y)).map(year => {
+        const lookup = byYear[year] || {};
+        const data = [];
+        for (const ref of DAY_REFS) {
+            for (let h = 0; h < 24; h++) {
+                const v = lookup[`${ref.month}-${ref.day}-${h}`];
+                data.push(v != null ? v : null);
+            }
+        }
+        return {
+            name: String(year), type: 'line', data,
+            lineStyle: { width: 1.5, color: YEAR_COLORS[year] }, itemStyle: { color: YEAR_COLORS[year] },
+            connectNulls: true, showSymbol: false,
+            animation: false, large: true, largeThreshold: 500, sampling: 'lttb'
+        };
+    });
+
     chart.setOption({
         animation: false,
         tooltip: { trigger: 'axis', valueFormatter: v => v != null ? v.toFixed(0) + ' MW' : 'N/A' },
-        legend: { data: countries, top: 0 },
-        xAxis: { type: 'category', data: xData, axisLabel: { rotate: 45, interval: 'auto' } },
+        legend: { data: series.map(s => s.name), top: 0 },
+        xAxis: { type: 'category', data: xAxis, axisLabel: { rotate: 45, interval: 'auto' } },
         yAxis: { type: 'value', name: 'MW' },
         series,
         dataZoom: [{ type: 'inside', start: 0, end: 100 }, { type: 'slider', start: 0, end: 100 }]
     }, true);
 }
 
-function drawMonthly(year, countries) {
+// ─────────────────────────────────────────────
+// Monthly Average Load — single country, one line per year
+// ─────────────────────────────────────────────
+function drawMonthly(country) {
     const chart = charts.monthly;
-    if (!chart || !countries.length || !year) { chart?.setOption({ series: [] }, true); return; }
-    const sum = {}, cnt = {};
-    countries.forEach(c => { sum[c] = Array(12).fill(0); cnt[c] = Array(12).fill(0); });
-    for (const d of fullData.data) {
-        if (d.year !== year) continue;
-        for (const c of countries) {
-            const v = d.values[c];
-            if (v != null && !isNaN(v)) { sum[c][d.month-1] += v; cnt[c][d.month-1]++; }
-        }
-    }
+    if (!chart || !country) { chart?.setOption({ series: [] }, true); return; }
+
     const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-    const series = countries.map(c => ({
-        name: c, type: 'line',
-        data: sum[c].map((s, i) => cnt[c][i] ? s / cnt[c][i] : null),
-        connectNulls: false, lineStyle: { width: 2 }, symbol: 'circle', symbolSize: 6
-    }));
+    const series = TREND_YEARS.filter(y => fullData.years.includes(y)).map(year => {
+        const sum = Array(12).fill(0), cnt = Array(12).fill(0);
+        for (const d of fullData.data) {
+            if (d.year !== year) continue;
+            const v = d.values[country];
+            if (v != null && !isNaN(v)) { sum[d.month-1] += v; cnt[d.month-1]++; }
+        }
+        return {
+            name: String(year), type: 'line',
+            data: sum.map((s, i) => cnt[i] ? s / cnt[i] : null),
+            lineStyle: { width: 2, color: YEAR_COLORS[year] }, itemStyle: { color: YEAR_COLORS[year] },
+            connectNulls: true, symbol: 'circle', symbolSize: 6
+        };
+    });
+
     chart.setOption({
         tooltip: { trigger: 'axis', valueFormatter: v => v != null ? v.toFixed(0) + ' MW' : 'N/A' },
-        legend: { data: countries, top: 0 },
+        legend: { data: series.map(s => s.name), top: 0 },
         xAxis: { type: 'category', data: months },
         yAxis: { type: 'value', name: 'MW' },
         series
     }, true);
 }
 
-function drawHourlyAvg(year, month, countries) {
+// ─────────────────────────────────────────────
+// Hourly Average Load (for selected month) — single country, one line per year
+// ─────────────────────────────────────────────
+function drawHourlyAvg(month, country) {
     const chart = charts.hourlyAvg;
-    if (!chart || !year || !month || !countries.length) { chart?.setOption({ series: [] }, true); return; }
-    const sum = {}, cnt = {};
-    countries.forEach(c => { sum[c] = Array(24).fill(0); cnt[c] = Array(24).fill(0); });
-    for (const d of fullData.data) {
-        if (d.year === year && d.month === month) {
-            for (const c of countries) {
-                const v = d.values[c];
-                if (v != null && !isNaN(v)) { sum[c][d.hour] += v; cnt[c][d.hour]++; }
-            }
-        }
-    }
+    if (!chart || !month || !country) { chart?.setOption({ series: [] }, true); return; }
+
     const hours = Array.from({length:24}, (_,i) => `${i}:00`);
-    const series = countries.map(c => ({
-        name: c, type: 'line',
-        data: sum[c].map((s, i) => cnt[c][i] ? s / cnt[c][i] : null),
-        connectNulls: false, lineStyle: { width: 2 }, symbol: 'circle', symbolSize: 6
-    }));
+    const series = TREND_YEARS.filter(y => fullData.years.includes(y)).map(year => {
+        const sum = Array(24).fill(0), cnt = Array(24).fill(0);
+        for (const d of fullData.data) {
+            if (d.year !== year || d.month !== month) continue;
+            const v = d.values[country];
+            if (v != null && !isNaN(v)) { sum[d.hour] += v; cnt[d.hour]++; }
+        }
+        return {
+            name: String(year), type: 'line',
+            data: sum.map((s, i) => cnt[i] ? s / cnt[i] : null),
+            lineStyle: { width: 2, color: YEAR_COLORS[year] }, itemStyle: { color: YEAR_COLORS[year] },
+            connectNulls: true, symbol: 'circle', symbolSize: 6
+        };
+    });
+
     chart.setOption({
         tooltip: { trigger: 'axis', valueFormatter: v => v != null ? v.toFixed(0) + ' MW' : 'N/A' },
-        legend: { data: countries, top: 0 },
+        legend: { data: series.map(s => s.name), top: 0 },
         xAxis: { type: 'category', data: hours },
         yAxis: { type: 'value', name: 'MW' },
         series
@@ -878,59 +951,17 @@ async function drawMap(year, month) {
 }
 
 // ─────────────────────────────────────────────
-// 
+// refreshing (Section 2 charts — driven by MA country + month/year selects)
 // ─────────────────────────────────────────────
-function buildCountryCheckboxes() {
-    const container = document.getElementById('countryCheckboxes');
-    container.innerHTML = '';
-    for (const c of fullData.countries) {
-        const item = document.createElement('label');
-        item.className = 'country-grid-item';
-        const cb = document.createElement('input');
-        cb.type = 'checkbox'; cb.value = c;
-        cb.className = 'country-cb-item';
-        cb.checked = (c === 'HU');
-        const sp = document.createElement('span');
-        sp.textContent = c;
-        item.appendChild(cb); item.appendChild(sp);
-        container.appendChild(item);
-    }
-    updateCountryText();
-}
-function updateCountryText() {
-    const sel = getSelectedCountries();
-    const el = document.getElementById('countrySelectText');
-    el.textContent = sel.length === 0 ? 'Select...'
-        : sel.length <= 3 ? sel.join(', ')
-        : `${sel.length} selected`;
-}
-function setupCountryDropdown() {
-    const btn = document.getElementById('countrySelectBtn');
-    const dd  = document.getElementById('countryDropdown');
-    btn.addEventListener('click', e => { e.stopPropagation(); dd.classList.toggle('show'); });
-    document.addEventListener('click', () => dd.classList.remove('show'));
-    dd.addEventListener('click', e => e.stopPropagation());
-    document.getElementById('countryCheckboxes').addEventListener('change', () => {
-        updateCountryText(); refreshMultiCharts();
-    });
-    document.getElementById('selectAllBtn').addEventListener('click', () => {
-        document.querySelectorAll('.country-cb-item').forEach(c => c.checked = true);
-        updateCountryText(); refreshMultiCharts();
-    });
-    document.getElementById('clearAllBtn').addEventListener('click', () => {
-        document.querySelectorAll('.country-cb-item').forEach(c => c.checked = false);
-        updateCountryText(); refreshMultiCharts();
-    });
-}
-
 function refreshMultiCharts() {
-    const year      = +document.getElementById('yearSelect').value  || null;
-    const month     = +document.getElementById('monthSelect').value || null;
-    const countries = getSelectedCountries();
-    drawHourly(year, countries);
-    drawMonthly(year, countries);
-    drawHourlyAvg(year, month, countries);
-    drawMap(year, month);
+    const mapYear  = +document.getElementById('yearSelect').value  || null;
+    const month    = +document.getElementById('monthSelect').value || null;
+    const country  = getMaCountry();
+
+    drawHourly(country);
+    drawMonthly(country);
+    drawHourlyAvg(month, country);
+    drawMap(mapYear, month);
 }
 
 // ─────────────────────────────────────────────
@@ -974,12 +1005,15 @@ async function init() {
     buildMaCountryDropdown();
     setupMaCountryDropdown();
 
-    // year/month
+    // hour range selects for moving average
+    buildHourSelects();
+
+    // year (map only) / month
     const yearSelect = document.getElementById('yearSelect');
     yearSelect.innerHTML = '<option value="">-- Select --</option>' +
         fullData.years.map(y => `<option value="${y}">${y}</option>`).join('');
     yearSelect.disabled = false;
-    if (fullData.years.length) yearSelect.value = fullData.years[0];
+    if (fullData.years.length) yearSelect.value = fullData.years[fullData.years.length - 1];
 
     const monthSelect = document.getElementById('monthSelect');
     monthSelect.disabled = false;
@@ -991,10 +1025,6 @@ async function init() {
     // weekday/weekend
     document.getElementById('showWeekday').addEventListener('change', scheduleMovingAvg);
     document.getElementById('showWeekend').addEventListener('change', scheduleMovingAvg);
-
-    // 
-    buildCountryCheckboxes();
-    setupCountryDropdown();
 
     scheduleMovingAvg();
     refreshMultiCharts();

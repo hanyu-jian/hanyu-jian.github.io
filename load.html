@@ -287,11 +287,11 @@
                     </div>
                     <!-- Annual Avg -->
                     <div id="movingAvgSummary" style="
-                        width:220px; background:#f8f9fa; border-radius:8px;
+                        width:240px; background:#f8f9fa; border-radius:8px;
                         padding:14px; font-size:13px;
-                        display:flex; flex-direction:column; justify-content:center;align-items:center;text-align:left;
+                        display:flex; flex-direction:column; justify-content:flex-start;align-items:center;text-align:left;
                     ">
-                        <b style="margin-bottom:10px; font-size:14px;">Annual Avg (all hrs)</b>
+                        <b style="margin-bottom:10px; font-size:14px;">Load Averages (all hrs)</b>
                         <div id="avgContent">–</div>
                     </div>
                 </div>
@@ -358,7 +358,7 @@ let movingAvgTimer = null;
 let movingAvgPending = false;
 let movingAvgRunning = false;
 
-const YEAR_COLORS = { 2024: '#2E86AB', 2025: '#06A77D', 2026: '#D7263D' };
+const YEAR_COLORS = { 2024: '#F6BD16', 2025: '#333333', 2026: '#D7263D' };
 const TREND_YEARS = [2024, 2025, 2026];
 
 // ─────────────────────────────────────────────
@@ -517,6 +517,7 @@ function computeMovingAvg(data, country, showWeekday, showWeekend, hourStart, ho
     }
 
     const series = [], markerSeries = [], averages = {};
+    const rawByYear = {};
 
     for (const year of selectedYears) {
         const isLeap = (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
@@ -534,6 +535,7 @@ function computeMovingAvg(data, country, showWeekday, showWeekend, hourStart, ho
 
         // 7-day average — based on the last 7 *valid* daily points, so
         // filtering (weekday/weekend, hour range) never breaks the line.
+        rawByYear[year] = raw;
         const avg = new Array(366).fill(null);
         const validQueue = [];
         for (let i = 0; i < days; i++) {
@@ -615,11 +617,43 @@ function computeMovingAvg(data, country, showWeekday, showWeekend, hourStart, ho
         changes[curr] = (vp != null && vc != null && vp !== 0) ? (vc - vp) / vp : null;
     }
 
+    // Year-to-date comparison: use the latest year's last available day
+    // as a common cutoff so partial-year data (e.g. 2026) is compared
+    // against the *same* stretch of prior years, not their full year.
+    const maxYear = sortedYears.length ? sortedYears[sortedYears.length - 1] : null;
+    let cutoffIdx = -1;
+    if (maxYear != null && rawByYear[maxYear]) {
+        const arr = rawByYear[maxYear];
+        for (let i = 0; i < arr.length; i++) {
+            if (arr[i] != null) cutoffIdx = i;
+        }
+    }
+    const cutoffLabel = cutoffIdx >= 0 ? xAxis[cutoffIdx] : null;
+
+    const ytdAverages = {};
+    if (cutoffIdx >= 0) {
+        for (const year of selectedYears) {
+            const arr = rawByYear[year];
+            let s = 0, c = 0;
+            for (let i = 0; i <= cutoffIdx; i++) {
+                if (arr[i] != null) { s += arr[i]; c++; }
+            }
+            ytdAverages[year] = c ? s / c : null;
+        }
+    }
+    const ytdChanges = {};
+    for (let i = 1; i < sortedYears.length; i++) {
+        const prev = sortedYears[i - 1], curr = sortedYears[i];
+        const vp = ytdAverages[prev], vc = ytdAverages[curr];
+        ytdChanges[curr] = (vp != null && vc != null && vp !== 0) ? (vc - vp) / vp : null;
+    }
+
     return {
         xAxis,
         series: [...series, ...markerSeries],
         mainSeriesNames: series.map(s => s.name),
-        averages, changes
+        averages, changes,
+        ytdAverages, ytdChanges, cutoffLabel
     };
 }
 
@@ -651,7 +685,7 @@ function runMovingAvg() {
     requestAnimationFrame(() => {
         setTimeout(() => {
             try {
-                const { xAxis, series, mainSeriesNames, averages, changes } =
+                const { xAxis, series, mainSeriesNames, averages, changes, ytdAverages, ytdChanges, cutoffLabel } =
                     computeMovingAvg(fullData.data, country, showWeekday, showWeekend, hourStart, hourEnd);
 
                 chart.setOption({
@@ -706,28 +740,63 @@ function runMovingAvg() {
                     });
                 });
 
-                // Annual Avg 
+                // Load Averages summary
                 const avgDiv = document.getElementById('avgContent');
                 if (avgDiv) {
                     let html = '';
-                    TREND_YEARS.filter(y => averages[y] != null).forEach(year => {
-                        const val   = averages[year];
-                        const color = YEAR_COLORS[year];
-                        let line = `<div style="margin-bottom:10px;">
-                            <span style="display:inline-block;width:12px;height:12px;
-                                background:${color};border-radius:2px;
-                                vertical-align:middle;margin-right:4px;"></span>
-                            <b>${year}</b>: ${val.toFixed(0)} MW`;
-                        if (changes[year] != null) {
-                            const pct = (changes[year] * 100).toFixed(1);
-                            const clr = changes[year] >= 0 ? '#28a745' : '#dc3545';
-                            line += ` <span style="color:${clr}; font-size:12px;">
-                                ${changes[year] >= 0 ? '▲' : '▼'} ${Math.abs(pct)}%
-                            </span>`;
-                        }
-                        line += `</div>`;
-                        html += line;
-                    });
+
+                    // Full-year comparison — only years with a complete year of data
+                    // (everything in TREND_YEARS except the most recent, still-in-progress year)
+                    const fullYearYears = TREND_YEARS.slice(0, -1).filter(y => averages[y] != null);
+                    if (fullYearYears.length) {
+                        html += `<div style="font-weight:600; font-size:12px; color:#888; margin-bottom:6px;">Full Year</div>`;
+                        fullYearYears.forEach(year => {
+                            const val   = averages[year];
+                            const color = YEAR_COLORS[year];
+                            let line = `<div style="margin-bottom:8px;">
+                                <span style="display:inline-block;width:12px;height:12px;
+                                    background:${color};border-radius:2px;
+                                    vertical-align:middle;margin-right:4px;"></span>
+                                <b>${year}</b>: ${val.toFixed(0)} MW`;
+                            if (changes[year] != null) {
+                                const pct = (changes[year] * 100).toFixed(1);
+                                const clr = changes[year] >= 0 ? '#28a745' : '#dc3545';
+                                line += ` <span style="color:${clr}; font-size:12px;">
+                                    ${changes[year] >= 0 ? '▲' : '▼'} ${Math.abs(pct)}%
+                                </span>`;
+                            }
+                            line += `</div>`;
+                            html += line;
+                        });
+                    }
+
+                    // Year-to-date comparison — same day-of-year range for every year,
+                    // including the partial current year, so it's an apples-to-apples comparison
+                    const ytdYears = TREND_YEARS.filter(y => ytdAverages[y] != null);
+                    if (ytdYears.length) {
+                        html += `<div style="font-weight:600; font-size:12px; color:#888;
+                            margin:12px 0 6px; border-top:1px solid #e6e9ed; padding-top:10px;">
+                            Through ${cutoffLabel || '–'} (YTD)</div>`;
+                        ytdYears.forEach(year => {
+                            const val   = ytdAverages[year];
+                            const color = YEAR_COLORS[year];
+                            let line = `<div style="margin-bottom:8px;">
+                                <span style="display:inline-block;width:12px;height:12px;
+                                    background:${color};border-radius:2px;
+                                    vertical-align:middle;margin-right:4px;"></span>
+                                <b>${year}</b>: ${val.toFixed(0)} MW`;
+                            if (ytdChanges[year] != null) {
+                                const pct = (ytdChanges[year] * 100).toFixed(1);
+                                const clr = ytdChanges[year] >= 0 ? '#28a745' : '#dc3545';
+                                line += ` <span style="color:${clr}; font-size:12px;">
+                                    ${ytdChanges[year] >= 0 ? '▲' : '▼'} ${Math.abs(pct)}%
+                                </span>`;
+                            }
+                            line += `</div>`;
+                            html += line;
+                        });
+                    }
+
                     avgDiv.innerHTML = html || '–';
                 }
 
@@ -794,7 +863,7 @@ function drawHourly(country) {
         return {
             name: String(year), type: 'line', data,
             lineStyle: { width: 1.5, color: YEAR_COLORS[year] }, itemStyle: { color: YEAR_COLORS[year] },
-            connectNulls: true, showSymbol: false,
+            connectNulls: true, symbol: 'circle', symbolSize: 6, showSymbol: false,
             animation: false, large: true, largeThreshold: 500, sampling: 'lttb'
         };
     });

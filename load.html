@@ -301,13 +301,6 @@
 
     <!-- ════ SECTION 2 — Multi-country ════ -->
     <div id="multiCountrySection" style="display:none;">
-        <div class="controls" style="margin-top:24px;">
-            <div class="control-group">
-                <label>📅 Year (Map)</label>
-                <select id="yearSelect" disabled></select>
-            </div>
-        </div>
-
         <div class="chart-grid">
             <div class="chart-card">
                 <h3>Hourly Load Trends</h3>
@@ -336,6 +329,10 @@
                         <div id="hourlyAvgChart" style="height:400px;"></div>
                     </div>
                     <div style="position:relative;">
+                        <div class="card-control">
+                            <label>📅 Year:</label>
+                            <select id="yearSelect" disabled></select>
+                        </div>
                         <div id="europeMap"></div>
                     </div>
                 </div>
@@ -361,8 +358,8 @@ let movingAvgTimer = null;
 let movingAvgPending = false;
 let movingAvgRunning = false;
 
-const YEAR_COLORS = { 2024: '#ffaa00', 2025: '#222222', 2026: '#cc0000' };
-const TREND_YEARS = [2024, 2025];
+const YEAR_COLORS = { 2024: '#2E86AB', 2025: '#06A77D', 2026: '#D7263D' };
+const TREND_YEARS = [2024, 2025, 2026];
 
 // ─────────────────────────────────────────────
 // CSV 
@@ -713,7 +710,7 @@ function runMovingAvg() {
                 const avgDiv = document.getElementById('avgContent');
                 if (avgDiv) {
                     let html = '';
-                    [2024, 2025].filter(y => averages[y] != null).forEach(year => {
+                    TREND_YEARS.filter(y => averages[y] != null).forEach(year => {
                         const val   = averages[year];
                         const color = YEAR_COLORS[year];
                         let line = `<div style="margin-bottom:10px;">

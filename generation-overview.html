@@ -472,8 +472,9 @@ function initControls() {
         const mFrom = parseInt(document.getElementById('monthFrom').value, 10);
         const mTo   = parseInt(document.getElementById('monthTo').value, 10);
         const yMax = calcGlobalYMax(selected, mFrom, mTo, null);
+        const priceRange = calcGlobalPriceRange(selected, mFrom, mTo);
         [[charts.chart2024, 2024],[charts.chart2025, 2025],[charts.chart2026, 2026]].forEach(([c, y]) => {
-            applyYearChart(c, y, selected, mFrom, mTo, yMax);
+            applyYearChart(c, y, selected, mFrom, mTo, yMax, priceRange);
         });
         buildHtmlLegend();
     });
@@ -482,8 +483,9 @@ function initControls() {
         const selected = getSelectedCountries();
         const mFrom = parseInt(document.getElementById('monthFrom').value, 10);
         const mTo   = parseInt(document.getElementById('monthTo').value, 10);
+        const priceRange = calcGlobalPriceRange(selected, mFrom, mTo);
         [[charts.chart2024, 2024],[charts.chart2025, 2025],[charts.chart2026, 2026]].forEach(([c, y]) => {
-            applyYearChart(c, y, selected, mFrom, mTo, undefined);
+            applyYearChart(c, y, selected, mFrom, mTo, undefined, priceRange);
         });
         buildHtmlLegend();
     });
@@ -717,11 +719,32 @@ function calcGlobalYMax(selected, mFrom, mTo, visibilityFilter) {
     return globalMax > 0 ? Math.ceil(globalMax * 1.05 / 1000) * 1000 : undefined;
 }
 
+// ── Price axis range (right axis, fixed across all 3 years) ──────────────────
+function calcGlobalPriceRange(selected, mFrom, mTo) {
+    if (!selected.length || mFrom > mTo) return {};
+    let min = Infinity, max = -Infinity;
+    [2024, 2025, 2026].forEach(year => {
+        const priceSeries = buildPriceSeries(year, selected, mFrom, mTo);
+        priceSeries.forEach(v => {
+            if (Number.isFinite(v)) {
+                if (v < min) min = v;
+                if (v > max) max = v;
+            }
+        });
+    });
+    if (!Number.isFinite(min) || !Number.isFinite(max)) return {};
+    const pad = Math.max((max - min) * 0.15, 10);
+    const priceMin = Math.floor((min - pad) / 10) * 10;
+    const priceMax = Math.ceil((max + pad) / 10) * 10;
+    return { priceMin, priceMax };
+}
+
 // ── Chart drawing ─────────────────────────────────────────────────────────────
 let allSeriesNames = [];
 let allSeriesColors = {};
 
 const PRICE_SERIES_NAME = 'Price (€/MWh)';
+const PRICE_COLOR = '#8b0000'; // dark red, distinct from Nuclear's #e53935
 
 function buildSeriesForYear(year, selectedCountries, mFrom, mTo) {
     const { techs, techSeries, load } = summarizeYear(year, selectedCountries, mFrom, mTo);
@@ -761,8 +784,8 @@ function buildSeriesForYear(year, selectedCountries, mFrom, mTo) {
         name: PRICE_SERIES_NAME, type: 'line', smooth: false, symbol: 'none',
         yAxisIndex: 1,
         data: priceVisible ? priceSeries : priceSeries.map(() => null),
-        itemStyle: { color: '#e53935' },
-        lineStyle: { width: priceVisible ? 2 : 0, color: '#e53935' },
+        itemStyle: { color: PRICE_COLOR },
+        lineStyle: { width: priceVisible ? 2 : 0, color: PRICE_COLOR, type: 'dashed' },
         areaStyle: { opacity: 0 },
         silent: !priceVisible,
         z: 10,
@@ -777,14 +800,18 @@ function buildSeriesForYear(year, selectedCountries, mFrom, mTo) {
     return { series, hours };
 }
 
-function applyYearChart(chart, year, selectedCountries, mFrom, mTo, yMax) {
+function applyYearChart(chart, year, selectedCountries, mFrom, mTo, yMax, priceRange) {
     if (!selectedCountries.length || mFrom > mTo) { chart.clear(); return; }
     const { series, hours } = buildSeriesForYear(year, selectedCountries, mFrom, mTo);
 
-    // Compute right-axis (price) range dynamically
+    // Right-axis (price) range: use fixed global range when provided,
+    // otherwise fall back to a per-chart dynamic range.
     const priceSerie = series.find(s => s.name === PRICE_SERIES_NAME);
     let priceMin, priceMax;
-    if (priceSerie) {
+    if (priceRange && Number.isFinite(priceRange.priceMin) && Number.isFinite(priceRange.priceMax)) {
+        priceMin = priceRange.priceMin;
+        priceMax = priceRange.priceMax;
+    } else if (priceSerie) {
         const vals = priceSerie.data.filter(Number.isFinite);
         if (vals.length) {
             const rawMin = Math.min(...vals);
@@ -878,7 +905,9 @@ function buildHtmlLegend() {
             swatch.style.height = '0';
             swatch.style.borderRadius = '0';
             swatch.style.background = 'transparent';
-            swatch.style.borderTop = `2.5px solid ${color}`;
+            swatch.style.borderTop = name === PRICE_SERIES_NAME
+                ? `2.5px dashed ${color}`
+                : `2.5px solid ${color}`;
         } else {
             swatch.style.width = '12px';
             swatch.style.height = '12px';
@@ -904,9 +933,10 @@ function toggleSeries(name) {
     const mTo   = parseInt(document.getElementById('monthTo').value, 10);
 
     const yMax = calcGlobalYMax(selected, mFrom, mTo, seriesName => legendState[seriesName] !== false);
+    const priceRange = calcGlobalPriceRange(selected, mFrom, mTo);
 
     [[charts.chart2024, 2024],[charts.chart2025, 2025],[charts.chart2026, 2026]].forEach(([c, y]) => {
-        applyYearChart(c, y, selected, mFrom, mTo, yMax);
+        applyYearChart(c, y, selected, mFrom, mTo, yMax, priceRange);
     });
     document.querySelectorAll('#sharedLegend .leg-item').forEach(el => {
         const vis = legendState[el.dataset.name] !== false;
@@ -925,14 +955,16 @@ function refresh() {
     allSeriesColors = {};
     clearSummarizeCache();
 
-    applyYearChart(charts.chart2024, 2024, selected, mFrom, mTo, undefined);
-    applyYearChart(charts.chart2025, 2025, selected, mFrom, mTo, undefined);
-    applyYearChart(charts.chart2026, 2026, selected, mFrom, mTo, undefined);
+    const priceRange = calcGlobalPriceRange(selected, mFrom, mTo);
+
+    applyYearChart(charts.chart2024, 2024, selected, mFrom, mTo, undefined, priceRange);
+    applyYearChart(charts.chart2025, 2025, selected, mFrom, mTo, undefined, priceRange);
+    applyYearChart(charts.chart2026, 2026, selected, mFrom, mTo, undefined, priceRange);
 
     const yMax = calcGlobalYMax(selected, mFrom, mTo, null);
     [[charts.chart2024, 2024],[charts.chart2025, 2025],[charts.chart2026, 2026]].forEach(([c, y]) => {
         if (selected.length && mFrom <= mTo) {
-            c.setOption({ yAxis: [{ max: yMax }, {}] });
+            c.setOption({ yAxis: [{ max: yMax }, { min: priceRange.priceMin, max: priceRange.priceMax }] });
         }
     });
 

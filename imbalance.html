@@ -223,6 +223,21 @@
         }
         .hour-range-group span { font-size: 12px; color: #6c757d; }
 
+        /* ── Price range inputs ── */
+        .price-range-group {
+            display: inline-flex; align-items: center; gap: 6px;
+        }
+        .price-range-group input[type="number"] {
+            width: 76px; height: 30px; padding: 0 6px;
+            border: 1px solid #ccc; border-radius: 6px;
+            font-size: 13px; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            text-align: center; color: #2c3e50;
+        }
+        .price-range-group input[type="number"]:focus {
+            outline: none; border-color: #2c3e50;
+        }
+        .price-range-group span { font-size: 12px; color: #6c757d; }
+
         /* ── Day type checkboxes ── */
         .daytype-group {
             display: inline-flex; align-items: center; gap: 10px;
@@ -303,6 +318,16 @@
                 <div>
                     <h3>Imbalance Price – 15-min</h3>
                     <div class="subtitle">15-minute imbalance price per country, 2021 – present</div>
+                </div>
+                <div class="chart-card-controls">
+                    <label>Price range (€/MWh)</label>
+                    <div class="price-range-group">
+                        <input type="number" id="a85PriceMin" placeholder="Min" step="any">
+                        <span>–</span>
+                        <input type="number" id="a85PriceMax" placeholder="Max" step="any">
+                        <button id="a85PriceApplyBtn" class="btn-small">Apply</button>
+                        <button id="a85PriceResetBtn" class="btn-small">Reset</button>
+                    </div>
                 </div>
             </div>
             <div id="a85Chart" style="width:100%; height:420px;"></div>
@@ -394,6 +419,12 @@ const state = {
     weekend: true,
     hourStart: 0,
     hourEnd: 23
+};
+
+// Price range filter for the A85 15-min scatter chart (null = no bound)
+const a85PriceFilter = {
+    min: null,
+    max: null
 };
 
 /* ================================================================
@@ -986,6 +1017,8 @@ function drawCompare() {
    CHART 0 – A85 SCATTER
    Shows ALL 96 fifteen-minute intervals per day (no daily averaging).
    MNB conversion is already applied in transformA85CSV.
+   Optional price-range filter (a85PriceFilter.min / .max) restricts
+   which points are plotted based on the €/MWh value.
 ================================================================ */
 function drawA85() {
     if (!a85Chart || !a85Data) return;
@@ -1005,8 +1038,11 @@ function drawA85() {
     }
     const yearArea = buildYearMarkArea(allDates);
 
+    const { min: priceMin, max: priceMax } = a85PriceFilter;
+
     // Each point: [ISO datetime string "YYYY-MM-DD HH:MM", value]
     // No aggregation – every 15-min row becomes one scatter point
+    // (unless it's outside the optional price range filter)
     const seriesArr = countries.map((c, idx) => ({
         name: c,
         type: 'scatter',
@@ -1014,6 +1050,8 @@ function drawA85() {
             .map(pt => {
                 const n = pt.values[c];
                 if (n == null || isNaN(n)) return null;
+                if (priceMin != null && n < priceMin) return null;
+                if (priceMax != null && n > priceMax) return null;
                 return [pt.label, +n.toFixed(2)];   // pt.label = "YYYY-MM-DD HH:MM"
             })
             .filter(Boolean),
@@ -1054,10 +1092,49 @@ function drawA85() {
         yAxis: {
             type: 'value', name: '€/MWh',
             nameTextStyle: { color: '#6c757d', fontSize: 11 },
+            ...(priceMin != null ? { min: priceMin } : {}),
+            ...(priceMax != null ? { max: priceMax } : {}),
             ...axisStyle
         },
         series: seriesArr
     }, true);
+}
+
+/* ================================================================
+   A85 PRICE RANGE CONTROLS
+================================================================ */
+function initA85PriceControls() {
+    const minInput   = document.getElementById('a85PriceMin');
+    const maxInput   = document.getElementById('a85PriceMax');
+    const applyBtn   = document.getElementById('a85PriceApplyBtn');
+    const resetBtn   = document.getElementById('a85PriceResetBtn');
+
+    function applyRange() {
+        const minVal = minInput.value.trim();
+        const maxVal = maxInput.value.trim();
+        let min = minVal === '' ? null : parseFloat(minVal);
+        let max = maxVal === '' ? null : parseFloat(maxVal);
+        if (min != null && max != null && min > max) {
+            [min, max] = [max, min];
+            minInput.value = min;
+            maxInput.value = max;
+        }
+        a85PriceFilter.min = min;
+        a85PriceFilter.max = max;
+        drawA85();
+    }
+
+    applyBtn.addEventListener('click', applyRange);
+    [minInput, maxInput].forEach(inp => {
+        inp.addEventListener('keydown', e => { if (e.key === 'Enter') applyRange(); });
+    });
+    resetBtn.addEventListener('click', () => {
+        minInput.value = '';
+        maxInput.value = '';
+        a85PriceFilter.min = null;
+        a85PriceFilter.max = null;
+        drawA85();
+    });
 }
 
 /* ================================================================
@@ -1201,6 +1278,7 @@ async function init() {
     initDropdown();
     initCompareSelect();
     initChart1Controls();
+    initA85PriceControls();
 
     document.getElementById('selectAllBtn').addEventListener('click', () => {
         document.querySelectorAll('#countryCheckboxes input').forEach(cb => cb.checked = true);

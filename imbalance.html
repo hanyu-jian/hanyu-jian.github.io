@@ -338,7 +338,7 @@
             <div class="chart-card-header">
                 <div>
                     <h3>Monthly Imbalance Price Distribution</h3>
-                    <div class="subtitle">Box = Q1–Q3, whiskers = 1.5×IQR, dots = outliers (€/MWh)</div>
+                    <div class="subtitle">Box = Q1–Q3 (50%), whiskers = 12.5th–87.5th pct (75%), dots = outliers (€/MWh)</div>
                 </div>
                 <div class="chart-card-controls">
                     <label>Price range (€/MWh)</label>
@@ -460,6 +460,10 @@ const boxplotPriceFilter = {
 const COUNTRY_PALETTE = ['#5470c6','#91cc75','#fac858','#ee6666','#73c0de','#3ba272',
                          '#fc8452','#9a60b4','#ea7ccc','#c23531','#2f4554','#61a0a8'];
 let countryColorMap = {};
+
+// Fixed blue used for the monthly boxplot (thin-line style, matches the rest
+// of the dashboard's blue accents rather than cycling per-country colors)
+const BOX_COLOR = '#2980b9';
 
 /* ================================================================
    CSV HELPERS
@@ -1159,25 +1163,22 @@ function quantile(sortedAsc, p) {
     return sortedAsc[base];
 }
 
-// Standard (Tukey) boxplot stats:
-//   IQR = Q3 - Q1
-//   upper whisker = the LARGEST observed value that is <= Q3 + 1.5*IQR
-//   lower whisker = the SMALLEST observed value that is >= Q1 - 1.5*IQR
-// Anything beyond those bounds is an outlier, drawn as an individual dot.
+// Percentile-based boxplot stats:
+//   Box = Q1 (25th pct) to Q3 (75th pct) -> middle 50% of the data
+//   Whiskers = 12.5th pct (lower) to 87.5th pct (upper) -> middle 75% of the data
+// Anything outside the whisker range is an outlier, drawn as an individual dot.
+const WHISKER_LOWER_PCT = 0.125;
+const WHISKER_UPPER_PCT = 0.875;
+
 function computeBoxStats(values) {
     if (!values.length) return null;
     const asc = values.slice().sort((a, b) => a - b);
     const q1 = quantile(asc, 0.25);
     const q2 = quantile(asc, 0.5);
     const q3 = quantile(asc, 0.75);
-    const iqr = q3 - q1;
-    const lowerBound = q1 - 1.5 * iqr;
-    const upperBound = q3 + 1.5 * iqr;
-
-    const within = asc.filter(v => v >= lowerBound && v <= upperBound);
-    const low  = within.length ? within[0] : asc[0];
-    const high = within.length ? within[within.length - 1] : asc[asc.length - 1];
-    const outliers = asc.filter(v => v < lowerBound || v > upperBound);
+    const low  = quantile(asc, WHISKER_LOWER_PCT);
+    const high = quantile(asc, WHISKER_UPPER_PCT);
+    const outliers = asc.filter(v => v < low || v > high);
 
     return {
         low: +low.toFixed(2), q1: +q1.toFixed(2), median: +q2.toFixed(2),
@@ -1229,13 +1230,13 @@ function makeBoxRenderItem(idx, n, color, renderData) {
               style: { stroke: color, lineWidth: 2 } }
         ];
 
-        // outlier dots
+        // outlier dots (hollow)
         raw.outliers.forEach(v => {
             const yv = api.coord([raw.monthIndex, v])[1];
             children.push({
                 type: 'circle',
-                shape: { cx, cy: yv, r: 2.6 },
-                style: { fill: color, opacity: 0.7, stroke: '#fff', lineWidth: 0.5 }
+                shape: { cx, cy: yv, r: 2.8 },
+                style: { fill: 'none', stroke: color, lineWidth: 1.2, opacity: 0.85 }
             });
         });
 
@@ -1256,8 +1257,10 @@ function drawBoxplot() {
     const months = [...monthSet].sort();
     const monthIndexMap = new Map(months.map((m, i) => [m, i]));
 
-    // Bucket values per country per month (respecting the price range filter)
-    const { min: pMin, max: pMax } = boxplotPriceFilter;
+    // Bucket ALL values per country per month (price range filter no longer
+    // touches the underlying data — it only changes the visible y-axis range,
+    // see below. Quartiles/whiskers/outliers are always computed from the
+    // full, unfiltered dataset.)
     const buckets = {};
     countries.forEach(c => { buckets[c] = {}; months.forEach(m => buckets[c][m] = []); });
     a85Data.data.forEach(pt => {
@@ -1265,8 +1268,6 @@ function drawBoxplot() {
         countries.forEach(c => {
             const v = pt.values[c];
             if (v == null || isNaN(v)) return;
-            if (pMin != null && v < pMin) return;
-            if (pMax != null && v > pMax) return;
             buckets[c][mKey].push(v);
         });
     });
@@ -1275,7 +1276,7 @@ function drawBoxplot() {
     const n = countries.length;
 
     const series = countries.map((c, idx) => {
-        const color = COUNTRY_PALETTE[idx % COUNTRY_PALETTE.length];
+        const color = BOX_COLOR;
 
         // renderData: one entry per month that actually has data, aligned 1:1
         // with the series `data` array below (same order/index)
@@ -1326,7 +1327,7 @@ function drawBoxplot() {
     const rotate = months.length > 24 ? 30 : 0;
 
     boxplotChart.setOption({
-        color: countries.map((c, i) => COUNTRY_PALETTE[i % COUNTRY_PALETTE.length]),
+        color: countries.map(() => BOX_COLOR),
         tooltip: { trigger: 'item', axisPointer: { type: 'shadow' } },
         legend: { ...commonLegend, top: 4, left: 'center' },
         dataZoom: dataZoomCfg,
@@ -1337,7 +1338,10 @@ function drawBoxplot() {
             axisLabel: { ...axisStyle.axisLabel, rotate, interval: 'auto' }
         },
         yAxis: { type: 'value', name: '€/MWh', scale: true,
-            nameTextStyle: { color: '#6c757d', fontSize: 11 }, ...axisStyle },
+            nameTextStyle: { color: '#6c757d', fontSize: 11 },
+            ...(boxplotPriceFilter.min != null ? { min: boxplotPriceFilter.min } : {}),
+            ...(boxplotPriceFilter.max != null ? { max: boxplotPriceFilter.max } : {}),
+            ...axisStyle },
         series
     }, true);
 }

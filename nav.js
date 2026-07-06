@@ -8,20 +8,24 @@
  * It also injects the Disclaimer modal (triggered from the header).
  *
  * To add a new nav item in future, edit NAV_ITEMS below — one place, all pages.
+ * If a nav item has multiple sub-pages that should share its highlight,
+ * add a `match` array listing all the href suffixes that should activate it.
  */
 
 (function () {
   'use strict';
 
   /* ── 1. Nav definition ──────────────────────────────────────────────────
-     Add / remove / reorder items here. href is matched against location.pathname
-     to auto-highlight the active tab.
+     Add / remove / reorder items here. href is the link target; match (optional)
+     is the list of pathname suffixes that should mark this item active — use it
+     when a nav item has multiple sub-pages (e.g. Generation → overview + by-type).
+     If match is omitted, href itself is used for matching.
   ─────────────────────────────────────────────────────────────────────── */
   const NAV_ITEMS = [
     { label: 'Projects',           href: 'project.html' },
-    { label: 'Price',              href: 'price-overview.html' },
+    { label: 'Price',              href: 'price-overview.html',, match: ['capture-price.html', 'price-spread.html','price-intraday.html'] },
     { label: 'Load',               href: 'load.html' },
-    { label: 'Generation',         href: 'generation-overview.html' },
+    { label: 'Generation',         href: 'generation-overview.html', match: ['generation-overview.html', 'generation-by-type.html'] },
     { label: 'Installed Capacity', href: 'capacity.html' },
     { label: 'Balancing',          href: 'imbalance.html' }
   ];
@@ -108,15 +112,16 @@
     }`;
 
   /* ── 4. Detect active page ──────────────────────────────────────────── */
-  function isActive(href) {
+  function isActive(item) {
     const path = window.location.pathname;
-    return path.endsWith(href) || path.endsWith('/' + href);
+    const candidates = item.match || [item.href];
+    return candidates.some(h => path.endsWith(h) || path.endsWith('/' + h));
   }
 
   /* ── 5. Build nav HTML ─────────────────────────────────────────────── */
   function buildNavHTML(titleText) {
     const links = NAV_ITEMS.map(item => {
-      const active = isActive(item.href) ? ' active' : '';
+      const active = isActive(item) ? ' active' : '';
       return `<a href="${item.href}" class="main-nav-link${active}">${item.label}</a>`;
     }).join('\n          ');
 

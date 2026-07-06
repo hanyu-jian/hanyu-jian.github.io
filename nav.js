@@ -23,9 +23,9 @@
   ─────────────────────────────────────────────────────────────────────── */
   const NAV_ITEMS = [
     { label: 'Projects',           href: 'project.html' },
-    { label: 'Price',              href: 'price-overview.html', match: ['capture-price.html', 'price-spread.html','price-intraday.html'] },
+    { label: 'Price',              href: 'price-overview.html', match: ['price-overview.html'，'capture-price.html', 'price-spread.html','price-intraday.html'] },
     { label: 'Load',               href: 'load.html' },
-    { label: 'Generation',         href: 'generation-overview.html', match: ['generation-overview.html', 'generation-by-type.html'] },
+    { label: 'Generation',         href: 'generation-overview.html', match: ['generation-overview.html', 'generation-type.html'] },
     { label: 'Installed Capacity', href: 'capacity.html' },
     { label: 'Balancing',          href: 'imbalance.html' }
   ];

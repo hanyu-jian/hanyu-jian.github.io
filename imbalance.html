@@ -332,6 +332,17 @@
             </div>
             <div id="a85Chart" style="width:100%; height:420px;"></div>
         </div>
+
+        <!-- Chart 0b: Monthly Boxplot -->
+        <div class="chart-card full-width-card">
+            <div class="chart-card-header">
+                <div>
+                    <h3>Monthly Imbalance Price Distribution</h3>
+                    <div class="subtitle">Box plot of 15-minute imbalance prices per month per country (€/MWh)</div>
+                </div>
+            </div>
+            <div id="boxplotChart" style="width:100%; height:420px;"></div>
+        </div>
         <div class="chart-card full-width-card">
             <div class="chart-card-header">
                 <div>
@@ -412,6 +423,7 @@ let a85Data        = null;   // 15-min granularity, MNB-converted
 let trendChart     = null;
 let compareChart   = null;
 let a85Chart       = null;
+let boxplotChart   = null;
 
 const state = {
     freq: 'daily',
@@ -1101,6 +1113,100 @@ function drawA85() {
 }
 
 /* ================================================================
+   CHART 0b – MONTHLY BOXPLOT
+   Computes [min, Q1, median, Q3, max] per month per selected country
+   from the 15-min A85 data (same source as the scatter chart above).
+================================================================ */
+function quantile(sortedAsc, p) {
+    const n = sortedAsc.length;
+    if (n === 1) return sortedAsc[0];
+    const pos = (n - 1) * p;
+    const base = Math.floor(pos);
+    const rest = pos - base;
+    if (sortedAsc[base + 1] !== undefined) {
+        return sortedAsc[base] + rest * (sortedAsc[base + 1] - sortedAsc[base]);
+    }
+    return sortedAsc[base];
+}
+
+function computeBoxStats(values) {
+    if (!values.length) return null;
+    const asc = values.slice().sort((a, b) => a - b);
+    const q1 = quantile(asc, 0.25);
+    const q2 = quantile(asc, 0.5);
+    const q3 = quantile(asc, 0.75);
+    const min = asc[0];
+    const max = asc[asc.length - 1];
+    return [min, q1, q2, q3, max].map(v => +v.toFixed(2));
+}
+
+function drawBoxplot() {
+    if (!boxplotChart || !a85Data) return;
+    const countries = getSelectedCountries();
+    if (!countries.length) { boxplotChart.setOption({ series: [] }, true); return; }
+
+    // Union of months present across the data, sorted chronologically
+    const monthSet = new Set();
+    a85Data.data.forEach(pt => {
+        monthSet.add(`${pt.year}-${String(pt.month).padStart(2,'0')}`);
+    });
+    const months = [...monthSet].sort();
+
+    // Bucket values per country per month
+    const buckets = {};
+    countries.forEach(c => { buckets[c] = {}; months.forEach(m => buckets[c][m] = []); });
+    a85Data.data.forEach(pt => {
+        const mKey = `${pt.year}-${String(pt.month).padStart(2,'0')}`;
+        countries.forEach(c => {
+            const v = pt.values[c];
+            if (v == null || isNaN(v)) return;
+            buckets[c][mKey].push(v);
+        });
+    });
+
+    const yearArea = buildYearMarkArea(months);
+
+    const series = countries.map((c, idx) => ({
+        name: c,
+        type: 'boxplot',
+        data: months.map(m => computeBoxStats(buckets[c][m]) || ['-','-','-','-','-']),
+        itemStyle: { borderWidth: 1.3 },
+        ...(idx === 0 && yearArea ? { markArea: yearArea } : {})
+    }));
+
+    const rotate = months.length > 24 ? 30 : 0;
+
+    boxplotChart.setOption({
+        tooltip: {
+            trigger: 'item',
+            formatter: p => {
+                if (!Array.isArray(p.value) || p.value[4] === '-') return `${p.seriesName}<br/>no data`;
+                const [min, q1, med, q3, max] = p.value.slice(-5);
+                return `<div style="font-weight:600;margin-bottom:4px;color:#2c3e50">${p.name} – ${p.seriesName}</div>
+                    <div style="font-size:12px;line-height:1.6">
+                        Max: <b>${max}</b> €/MWh<br/>
+                        Q3: <b>${q3}</b> €/MWh<br/>
+                        Median: <b>${med}</b> €/MWh<br/>
+                        Q1: <b>${q1}</b> €/MWh<br/>
+                        Min: <b>${min}</b> €/MWh
+                    </div>`;
+            }
+        },
+        legend: { ...commonLegend, top: 4, left: 'center' },
+        dataZoom: dataZoomCfg,
+        grid: { left: 65, right: 20, top: 50, bottom: 70 },
+        xAxis: {
+            type: 'category', data: months, boundaryGap: true,
+            ...axisStyle,
+            axisLabel: { ...axisStyle.axisLabel, rotate }
+        },
+        yAxis: { type: 'value', name: '€/MWh',
+            nameTextStyle: { color: '#6c757d', fontSize: 11 }, ...axisStyle },
+        series
+    }, true);
+}
+
+/* ================================================================
    A85 PRICE RANGE CONTROLS
 ================================================================ */
 function initA85PriceControls() {
@@ -1151,7 +1257,7 @@ function buildCountryCheckboxes() {
         cb.value = country;
         cb.id = `cb_${country}`;
         cb.checked = (country === 'HU');
-        cb.addEventListener('change', () => { updateCountryLabel(); drawTrend(); drawA85(); });
+        cb.addEventListener('change', () => { updateCountryLabel(); drawTrend(); drawA85(); drawBoxplot(); });
         const span = document.createElement('span');
         span.textContent = country;
         item.addEventListener('click', e => {
@@ -1267,11 +1373,13 @@ async function init() {
     trendChart   = echarts.init(document.getElementById('trendChart'));
     compareChart = echarts.init(document.getElementById('compareChart'));
     a85Chart     = echarts.init(document.getElementById('a85Chart'));
+    boxplotChart = echarts.init(document.getElementById('boxplotChart'));
 
     window.addEventListener('resize', () => {
         trendChart.resize();
         compareChart.resize();
         a85Chart.resize();
+        boxplotChart.resize();
     });
 
     buildCountryCheckboxes();
@@ -1282,14 +1390,15 @@ async function init() {
 
     document.getElementById('selectAllBtn').addEventListener('click', () => {
         document.querySelectorAll('#countryCheckboxes input').forEach(cb => cb.checked = true);
-        updateCountryLabel(); drawTrend(); drawA85();
+        updateCountryLabel(); drawTrend(); drawA85(); drawBoxplot();
     });
     document.getElementById('clearAllBtn').addEventListener('click', () => {
         document.querySelectorAll('#countryCheckboxes input').forEach(cb => cb.checked = false);
-        updateCountryLabel(); drawTrend(); drawA85();
+        updateCountryLabel(); drawTrend(); drawA85(); drawBoxplot();
     });
 
     drawA85();
+    drawBoxplot();
     drawTrend();
     drawCompare();
 }

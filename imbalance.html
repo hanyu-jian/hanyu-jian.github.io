@@ -338,7 +338,7 @@
             <div class="chart-card-header">
                 <div>
                     <h3>Monthly Imbalance Price Distribution</h3>
-                    <div class="subtitle">Box plot of 15-minute imbalance prices per month per country (€/MWh)</div>
+                    <div class="subtitle">Box = Q1–Q3, whiskers = 1.5×IQR, dots = outliers (€/MWh)</div>
                 </div>
             </div>
             <div id="boxplotChart" style="width:100%; height:420px;"></div>
@@ -438,6 +438,11 @@ const a85PriceFilter = {
     min: null,
     max: null
 };
+
+// Consistent color assigned per country (stable regardless of selection order/subset)
+const COUNTRY_PALETTE = ['#5470c6','#91cc75','#fac858','#ee6666','#73c0de','#3ba272',
+                         '#fc8452','#9a60b4','#ea7ccc','#c23531','#2f4554','#61a0a8'];
+let countryColorMap = {};
 
 /* ================================================================
    CSV HELPERS
@@ -1129,15 +1134,24 @@ function quantile(sortedAsc, p) {
     return sortedAsc[base];
 }
 
+// Standard boxplot stats: whiskers extend to the most extreme point within
+// 1.5*IQR of Q1/Q3 (not the raw min/max), everything beyond is an outlier.
 function computeBoxStats(values) {
     if (!values.length) return null;
     const asc = values.slice().sort((a, b) => a - b);
     const q1 = quantile(asc, 0.25);
     const q2 = quantile(asc, 0.5);
     const q3 = quantile(asc, 0.75);
-    const min = asc[0];
-    const max = asc[asc.length - 1];
-    return [min, q1, q2, q3, max].map(v => +v.toFixed(2));
+    const iqr = q3 - q1;
+    const bound = 1.5 * iqr;
+    const rawMin = asc[0], rawMax = asc[asc.length - 1];
+    const low  = Math.max(rawMin, q1 - bound);
+    const high = Math.min(rawMax, q3 + bound);
+    const outliers = asc.filter(v => v < low || v > high);
+    return {
+        box: [+low.toFixed(2), +q1.toFixed(2), +q2.toFixed(2), +q3.toFixed(2), +high.toFixed(2)],
+        outliers
+    };
 }
 
 function drawBoxplot() {
@@ -1165,30 +1179,79 @@ function drawBoxplot() {
     });
 
     const yearArea = buildYearMarkArea(months);
+    const n = countries.length;
+    const OFFSET_PX = 15; // approx spacing between dodged countries at a given month
 
-    const series = countries.map((c, idx) => ({
-        name: c,
-        type: 'boxplot',
-        data: months.map(m => computeBoxStats(buckets[c][m]) || ['-','-','-','-','-']),
-        itemStyle: { borderWidth: 1.3 },
-        ...(idx === 0 && yearArea ? { markArea: yearArea } : {})
-    }));
+    const boxSeries = [];
+    const outlierSeries = [];
+
+    countries.forEach((c, idx) => {
+        const color = countryColorMap[c] || COUNTRY_PALETTE[idx % COUNTRY_PALETTE.length];
+        const boxData = [];
+        const outlierPts = [];
+        const offsetPx = n > 1 ? (idx - (n - 1) / 2) * OFFSET_PX : 0;
+
+        months.forEach(m => {
+            const stats = computeBoxStats(buckets[c][m]);
+            if (!stats) { boxData.push(['-','-','-','-','-']); return; }
+            boxData.push(stats.box);
+            stats.outliers.forEach(v => {
+                outlierPts.push({ value: [m, +v.toFixed(2)], symbolOffset: [offsetPx, 0] });
+            });
+        });
+
+        boxSeries.push({
+            name: c,
+            type: 'boxplot',
+            data: boxData,
+            boxWidth: n > 1 ? [Math.max(4, 16 - n), Math.max(10, 32 - n * 2)] : [10, 30],
+            itemStyle: {
+                color: 'rgba(255,255,255,0.9)',
+                borderColor: color,
+                borderWidth: 1.6
+            },
+            emphasis: {
+                itemStyle: { borderWidth: 2.4, shadowBlur: 6, shadowColor: 'rgba(0,0,0,0.15)' }
+            },
+            ...(idx === 0 && yearArea ? { markArea: yearArea } : {})
+        });
+
+        outlierSeries.push({
+            name: c,
+            type: 'scatter',
+            data: outlierPts,
+            symbol: 'circle',
+            symbolSize: 6,
+            itemStyle: { color, opacity: 0.65, borderColor: '#fff', borderWidth: 0.5 },
+            emphasis: { itemStyle: { opacity: 1, borderWidth: 1.5 } },
+            tooltip: {
+                formatter: p => `<div style="font-weight:600;margin-bottom:4px;color:#2c3e50">${p.value[0]} – ${p.seriesName}</div>
+                    <div style="font-size:12px">Outlier: <b>${p.value[1]}</b> €/MWh</div>`
+            }
+        });
+    });
 
     const rotate = months.length > 24 ? 30 : 0;
 
     boxplotChart.setOption({
+        color: countries.map((c, i) => countryColorMap[c] || COUNTRY_PALETTE[i % COUNTRY_PALETTE.length]),
         tooltip: {
             trigger: 'item',
+            axisPointer: { type: 'shadow' },
             formatter: p => {
+                if (p.seriesType === 'scatter') {
+                    return `<div style="font-weight:600;margin-bottom:4px;color:#2c3e50">${p.value[0]} – ${p.seriesName}</div>
+                        <div style="font-size:12px">Outlier: <b>${p.value[1]}</b> €/MWh</div>`;
+                }
                 if (!Array.isArray(p.value) || p.value[4] === '-') return `${p.seriesName}<br/>no data`;
-                const [min, q1, med, q3, max] = p.value.slice(-5);
+                const [low, q1, med, q3, high] = p.value.slice(-5);
                 return `<div style="font-weight:600;margin-bottom:4px;color:#2c3e50">${p.name} – ${p.seriesName}</div>
-                    <div style="font-size:12px;line-height:1.6">
-                        Max: <b>${max}</b> €/MWh<br/>
-                        Q3: <b>${q3}</b> €/MWh<br/>
-                        Median: <b>${med}</b> €/MWh<br/>
-                        Q1: <b>${q1}</b> €/MWh<br/>
-                        Min: <b>${min}</b> €/MWh
+                    <div style="font-size:12px;line-height:1.7">
+                        <span style="color:#888">Upper whisker</span> <b>${high}</b><br/>
+                        <span style="color:#888">Q3</span> <b>${q3}</b><br/>
+                        <span style="color:#888">Median</span> <b>${med}</b><br/>
+                        <span style="color:#888">Q1</span> <b>${q1}</b><br/>
+                        <span style="color:#888">Lower whisker</span> <b>${low}</b>
                     </div>`;
             }
         },
@@ -1198,11 +1261,11 @@ function drawBoxplot() {
         xAxis: {
             type: 'category', data: months, boundaryGap: true,
             ...axisStyle,
-            axisLabel: { ...axisStyle.axisLabel, rotate }
+            axisLabel: { ...axisStyle.axisLabel, rotate, interval: 'auto' }
         },
-        yAxis: { type: 'value', name: '€/MWh',
+        yAxis: { type: 'value', name: '€/MWh', scale: true,
             nameTextStyle: { color: '#6c757d', fontSize: 11 }, ...axisStyle },
-        series
+        series: [...boxSeries, ...outlierSeries]
     }, true);
 }
 
@@ -1249,7 +1312,8 @@ function initA85PriceControls() {
 function buildCountryCheckboxes() {
     const container = document.getElementById('countryCheckboxes');
     container.innerHTML = '';
-    imbalanceData.countries.forEach(country => {
+    imbalanceData.countries.forEach((country, i) => {
+        countryColorMap[country] = COUNTRY_PALETTE[i % COUNTRY_PALETTE.length];
         const item = document.createElement('div');
         item.className = 'country-item';
         const cb = document.createElement('input');

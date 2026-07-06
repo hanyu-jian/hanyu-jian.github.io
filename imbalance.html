@@ -1159,8 +1159,11 @@ function quantile(sortedAsc, p) {
     return sortedAsc[base];
 }
 
-// Standard boxplot stats: whiskers extend to the most extreme point within
-// 1.5*IQR of Q1/Q3 (not the raw min/max), everything beyond is an outlier.
+// Standard (Tukey) boxplot stats:
+//   IQR = Q3 - Q1
+//   upper whisker = the LARGEST observed value that is <= Q3 + 1.5*IQR
+//   lower whisker = the SMALLEST observed value that is >= Q1 - 1.5*IQR
+// Anything beyond those bounds is an outlier, drawn as an individual dot.
 function computeBoxStats(values) {
     if (!values.length) return null;
     const asc = values.slice().sort((a, b) => a - b);
@@ -1168,14 +1171,75 @@ function computeBoxStats(values) {
     const q2 = quantile(asc, 0.5);
     const q3 = quantile(asc, 0.75);
     const iqr = q3 - q1;
-    const bound = 1.5 * iqr;
-    const rawMin = asc[0], rawMax = asc[asc.length - 1];
-    const low  = Math.max(rawMin, q1 - bound);
-    const high = Math.min(rawMax, q3 + bound);
-    const outliers = asc.filter(v => v < low || v > high);
+    const lowerBound = q1 - 1.5 * iqr;
+    const upperBound = q3 + 1.5 * iqr;
+
+    const within = asc.filter(v => v >= lowerBound && v <= upperBound);
+    const low  = within.length ? within[0] : asc[0];
+    const high = within.length ? within[within.length - 1] : asc[asc.length - 1];
+    const outliers = asc.filter(v => v < lowerBound || v > upperBound);
+
     return {
-        box: [+low.toFixed(2), +q1.toFixed(2), +q2.toFixed(2), +q3.toFixed(2), +high.toFixed(2)],
-        outliers
+        low: +low.toFixed(2), q1: +q1.toFixed(2), median: +q2.toFixed(2),
+        q3: +q3.toFixed(2), high: +high.toFixed(2), outliers
+    };
+}
+
+// Custom renderItem factory: draws one thin-line box (solid border, dashed
+// whiskers, solid caps + median) plus that country's outlier dots, all at
+// pixel-perfect positions so nothing can drift out of alignment.
+function makeBoxRenderItem(idx, n, color, renderData) {
+    return function(params, api) {
+        const raw = renderData[params.dataIndex];
+        if (!raw) return { type: 'group', children: [] };
+
+        const categoryWidth = api.size([1, 0])[0];
+        const groupWidth = categoryWidth * 0.72;
+        const slotWidth  = groupWidth / n;
+        const boxWidth   = Math.max(5, slotWidth - 4);
+        const halfW      = boxWidth / 2;
+        const capHalfW   = halfW * 0.55;
+
+        const cx = api.coord([raw.monthIndex, 0])[0] + (idx - (n - 1) / 2) * slotWidth;
+        const yLow  = api.coord([raw.monthIndex, raw.low])[1];
+        const yQ1   = api.coord([raw.monthIndex, raw.q1])[1];
+        const yMed  = api.coord([raw.monthIndex, raw.median])[1];
+        const yQ3   = api.coord([raw.monthIndex, raw.q3])[1];
+        const yHigh = api.coord([raw.monthIndex, raw.high])[1];
+
+        const children = [
+            // lower whisker (dashed)
+            { type: 'line', shape: { x1: cx, y1: yQ1, x2: cx, y2: yLow },
+              style: { stroke: color, lineWidth: 1.2, lineDash: [3, 3] } },
+            // lower cap (solid)
+            { type: 'line', shape: { x1: cx - capHalfW, y1: yLow, x2: cx + capHalfW, y2: yLow },
+              style: { stroke: color, lineWidth: 1.2 } },
+            // upper whisker (dashed)
+            { type: 'line', shape: { x1: cx, y1: yQ3, x2: cx, y2: yHigh },
+              style: { stroke: color, lineWidth: 1.2, lineDash: [3, 3] } },
+            // upper cap (solid)
+            { type: 'line', shape: { x1: cx - capHalfW, y1: yHigh, x2: cx + capHalfW, y2: yHigh },
+              style: { stroke: color, lineWidth: 1.2 } },
+            // box (thin solid border, near-white fill)
+            { type: 'rect',
+              shape: { x: cx - halfW, y: Math.min(yQ1, yQ3), width: boxWidth, height: Math.max(1, Math.abs(yQ1 - yQ3)) },
+              style: { fill: hexToRgba(color, 0.12), stroke: color, lineWidth: 1.4 } },
+            // median (solid, slightly bolder)
+            { type: 'line', shape: { x1: cx - halfW, y1: yMed, x2: cx + halfW, y2: yMed },
+              style: { stroke: color, lineWidth: 2 } }
+        ];
+
+        // outlier dots
+        raw.outliers.forEach(v => {
+            const yv = api.coord([raw.monthIndex, v])[1];
+            children.push({
+                type: 'circle',
+                shape: { cx, cy: yv, r: 2.6 },
+                style: { fill: color, opacity: 0.7, stroke: '#fff', lineWidth: 0.5 }
+            });
+        });
+
+        return { type: 'group', children };
     };
 }
 
@@ -1190,6 +1254,7 @@ function drawBoxplot() {
         monthSet.add(`${pt.year}-${String(pt.month).padStart(2,'0')}`);
     });
     const months = [...monthSet].sort();
+    const monthIndexMap = new Map(months.map((m, i) => [m, i]));
 
     // Bucket values per country per month (respecting the price range filter)
     const { min: pMin, max: pMax } = boxplotPriceFilter;
@@ -1208,81 +1273,61 @@ function drawBoxplot() {
 
     const yearArea = buildYearMarkArea(months);
     const n = countries.length;
-    const OFFSET_PX = 15; // approx spacing between dodged countries at a given month
 
-    const boxSeries = [];
-    const outlierSeries = [];
+    const series = countries.map((c, idx) => {
+        const color = COUNTRY_PALETTE[idx % COUNTRY_PALETTE.length];
 
-    countries.forEach((c, idx) => {
-        const color = countryColorMap[c] || COUNTRY_PALETTE[idx % COUNTRY_PALETTE.length];
-        const boxData = [];
-        const outlierPts = [];
-        const offsetPx = n > 1 ? (idx - (n - 1) / 2) * OFFSET_PX : 0;
-
+        // renderData: one entry per month that actually has data, aligned 1:1
+        // with the series `data` array below (same order/index)
+        const renderData = [];
+        const seriesData = [];
         months.forEach(m => {
             const stats = computeBoxStats(buckets[c][m]);
-            if (!stats) { boxData.push(['-','-','-','-','-']); return; }
-            boxData.push(stats.box);
-            stats.outliers.forEach(v => {
-                outlierPts.push({ value: [m, +v.toFixed(2)], symbolOffset: [offsetPx, 0] });
+            if (!stats) return;
+            const monthIndex = monthIndexMap.get(m);
+            renderData.push({ monthIndex, ...stats });
+            // extra dims (outlier min/max) so the y-axis auto-scale accounts
+            // for outliers even though they aren't part of the box itself
+            const outMin = stats.outliers.length ? Math.min(...stats.outliers) : stats.low;
+            const outMax = stats.outliers.length ? Math.max(...stats.outliers) : stats.high;
+            seriesData.push({
+                name: m,
+                value: [monthIndex, stats.low, stats.q1, stats.median, stats.q3, stats.high, outMin, outMax]
             });
         });
 
-        boxSeries.push({
+        return {
             name: c,
-            type: 'boxplot',
-            data: boxData,
-            boxWidth: n > 1 ? [Math.max(6, 20 - n), Math.max(14, 38 - n * 2)] : [18, 42],
-            itemStyle: {
-                color: hexToRgba(color, 0.35),
-                borderColor: color,
-                borderWidth: 2.2
-            },
-            emphasis: {
-                itemStyle: { borderWidth: 3, shadowBlur: 6, shadowColor: 'rgba(0,0,0,0.2)' }
+            type: 'custom',
+            renderItem: makeBoxRenderItem(idx, n, color, renderData),
+            encode: { x: 0, y: [1, 2, 3, 4, 5, 6, 7] },
+            data: seriesData,
+            clip: true,
+            z: 10,
+            tooltip: {
+                formatter: p => {
+                    const raw = renderData[p.dataIndex];
+                    if (!raw) return '';
+                    return `<div style="font-weight:600;margin-bottom:4px;color:#2c3e50">${p.name} – ${p.seriesName}</div>
+                        <div style="font-size:12px;line-height:1.7">
+                            <span style="color:#888">Upper whisker</span> <b>${raw.high}</b><br/>
+                            <span style="color:#888">Q3</span> <b>${raw.q3}</b><br/>
+                            <span style="color:#888">Median</span> <b>${raw.median}</b><br/>
+                            <span style="color:#888">Q1</span> <b>${raw.q1}</b><br/>
+                            <span style="color:#888">Lower whisker</span> <b>${raw.low}</b>
+                            ${raw.outliers.length ? `<br/><span style="color:#888">Outliers</span> <b>${raw.outliers.length}</b>` : ''}
+                        </div>`;
+                }
             },
             ...(idx === 0 && yearArea ? { markArea: yearArea } : {})
-        });
-
-        outlierSeries.push({
-            name: c,
-            type: 'scatter',
-            data: outlierPts,
-            symbol: 'circle',
-            symbolSize: 6,
-            itemStyle: { color, opacity: 0.65, borderColor: '#fff', borderWidth: 0.5 },
-            emphasis: { itemStyle: { opacity: 1, borderWidth: 1.5 } },
-            tooltip: {
-                formatter: p => `<div style="font-weight:600;margin-bottom:4px;color:#2c3e50">${p.value[0]} – ${p.seriesName}</div>
-                    <div style="font-size:12px">Outlier: <b>${p.value[1]}</b> €/MWh</div>`
-            }
-        });
+        };
     });
 
     const rotate = months.length > 24 ? 30 : 0;
 
     boxplotChart.setOption({
-        color: countries.map((c, i) => countryColorMap[c] || COUNTRY_PALETTE[i % COUNTRY_PALETTE.length]),
-        tooltip: {
-            trigger: 'item',
-            axisPointer: { type: 'shadow' },
-            formatter: p => {
-                if (p.seriesType === 'scatter') {
-                    return `<div style="font-weight:600;margin-bottom:4px;color:#2c3e50">${p.value[0]} – ${p.seriesName}</div>
-                        <div style="font-size:12px">Outlier: <b>${p.value[1]}</b> €/MWh</div>`;
-                }
-                if (!Array.isArray(p.value) || p.value[4] === '-') return `${p.seriesName}<br/>no data`;
-                const [low, q1, med, q3, high] = p.value.slice(-5);
-                return `<div style="font-weight:600;margin-bottom:4px;color:#2c3e50">${p.name} – ${p.seriesName}</div>
-                    <div style="font-size:12px;line-height:1.7">
-                        <span style="color:#888">Upper whisker</span> <b>${high}</b><br/>
-                        <span style="color:#888">Q3</span> <b>${q3}</b><br/>
-                        <span style="color:#888">Median</span> <b>${med}</b><br/>
-                        <span style="color:#888">Q1</span> <b>${q1}</b><br/>
-                        <span style="color:#888">Lower whisker</span> <b>${low}</b>
-                    </div>`;
-            }
-        },
+        color: countries.map((c, i) => COUNTRY_PALETTE[i % COUNTRY_PALETTE.length]),
+        tooltip: { trigger: 'item', axisPointer: { type: 'shadow' } },
         legend: { ...commonLegend, top: 4, left: 'center' },
         dataZoom: dataZoomCfg,
         grid: { left: 65, right: 20, top: 50, bottom: 70 },
@@ -1293,7 +1338,7 @@ function drawBoxplot() {
         },
         yAxis: { type: 'value', name: '€/MWh', scale: true,
             nameTextStyle: { color: '#6c757d', fontSize: 11 }, ...axisStyle },
-        series: [...boxSeries, ...outlierSeries]
+        series
     }, true);
 }
 

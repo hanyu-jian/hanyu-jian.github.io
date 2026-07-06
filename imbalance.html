@@ -1161,8 +1161,8 @@ function quantile(sortedAsc, p) {
 
 // Standard (Tukey) boxplot stats:
 //   IQR = Q3 - Q1
-//   upper whisker = the LARGEST observed value that is <= 12.5%
-//   lower whisker = the SMALLEST observed value that is >= 87.5%
+//   upper whisker = the LARGEST observed value that is <= 5%
+//   lower whisker = the SMALLEST observed value that is >= 95%
 // Anything beyond those bounds is an outlier, drawn as an individual dot.
 function computeBoxStats(values) {
     if (!values.length) return null;
@@ -1171,8 +1171,8 @@ function computeBoxStats(values) {
     const q2 = quantile(asc, 0.5);
     const q3 = quantile(asc, 0.75);
     const iqr = q3 - q1;
-    const lowerBound = quantile(asc, 0.125);
-    const upperBound = quantile(asc, 0.875); 
+    const lowerBound = quantile(asc, 0.05);
+    const upperBound = quantile(asc, 0.95); 
 
     const within = asc.filter(v => v >= lowerBound && v <= upperBound);
     const low  = within.length ? within[0] : asc[0];
@@ -1235,7 +1235,7 @@ function makeBoxRenderItem(idx, n, color, renderData) {
             children.push({
                 type: 'circle',
                 shape: { cx, cy: yv, r: 2.6 },
-                style: { fill: 'none', opacity: 0.7, stroke: '#fff', lineWidth: 0.5 }
+                style: { fill: 'none', stroke: color, lineWidth: 1.2, opacity: 0.85 }
             });
         });
 

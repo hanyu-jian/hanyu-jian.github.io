@@ -227,13 +227,13 @@
         .price-range-group {
             display: inline-flex; align-items: center; gap: 6px;
         }
-        .price-range-group input[type="number"] {
+        .price-range-group input[type="text"] {
             width: 76px; height: 30px; padding: 0 6px;
             border: 1px solid #ccc; border-radius: 6px;
             font-size: 13px; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             text-align: center; color: #2c3e50;
         }
-        .price-range-group input[type="number"]:focus {
+        .price-range-group input[type="text"]:focus {
             outline: none; border-color: #2c3e50;
         }
         .price-range-group span { font-size: 12px; color: #6c757d; }
@@ -322,9 +322,9 @@
                 <div class="chart-card-controls">
                     <label>Price range (€/MWh)</label>
                     <div class="price-range-group">
-                        <input type="number" id="a85PriceMin" placeholder="Min" step="any">
+                        <input type="text" inputmode="decimal" id="a85PriceMin" placeholder="Min">
                         <span>–</span>
-                        <input type="number" id="a85PriceMax" placeholder="Max" step="any">
+                        <input type="text" inputmode="decimal" id="a85PriceMax" placeholder="Max">
                         <button id="a85PriceApplyBtn" class="btn-small">Apply</button>
                         <button id="a85PriceResetBtn" class="btn-small">Reset</button>
                     </div>

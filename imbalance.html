@@ -338,7 +338,7 @@
             <div class="chart-card-header">
                 <div>
                     <h3>Monthly Imbalance Price Distribution</h3>
-                    <div class="subtitle">Box = Q1–Q3 (50%), whiskers = 12.5th–87.5th pct (75%), dots = outliers (€/MWh)</div>
+                    <div class="subtitle">Box = 50%, lower = 5%, upper = 95%, dots = outliers (€/MWh)</div>
                 </div>
                 <div class="chart-card-controls">
                     <label>Price range (€/MWh)</label>
@@ -1167,8 +1167,8 @@ function quantile(sortedAsc, p) {
 //   Box = Q1 (25th pct) to Q3 (75th pct) -> middle 50% of the data
 //   Whiskers = 12.5th pct (lower) to 87.5th pct (upper) -> middle 75% of the data
 // Anything outside the whisker range is an outlier, drawn as an individual dot.
-const WHISKER_LOWER_PCT = 0.125;
-const WHISKER_UPPER_PCT = 0.875;
+const WHISKER_LOWER_PCT = 0.05;
+const WHISKER_UPPER_PCT = 0.95;
 
 function computeBoxStats(values) {
     if (!values.length) return null;

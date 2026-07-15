@@ -492,6 +492,36 @@ def fetch_load(bzn_eic: str, start: str,
     return hourly, raw_combined
 
 
+def _filter_pumped_storage_ts(
+    ts_list: list[ET.Element], psr_code: str
+) -> list[ET.Element]:
+    """
+    B10 Hydro Pumped Storage 方向过滤。
+
+    ENTSO-E A75 对 B10 的约定：
+      inBiddingZone_Domain  = generation（电能流入电网）
+      outBiddingZone_Domain = consumption（电能流出电网进入水泵）
+
+    与 B01/B02/B04 等所有其他机组一致：inBiddingZone = 发电方向。
+    对非 B10 机组原样返回。
+    """
+    if psr_code != "B10":
+        return ts_list
+
+    result = []
+    for ts in ts_list:
+        has_in  = ts.find(".//{*}inBiddingZone_Domain.mRID")  is not None
+        has_out = ts.find(".//{*}outBiddingZone_Domain.mRID") is not None
+
+        if has_out and not has_in:
+            # 纯消耗方向（抽水），丢弃
+            continue
+        result.append(ts)   # inBiddingZone（发电）或未知结构保守保留
+
+    return result
+
+
+
 def fetch_generation(in_domain: str, start: str,
                      end_inclusive: str) -> tuple[dict[str, pd.Series], dict[str, pd.Series]]:
     hourly_series: dict[str, pd.Series] = {}
@@ -509,6 +539,9 @@ def fetch_generation(in_domain: str, start: str,
                 timeout=GEN_TIMEOUT,
             )
             time.sleep(REQUEST_DELAY)
+
+            #filter hydro pumped storage = generation
+            ts_list = _filter_pumped_storage_ts(ts_list, psr_code)
 
             for ts in ts_list:
                 for period in ts.findall(".//{*}Period"):

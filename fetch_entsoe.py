@@ -31,6 +31,12 @@ A75 发电数据去重策略（修复 0 值问题）：
 - 同一时间戳出现在多个 Period/TimeSeries 时，取来自 Point 数最多的 Period 的值
 - 不再依赖 keep="last"（concat 顺序不可控）
 - 对每个时间戳，只保留数据最完整的那条 Period 的值
+
+B10 Hydro Pumped Storage 过滤说明：
+- ENTSO-E A75 同时返回 inBiddingZone（发电）和 outBiddingZone（抽水消耗）两条 TimeSeries
+- 必须只保留 inBiddingZone 那条
+- ElementTree XPath 无法处理标签名中的点号（如 inBiddingZone_Domain.mRID），
+  改用 iter() 遍历匹配 local tag name，绕开此限制
 """
 
 import argparse
@@ -294,20 +300,82 @@ def _parse_period_raw(period_el: ET.Element,
     return s, res_min
 
 
+# ─────────────────────────────────────────────────────────────
+# XML 辅助：处理标签名含点号的情况
+# ElementTree 的 XPath 把点号当路径分隔符，导致含点号的标签名
+# （如 inBiddingZone_Domain.mRID）用 find() 永远返回 None。
+# 改用 iter() 遍历所有子元素，手动比对 local tag name。
+# ─────────────────────────────────────────────────────────────
+
+def _local_tag(element: ET.Element) -> str:
+    """去掉命名空间前缀，返回本地标签名。"""
+    tag = element.tag
+    return tag.split("}", 1)[1] if "}" in tag else tag
+
+
+def _ts_has_tag(ts: ET.Element, local_name: str) -> bool:
+    """在 TimeSeries 的直接子元素中查找指定 local tag name（不递归进 Period）。"""
+    return any(_local_tag(el) == local_name for el in ts)
+
+
+def _ts_get_tag_text(ts: ET.Element, local_name: str) -> str | None:
+    """获取 TimeSeries 直接子元素中指定 local tag name 的文本。"""
+    for el in ts:
+        if _local_tag(el) == local_name:
+            return el.text
+    return None
+
+
+# ─────────────────────────────────────────────────────────────
+
 def _filter_ts_by_sequence_position(
     ts_list: list[ET.Element],
     position: int = 1
 ) -> list[ET.Element]:
-    SEQ_TAG = ".//{*}classificationSequence_AttributeInstanceComponent.position"
+    """
+    过滤含 classificationSequence_AttributeInstanceComponent.position 标签的 TimeSeries。
+    注意：标签名含点号，不能用 XPath find()，改用 _ts_has_tag / _ts_get_tag_text。
+    """
+    SEQ_LOCAL = "classificationSequence_AttributeInstanceComponent.position"
 
-    tagged   = [ts for ts in ts_list if ts.find(SEQ_TAG) is not None]
-    untagged = [ts for ts in ts_list if ts.find(SEQ_TAG) is None]
+    tagged   = [ts for ts in ts_list if _ts_has_tag(ts, SEQ_LOCAL)]
+    untagged = [ts for ts in ts_list if not _ts_has_tag(ts, SEQ_LOCAL)]
 
     if tagged and untagged:
         return untagged
     if tagged:
-        return [ts for ts in tagged if ts.findtext(SEQ_TAG) == str(position)]
+        return [ts for ts in tagged
+                if _ts_get_tag_text(ts, SEQ_LOCAL) == str(position)]
     return ts_list
+
+
+def _filter_pumped_storage_ts(
+    ts_list: list[ET.Element], psr_code: str
+) -> list[ET.Element]:
+    """
+    B10 Hydro Pumped Storage 方向过滤。
+
+    ENTSO-E A75 对 B10 同时返回两条 TimeSeries：
+      inBiddingZone_Domain.mRID  → 放电发电（电能流入电网）← 保留
+      outBiddingZone_Domain.mRID → 抽水消耗（电能流出电网）← 丢弃
+
+    注意：标签名含点号，XPath find() 会静默失败，必须用 _ts_has_tag()。
+    对非 B10 机组原样返回。
+    """
+    if psr_code != "B10":
+        return ts_list
+
+    result = []
+    for ts in ts_list:
+        has_in  = _ts_has_tag(ts, "inBiddingZone_Domain.mRID")
+        has_out = _ts_has_tag(ts, "outBiddingZone_Domain.mRID")
+
+        if has_out and not has_in:
+            # 纯消耗方向（抽水），丢弃
+            continue
+        result.append(ts)  # inBiddingZone（发电）或未知结构保守保留
+
+    return result
 
 
 def _ts_list_to_raw_series(ts_list: list[ET.Element],
@@ -340,13 +408,12 @@ def _merge_gen_periods_best_wins(
     if not period_series_list:
         return None
 
-    # 按 point_count 降序：点数多的 Period 优先
     sorted_parts = sorted(period_series_list, key=lambda x: x[0], reverse=True)
 
     result: dict = {}
     for _, s in sorted_parts:
         for ts, val in s.items():
-            if ts not in result:          # 只在该时间戳尚未被更完整的 Period 覆盖时才写入
+            if ts not in result:
                 result[ts] = val
 
     if not result:
@@ -492,36 +559,6 @@ def fetch_load(bzn_eic: str, start: str,
     return hourly, raw_combined
 
 
-def _filter_pumped_storage_ts(
-    ts_list: list[ET.Element], psr_code: str
-) -> list[ET.Element]:
-    """
-    B10 Hydro Pumped Storage 方向过滤。
-
-    ENTSO-E A75 对 B10 的约定：
-      inBiddingZone_Domain  = generation（电能流入电网）
-      outBiddingZone_Domain = consumption（电能流出电网进入水泵）
-
-    与 B01/B02/B04 等所有其他机组一致：inBiddingZone = 发电方向。
-    对非 B10 机组原样返回。
-    """
-    if psr_code != "B10":
-        return ts_list
-
-    result = []
-    for ts in ts_list:
-        has_in  = ts.find(".//{*}inBiddingZone_Domain.mRID")  is not None
-        has_out = ts.find(".//{*}outBiddingZone_Domain.mRID") is not None
-
-        if has_out and not has_in:
-            # 纯消耗方向（抽水），丢弃
-            continue
-        result.append(ts)   # inBiddingZone（发电）或未知结构保守保留
-
-    return result
-
-
-
 def fetch_generation(in_domain: str, start: str,
                      end_inclusive: str) -> tuple[dict[str, pd.Series], dict[str, pd.Series]]:
     hourly_series: dict[str, pd.Series] = {}
@@ -529,7 +566,6 @@ def fetch_generation(in_domain: str, start: str,
     chunks = date_chunks(start, end_inclusive, chunk_days=CHUNK_DAYS)
 
     for psr_code, psr_name in PSR_TYPE_MAP.items():
-        # 收集 (point_count, series) 对，用于后续 best-wins 合并
         period_series_list: list[tuple[int, pd.Series]] = []
 
         for cs, ce in chunks:
@@ -540,7 +576,7 @@ def fetch_generation(in_domain: str, start: str,
             )
             time.sleep(REQUEST_DELAY)
 
-            #filter hydro pumped storage = generation
+            # B10: 只保留 inBiddingZone（发电），丢弃 outBiddingZone（抽水消耗）
             ts_list = _filter_pumped_storage_ts(ts_list, psr_code)
 
             for ts in ts_list:
@@ -550,7 +586,6 @@ def fetch_generation(in_domain: str, start: str,
                     if not s.empty:
                         period_series_list.append((point_count, s))
 
-        # ← CHANGED: 用 best-wins 合并替代 keep="last"
         raw_c = _merge_gen_periods_best_wins(period_series_list)
         if raw_c is not None:
             raw_series[psr_name] = raw_c
@@ -795,7 +830,6 @@ def main():
     DATA_DIR.mkdir(exist_ok=True)
     RAW_DIR.mkdir(exist_ok=True)
 
-    # 通用：国家过滤
     if args.country:
         cc_filter = args.country.lower()
         if cc_filter not in COUNTRY_CONFIG:

@@ -848,7 +848,7 @@ function tooltipFmt(params) {
     let html = `<div style="font-weight:600;margin-bottom:5px;color:#2c3e50">${params[0]?.axisValue}</div>`;
     params.forEach(p => {
         if (p.value == null) return;
-        const isRatio = p.seriesName && p.seriesName.includes('(S+W)/L');
+        const isRatio = p.seriesName && p.seriesName.includes('(Solar+Wind)/Load');
         const valStr  = isRatio
             ? (Number(p.value) * 100).toFixed(1) + ' %'
             : Number(p.value).toFixed(2) + ' €/MWh';
@@ -940,7 +940,7 @@ function drawTrend() {
     const ratioSeriesArr = renewableSeriesArr.map(r => {
         const valMap = Object.fromEntries(r.keys.map((k, i) => [k, r.vals[i]]));
         return {
-            name: `${r.country} (S+W)/L`,
+            name: `${r.country} (Solar+Wind)/Load`,
             type: 'line',
             yAxisIndex: 1,
             showSymbol: false,
@@ -966,7 +966,7 @@ function drawTrend() {
             },
             {
                 type: 'value',
-                name: '(S+W)/L',
+                name: '(Solar+Wind)/Load',
                 show: hasRenewable,
                 position: 'right',
                 nameTextStyle: { color: '#6c757d', fontSize: 11 },

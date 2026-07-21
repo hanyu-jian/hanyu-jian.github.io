@@ -372,6 +372,7 @@
                 <button class="tab-btn active" onclick="switchTab('monthly',this)">Monthly</button>
                 <button class="tab-btn" onclick="switchTab('quarterly',this)">Quarterly</button>
                 <button class="tab-btn" onclick="switchTab('weekly',this)">Weekly</button>
+                <button class="tab-btn" onclick="switchTab('daily',this)">Daily</button>
             </div>
 
             <!-- ▼ ADDED: Chart container -->
@@ -800,6 +801,50 @@ function _renderSpread() {
         YEARS.forEach(yr => { annual[yr]=agg(yearDaily[yr]); });
         tableRows.push(annual);
 
+    } else if (currentTab === 'weekly') {
+        hasRange = true;
+        const allWeeks = new Set();
+        YEARS.forEach(yr => yearDaily[yr].forEach(d => allWeeks.add(isoWeek(yr,d.month,d.day))));
+        const sorted = [...allWeeks].map(Number).sort((a,b)=>a-b);
+        tableRows = sorted.map(w => {
+            const row = {label:`W${String(w).padStart(2,'0')}`};
+            YEARS.forEach(yr => {
+                const g = yearDaily[yr].filter(d=>isoWeek(yr,d.month,d.day)===w);
+                row[yr] = agg(g);
+                if (!row._range && g.length) {
+                    const dates = g.map(d=>new Date(yr,d.month-1,d.day)).sort((a,b)=>a-b);
+                    row._range = `${dates[0].getMonth()+1}/${dates[0].getDate()} – `
+                        + `${dates[dates.length-1].getMonth()+1}/${dates[dates.length-1].getDate()}`;
+                }
+            });
+            return row;
+        });
+        const annual = {label:'Annual',_range:'Full year',isTotal:true};
+        YEARS.forEach(yr => { annual[yr]=agg(yearDaily[yr]); });
+        tableRows.push(annual);
+
+    } else if (currentTab === 'daily') {
+        // ▼ ADDED: Daily view — one row per calendar date (month/day), compared across years
+        const allDays = new Set();
+        YEARS.forEach(yr => yearDaily[yr].forEach(d => allDays.add(`${d.month}-${d.day}`)));
+        const sorted = [...allDays].sort((a,b) => {
+            const [am,ad] = a.split('-').map(Number);
+            const [bm,bd] = b.split('-').map(Number);
+            return (am-bm) || (ad-bd);
+        });
+        tableRows = sorted.map(key => {
+            const [mo,da] = key.split('-').map(Number);
+            const row = {label:`${MONTHS[mo-1]} ${da}`};
+            YEARS.forEach(yr => {
+                const g = yearDaily[yr].filter(d=>d.month===mo && d.day===da);
+                row[yr] = agg(g);
+            });
+            return row;
+        });
+        const annual = {label:'Annual',isTotal:true};
+        YEARS.forEach(yr => { annual[yr]=agg(yearDaily[yr]); });
+        tableRows.push(annual);
+
     } else {
         hasRange = true;
         const allWeeks = new Set();
@@ -862,7 +907,7 @@ function renderSpreadChart(tableRows) {
             borderColor: style.color,
             backgroundColor: style.bg,
             pointBackgroundColor: style.color,
-            pointRadius: dataRows.length > 30 ? 2 : 4,
+            pointRadius: dataRows.length > 30 ? 0 : 4,
             pointHoverRadius: 6,
             borderWidth: 2,
             fill: false,

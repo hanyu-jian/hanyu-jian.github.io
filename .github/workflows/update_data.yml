@@ -82,7 +82,7 @@ on:
         type: string
         default: ""
       capacity_end_year:
-        description: "Capacity-only end year, for example 2027. Empty uses current year + 1."
+        description: "Capacity-only end year, for example 2027. Empty uses current year."
         type: string
         default: ""
 

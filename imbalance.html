@@ -617,15 +617,35 @@ function transformA85CSV(rows, mnbRates) {
     return { countries: [...cSet].sort(), data };
 }
 
+/* raw_data/A85.csv is split by year (raw_data/{YEAR}/A85.csv) to stay under
+   GitHub's per-file size limit — fetch every year from 2024 to the current
+   year and concatenate. Missing years (404, e.g. next January before any
+   data lands) are skipped silently. */
+async function fetchRawYearlyCSV(name) {
+    const startYear = 2024;
+    const endYear = new Date().getFullYear();
+    const years = Array.from({ length: endYear - startYear + 1 }, (_, i) => startYear + i);
+    const texts = await Promise.all(years.map(y =>
+        fetch(`raw_data/${y}/${name}.csv`)
+            .then(r => r.ok ? r.text() : null)
+            .catch(() => null)
+    ));
+    let rows = [];
+    for (const text of texts) {
+        if (text) rows = rows.concat(parseCSV(text));
+    }
+    return rows;
+}
+
 async function fetchAllData() {
-    const [mnbRates, imbalRes, spotRes, solarRes, windRes, loadRes, a85Res] = await Promise.all([
+    const [mnbRates, imbalRes, spotRes, solarRes, windRes, loadRes, a85Rows] = await Promise.all([
         loadMNBRates(),
         fetch('data/imbalance_price.csv'),
         fetch('data/price.csv'),
         fetch('data/solar.csv'),
         fetch('data/wind.csv'),
         fetch('data/load.csv'),
-        fetch('raw_data/A85.csv')
+        fetchRawYearlyCSV('A85')
     ]);
 
     if (!imbalRes.ok) throw new Error('Failed to load imbalance_price.csv');
@@ -638,7 +658,7 @@ async function fetchAllData() {
     if (windRes.ok)  { windData  = transformPriceCSV(parseCSV(await windRes.text()),  null, false); }
     if (loadRes.ok)  { loadData  = transformPriceCSV(parseCSV(await loadRes.text()),  null, false); }
     // ← Pass mnbRates so A85 also gets HU/RO currency conversion
-    if (a85Res.ok)   { a85Data   = transformA85CSV(parseCSV(await a85Res.text()), mnbRates); }
+    if (a85Rows.length) { a85Data = transformA85CSV(a85Rows, mnbRates); }
 }
 
 /* ================================================================

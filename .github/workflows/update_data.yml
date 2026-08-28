@@ -2,6 +2,7 @@ name: Daily Energy Data Update
 on:
   schedule:
     - cron: "0 6 * * *"
+    - cron: "0 5 1 * *"
   workflow_dispatch:
     inputs:
       full_mode:
@@ -66,6 +67,22 @@ on:
         default: ""
       imbalance_end:
         description: "Imbalance-only end date, for example 2024-12-31. Empty uses yesterday."
+        type: string
+        default: ""
+      capacity_only:
+        description: "Only fetch installed capacity data (updates data/capacity.csv, runs fetch_capacity.py)"
+        type: boolean
+        default: false
+      capacity_country:
+        description: "Capacity-only specific country, for example DE. Empty runs all countries."
+        type: string
+        default: ""
+      capacity_start_year:
+        description: "Capacity-only start year, for example 2023. Empty uses current year."
+        type: string
+        default: ""
+      capacity_end_year:
+        description: "Capacity-only end year, for example 2027. Empty uses current year + 1."
         type: string
         default: ""
 
@@ -172,9 +189,30 @@ jobs:
           fi
           python py/fetch_imbalance.py "${args[@]}"
 
+      # ── installed capacity only（月度，A68 Year Ahead）───────
+      - name: Run capacity-only update
+        if: ${{ (github.event_name == 'workflow_dispatch' && inputs.capacity_only == true && inputs.repair_country == '' && inputs.price_only == false && inputs.generation_load_only == false && inputs.imbalance_only == false) || (github.event_name == 'schedule' && github.event.schedule == '0 5 1 * *') }}
+        env:
+          ENTSOE_TOKEN: ${{ secrets.ENTSOE_TOKEN }}
+          CAPACITY_COUNTRY: ${{ inputs.capacity_country }}
+          CAPACITY_START_YEAR: ${{ inputs.capacity_start_year }}
+          CAPACITY_END_YEAR: ${{ inputs.capacity_end_year }}
+        run: |
+          args=()
+          if [ -n "$CAPACITY_COUNTRY" ]; then
+            args+=(--country "$CAPACITY_COUNTRY")
+          fi
+          if [ -n "$CAPACITY_START_YEAR" ]; then
+            args+=(--start-year "$CAPACITY_START_YEAR")
+          fi
+          if [ -n "$CAPACITY_END_YEAR" ]; then
+            args+=(--end-year "$CAPACITY_END_YEAR")
+          fi
+          python py/fetch_capacity.py "${args[@]}"
+
       # ── normal update（fetch_entsoe + fetch_imbalance）──────
       - name: Run normal update script
-        if: ${{ github.event_name != 'workflow_dispatch' || (inputs.repair_country == '' && inputs.price_only == false && inputs.generation_load_only == false && inputs.imbalance_only == false) }}
+        if: ${{ (github.event_name == 'workflow_dispatch' && inputs.repair_country == '' && inputs.price_only == false && inputs.generation_load_only == false && inputs.imbalance_only == false && inputs.capacity_only == false) || (github.event_name == 'schedule' && github.event.schedule != '0 5 1 * *') }}
         env:
           ENTSOE_TOKEN: ${{ secrets.ENTSOE_TOKEN }}
           FULL_MODE: ${{ github.event_name == 'workflow_dispatch' && inputs.full_mode || false }}

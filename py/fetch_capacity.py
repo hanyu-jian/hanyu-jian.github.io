@@ -14,7 +14,7 @@ ENTSOE API 数据更新脚本 — Installed Capacity per Production Type（A68�
 
 更新频率：
 - Year-Ahead 容量预测数据变动很少，建议每月跑一次（见 workflow 中的月度 cron）
-- 默认只刷新「当前年 → 当前年+1」两年数据，不会动已有的历史年份
+- 默认只刷新「当前年」一年数据，不抓未来预测年份，不会动已有的历史年份
 - 也可用 --start-year / --end-year / --country 手动指定范围，独立运行：
     python py/fetch_capacity.py --country DE --start-year 2023 --end-year 2026
 
@@ -258,12 +258,12 @@ def main():
     parser.add_argument("--start-year", type=int, default=None,
                         help="起始年份（含），默认当前年")
     parser.add_argument("--end-year", type=int, default=None,
-                        help="结束年份（含），默认当前年+1（Year-Ahead 预测通常已覆盖下一年）")
+                        help="结束年份（含），默认当前年（不抓未来预测年份）")
     args = parser.parse_args()
 
     current_year = datetime.now().year
     start_year   = args.start_year if args.start_year is not None else current_year
-    end_year     = args.end_year   if args.end_year   is not None else current_year + 1
+    end_year     = args.end_year   if args.end_year   is not None else current_year
     years        = list(range(start_year, end_year + 1))
 
     if args.country:

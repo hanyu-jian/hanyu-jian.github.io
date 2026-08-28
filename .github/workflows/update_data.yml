@@ -105,7 +105,7 @@ jobs:
           if [ -n "$REPAIR_END" ]; then
             args+=(--end "$REPAIR_END")
           fi
-          python repair_entsoe.py "${args[@]}"
+          python py/repair_entsoe.py "${args[@]}"
 
       # ── price only ──────────────────────────────────────────
       - name: Run price-only update
@@ -126,7 +126,7 @@ jobs:
           if [ -n "$PRICE_END" ]; then
             args+=(--end "$PRICE_END")
           fi
-          python fetch_entsoe.py "${args[@]}"
+          python py/fetch_entsoe.py "${args[@]}"
 
       # ── generation+load only ────────────────────────────────
       - name: Run generation+load-only update
@@ -147,7 +147,7 @@ jobs:
           if [ -n "$GEN_LOAD_END" ]; then
             args+=(--end "$GEN_LOAD_END")
           fi
-          python fetch_entsoe.py "${args[@]}"
+          python py/fetch_entsoe.py "${args[@]}"
 
       # ── imbalance only ──────────────────────────────────────
       - name: Run imbalance-only update
@@ -170,7 +170,7 @@ jobs:
           if [ -n "$IMBALANCE_END" ]; then
             args+=(--end "$IMBALANCE_END")
           fi
-          python fetch_imbalance.py "${args[@]}"
+          python py/fetch_imbalance.py "${args[@]}"
 
       # ── normal update（fetch_entsoe + fetch_imbalance）──────
       - name: Run normal update script
@@ -184,8 +184,8 @@ jobs:
           else
             MODE=incremental
           fi
-          python fetch_entsoe.py --mode "$MODE"
-          python fetch_imbalance.py --mode "$MODE"
+          python py/fetch_entsoe.py --mode "$MODE"
+          python py/fetch_imbalance.py --mode "$MODE"
 
       # ── commit ──────────────────────────────────────────────
       - name: Commit and push updated data

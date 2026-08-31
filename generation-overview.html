@@ -77,6 +77,19 @@
         .chart-card-header h3 { font-size: 18px; font-weight: 500; color: #2c3e50; border-left: 4px solid #2c3e50; padding-left: 12px; margin: 0; }
         .subtitle { font-size: 12px; color: #888; margin-top: 4px; padding-left: 16px; }
 
+        /* ▼ ADDED: Export button styles */
+        .export-btn {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 7px 14px; font-size: 12px; font-weight: 600;
+            color: #2c3e50; background: #fff;
+            border: 1px solid #ced4da; border-radius: 6px;
+            cursor: pointer; white-space: nowrap;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            transition: background 0.15s, border-color 0.15s;
+        }
+        .export-btn:hover { background: #f0f4f8; border-color: #5a8fc2; }
+        .export-btn:active { background: #e6ecf2; }
+
         #sharedLegend, #annualLegend {
             width: 100%; margin-top: 6px; padding: 2px 6px;
             display: flex; flex-wrap: wrap; gap: 8px 16px; justify-content: center;
@@ -167,7 +180,10 @@
     <div class="chart-grid" style="display:none;" id="chartGrid">
         <div class="chart-card">
             <div class="chart-card-header">
-                <h3>Load vs Generation by Hour (Monthly Range Avg)</h3>
+                <div style="display:flex; align-items:center; justify-content:space-between;">
+                    <h3>Load vs Generation by Hour (Monthly Range Avg)</h3>
+                    <button class="export-btn" id="hourlyExportBtn" onclick="exportHourlyGenerationCSV()"> Export CSV</button>
+                </div>
                 <div class="subtitle">Generation = sum of technologies excluding Cross border; CEE=HU+RO+RS+HR+PL+BG. Price = simple average of selected countries (€/MWh, right axis).</div>
             </div>
             <div class="year-row">
@@ -190,13 +206,16 @@
                     <h3>Annual Generation Structure</h3>
                     <div class="subtitle">Annual generation = average hourly power × 24 × days. Left: detailed technologies, Right: Renewable/Fossil/Nuclear.</div>
                 </div>
-                <div class="annual-year-group">
-                    <label>Year</label>
-                    <select id="annualYear">
-                        <option value="2024">2024</option>
-                        <option value="2025" selected>2025</option>
-                        <option value="2026">2026</option>
-                    </select>
+                <div style="display:flex; align-items:flex-end; gap:16px;">
+                    <div class="annual-year-group">
+                        <label>Year</label>
+                        <select id="annualYear">
+                            <option value="2024">2024</option>
+                            <option value="2025" selected>2025</option>
+                            <option value="2026">2026</option>
+                        </select>
+                    </div>
+                    <button class="export-btn" id="annualExportBtn" onclick="exportAnnualGenerationCSV()" style="height:36px;"> Export CSV</button>
                 </div>
             </div>
             <div class="annual-row">
@@ -228,6 +247,11 @@ let charts = {};
 let loadReport = { ok: [], fail: [] };
 let loadFailReason = {};
 let legendState = {};
+
+// ▼ ADDED: caches of currently rendered chart data, used for CSV export
+let lastHourlyDataByYear = {}; // { 2024: {techs, techSeries, load, price}, 2025: {...}, 2026: {...} }
+let lastHourlyMeta = { selectedCountries: [], mFrom: 1, mTo: 12 };
+let lastAnnualData = null; // { year, selectedCountries, total, detail:[{name,value,group}], groupTotals }
 
 // ── summarizeYear cache ───────────────────────────────────────────────────────
 const _summarizeCache = new Map();
@@ -640,6 +664,15 @@ function renderAnnualCharts(selectedCountries, year) {
     const groupTotals = { Renewable: 0, Fossil: 0, Nuclear: 0 };
     detail.forEach(x => { groupTotals[classifyPrimaryGroup(x.name)] += x.value; });
 
+    // ▼ ADDED: cache for CSV export
+    lastAnnualData = {
+        year,
+        selectedCountries: selectedCountries.slice(),
+        total,
+        detail: detail.map(x => ({ name: x.name, value: x.value, group: classifyPrimaryGroup(x.name) })),
+        groupTotals
+    };
+
     const groupData = [
         { name: 'Renewable', value: groupTotals.Renewable, itemStyle: { color: '#fcc428' } },
         { name: 'Fossil',    value: groupTotals.Fossil,    itemStyle: { color: '#f5821f' } },
@@ -796,6 +829,10 @@ function buildSeriesForYear(year, selectedCountries, mFrom, mTo) {
         if (!allSeriesColors[s.name]) allSeriesColors[s.name] = s.itemStyle.color;
         if (!allSeriesNames.includes(s.name)) allSeriesNames.push(s.name);
     });
+
+    // ▼ ADDED: cache raw (visibility-independent) hourly data for CSV export
+    lastHourlyDataByYear[year] = { techs: techs.slice(), techSeries, load, price: priceSeries };
+    lastHourlyMeta = { selectedCountries: selectedCountries.slice(), mFrom, mTo };
 
     return { series, hours };
 }
@@ -955,6 +992,12 @@ function refresh() {
     allSeriesColors = {};
     clearSummarizeCache();
 
+    // ▼ ADDED: reset hourly-data export cache when nothing to render
+    if (!selected.length || mFrom > mTo) {
+        lastHourlyDataByYear = {};
+        lastHourlyMeta = { selectedCountries: selected.slice(), mFrom, mTo };
+    }
+
     const priceRange = calcGlobalPriceRange(selected, mFrom, mTo);
 
     applyYearChart(charts.chart2024, 2024, selected, mFrom, mTo, undefined, priceRange);
@@ -974,6 +1017,7 @@ function refresh() {
         charts.annualDetail.clear();
         charts.annualGroup.clear();
         document.getElementById('annualLegend').innerHTML = '';
+        lastAnnualData = null; // ▼ ADDED: reset export cache
     } else {
         renderAnnualCharts(selected, annualYear);
     }
@@ -1002,6 +1046,95 @@ async function init() {
     refresh();
 
     window.addEventListener('resize', () => Object.values(charts).forEach(c => c.resize()));
+}
+
+/* ============================================================
+   ▼ ADDED: CSV Export functions
+   ============================================================ */
+
+// Generic CSV builder: rows is an array of arrays (each inner array = one row of cell values)
+function toCSV(rows) {
+    return rows.map(r => r.map(csvEscape).join(',')).join('\r\n');
+}
+function csvEscape(v) {
+    if (v === null || v === undefined) return '';
+    const s = String(v);
+    return /[",\r\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+}
+function downloadCSV(filename, csvString) {
+    // BOM so Excel opens UTF-8 (€ sign, accented labels) correctly
+    const blob = new Blob(['﻿' + csvString], { type: 'text/csv;charset=utf-8;' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+
+// --- Export 1: Load vs Generation by Hour (all 3 years, all technologies, Load, Price) ---
+function exportHourlyGenerationCSV() {
+    const years = [2024, 2025, 2026].filter(y => lastHourlyDataByYear[y]);
+    if (!years.length) { alert('No data loaded yet.'); return; }
+
+    // Union of technology names across the loaded years, alphabetically sorted
+    const techSet = new Set();
+    years.forEach(y => lastHourlyDataByYear[y].techs.forEach(t => techSet.add(t)));
+    const techs = [...techSet].sort((a, b) => a.localeCompare(b));
+
+    const rows = [['Year', 'Hour', ...techs, 'Load (MW)', 'Price (EUR/MWh)']];
+
+    years.forEach(y => {
+        const { techSeries, load, price } = lastHourlyDataByYear[y];
+        for (let h = 0; h < 24; h++) {
+            const row = [y, `H${String(h + 1).padStart(2, '0')}`];
+            techs.forEach(t => {
+                const arr = techSeries[t];
+                row.push(arr && arr[h] !== undefined && arr[h] !== null ? arr[h] : '');
+            });
+            row.push(load[h] !== undefined && load[h] !== null ? load[h] : '');
+            row.push(price[h] !== undefined && price[h] !== null ? price[h] : '');
+            rows.push(row);
+        }
+    });
+
+    const countryLabel = lastHourlyMeta.selectedCountries.length
+        ? lastHourlyMeta.selectedCountries.slice().sort().join('-')
+        : 'none';
+    const monthLabel = `${monthNames[lastHourlyMeta.mFrom - 1]}-${monthNames[lastHourlyMeta.mTo - 1]}`;
+    downloadCSV(`hourly_generation_${countryLabel}_${monthLabel}.csv`, toCSV(rows));
+}
+
+// --- Export 2: Annual Generation Structure (detailed technologies + primary groups) ---
+function exportAnnualGenerationCSV() {
+    if (!lastAnnualData || !lastAnnualData.detail.length) {
+        alert('No data loaded yet.');
+        return;
+    }
+
+    const total = lastAnnualData.total;
+    const rows = [['Technology', 'Group', 'Annual Generation (MWh)', 'Annual Generation (TWh)', 'Share of Total (%)']];
+
+    lastAnnualData.detail.forEach(x => {
+        const pct = total > 0 ? (x.value / total * 100) : 0;
+        rows.push([x.name, x.group, x.value.toFixed(1), (x.value / 1e6).toFixed(3), pct.toFixed(2)]);
+    });
+
+    rows.push([]);
+    rows.push(['Group Totals']);
+    rows.push(['Group', 'Annual Generation (MWh)', 'Annual Generation (TWh)', 'Share of Total (%)']);
+    ['Renewable', 'Fossil', 'Nuclear'].forEach(g => {
+        const v = lastAnnualData.groupTotals[g] || 0;
+        const pct = total > 0 ? (v / total * 100) : 0;
+        rows.push([g, v.toFixed(1), (v / 1e6).toFixed(3), pct.toFixed(2)]);
+    });
+
+    const countryLabel = lastAnnualData.selectedCountries.length
+        ? lastAnnualData.selectedCountries.slice().sort().join('-')
+        : 'none';
+    downloadCSV(`annual_generation_${countryLabel}_${lastAnnualData.year}.csv`, toCSV(rows));
 }
 
 init();

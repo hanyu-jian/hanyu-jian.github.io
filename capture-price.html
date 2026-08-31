@@ -295,6 +295,19 @@
         .table-source-btn.solar.active { background: #fff8e1; color: #e65100; border-color: #e65100; }
         .table-source-btn.wind.active  { background: #e3f2fd; color: #0277bd; border-color: #0277bd; }
 
+        /* ▼ ADDED: Export button styles */
+        .export-btn {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 7px 14px; font-size: 12px; font-weight: 600;
+            color: #2c3e50; background: #fff;
+            border: 1px solid #ced4da; border-radius: 6px;
+            cursor: pointer; white-space: nowrap;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            transition: background 0.15s, border-color 0.15s;
+        }
+        .export-btn:hover { background: #f0f4f8; border-color: #5a8fc2; }
+        .export-btn:active { background: #e6ecf2; }
+
         .info {
             padding: 12px 30px 20px; font-size: 13px; color: #6c757d;
             text-align: center; border-top: 1px solid #e6e9ed; margin-top: 10px;
@@ -371,6 +384,7 @@
                             <button data-freq="quarterly">Quarterly</button>
                             <button data-freq="yearly">Yearly</button>
                         </div>
+                        <button class="export-btn" id="chart1ExportBtn" onclick="exportChart1CSV()"> Export CSV</button>
                     </div>
                 </div>
                 <div id="chart1" style="width:100%; height:420px;"></div>
@@ -391,6 +405,7 @@
                             <option value="2025" selected>2025</option>
                             <option value="2026">2026</option>
                         </select>
+                        <button class="export-btn" id="chart2ExportBtn" onclick="exportChart2CSV()"> Export CSV</button>
                     </div>
                 </div>
                 <div class="card-section-title">Daily</div>
@@ -458,6 +473,7 @@
                                     <button class="source-btn-sm solar active" id="capBtnSolar">☀ Solar</button>
                                     <button class="source-btn-sm wind"         id="capBtnWind" >💨 Wind</button>
                                 </div>
+                                <button class="export-btn" id="capMapExportBtn" onclick="exportCapMapCSV()"> Export CSV</button>
                             </div>
                         </div>
                         <div class="map-wrap"><div id="capMap" class="leaflet-map"></div></div>
@@ -479,6 +495,7 @@
                                     <button class="active" data-thresh="negative">Price &lt; 0</button>
                                     <button               data-thresh="zero_only">Price = 0</button>
                                 </div>
+                                <button class="export-btn" id="negMapExportBtn" onclick="exportNegMapCSV()"> Export CSV</button>
                             </div>
                         </div>
                         <div class="map-wrap"><div id="negMap" class="leaflet-map"></div></div>
@@ -512,6 +529,7 @@
                             <button class="table-source-btn solar active" id="tableBtnSolar">☀ Solar</button>
                             <button class="table-source-btn wind"         id="tableBtnWind">💨 Wind</button>
                         </div>
+                        <button class="export-btn" id="summaryExportBtn" onclick="exportSummaryTableCSV()"> Export CSV</button>
                     </div>
                 </div>
                 <div class="summary-table-wrap">
@@ -1084,7 +1102,9 @@ function ratioCellClass(v) {
 
 function renderSummaryTable() {
     const tbl = document.getElementById('summaryTable');
-    const { rows, years, data } = buildTableData();
+    const built = buildTableData();
+    lastSummaryTableData = built; // ▼ ADDED: cache for CSV export
+    const { rows, years, data } = built;
 
     /* Section definitions */
     const sections = [
@@ -1145,6 +1165,11 @@ function renderSummaryTable() {
 ═══════════════════════════════════════════════════════════ */
 let ec1, ec2d, ec2w, ec2m, ec2q, ec2y;
 
+/* ▼ ADDED: caches of currently rendered chart/table data, used for CSV export */
+let lastChart1Rows = null;
+let lastChart2Data = { daily: null, weekly: null, monthly: null, quarterly: null, yearly: null };
+let lastSummaryTableData = null;
+
 function initCharts() {
     ec1  = echarts.init(document.getElementById('chart1'));
     ec2d = echarts.init(document.getElementById('chart2Daily'));
@@ -1172,6 +1197,17 @@ function renderChart1() {
     const sMap = Object.fromEntries(aggS.map(d=>[d.date,d]));
     const wMap = Object.fromEntries(aggW.map(d=>[d.date,d]));
     const dates = [...new Set([...aggS.map(d=>d.date),...aggW.map(d=>d.date)])].sort();
+
+    // ▼ ADDED: cache for CSV export
+    lastChart1Rows = dates.map(d => ({
+        date: d,
+        baseload: sMap[d]?.baseload ?? wMap[d]?.baseload ?? null,
+        solarCapPost: sMap[d]?.capPost ?? null,
+        solarCapRatioPost: sMap[d]?.capRatioPost ?? null,
+        windCapPost: wMap[d]?.capPost ?? null,
+        windCapRatioPost: wMap[d]?.capRatioPost ?? null
+    }));
+
     const sPostKey = isRatio ? 'capRatioPost' : 'capPost';
     const wPostKey = isRatio ? 'capRatioPost' : 'capPost';
     const sLabel   = isRatio ? 'Solar CR (post)' : 'Solar CP (post)';
@@ -1313,27 +1349,37 @@ function sourceColors() {
 
 function renderChart2Daily() {
     const {lineColor,preColor} = sourceColors();
-    const {xData,baseVals,postVals,preVals,barVals,isRatio} = toArrays(aggregateFromHourly(getYearHourly(state.source2),'daily'));
+    const arr = toArrays(aggregateFromHourly(getYearHourly(state.source2),'daily'));
+    const {xData,baseVals,postVals,preVals,barVals,isRatio} = arr;
+    lastChart2Data.daily = arr; // ▼ ADDED: cache for CSV export
     ec2d.setOption(buildChart2Option({xData,baseVals,postVals,preVals,barVals,lineColor,preColor,isRatio,showDots:false,barMaxWidth:10,topGridBottom:'42%',botGridTop:'62%',xRotate:xData.length>60?30:0,xFontSize:10,barYMax:24,barYInterval:6}),true);
 }
 function renderChart2Weekly() {
     const {lineColor,preColor} = sourceColors();
-    const {xData,baseVals,postVals,preVals,barVals,isRatio} = toArrays(aggregateFromHourly(getFullHourly(state.source2),'weekly'));
+    const arr = toArrays(aggregateFromHourly(getFullHourly(state.source2),'weekly'));
+    const {xData,baseVals,postVals,preVals,barVals,isRatio} = arr;
+    lastChart2Data.weekly = arr; // ▼ ADDED: cache for CSV export
     ec2w.setOption(buildChart2Option({xData,baseVals,postVals,preVals,barVals,lineColor,preColor,isRatio,showDots:false,barMaxWidth:10,topGridBottom:'42%',botGridTop:'62%',xRotate:30,xFontSize:9}),true);
 }
 function renderChart2Monthly() {
     const {lineColor,preColor} = sourceColors();
-    const {xData,baseVals,postVals,preVals,barVals,isRatio} = toArrays(aggregateFromHourly(getFullHourly(state.source2),'monthly'));
+    const arr = toArrays(aggregateFromHourly(getFullHourly(state.source2),'monthly'));
+    const {xData,baseVals,postVals,preVals,barVals,isRatio} = arr;
+    lastChart2Data.monthly = arr; // ▼ ADDED: cache for CSV export
     ec2m.setOption(buildChart2Option({xData,baseVals,postVals,preVals,barVals,lineColor,preColor,isRatio,showDots:true,barMaxWidth:20,topGridBottom:'42%',botGridTop:'62%',xRotate:0,xFontSize:11}),true);
 }
 function renderChart2Quarterly() {
     const {lineColor,preColor} = sourceColors();
-    const {xData,baseVals,postVals,preVals,barVals,isRatio} = toArrays(aggregateFromHourly(getFullHourly(state.source2),'quarterly'));
+    const arr = toArrays(aggregateFromHourly(getFullHourly(state.source2),'quarterly'));
+    const {xData,baseVals,postVals,preVals,barVals,isRatio} = arr;
+    lastChart2Data.quarterly = arr; // ▼ ADDED: cache for CSV export
     ec2q.setOption(buildChart2Option({xData,baseVals,postVals,preVals,barVals,lineColor,preColor,isRatio,showDots:true,barMaxWidth:32,topGridBottom:'44%',botGridTop:'64%',xRotate:0,xFontSize:11}),true);
 }
 function renderChart2Yearly() {
     const {lineColor,preColor} = sourceColors();
-    const {xData,baseVals,postVals,preVals,barVals,isRatio} = toArrays(aggregateFromHourly(getFullHourly(state.source2),'yearly'));
+    const arr = toArrays(aggregateFromHourly(getFullHourly(state.source2),'yearly'));
+    const {xData,baseVals,postVals,preVals,barVals,isRatio} = arr;
+    lastChart2Data.yearly = arr; // ▼ ADDED: cache for CSV export
     ec2y.setOption(buildChart2Option({xData,baseVals,postVals,preVals,barVals,lineColor,preColor,isRatio,showDots:true,barMaxWidth:48,topGridBottom:'44%',botGridTop:'64%',xRotate:0,xFontSize:12}),true);
 }
 
@@ -1504,6 +1550,181 @@ function bindTableControls() {
     });
     startSel.addEventListener('change', e => { state.tableRangeStart = parseInt(e.target.value); renderSummaryTable(); });
     endSel.addEventListener('change',   e => { state.tableRangeEnd   = parseInt(e.target.value); renderSummaryTable(); });
+}
+
+/* ═══════════════════════════════════════════════════════════
+   ▼ ADDED: CSV Export
+═══════════════════════════════════════════════════════════ */
+
+// Generic CSV builder: rows is an array of arrays (each inner array = one row of cell values)
+function toCSV(rows) {
+    return rows.map(r => r.map(csvEscape).join(',')).join('\r\n');
+}
+function csvEscape(v) {
+    if (v === null || v === undefined) return '';
+    const s = String(v);
+    return /[",\r\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+}
+function downloadCSV(filename, csvString) {
+    // BOM so Excel opens UTF-8 (€ sign, accented labels) correctly
+    const blob = new Blob(['﻿' + csvString], { type: 'text/csv;charset=utf-8;' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+
+// --- Export 1: Card 1 – Capture Prices/Ratio Overview chart ---
+function exportChart1CSV() {
+    if (!lastChart1Rows || !lastChart1Rows.length) { alert('No data loaded yet.'); return; }
+
+    const isRatio = state.displayMode === 'ratio';
+    const header = [
+        'Date',
+        'Baseload (EUR/MWh)',
+        isRatio ? 'Solar Capture Ratio Post-Curtailment (%)' : 'Solar Capture Price Post-Curtailment (EUR/MWh)',
+        isRatio ? 'Wind Capture Ratio Post-Curtailment (%)'  : 'Wind Capture Price Post-Curtailment (EUR/MWh)'
+    ];
+    const rows = [header];
+
+    lastChart1Rows.forEach(r => {
+        const solarVal = isRatio ? r.solarCapRatioPost : r.solarCapPost;
+        const windVal  = isRatio ? r.windCapRatioPost  : r.windCapPost;
+        rows.push([
+            r.date,
+            r.baseload !== null && r.baseload !== undefined ? r.baseload.toFixed(2) : '',
+            solarVal !== null && solarVal !== undefined ? solarVal.toFixed(2) : '',
+            windVal  !== null && windVal  !== undefined ? windVal.toFixed(2)  : ''
+        ]);
+    });
+
+    downloadCSV(`capture_overview_${state.country}_${state.freq1}_${state.displayMode}.csv`, toCSV(rows));
+}
+
+// --- Export 2: Card 2 – Deep Dive charts (Daily/Weekly/Monthly/Quarterly/Yearly) ---
+function exportChart2CSV() {
+    const freqs = [
+        ['daily',     'Daily'],
+        ['weekly',    'Weekly'],
+        ['monthly',   'Monthly'],
+        ['quarterly', 'Quarterly'],
+        ['yearly',    'Yearly']
+    ];
+    const hasAny = freqs.some(([key]) => lastChart2Data[key] && lastChart2Data[key].xData.length);
+    if (!hasAny) { alert('No data loaded yet.'); return; }
+
+    const isRatio = state.displayMode === 'ratio';
+    const src = state.source2 === 'solar' ? 'Solar' : 'Wind';
+    const header = [
+        'Frequency', 'Period',
+        'Baseload (EUR/MWh)',
+        isRatio ? `${src} Capture Ratio Post-Curtailment (%)` : `${src} Capture Price Post-Curtailment (EUR/MWh)`,
+        isRatio ? `${src} Capture Ratio Pre-Curtailment (%)`  : `${src} Capture Price Pre-Curtailment (EUR/MWh)`,
+        'Non-positive Hours'
+    ];
+    const rows = [header];
+
+    freqs.forEach(([key, label]) => {
+        const d = lastChart2Data[key];
+        if (!d) return;
+        d.xData.forEach((x, i) => {
+            rows.push([
+                label,
+                x,
+                d.baseVals[i] !== null && d.baseVals[i] !== undefined ? d.baseVals[i].toFixed(2) : '',
+                d.postVals[i] !== null && d.postVals[i] !== undefined ? d.postVals[i].toFixed(2) : '',
+                d.preVals[i]  !== null && d.preVals[i]  !== undefined ? d.preVals[i].toFixed(2)  : '',
+                d.barVals[i]  !== null && d.barVals[i]  !== undefined ? d.barVals[i] : ''
+            ]);
+        });
+    });
+
+    downloadCSV(`capture_deep_dive_${state.country}_${state.source2}_${state.displayMode}.csv`, toCSV(rows));
+}
+
+// --- Export 3: Card 3 – Capture Price/Ratio Map (per-country, current time filter) ---
+function exportCapMapCSV() {
+    if (!geoData) { alert('No data loaded yet.'); return; }
+
+    const isRatio = state.displayMode === 'ratio';
+    const vals = isRatio ? allCapRatioValues() : allCapValues();
+    const src  = state.capSource === 'solar' ? 'Solar' : 'Wind';
+    const header = [
+        'Country',
+        isRatio ? `${src} Capture Ratio Post-Curtailment (%)` : `${src} Capture Price Post-Curtailment (EUR/MWh)`,
+        'Baseload (EUR/MWh)'
+    ];
+    const rows = [header];
+
+    COUNTRIES.forEach(c => {
+        const base = mapBaseload(c.code);
+        const v = vals[c.code];
+        rows.push([
+            c.code,
+            v !== null && v !== undefined ? v.toFixed(2) : '',
+            base !== null && base !== undefined ? base.toFixed(2) : ''
+        ]);
+    });
+
+    const period = getPeriodLabel().replace(/\s+/g, '_');
+    downloadCSV(`capture_map_${state.capSource}_${state.displayMode}_${period}.csv`, toCSV(rows));
+}
+
+// --- Export 4: Card 3 – Negative Price Hours Map (per-country, current time filter/threshold) ---
+function exportNegMapCSV() {
+    if (!geoData) { alert('No data loaded yet.'); return; }
+
+    const vals = allNegValues();
+    const hasNeg = state.negThreshSet.has('negative'), hasZero = state.negThreshSet.has('zero_only');
+    const threshLbl = (hasNeg && hasZero) ? 'Price <= 0' : hasNeg ? 'Price < 0' : hasZero ? 'Price = 0' : 'None';
+    const header = ['Country', `${threshLbl} Hours`];
+    const rows = [header];
+
+    COUNTRIES.forEach(c => {
+        const v = vals[c.code];
+        rows.push([c.code, v !== null && v !== undefined ? v : '']);
+    });
+
+    const period = getPeriodLabel().replace(/\s+/g, '_');
+    downloadCSV(`negative_price_hours_${period}.csv`, toCSV(rows));
+}
+
+// --- Export 5: Card 4 – Capture Price Summary Table ---
+function exportSummaryTableCSV() {
+    if (!lastSummaryTableData) { alert('No data loaded yet.'); return; }
+
+    const { years, data } = lastSummaryTableData;
+    const metrics = [
+        ['curtPct',     'Curtailed Production (%)'],
+        ['capPost',     'Capture Price post-Curtailment (EUR/MWh)'],
+        ['capPre',      'Capture Price pre-Curtailment (EUR/MWh)'],
+        ['baseload',    'Baseload (EUR/MWh)'],
+        ['ratioPost',   'Capture Ratio post-Curtailment (%)'],
+        ['ratioPre',    'Capture Ratio pre-Curtailment (%)'],
+        ['nonPosHours', 'Non-positive Hours']
+    ];
+
+    const header = ['Period'];
+    metrics.forEach(([, label]) => years.forEach(yr => header.push(`${yr} ${label}`)));
+    const rows = [header];
+
+    data.forEach(row => {
+        const r = [row.label];
+        metrics.forEach(([key]) => {
+            row.byYear.forEach(d => {
+                const v = d ? d[key] : null;
+                if (v === null || v === undefined) { r.push(''); return; }
+                r.push(key === 'nonPosHours' ? Math.round(v).toString() : v.toFixed(2));
+            });
+        });
+        rows.push(r);
+    });
+
+    downloadCSV(`capture_summary_${state.tableCountry}_${state.tableSource}.csv`, toCSV(rows));
 }
 
 /* ═══════════════════════════════════════════════════════════

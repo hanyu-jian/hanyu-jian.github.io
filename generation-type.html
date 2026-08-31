@@ -52,6 +52,19 @@
         .chart-card-header h3 { font-size: 18px; font-weight: 500; color: #2c3e50; border-left: 4px solid #2c3e50; padding-left: 12px; margin: 0; }
         .subtitle { font-size: 12px; color: #888; margin-top: 4px; padding-left: 16px; }
 
+        /* ▼ ADDED: Export button styles */
+        .export-btn {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 7px 14px; font-size: 12px; font-weight: 600;
+            color: #2c3e50; background: #fff;
+            border: 1px solid #ced4da; border-radius: 6px;
+            cursor: pointer; white-space: nowrap;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            transition: background 0.15s, border-color 0.15s;
+        }
+        .export-btn:hover { background: #f0f4f8; border-color: #5a8fc2; }
+        .export-btn:active { background: #e6ecf2; }
+
         #barChart { height: 400px; margin-top: 16px; }
 
         #chartLegend {
@@ -158,9 +171,12 @@
 
     <div class="content-grid" id="mainContent" style="display:none;">
         <div class="chart-card">
-            <div class="chart-card-header">
-                <h3 id="chartTitle">Monthly Solar Production – HU</h3>
-                <div class="subtitle" id="chartSubtitle">Average MW × hours in month = estimated MWh · 2024–2026</div>
+            <div class="chart-card-header" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;">
+                <div>
+                    <h3 id="chartTitle">Monthly Solar Production – HU</h3>
+                    <div class="subtitle" id="chartSubtitle">Average MW × hours in month = estimated MWh · 2024–2026</div>
+                </div>
+                <button class="export-btn" id="genExportBtn" onclick="exportGenerationCSV()"> Export CSV</button>
             </div>
             <div id="barChart"></div>
             <div id="chartLegend"></div>
@@ -184,7 +200,12 @@
                     </select>
                 </div>
             </div>
-            
+
+            <!-- ▼ ADDED: header + Export CSV button for the load/generation summary table -->
+            <div class="chart-card-header" style="display:flex; align-items:center; justify-content:space-between; margin-top:16px;">
+                <h3>Load vs Generation Summary</h3>
+                <button class="export-btn" id="summaryExportBtn" onclick="exportSummaryCSV()"> Export CSV</button>
+            </div>
             <div id="summaryTable"></div>
         </div>
 
@@ -298,6 +319,17 @@ function matchesType(category, typeName) {
 let countryData = {};
 let barChart = null;
 
+// ▼ ADDED: caches of currently rendered data, used for CSV export
+let lastMonthlyTotals   = null;
+let lastGenCountry      = null;
+let lastGenTypeName     = null;
+
+let lastSummaryRows       = null;
+let lastSummaryCountry    = null;
+let lastSummaryTypeName   = null;
+let lastSummaryStartMonth = null;
+let lastSummaryEndMonth   = null;
+
 function parseDate(s) {
     if (!s) return null;
     let m = s.match(/^(\d{4})[\/-](\d{1,2})[\/-](\d{1,2})\s+(\d{1,2}):(\d{2})/);
@@ -376,6 +408,11 @@ function buildMonthlyTotals(country, typeName) {
 }
 
 function renderChart(totals, country, typeName) {
+    // ▼ ADDED: cache for CSV export (also backs the Year-on-Year table, same dataset)
+    lastMonthlyTotals = totals;
+    lastGenCountry    = country;
+    lastGenTypeName   = typeName;
+
     const colors = yearColors(typeName);
     document.getElementById('chartTitle').textContent = `Monthly ${typeName} Production – ${country}`;
     document.getElementById('chartSubtitle').textContent = 'Estimated monthly generation (GWh) · 2024–2026';
@@ -560,14 +597,102 @@ function renderSummary(country){
  const gen=aggregateGeneration(buildMonthlyTotals(country,typeName),sm,em);
  const load=buildLoadTotals(country,sm,em);
  let html='<table class="yoy-table"><thead><tr><th>Year</th><th>Load(TWh)</th><th>Load YoY</th><th>'+typeName+'(TWh)</th><th>Gen YoY</th><th>Share</th></tr></thead><tbody>';
+ // ▼ ADDED: cache rows for CSV export
+ const summaryRows = [];
  YEARS.forEach((y,i)=>{
   const ly=i?yoy(load[y],load[YEARS[i-1]]):null;
   const gy=i?yoy(gen[y],gen[YEARS[i-1]]):null;
   const sh=load[y]>0?gen[y]/load[y]*100:null;
   html+=`<tr><td>${y}</td><td>${load[y].toFixed(2)}</td><td>${fmtPct(ly)}</td><td>${gen[y].toFixed(2)}</td><td>${fmtPct(gy)}</td><td>${sh?sh.toFixed(1):'-'}%</td></tr>`;
+  summaryRows.push({ year: y, load: load[y], loadYoY: ly, gen: gen[y], genYoY: gy, share: sh });
  });
  html+='</tbody></table>';
  document.getElementById('summaryTable').innerHTML=html;
+ // ▼ ADDED: cache for CSV export
+ lastSummaryRows       = summaryRows;
+ lastSummaryCountry    = country;
+ lastSummaryTypeName   = typeName;
+ lastSummaryStartMonth = sm;
+ lastSummaryEndMonth   = em;
+}
+
+/* ============================================================
+   ▼ ADDED: CSV Export functions
+   ============================================================ */
+
+// Generic CSV builder: rows is an array of arrays (each inner array = one row of cell values)
+function toCSV(rows) {
+    return rows.map(r => r.map(csvEscape).join(',')).join('\r\n');
+}
+function csvEscape(v) {
+    if (v === null || v === undefined) return '';
+    const s = String(v);
+    return /[",\r\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+}
+function downloadCSV(filename, csvString) {
+    // BOM so Excel opens UTF-8 correctly
+    const blob = new Blob(['﻿' + csvString], { type: 'text/csv;charset=utf-8;' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+
+// --- Export 1: Monthly generation chart + Year-on-Year table (same underlying dataset) ---
+function exportGenerationCSV() {
+    if (!lastMonthlyTotals) { alert('No data loaded yet.'); return; }
+
+    const pairs = [
+        ['2025/2024 YoY (%)', 2024, 2025],
+        ['2026/2025 YoY (%)', 2025, 2026],
+    ];
+
+    const header = ['Month', ...YEARS.map(y => `${y} (GWh)`), ...pairs.map(p => p[0])];
+    const rows = [header];
+
+    for (let m = 1; m <= 12; m++) {
+        const row = [monthNames[m - 1]];
+        YEARS.forEach(y => {
+            const v = lastMonthlyTotals[y][m];
+            row.push(v !== null && v !== undefined ? v.toFixed(2) : '');
+        });
+        pairs.forEach(([, ya, yb]) => {
+            const a = lastMonthlyTotals[ya][m], b = lastMonthlyTotals[yb][m];
+            if (a === null || b === null) { row.push(''); return; }
+            if (a === 0) { row.push('N/A'); return; }
+            row.push(((b - a) / a * 100).toFixed(1));
+        });
+        rows.push(row);
+    }
+
+    const safeType = (lastGenTypeName || 'type').replace(/[^a-z0-9]+/gi, '_');
+    downloadCSV(`generation_${lastGenCountry}_${safeType}.csv`, toCSV(rows));
+}
+
+// --- Export 2: Load vs Generation summary table (current Start/End month range) ---
+function exportSummaryCSV() {
+    if (!lastSummaryRows || !lastSummaryRows.length) { alert('No data loaded yet.'); return; }
+
+    const header = ['Year', 'Load (TWh)', 'Load YoY (%)', `${lastSummaryTypeName} (TWh)`, 'Generation YoY (%)', 'Share of Load (%)'];
+    const rows = [header];
+
+    lastSummaryRows.forEach(r => {
+        rows.push([
+            r.year,
+            r.load.toFixed(2),
+            (r.loadYoY !== null && r.loadYoY !== undefined) ? r.loadYoY.toFixed(1) : '',
+            r.gen.toFixed(2),
+            (r.genYoY !== null && r.genYoY !== undefined) ? r.genYoY.toFixed(1) : '',
+            (r.share !== null && r.share !== undefined) ? r.share.toFixed(1) : ''
+        ]);
+    });
+
+    const safeType = (lastSummaryTypeName || 'type').replace(/[^a-z0-9]+/gi, '_');
+    downloadCSV(`load_vs_generation_${lastSummaryCountry}_${safeType}_m${lastSummaryStartMonth}-${lastSummaryEndMonth}.csv`, toCSV(rows));
 }
 
 async function refresh() {

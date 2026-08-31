@@ -3,7 +3,7 @@
 ENTSOE API 数据更新脚本 — Imbalance Price（A85）
 - 文档类型：A85（Imbalance prices）
 - 只抓取 <imbalance_Price.amount>（category=A04，即 Generation 侧失衡价）
-- 原始 15min 数据 → raw_data/A85.csv（格式与 A44/A65 完全一致）
+- 原始 15min 数据 → raw_data/{YEAR}/A85.csv（按年拆分，格式与 A44/A65 完全一致）
 - 小时均值   → data/imbalance_price.csv（格式与 price.csv 完全一致）
 - 响应可能是 ZIP 包，自动解压；只处理文件名含 "IMBALANCE_PRICES" 的条目
 - 支持模式：
@@ -407,8 +407,17 @@ def merge_and_save_wide(new_cols: dict[str, pd.Series], path: Path, label: str):
         print(f"  ✓ {path.name}: 新建 {len(new_df)} 行 × {len(new_df.columns)} 列")
 
 
+def _year_path(base_path: Path, year: int) -> Path:
+    """把逻辑路径 raw_data/A85.csv 映射到按年拆分后的实际路径 raw_data/{year}/A85.csv。"""
+    return base_path.parent / str(int(year)) / base_path.name
+
+
 def merge_and_save_raw_wide(new_raw_cols: dict[str, pd.Series],
                             path: Path, label: str):
+    """
+    按年拆分写入宽表原始数据（raw_data/{YEAR}/{path.name}），
+    避免单个原始 CSV 随时间无限增长撞到 GitHub 单文件体积限制。
+    """
     if not new_raw_cols:
         print(f"  [SKIP RAW] {label}: 无新数据")
         return
@@ -430,35 +439,40 @@ def merge_and_save_raw_wide(new_raw_cols: dict[str, pd.Series],
     new_df = pd.DataFrame({col: s.reindex(all_idx) for col, s in normalized.items()})
     new_df = _coerce_df_numeric(new_df)
     new_df = new_df.round(HOURLY_ROUND_DECIMALS)
-    new_df.index = fmt_index_15min(all_idx)
-    new_df.index.name = "Date"
+    new_df.index = pd.DatetimeIndex(all_idx)
 
-    path.parent.mkdir(parents=True, exist_ok=True)
+    for year, year_df in new_df.groupby(new_df.index.year):
+        year_path = _year_path(path, year)
+        year_path.parent.mkdir(parents=True, exist_ok=True)
 
-    if path.exists():
-        old_df = pd.read_csv(path, index_col=0)
-        old_df = _coerce_df_numeric(old_df)
-        all_cols = old_df.columns.union(new_df.columns)
-        old_df   = old_df.reindex(columns=all_cols)
-        new_df   = new_df.reindex(columns=all_cols)
-        old_df.update(new_df)
-        merged = old_df.combine_first(new_df)
-        merged = _coerce_df_numeric(merged)
-        merged = merged.round(HOURLY_ROUND_DECIMALS)
-        merged.index.name = "Date"
-        merged = _sort_index_by_time(merged)
-        merged.index = fmt_index_15min(merged.index)
-        merged.index.name = "Date"
-        merged.to_csv(path)
-        print(f"  ✓ RAW {path.name}: 合并后 {len(merged)} 行 × {len(merged.columns)} 列")
-    else:
-        new_df = _sort_index_by_time(new_df)
-        new_df = _coerce_df_numeric(new_df)
-        new_df = new_df.round(HOURLY_ROUND_DECIMALS)
-        new_df.index = fmt_index_15min(new_df.index)
-        new_df.index.name = "Date"
-        new_df.to_csv(path)
-        print(f"  ✓ RAW {path.name}: 新建 {len(new_df)} 行 × {len(new_df.columns)} 列")
+        year_df = year_df.copy()
+        year_df.index = fmt_index_15min(year_df.index)
+        year_df.index.name = "Date"
+
+        if year_path.exists():
+            old_df = pd.read_csv(year_path, index_col=0)
+            old_df = _coerce_df_numeric(old_df)
+            all_cols = old_df.columns.union(year_df.columns)
+            old_df   = old_df.reindex(columns=all_cols)
+            year_df  = year_df.reindex(columns=all_cols)
+            old_df.update(year_df)
+            merged = old_df.combine_first(year_df)
+            merged = _coerce_df_numeric(merged)
+            merged = merged.round(HOURLY_ROUND_DECIMALS)
+            merged.index.name = "Date"
+            merged = _sort_index_by_time(merged)
+            merged.index = fmt_index_15min(merged.index)
+            merged.index.name = "Date"
+            merged.to_csv(year_path)
+            print(f"  ✓ RAW {year_path}: 合并后 {len(merged)} 行 × {len(merged.columns)} 列")
+        else:
+            year_df = _sort_index_by_time(year_df)
+            year_df = _coerce_df_numeric(year_df)
+            year_df = year_df.round(HOURLY_ROUND_DECIMALS)
+            year_df.index = fmt_index_15min(year_df.index)
+            year_df.index.name = "Date"
+            year_df.to_csv(year_path)
+            print(f"  ✓ RAW {year_path}: 新建 {len(year_df)} 行 × {len(year_df.columns)} 列")
 
 
 # ─────────────────────────────────────────────────────────────

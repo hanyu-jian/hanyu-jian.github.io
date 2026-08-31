@@ -15,10 +15,10 @@ ENTSOE API 数据更新脚本（增量更新版）
 - 与 ENTSOE 网站下载的 CSV 时间列完全一致
 - 不再按各国本地时区转换，避免 RO/BG/GR 等东欧国家出现 +1h 偏移
 
-原始数据额外保存至 /raw_data/：
-  - /raw_data/A44.csv          价格原始数据（宽表，列=国家）
-  - /raw_data/A65.csv          负荷原始数据（宽表，列=国家）
-  - /raw_data/generation/{CC}.csv  发电结构原始数据（长表）
+原始数据额外保存至 /raw_data/，按年拆分（单文件体积逼近 GitHub 50MB 限制）：
+  - /raw_data/{YEAR}/A44.csv          价格原始数据（宽表，列=国家）
+  - /raw_data/{YEAR}/A65.csv          负荷原始数据（宽表，列=国家）
+  - /raw_data/{YEAR}/generation/{CC}.csv  发电结构原始数据（长表）
   时间轴规则：
   - 原始 15min 数据 → 保持 15min，index 格式 "YYYY/M/D H:MM"
   - 原始 1h 数据    → 展开为 15min（:00/:15/:30/:45 四点值相同）
@@ -691,8 +691,17 @@ def merge_and_save_generation(new_rows: list[dict], gen_dir: Path):
             print(f"  ✓ generation/{country}.csv: 新建 {len(grp_new)} 行")
 
 
+def _year_path(base_path: Path, year: int) -> Path:
+    """把逻辑路径 raw_data/A44.csv 映射到按年拆分后的实际路径 raw_data/{year}/A44.csv。"""
+    return base_path.parent / str(int(year)) / base_path.name
+
+
 def merge_and_save_raw_wide(new_raw_cols: dict[str, pd.Series],
                             path: Path, label: str):
+    """
+    按年拆分写入宽表原始数据（raw_data/{YEAR}/{path.name}），
+    避免单个原始 CSV 随时间无限增长撞到 GitHub 单文件体积限制。
+    """
     if not new_raw_cols:
         print(f"  [SKIP RAW] {label}: 无新数据")
         return
@@ -714,44 +723,52 @@ def merge_and_save_raw_wide(new_raw_cols: dict[str, pd.Series],
     new_df = pd.DataFrame({col: s.reindex(all_idx) for col, s in normalized.items()})
     new_df = _coerce_df_numeric(new_df)
     new_df = new_df.round(HOURLY_ROUND_DECIMALS)
-    new_df.index = fmt_index_15min(all_idx)
-    new_df.index.name = "Date"
+    new_df.index = pd.DatetimeIndex(all_idx)
 
-    path.parent.mkdir(parents=True, exist_ok=True)
+    for year, year_df in new_df.groupby(new_df.index.year):
+        year_path = _year_path(path, year)
+        year_path.parent.mkdir(parents=True, exist_ok=True)
 
-    if path.exists():
-        old_df = pd.read_csv(path, index_col=0)
-        old_df = _coerce_df_numeric(old_df)
-        all_cols = old_df.columns.union(new_df.columns)
-        old_df   = old_df.reindex(columns=all_cols)
-        new_df   = new_df.reindex(columns=all_cols)
-        old_df.update(new_df)
-        merged = old_df.combine_first(new_df)
-        merged = _coerce_df_numeric(merged)
-        merged = merged.round(HOURLY_ROUND_DECIMALS)
-        merged.index.name = "Date"
-        merged = _sort_index_by_time(merged)
-        merged.index = fmt_index_15min(merged.index)
-        merged.index.name = "Date"
-        merged.to_csv(path)
-        print(f"  ✓ RAW {path.name}: 合并后 {len(merged)} 行 × {len(merged.columns)} 列")
-    else:
-        new_df = _sort_index_by_time(new_df)
-        new_df = _coerce_df_numeric(new_df)
-        new_df = new_df.round(HOURLY_ROUND_DECIMALS)
-        new_df.index = fmt_index_15min(new_df.index)
-        new_df.index.name = "Date"
-        new_df.to_csv(path)
-        print(f"  ✓ RAW {path.name}: 新建 {len(new_df)} 行 × {len(new_df.columns)} 列")
+        year_df = year_df.copy()
+        year_df.index = fmt_index_15min(year_df.index)
+        year_df.index.name = "Date"
+
+        if year_path.exists():
+            old_df = pd.read_csv(year_path, index_col=0)
+            old_df = _coerce_df_numeric(old_df)
+            all_cols = old_df.columns.union(year_df.columns)
+            old_df   = old_df.reindex(columns=all_cols)
+            year_df  = year_df.reindex(columns=all_cols)
+            old_df.update(year_df)
+            merged = old_df.combine_first(year_df)
+            merged = _coerce_df_numeric(merged)
+            merged = merged.round(HOURLY_ROUND_DECIMALS)
+            merged.index.name = "Date"
+            merged = _sort_index_by_time(merged)
+            merged.index = fmt_index_15min(merged.index)
+            merged.index.name = "Date"
+            merged.to_csv(year_path)
+            print(f"  ✓ RAW {year_path}: 合并后 {len(merged)} 行 × {len(merged.columns)} 列")
+        else:
+            year_df = _sort_index_by_time(year_df)
+            year_df = _coerce_df_numeric(year_df)
+            year_df = year_df.round(HOURLY_ROUND_DECIMALS)
+            year_df.index = fmt_index_15min(year_df.index)
+            year_df.index.name = "Date"
+            year_df.to_csv(year_path)
+            print(f"  ✓ RAW {year_path}: 新建 {len(year_df)} 行 × {len(year_df.columns)} 列")
 
 
 def merge_and_save_raw_generation(raw_gen_by_country: dict[str, dict[str, pd.Series]],
                                   raw_gen_dir: Path):
+    """
+    按年拆分写入长表原始发电数据（raw_data/{YEAR}/generation/{CC}.csv）。
+    raw_gen_dir 仍传入逻辑目录 raw_data/generation，实际落盘路径按每行日期的年份
+    映射为 raw_gen_dir.parent/{YEAR}/raw_gen_dir.name/{CC}.csv。
+    """
     if not raw_gen_by_country:
         print("  [SKIP RAW] generation: 无新数据")
         return
-
-    raw_gen_dir.mkdir(parents=True, exist_ok=True)
 
     for cc_upper, gen_raw_dict in raw_gen_by_country.items():
         if not gen_raw_dict:
@@ -764,7 +781,7 @@ def merge_and_save_raw_generation(raw_gen_by_country: dict[str, dict[str, pd.Ser
             s15 = normalize_raw_series_to_15min(s)
             for ts, val in s15.items():
                 rows.append({
-                    "date":     _fmt_dt_15min(ts),
+                    "ts":       ts,
                     "category": psr_name,
                     "value":    val,
                 })
@@ -772,24 +789,33 @@ def merge_and_save_raw_generation(raw_gen_by_country: dict[str, dict[str, pd.Ser
         if not rows:
             continue
 
-        df_new = pd.DataFrame(rows, columns=["date", "category", "value"])
+        df_new = pd.DataFrame(rows, columns=["ts", "category", "value"])
         df_new["value"] = pd.to_numeric(df_new["value"], errors="coerce")
+        df_new["ts"] = pd.to_datetime(df_new["ts"])
 
-        path = raw_gen_dir / f"{cc_upper}.csv"
-        if path.exists():
-            df_old = pd.read_csv(path)
-            df_old["value"] = pd.to_numeric(df_old["value"], errors="coerce")
-            merged = (
-                pd.concat([df_old, df_new])
-                  .drop_duplicates(subset=["date", "category"], keep="last")
-            )
-            merged = _sort_col_by_time(merged, "date", secondary="category")
-            merged.to_csv(path, index=False)
-            print(f"  ✓ RAW generation/{cc_upper}.csv: 合并后 {len(merged)} 行")
-        else:
-            df_new = _sort_col_by_time(df_new, "date", secondary="category")
-            df_new.to_csv(path, index=False)
-            print(f"  ✓ RAW generation/{cc_upper}.csv: 新建 {len(df_new)} 行")
+        for year, grp in df_new.groupby(df_new["ts"].dt.year):
+            grp = grp.copy()
+            grp["date"] = grp["ts"].apply(_fmt_dt_15min)
+            grp = grp.drop(columns="ts")[["date", "category", "value"]]
+
+            year_gen_dir = raw_gen_dir.parent / str(int(year)) / raw_gen_dir.name
+            year_gen_dir.mkdir(parents=True, exist_ok=True)
+            path = year_gen_dir / f"{cc_upper}.csv"
+
+            if path.exists():
+                df_old = pd.read_csv(path)
+                df_old["value"] = pd.to_numeric(df_old["value"], errors="coerce")
+                merged = (
+                    pd.concat([df_old, grp])
+                      .drop_duplicates(subset=["date", "category"], keep="last")
+                )
+                merged = _sort_col_by_time(merged, "date", secondary="category")
+                merged.to_csv(path, index=False)
+                print(f"  ✓ RAW {year_gen_dir.parent.name}/generation/{cc_upper}.csv: 合并后 {len(merged)} 行")
+            else:
+                grp = _sort_col_by_time(grp, "date", secondary="category")
+                grp.to_csv(path, index=False)
+                print(f"  ✓ RAW {year_gen_dir.parent.name}/generation/{cc_upper}.csv: 新建 {len(grp)} 行")
 
 
 def main():

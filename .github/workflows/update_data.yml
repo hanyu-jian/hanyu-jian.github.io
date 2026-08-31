@@ -22,7 +22,7 @@ on:
         type: string
         default: ""
       price_only:
-        description: "Only fetch price data (updates data/price.csv and raw_data/A44.csv)"
+        description: "Only fetch price data (updates data/price.csv and raw_data/{YEAR}/A44.csv)"
         type: boolean
         default: false
       price_country:
@@ -54,7 +54,7 @@ on:
         type: string
         default: ""
       imbalance_only:
-        description: "Only fetch imbalance price data (updates data/imbalance_price.csv and raw_data/A85.csv)"
+        description: "Only fetch imbalance price data (updates data/imbalance_price.csv and raw_data/{YEAR}/A85.csv)"
         type: boolean
         default: false
       imbalance_country:

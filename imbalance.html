@@ -185,6 +185,19 @@
         .btn-group-inline button:hover { background: #f0f2f5; color: #2c3e50; }
         .btn-group-inline button.active { background: #2c3e50; color: #fff; }
 
+        /* ▼ ADDED: Export button styles */
+        .export-btn {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 7px 14px; font-size: 12px; font-weight: 600;
+            color: #2c3e50; background: #fff;
+            border: 1px solid #ced4da; border-radius: 6px;
+            cursor: pointer; white-space: nowrap;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            transition: background 0.15s, border-color 0.15s;
+        }
+        .export-btn:hover { background: #f0f4f8; border-color: #5a8fc2; }
+        .export-btn:active { background: #e6ecf2; }
+
         .full-width-card { grid-column: 1 / -1; }
 
         .loading {
@@ -328,6 +341,7 @@
                         <button id="a85PriceApplyBtn" class="btn-small">Apply</button>
                         <button id="a85PriceResetBtn" class="btn-small">Reset</button>
                     </div>
+                    <button class="export-btn" id="a85ExportBtn" onclick="exportA85CSV()"> Export CSV</button>
                 </div>
             </div>
             <div id="a85Chart" style="width:100%; height:420px;"></div>
@@ -349,6 +363,7 @@
                         <button id="boxplotPriceApplyBtn" class="btn-small">Apply</button>
                         <button id="boxplotPriceResetBtn" class="btn-small">Reset</button>
                     </div>
+                    <button class="export-btn" id="boxplotExportBtn" onclick="exportBoxplotCSV()"> Export CSV</button>
                 </div>
             </div>
             <div id="boxplotChart" style="width:100%; height:420px;"></div>
@@ -388,6 +403,7 @@
                             <button data-freq="yearly">Yearly</button>
                         </div>
                     </div>
+                    <button class="export-btn" id="trendExportBtn" onclick="exportTrendCSV()"> Export CSV</button>
                 </div>
             </div>
             <div id="trendChart" style="width:100%; height:460px;"></div>
@@ -407,6 +423,7 @@
                                height:34px;padding:0 10px;border:1px solid #ccc;
                                border-radius:6px;font-size:13px;cursor:pointer;">
                     </select>
+                    <button class="export-btn" id="compareExportBtn" onclick="exportCompareCSV()"> Export CSV</button>
                 </div>
             </div>
             <div id="compareChart" style="width:100%; height:420px;"></div>
@@ -464,6 +481,14 @@ let countryColorMap = {};
 // Fixed blue used for the monthly boxplot (thin-line style, matches the rest
 // of the dashboard's blue accents rather than cycling per-country colors)
 const BOX_COLOR = '#2980b9';
+
+// ▼ ADDED: caches of the data currently backing each chart, refreshed every
+// time that chart is (re)drawn — used for CSV export so downloads always
+// match what's on screen without re-deriving from raw data or the DOM.
+let lastA85Export      = null; // { countries, priceMin, priceMax }
+let lastBoxplotExport  = null; // { countries, rows: [{country, month, low, q1, median, q3, high, outlierCount}] }
+let lastTrendExport    = null; // { freq, keys, priceSeries: [{name,data}], ratioSeries: [{name,data}] }
+let lastCompareExport  = null; // { country, freq, keys, imbalVals, spotVals }
 
 /* ================================================================
    CSV HELPERS
@@ -976,6 +1001,13 @@ function drawTrend() {
         };
     });
 
+    // ▼ ADDED: cache for CSV export
+    lastTrendExport = {
+        freq, keys,
+        priceSeries: priceSeriesArr.map(s => ({ name: s.name, data: s.data })),
+        ratioSeries: ratioSeriesArr.map(s => ({ name: s.name, data: s.data }))
+    };
+
     trendChart.setOption({
         tooltip: { trigger: 'axis', axisPointer: { type: 'cross', lineStyle: { color: '#bbb' } },
             formatter: tooltipFmt },
@@ -1040,6 +1072,13 @@ function drawCompare() {
     const imbalMap = aggMap(imbalanceData.data);
     const spotMap  = spotData ? aggMap(spotData.data) : null;
 
+    // ▼ ADDED: cache for CSV export
+    lastCompareExport = {
+        country, freq, keys,
+        imbalVals: keys.map(k => imbalMap[k] != null ? +imbalMap[k].toFixed(3) : null),
+        spotVals: spotMap ? keys.map(k => spotMap[k] != null ? +spotMap[k].toFixed(3) : null) : null
+    };
+
     const yearArea = buildYearMarkArea(keys);
     const rotate = (freq === 'daily' || freq === 'weekly') && keys.length > 60 ? 30 : 0;
 
@@ -1103,6 +1142,9 @@ function drawA85() {
     const yearArea = buildYearMarkArea(allDates);
 
     const { min: priceMin, max: priceMax } = a85PriceFilter;
+
+    // ▼ ADDED: cache for CSV export
+    lastA85Export = { countries: countries.slice(), priceMin, priceMax };
 
     // Each point: [ISO datetime string "YYYY-MM-DD HH:MM", value]
     // No aggregation – every 15-min row becomes one scatter point
@@ -1301,6 +1343,10 @@ function drawBoxplot() {
     const yearArea = buildYearMarkArea(months);
     const n = countries.length;
 
+    // ▼ ADDED: flat rows (one per country/month) collected during the series
+    // build below, cached for CSV export once complete
+    const boxExportRows = [];
+
     const series = countries.map((c, idx) => {
         const color = BOX_COLOR;
 
@@ -1313,6 +1359,11 @@ function drawBoxplot() {
             if (!stats) return;
             const monthIndex = monthIndexMap.get(m);
             renderData.push({ monthIndex, ...stats });
+            boxExportRows.push({
+                country: c, month: m,
+                low: stats.low, q1: stats.q1, median: stats.median,
+                q3: stats.q3, high: stats.high, outlierCount: stats.outliers.length
+            });
             // extra dims (outlier min/max) so the y-axis auto-scale accounts
             // for outliers even though they aren't part of the box itself
             const outMin = stats.outliers.length ? Math.min(...stats.outliers) : stats.low;
@@ -1349,6 +1400,9 @@ function drawBoxplot() {
             ...(idx === 0 && yearArea ? { markArea: yearArea } : {})
         };
     });
+
+    // ▼ ADDED: cache for CSV export
+    lastBoxplotExport = { countries: countries.slice(), rows: boxExportRows };
 
     const rotate = months.length > 24 ? 30 : 0;
 
@@ -1558,6 +1612,115 @@ function initChart1Controls() {
     }
     document.getElementById('hourStart').addEventListener('change', applyHourRange);
     document.getElementById('hourEnd').addEventListener('change',   applyHourRange);
+}
+
+/* ================================================================
+   ▼ ADDED: CSV Export functions
+================================================================ */
+
+// Generic CSV builder: rows is an array of arrays (each inner array = one row of cell values)
+function toCSV(rows) {
+    return rows.map(r => r.map(csvEscape).join(',')).join('\r\n');
+}
+function csvEscape(v) {
+    if (v === null || v === undefined) return '';
+    const s = String(v);
+    return /[",\r\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+}
+function downloadCSV(filename, csvString) {
+    // BOM so Excel opens UTF-8 (€ sign, etc.) correctly
+    const blob = new Blob(['﻿' + csvString], { type: 'text/csv;charset=utf-8;' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+
+// --- Export: Imbalance Price – 15-min scatter (Chart 0) ---
+function exportA85CSV() {
+    if (!lastA85Export || !lastA85Export.countries.length || !a85Data) {
+        alert('No data loaded yet.');
+        return;
+    }
+    const { countries, priceMin, priceMax } = lastA85Export;
+
+    const rows = [['Timestamp', 'Country', 'Price (EUR/MWh)']];
+    a85Data.data.forEach(pt => {
+        countries.forEach(c => {
+            const n = pt.values[c];
+            if (n == null || isNaN(n)) return;
+            if (priceMin != null && n < priceMin) return;
+            if (priceMax != null && n > priceMax) return;
+            rows.push([pt.label, c, n.toFixed(2)]);
+        });
+    });
+
+    downloadCSV(`imbalance_15min_${countries.join('-')}.csv`, toCSV(rows));
+}
+
+// --- Export: Monthly Imbalance Price Distribution / boxplot (Chart 0b) ---
+function exportBoxplotCSV() {
+    if (!lastBoxplotExport || !lastBoxplotExport.rows.length) {
+        alert('No data loaded yet.');
+        return;
+    }
+    const { countries, rows: boxRows } = lastBoxplotExport;
+
+    const rows = [['Country', 'Month', 'Lower Whisker (P5)', 'Q1', 'Median', 'Q3', 'Upper Whisker (P95)', 'Outlier Count']];
+    boxRows.forEach(r => {
+        rows.push([r.country, r.month, r.low, r.q1, r.median, r.q3, r.high, r.outlierCount]);
+    });
+
+    downloadCSV(`imbalance_boxplot_${countries.join('-')}.csv`, toCSV(rows));
+}
+
+// --- Export: Imbalance Price Trends (Chart 1) ---
+function exportTrendCSV() {
+    if (!lastTrendExport || !lastTrendExport.keys.length) {
+        alert('No data loaded yet.');
+        return;
+    }
+    const { freq, keys, priceSeries, ratioSeries } = lastTrendExport;
+
+    const header = ['Period'];
+    priceSeries.forEach(s => header.push(`${s.name} Imbalance Price (EUR/MWh)`));
+    ratioSeries.forEach(s => header.push(`${s.name.replace('(Solar+Wind)/Load', '').trim()} (Solar+Wind)/Load (%)`));
+
+    const rows = [header];
+    keys.forEach((k, i) => {
+        const r = [k];
+        priceSeries.forEach(s => r.push(s.data[i] != null ? s.data[i] : ''));
+        ratioSeries.forEach(s => r.push(s.data[i] != null ? (s.data[i] * 100).toFixed(2) : ''));
+        rows.push(r);
+    });
+
+    const countryPart = priceSeries.map(s => s.name).join('-') || 'none';
+    downloadCSV(`imbalance_trend_${freq}_${countryPart}.csv`, toCSV(rows));
+}
+
+// --- Export: Imbalance Price vs Day-Ahead Price (Chart 2) ---
+function exportCompareCSV() {
+    if (!lastCompareExport || !lastCompareExport.keys.length) {
+        alert('No data loaded yet.');
+        return;
+    }
+    const { country, freq, keys, imbalVals, spotVals } = lastCompareExport;
+
+    const header = ['Period', `${country} Imbalance (EUR/MWh)`];
+    if (spotVals) header.push(`${country} Day-Ahead (EUR/MWh)`);
+
+    const rows = [header];
+    keys.forEach((k, i) => {
+        const r = [k, imbalVals[i] != null ? imbalVals[i] : ''];
+        if (spotVals) r.push(spotVals[i] != null ? spotVals[i] : '');
+        rows.push(r);
+    });
+
+    downloadCSV(`imbalance_vs_dayahead_${country}_${freq}.csv`, toCSV(rows));
 }
 
 /* ================================================================

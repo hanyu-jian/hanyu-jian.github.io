@@ -368,6 +368,33 @@
             color: #fff;
         }
 
+        /* ▼ ADDED: Export button styles */
+        .export-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 7px 14px;
+            font-size: 12px;
+            font-weight: 600;
+            color: #2c3e50;
+            background: #fff;
+            border: 1px solid #ced4da;
+            border-radius: 6px;
+            cursor: pointer;
+            white-space: nowrap;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            transition: background 0.15s, border-color 0.15s;
+        }
+
+        .export-btn:hover {
+            background: #f0f4f8;
+            border-color: #5a8fc2;
+        }
+
+        .export-btn:active {
+            background: #e6ecf2;
+        }
+
         .full-width-card {
             grid-column: 1 / -1;
         }
@@ -620,6 +647,7 @@
                             <button data-freq="quarterly">Quarterly</button>
                             <button data-freq="yearly">Yearly</button>
                         </div>
+                        <button class="export-btn" id="overviewExportBtn" onclick="exportOverviewCSV()"> Export CSV</button>
                     </div>
                 </div>
                 <div id="overviewChart" style="width:100%; height:460px;"></div>
@@ -627,9 +655,15 @@
 
             <!-- ===== 2. Hourly Average + Map ===== -->
             <div class="chart-card full-width-card">
-                <h3 style="font-size:18px;font-weight:500;color:#2c3e50;border-left:4px solid #2c3e50;padding-left:12px;margin-bottom:14px;">
-                    Hourly Average Price (selected month) &amp; European Map
-                </h3>
+                <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; margin-bottom:14px;">
+                    <h3 style="font-size:18px;font-weight:500;color:#2c3e50;border-left:4px solid #2c3e50;padding-left:12px;margin:0;">
+                        Hourly Average Price (selected month) &amp; European Map
+                    </h3>
+                    <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                        <button class="export-btn" id="hourlyAvgExportBtn" onclick="exportHourlyAvgCSV()"> Export Hourly CSV</button>
+                        <button class="export-btn" id="mapExportBtn" onclick="exportMapCSV()"> Export Map CSV</button>
+                    </div>
+                </div>
                 <div class="dual-panel">
                     <div>
                         <div class="card-control">
@@ -672,6 +706,7 @@
                                    height:34px;padding:0 10px;border:1px solid #ccc;
                                    border-radius:6px;font-size:13px;cursor:pointer;">
                         </select>
+                        <button class="export-btn" id="yoyExportBtn" onclick="exportYoyCSV()"> Export CSV</button>
                     </div>
                 </div>
                 <div id="yoyChart" style="width:100%; height:400px;"></div>
@@ -683,6 +718,9 @@
                     <div>
                         <h3>Price Difference</h3>
                         <div class="subtitle">Average difference per period across selected country pairs (if positive, first country is higher)</div>
+                    </div>
+                    <div class="chart-card-controls">
+                        <button class="export-btn" id="diffExportBtn" onclick="exportDiffCSV()"> Export CSV</button>
                     </div>
                 </div>
 
@@ -727,6 +765,13 @@
             yoyChart = null;
         let map = null,
             geojsonLayer = null;
+
+        // ▼ ADDED: caches of currently rendered chart data, used for CSV export
+        let lastOverviewData = null;   // { year, freq, countries, keys, series }
+        let lastHourlyAvgData = null;  // { year, month, countries, hours, values }
+        let lastMapData = null;        // { year, month, prices }
+        let lastYoyData = null;        // { country, seriesData }
+        let lastDiffData = null;       // { months, series: [{name, data}] }
 
         const YOY_YEARS = [2024, 2025, 2026];
         const YOY_COLORS = { 2024: '#5a9bd4', 2025: '#e8783a', 2026: '#3aab6d' };
@@ -930,10 +975,13 @@
             const year = parseInt(document.getElementById('yearSelect').value);
             const freq = state.freq;
             const countries = getSelectedCountries();
-            if (!year || !countries.length) { overviewChart.setOption({ series: [] }, true); return; }
+            if (!year || !countries.length) { lastOverviewData = null; overviewChart.setOption({ series: [] }, true); return; }
 
             const { keys, series } = aggregateByFreq(fullData.data, year, countries, freq);
             const rotate = (freq === 'hourly' || freq === 'daily') && keys.length > 60 ? 30 : 0;
+
+            // ▼ ADDED: cache for CSV export
+            lastOverviewData = { year, freq, countries: countries.slice(), keys, series };
 
             overviewChart.setOption({
                 tooltip: { trigger: 'axis', axisPointer: { type: 'cross', lineStyle: { color: '#bbb' } },
@@ -977,7 +1025,7 @@
             const year = parseInt(document.getElementById('yearSelect').value);
             const month = parseInt(document.getElementById('monthSelect').value);
             const countries = getSelectedCountries();
-            if (!year || !month || !countries.length) return;
+            if (!year || !month || !countries.length) { lastHourlyAvgData = null; return; }
 
             const sum = {},
                 cnt = {};
@@ -993,6 +1041,12 @@
             });
 
             const hours = Array.from({ length: 24 }, (_, i) => `${i}:00`);
+            const values = {};
+            countries.forEach(c => { values[c] = sum[c].map((s, i) => cnt[c][i] > 0 ? s / cnt[c][i] : null); });
+
+            // ▼ ADDED: cache for CSV export
+            lastHourlyAvgData = { year, month, countries: countries.slice(), hours, values };
+
             hourlyAvgChart.setOption({
                 tooltip: { trigger: 'axis', formatter: tooltipFmt },
                 legend: { ...commonLegendStyle, bottom: 0 },
@@ -1006,7 +1060,7 @@
                     const seriesItem = {
                         name: c,
                         type: 'line',
-                        data: sum[c].map((s, i) => cnt[c][i] > 0 ? s / cnt[c][i] : null),
+                        data: values[c],
                         connectNulls: false,
                         lineStyle,
                         symbol: 'circle',
@@ -1055,6 +1109,9 @@
                     seriesData[y].push(g.cnt > 0 ? +(g.sum / g.cnt).toFixed(2) : null);
                 }
             });
+
+            // ▼ ADDED: cache for CSV export
+            lastYoyData = { country, seriesData };
 
             yoyChart.setOption({
                 tooltip: {
@@ -1162,6 +1219,9 @@
                 lineStyle: { width: 2, color: colors[idx % colors.length] },
                 itemStyle: { color: colors[idx % colors.length] }
             }));
+
+            // ▼ ADDED: cache for CSV export
+            lastDiffData = { months, series: series.map(s => ({ name: s.name, data: s.data })) };
 
             diffChart.setOption({
                 tooltip: { trigger: 'axis', formatter: tooltipFmt },
@@ -1274,6 +1334,9 @@
             const minP = vals.length ? Math.min(...vals) : null;
             const maxP = vals.length ? Math.max(...vals) : null;
             updateLegend(minP, maxP);
+
+            // ▼ ADDED: cache for CSV export
+            lastMapData = { year, month, prices: { ...prices } };
 
             try {
                 const res = await fetch(
@@ -1473,6 +1536,111 @@
                 drawHourlyAvg();
                 drawMap();
             });
+        }
+
+        /* ============================================================
+           ▼ ADDED: CSV Export helpers & functions
+           ============================================================ */
+
+        // Generic CSV builder: rows is an array of arrays (each inner array = one row of cell values)
+        function toCSV(rows) {
+            return rows.map(r => r.map(csvEscape).join(',')).join('\r\n');
+        }
+        function csvEscape(v) {
+            if (v === null || v === undefined) return '';
+            const s = String(v);
+            return /[",\r\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+        }
+        function downloadCSV(filename, csvString) {
+            // BOM so Excel opens UTF-8 (€ sign, etc.) correctly
+            const blob = new Blob(['﻿' + csvString], { type: 'text/csv;charset=utf-8;' });
+            const url  = URL.createObjectURL(blob);
+            const a    = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        // --- Export 1: Electricity Price Trends (overview line chart) ---
+        function exportOverviewCSV() {
+            if (!lastOverviewData || !lastOverviewData.keys.length) { alert('No data loaded yet.'); return; }
+            const { year, freq, countries, keys, series } = lastOverviewData;
+
+            const rows = [['Period', ...countries.map(c => `${c} (EUR/MWh)`)]];
+            keys.forEach((k, i) => {
+                rows.push([k, ...countries.map(c => {
+                    const v = series[c][i];
+                    return (v !== null && v !== undefined) ? v.toFixed(2) : '';
+                })]);
+            });
+
+            downloadCSV(`price_trends_${year}_${freq}.csv`, toCSV(rows));
+        }
+
+        // --- Export 2a: Hourly Average Price (selected month) line chart ---
+        function exportHourlyAvgCSV() {
+            if (!lastHourlyAvgData || !lastHourlyAvgData.countries.length) { alert('No data loaded yet.'); return; }
+            const { year, month, countries, hours, values } = lastHourlyAvgData;
+
+            const rows = [['Hour', ...countries.map(c => `${c} (EUR/MWh)`)]];
+            hours.forEach((h, i) => {
+                rows.push([h, ...countries.map(c => {
+                    const v = values[c][i];
+                    return (v !== null && v !== undefined) ? v.toFixed(2) : '';
+                })]);
+            });
+
+            downloadCSV(`hourly_avg_${year}_${String(month).padStart(2, '0')}.csv`, toCSV(rows));
+        }
+
+        // --- Export 2b: European Map (monthly average price per country) ---
+        function exportMapCSV() {
+            if (!lastMapData || !Object.keys(lastMapData.prices).length) { alert('No data loaded yet.'); return; }
+            const { year, month, prices } = lastMapData;
+
+            const rows = [['Country', 'Average Price (EUR/MWh)']];
+            Object.keys(prices).sort().forEach(c => {
+                const v = prices[c];
+                rows.push([c, (v !== null && v !== undefined) ? v.toFixed(2) : '']);
+            });
+
+            downloadCSV(`map_avg_price_${year}_${String(month).padStart(2, '0')}.csv`, toCSV(rows));
+        }
+
+        // --- Export 3: Year-over-Year Monthly Price Comparison ---
+        function exportYoyCSV() {
+            if (!lastYoyData) { alert('No data loaded yet.'); return; }
+            const { country, seriesData } = lastYoyData;
+
+            const rows = [['Month', ...YOY_YEARS.map(y => `${y} (EUR/MWh)`)]];
+            MONTH_LABELS.forEach((m, i) => {
+                rows.push([m, ...YOY_YEARS.map(y => {
+                    const v = seriesData[y][i];
+                    return (v !== null && v !== undefined) ? v.toFixed(2) : '';
+                })]);
+            });
+
+            downloadCSV(`yoy_monthly_${country}.csv`, toCSV(rows));
+        }
+
+        // --- Export 4: Price Difference (selected country pairs) ---
+        function exportDiffCSV() {
+            if (!lastDiffData || !lastDiffData.series.length) { alert('No data loaded yet.'); return; }
+            const { months, series } = lastDiffData;
+
+            const rows = [['Month', ...series.map(s => `${s.name} (EUR/MWh)`)]];
+            months.forEach((mk, i) => {
+                rows.push([mk, ...series.map(s => {
+                    const v = s.data[i];
+                    return (v !== null && v !== undefined) ? v.toFixed(2) : '';
+                })]);
+            });
+
+            const pairLabel = series.map(s => s.name.replace(/\s+/g, '')).join('_') || 'none';
+            downloadCSV(`price_difference_${pairLabel}.csv`, toCSV(rows));
         }
 
         init();

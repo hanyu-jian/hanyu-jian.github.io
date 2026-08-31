@@ -153,6 +153,19 @@
         .range-selector select:focus { outline: none; border-color: #2c3e50; }
         .range-sep { font-size: 13px; color: #888; font-weight: 600; }
 
+        /* ▼ ADDED: Export button styles */
+        .export-btn {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 7px 14px; font-size: 12px; font-weight: 600;
+            color: #2c3e50; background: #fff;
+            border: 1px solid #ced4da; border-radius: 6px;
+            cursor: pointer; white-space: nowrap;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            transition: background 0.15s, border-color 0.15s;
+        }
+        .export-btn:hover { background: #f0f4f8; border-color: #5a8fc2; }
+        .export-btn:active { background: #e6ecf2; }
+
         #barChart { width: 100%; min-height: 500px; }
 
         /* ── Forecast Table ── */
@@ -325,10 +338,13 @@
         <!-- ── Left: Map panel ── -->
         <div class="map-panel">
             <div class="map-panel-header">
-                <h3 style="font-size:15px;font-weight:600;color:#2c3e50; display:flex; align-items:center; gap:6px;">
-                    Installed Capacity by Country
-                    <span class="info-icon" id="infoBtn">i</span>
-                </h3>
+                <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
+                    <h3 style="font-size:15px;font-weight:600;color:#2c3e50; display:flex; align-items:center; gap:6px;">
+                        Installed Capacity by Country
+                        <span class="info-icon" id="infoBtn">i</span>
+                    </h3>
+                    <button class="export-btn" id="mapExportBtn" onclick="exportMapCSV()"> Export CSV</button>
+                </div>
                 <p style="font-size:11px;color:#888;margin-top:3px;">
                     Click a country to explore
                 </p>
@@ -354,7 +370,10 @@
                 <div class="chart-card">
                     <div class="chart-card-inner">
                         <div class="chart-top-bar">
-                            <h3 id="barTitle">Installed Capacity by Country</h3>
+                            <div style="display:flex; align-items:center; gap:10px;">
+                                <h3 id="barTitle">Installed Capacity by Country</h3>
+                                <button class="export-btn" id="barExportBtn" onclick="exportCapacityMixCSV()"> Export CSV</button>
+                            </div>
                             <div class="range-selector">
                                 <label>📅 Time Range:</label>
                                 <select id="startSel"></select>
@@ -375,6 +394,7 @@
                     <div class="forecast-table-header">
                         <h4>2030 NECP Forecast</h4>
                         <span id="forecastSubtitle">Click a country on the map to view</span>
+                        <button class="export-btn" id="fcExportBtn" onclick="exportForecastCSV()" style="margin-left:auto;"> Export CSV</button>
                     </div>
                     <div id="forecastTableBody">
                         <div class="forecast-table-hint">
@@ -485,6 +505,11 @@ const S = {
     mapYear: null, country: null, geoFeatures: [],
 };
 let barInst = null;
+
+// ▼ ADDED: caches of currently rendered visualization data, used for CSV export
+let lastMapData      = null; // { year, rows:[{cc,label,totalMW}] } — backs the choropleth map
+let lastBarData      = null; // { country, periods, types, seriesData:[{name,dataGW}], periodTotalsGW } — backs the stacked bar chart
+let lastForecastData = null; // { cc, label, period, ... } — backs the 2030 NECP forecast table
 
 async function loadCSV() {
     return new Promise((res, rej) => {
@@ -598,6 +623,7 @@ function renderForecastTable(cc) {
     if (!info) {
         bodyEl.innerHTML = `<div class="forecast-table-hint">No data available for ${label}</div>`;
         subtitleEl.textContent = label;
+        lastForecastData = null; // ▼ ADDED: nothing to export
         return;
     }
 
@@ -623,6 +649,14 @@ function renderForecastTable(cc) {
 
     const fmtGW = v => (v === null || v === undefined || isNaN(v)) ? `<span style="color:#bbb">—</span>` : `${v.toFixed(2)} GW`;
     const fmtPct = v => (v === null || v === undefined || isNaN(v)) ? `<span style="color:#bbb">—</span>` : `${v.toFixed(1)}%`;
+
+    // ▼ ADDED: cache for CSV export
+    lastForecastData = {
+        cc, label, period: info.period,
+        solarNowGW, nowSolarSharePct, solar2030GW, solar2030SharePct,
+        windNowGW, nowWindSharePct, wind2030GW, wind2030SharePct,
+        totalNowGW,
+    };
 
     bodyEl.innerHTML = `
         <table class="forecast-table">
@@ -707,6 +741,9 @@ function buildMap() {
         html += `<path d="${d}" fill="#c8dce8" stroke="#b0c8d8" stroke-width="0.6" stroke-linejoin="round"/>`;
     });
 
+    // ▼ ADDED: cache for CSV export
+    const mapRows = [];
+
     S.geoFeatures.forEach(f => {
         const cc = getISO(f);
         if (!TARGET.includes(cc)) return;
@@ -718,6 +755,7 @@ function buildMap() {
         const sw     = isSelected ? 2 : 1.2;
         const total  = getTotalForMapYear(cc);
         const totalGW = (total / 1000).toFixed(1);
+        mapRows.push({ cc, label: COUNTRY_LABEL[cc] || cc, totalMW: total });
         html += `<path d="${d}" fill="${fill}" stroke="${stroke}" stroke-width="${sw}" stroke-linejoin="round" filter="url(#shad)" style="cursor:pointer;transition:fill 0.15s;" onmouseenter="onMapHover(event,'${cc}')" onmouseleave="onMapLeave()" onclick="onMapClick('${cc}')"/>`;
         const ctr = getFeatureCentroid(f);
         if (ctr) {
@@ -728,6 +766,9 @@ function buildMap() {
         }
     });
     svg.innerHTML = html;
+
+    // ▼ ADDED: cache for CSV export
+    lastMapData = { year: S.mapYear, rows: mapRows };
 }
 
 function getFeatureCentroid(feature) {
@@ -818,6 +859,15 @@ function renderBar(cc) {
         itemStyle: { color: typeToColor(type), borderColor: typeToColor(type) === '#f9d923' ? '#ccb800' : undefined, borderWidth: typeToColor(type) === '#f9d923' ? 0.5 : 0 },
         data: periods.map(p => { const row = getRowsForCountryPeriod(cc, p).find(r => r.type === type); return row ? +(row.mw / 1000).toFixed(3) : 0; }),
     }));
+
+    // ▼ ADDED: cache for CSV export
+    lastBarData = {
+        country: cc,
+        periods: periods.slice(),
+        types: types.slice(),
+        seriesData: series.map(s => ({ name: s.name, dataGW: s.data.slice() })),
+        periodTotalsGW: periodTotalsGW.slice(),
+    };
 
     const capSeries = {
         name: '_cap', type: 'bar', stack: 'total', barMaxWidth: 55,
@@ -954,6 +1004,88 @@ async function init() {
 }
 
 init();
+
+/* ============================================================
+   ▼ ADDED: CSV Export functions
+   ============================================================ */
+
+// Generic CSV builder: rows is an array of arrays (each inner array = one row of cell values)
+function toCSV(rows) {
+    return rows.map(r => r.map(csvEscape).join(',')).join('\r\n');
+}
+function csvEscape(v) {
+    if (v === null || v === undefined) return '';
+    const s = String(v);
+    return /[",\r\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+}
+function downloadCSV(filename, csvString) {
+    // BOM so Excel opens UTF-8 correctly
+    const blob = new Blob(['﻿' + csvString], { type: 'text/csv;charset=utf-8;' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+
+// --- Export 1: Choropleth map — installed capacity total by country for the selected map year ---
+function exportMapCSV() {
+    if (!lastMapData || !lastMapData.rows.length) { alert('No data loaded yet.'); return; }
+
+    const rows = [['Country Code', 'Country', 'Year', 'Total Installed Capacity (GW)']];
+    lastMapData.rows.slice().sort((a, b) => b.totalMW - a.totalMW).forEach(r => {
+        rows.push([r.cc, r.label, lastMapData.year, (r.totalMW / 1000).toFixed(3)]);
+    });
+
+    downloadCSV(`capacity_by_country_${lastMapData.year}.csv`, toCSV(rows));
+}
+
+// --- Export 2: Stacked bar chart — capacity mix by production type across the selected period range ---
+// (also covers the "click a country" detail panel, which shows the latest-period slice of this same data)
+function exportCapacityMixCSV() {
+    if (!lastBarData) { alert('Select a country on the map first.'); return; }
+
+    const { country, periods, types, seriesData, periodTotalsGW } = lastBarData;
+    const rows = [['Period', ...types, 'Total (GW)']];
+
+    periods.forEach((p, i) => {
+        const row = [formatPeriodLabel(p)];
+        types.forEach(t => {
+            const s = seriesData.find(sd => sd.name === t);
+            row.push(s ? s.dataGW[i].toFixed(3) : '');
+        });
+        row.push(periodTotalsGW[i].toFixed(3));
+        rows.push(row);
+    });
+
+    const safeStart = S.startPeriod.replace(/\//g, '-');
+    const safeEnd   = S.endPeriod.replace(/\//g, '-');
+    downloadCSV(`capacity_mix_${country}_${safeStart}_${safeEnd}.csv`, toCSV(rows));
+}
+
+// --- Export 3: 2030 NECP forecast table — current vs. forecast solar & wind for the selected country ---
+function exportForecastCSV() {
+    if (!lastForecastData) { alert('Select a country on the map first.'); return; }
+
+    const d = lastForecastData;
+    const pct = v => (v === null || v === undefined || isNaN(v)) ? '' : v.toFixed(2);
+    const rows = [
+        ['Country Code', 'Country', 'Latest Period', 'Energy Type',
+         'Installed Capacity (GW)', 'Share of Total (%)',
+         '2030 Forecast (GW)', '2030 Share of Total (%)'],
+        [d.cc, d.label, d.period, 'Solar PV',
+         d.solarNowGW.toFixed(3), pct(d.nowSolarSharePct),
+         d.solar2030GW !== null ? d.solar2030GW.toFixed(2) : '', pct(d.solar2030SharePct)],
+        [d.cc, d.label, d.period, 'Wind',
+         d.windNowGW.toFixed(3), pct(d.nowWindSharePct),
+         d.wind2030GW !== null ? d.wind2030GW.toFixed(2) : '', pct(d.wind2030SharePct)],
+    ];
+
+    downloadCSV(`forecast_2030_${d.cc}.csv`, toCSV(rows));
+}
 </script>
 </body>
 </html>

@@ -98,6 +98,18 @@
         .stag-charge { background: #e8f4fd; color: #1a6fa0; border: 1px solid #b3d9f5; }
         .stag-da     { background: #e8f0f8; color: #2c5f8a; border: 1px solid #9fbfd8; }
         .stag-id3    { background: #fdf0eb; color: #b94a24; border: 1px solid #f5c4b0; }
+        /* ▼ ADDED: Export button styles (matches price-spread.html) */
+        .export-btn {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 7px 14px; font-size: 12px; font-weight: 600;
+            color: #2c3e50; background: #fff;
+            border: 1px solid #ced4da; border-radius: 6px;
+            cursor: pointer; white-space: nowrap;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            transition: background 0.15s, border-color 0.15s;
+        }
+        .export-btn:hover { background: #f0f4f8; border-color: #5a8fc2; }
+        .export-btn:active { background: #e6ecf2; }
         @media (max-width: 900px) { .kpi-grid { grid-template-columns: 1fr; } }
         @media (max-width: 800px) { .content-area { padding: 14px; } .header { padding: 16px 16px 0 16px; } .sub-nav { padding: 0 10px; overflow-x: auto; } .controls { padding: 14px; } .three-year-hm { flex-direction: column; } }
     </style>
@@ -121,9 +133,12 @@
     <div class="content-area">
         <!-- Heatmap -->
         <div class="section-card">
-            <div class="section-head">
-                <h2>Intraday vs Day-Ahead Price Spread Heatmap (H01–H24)</h2>
-                <p>Spread = ID3 − DA &nbsp;|&nbsp; Hourly average of 15-min data &nbsp;|&nbsp; Unit: €/MWh</p>
+            <div class="section-head" style="display:flex; align-items:center; justify-content:space-between;">
+                <div>
+                    <h2>Intraday vs Day-Ahead Price Spread Heatmap (H01–H24)</h2>
+                    <p>Spread = ID3 − DA &nbsp;|&nbsp; Hourly average of 15-min data &nbsp;|&nbsp; Unit: €/MWh</p>
+                </div>
+                <button class="export-btn" id="hmExportBtn" onclick="exportIntradayHeatmapCSV()"> Export CSV</button>
             </div>
             <div class="section-body">
                 <div class="spinner-wrap show" id="hmSpinner"><div class="spinner"></div> Loading data…</div>
@@ -138,8 +153,9 @@
 
         <!-- Uplift panel -->
         <div class="section-card">
-            <div class="section-head">
+            <div class="section-head" style="display:flex; align-items:center; justify-content:space-between;">
                 <h2>Arbitrage DA vs ID3</h2>
+                <button class="export-btn" id="upliftExportBtn" onclick="exportArbitrageCSV()"> Export CSV</button>
             </div>
             <div class="section-body">
 
@@ -236,6 +252,10 @@ const hmData = {};
 
 // Raw 15-min data store: key = "YYYY-MM-DD", value = { month, hourSlots: { h: [{ da, id3 }, ...] } }
 let rawDayData = {};
+
+// ▼ ADDED: cache of the currently rendered arbitrage (uplift) panel data, used for CSV export
+let lastMonthlySeries  = null;
+let lastUpliftSummary  = null;
 
 window.addEventListener('DOMContentLoaded', () => {
     ['selYear','startMonth','endMonth'].forEach(id => {
@@ -461,6 +481,9 @@ function renderUpliftPanel() {
     if (!days.length || !months.length) {
         ['kpiCum','kpiMonthly','kpiAvg'].forEach(id => document.getElementById(id).textContent = 'N/A');
         document.getElementById('monthlyChart').innerHTML = '';
+        // ▼ ADDED: clear CSV export cache when there is no data to show
+        lastMonthlySeries = null;
+        lastUpliftSummary = null;
         return;
     }
 
@@ -484,6 +507,9 @@ function renderUpliftPanel() {
     document.getElementById('kpiMonthly').textContent = `${avgMonthlyUplift.toFixed(2)} €/MWh`;
     document.getElementById('kpiAvg').textContent = isNaN(totalPremium) ? 'N/A' : `${totalPremium.toFixed(2)}%`;
 
+    // ▼ ADDED: cache monthly series + summary KPIs for CSV export
+    lastMonthlySeries = months;
+    lastUpliftSummary = { year, sm, em, mLbl, cum, avgMonthlyUplift, totalPremium };
 
     renderMonthlyChart(months);
 }
@@ -683,6 +709,86 @@ function priceColor(v, mn, mx, mid) {
     return `rgb(${Math.round(c0[0]+f*(c1[0]-c0[0]))},${Math.round(c0[1]+f*(c1[1]-c0[1]))},${Math.round(c0[2]+f*(c1[2]-c0[2]))})`;
 }
 function yieldFrame() { return new Promise(res => requestAnimationFrame(() => requestAnimationFrame(res))); }
+
+/* ============================================================
+   ▼ ADDED: CSV Export functions
+   ============================================================ */
+
+// Generic CSV builder: rows is an array of arrays (each inner array = one row of cell values)
+function toCSV(rows) {
+    return rows.map(r => r.map(csvEscape).join(',')).join('\r\n');
+}
+function csvEscape(v) {
+    if (v === null || v === undefined) return '';
+    const s = String(v);
+    return /[",\r\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+}
+function downloadCSV(filename, csvString) {
+    // BOM so Excel opens UTF-8 (€ sign) correctly
+    const blob = new Blob(['﻿' + csvString], { type: 'text/csv;charset=utf-8;' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+
+// --- Export 1: Intraday vs Day-Ahead Price Spread Heatmap (H01-H24 x 12 months x 3 years) ---
+function exportIntradayHeatmapCSV() {
+    const hasAnyData = YEARS.some(yr => hmData[yr]);
+    if (!hasAnyData) { alert('No data loaded yet.'); return; }
+
+    const rows = [];
+    rows.push(['Country', 'Year', 'Hour', ...MONTHS]);
+
+    YEARS.forEach(yr => {
+        const avg = hmData[yr] || null;
+        for (let h = 0; h < 24; h++) {
+            const hourLabel = `H${String(h + 1).padStart(2, '0')}`;
+            const rowVals = MONTHS.map((_, mo) => {
+                const v = avg ? avg[h][mo] : null;
+                return v !== null && v !== undefined ? v.toFixed(2) : '';
+            });
+            rows.push(['HU', yr, hourLabel, ...rowVals]);
+        }
+    });
+
+    downloadCSV('intraday_da_id3_spread_heatmap_HU.csv', toCSV(rows));
+}
+
+// --- Export 2: Arbitrage DA vs ID3 panel (monthly bar chart + summary KPIs) ---
+function exportArbitrageCSV() {
+    if (!lastMonthlySeries || !lastMonthlySeries.length || !lastUpliftSummary) {
+        alert('No data loaded yet.');
+        return;
+    }
+
+    const rows = [];
+    rows.push(['Month', 'DA Arbitrage (EUR/MWh, monthly total)', 'ID3 Arbitrage (EUR/MWh, monthly total)', 'ID3 Uplift (EUR/MWh, monthly total)', 'Days Count']);
+
+    lastMonthlySeries.forEach(d => {
+        rows.push([
+            MONTHS[d.month - 1],
+            d.netDA.toFixed(2),
+            d.netID3.toFixed(2),
+            d.spread.toFixed(2),
+            d.cnt
+        ]);
+    });
+
+    rows.push([]);
+    rows.push(['Summary Metric', 'Value']);
+    rows.push(['Year', lastUpliftSummary.year]);
+    rows.push(['Month Range', lastUpliftSummary.mLbl]);
+    rows.push(['Total Uplift (EUR/MWh)', lastUpliftSummary.cum.toFixed(1)]);
+    rows.push(['Monthly Avg Uplift (EUR/MWh)', lastUpliftSummary.avgMonthlyUplift.toFixed(2)]);
+    rows.push(['ID3 Premium (%)', isNaN(lastUpliftSummary.totalPremium) ? 'N/A' : lastUpliftSummary.totalPremium.toFixed(2)]);
+
+    downloadCSV(`arbitrage_da_id3_HU_${lastUpliftSummary.year}_${lastUpliftSummary.mLbl}.csv`, toCSV(rows));
+}
 </script>
 </body>
 </html>

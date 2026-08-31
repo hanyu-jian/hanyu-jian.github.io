@@ -618,13 +618,19 @@ function transformA85CSV(rows, mnbRates) {
 }
 
 /* raw_data/A85.csv is split by year (raw_data/{YEAR}/A85.csv) to stay under
-   GitHub's per-file size limit — fetch every year from 2024 to the current
-   year and concatenate. Missing years (404, e.g. next January before any
-   data lands) are skipped silently. */
+   GitHub's per-file size limit. The earliest year with data isn't hardcoded:
+   probe every year back to EARLIEST_PROBE_YEAR (a safe floor, well before
+   ENTSO-E transparency platform data exists) and keep whichever ones
+   actually respond with 2xx. Missing years (404, e.g. before data starts or
+   next January before any data lands) are skipped silently. */
+const EARLIEST_PROBE_YEAR = 2015;
+
 async function fetchRawYearlyCSV(name) {
-    const startYear = 2024;
     const endYear = new Date().getFullYear();
-    const years = Array.from({ length: endYear - startYear + 1 }, (_, i) => startYear + i);
+    const years = Array.from(
+        { length: endYear - EARLIEST_PROBE_YEAR + 1 },
+        (_, i) => EARLIEST_PROBE_YEAR + i
+    );
     const texts = await Promise.all(years.map(y =>
         fetch(`raw_data/${y}/${name}.csv`)
             .then(r => r.ok ? r.text() : null)

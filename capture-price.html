@@ -523,8 +523,6 @@
                         <select class="ctrl-select" id="tableRangeStart" style="min-width:70px;"></select>
                         <span style="font-size:13px;color:#6c757d;">to</span>
                         <select class="ctrl-select" id="tableRangeEnd" style="min-width:70px;"></select>
-                        <label>Country</label>
-                        <select class="ctrl-select" id="tableCountrySelect"></select>
                         <div class="table-source-toggle">
                             <button class="table-source-btn solar active" id="tableBtnSolar">☀ Solar</button>
                             <button class="table-source-btn wind"         id="tableBtnWind">💨 Wind</button>
@@ -596,7 +594,6 @@ const state = {
     capSource   : 'solar',
     negThreshSet: new Set(['negative']),
     displayMode : 'price',
-    tableCountry: 'HU',
     tableSource : 'solar',
     tableRangeStart: 1,
     tableRangeEnd  : 12
@@ -1001,7 +998,7 @@ function updateMapTitles() {
 
 function getTableYears() {
     const years = new Set();
-    (rawPrice[state.tableCountry] || []).forEach(h => years.add(parseInt(h.date.slice(0,4))));
+    (rawPrice[state.country] || []).forEach(h => years.add(parseInt(h.date.slice(0,4))));
     return [...years].sort();
 }
 
@@ -1009,12 +1006,12 @@ function getTableYears() {
 function tableAggregate(hours, filterFn) {
     const filtered = hours.filter(filterFn);
     if (!filtered.length) return null;
-    let sumPr=0, cntPr=0, sumGen=0, sumGenPost=0, sumRev=0, sumRevPre=0, sumNonPos=0;
+    let sumPr=0, cntPr=0, sumGen=0, sumGenPost=0, sumRev=0, sumRevPre=0, sumNeg=0, sumNonPos=0;
     filtered.forEach(h => {
         sumPr += h.pr; cntPr++;
         sumGen += h.gen; sumGenPost += h.genPost;
         sumRev += h.rev; sumRevPre += h.revPre;
-        sumNonPos += h.isNonPos;
+        sumNeg += h.isNeg; sumNonPos += h.isNonPos;
     });
     const baseload  = cntPr > 0     ? sumPr     / cntPr      : null;
     const capPost   = sumGenPost > 0 ? sumRev    / sumGenPost : null;
@@ -1022,12 +1019,12 @@ function tableAggregate(hours, filterFn) {
     const curtPct   = sumGen     > 0 ? (sumGen - sumGenPost) / sumGen * 100 : null;
     const ratioPost = (baseload && capPost !== null) ? capPost / baseload * 100 : null;
     const ratioPre  = (baseload && capPre  !== null) ? capPre  / baseload * 100 : null;
-    return { baseload, capPost, capPre, curtPct, ratioPost, ratioPre, nonPosHours: sumNonPos };
+    return { baseload, capPost, capPre, curtPct, ratioPost, ratioPre, negHours: sumNeg, nonPosHours: sumNonPos };
 }
 
 /* Build all row data for the table */
 function buildTableData() {
-    const country = state.tableCountry, source = state.tableSource;
+    const country = state.country, source = state.tableSource;
     const hours   = computeHourly(country, source);
     const years   = getTableYears();
 
@@ -1114,7 +1111,8 @@ function renderSummaryTable() {
         { key: 'baseload',  label: 'Baseload (EUR/MWh)',                    fmt: fmtEur,   colorFn: null,          span: years.length },
         { key: 'ratioPost', label: 'post-Curtailment (%)',                  fmt: fmtPct,   colorFn: ratioCellClass, span: years.length },
         { key: 'ratioPre',  label: 'pre-Curtailment (%)',                   fmt: fmtPct,   colorFn: ratioCellClass, span: years.length },
-        { key: 'nonPosHours',  label: 'Non-positive hours',                 fmt: fmtHours, colorFn: null,          span: years.length }
+        { key: 'negHours',     label: 'Negative hours (Price < 0)',         fmt: fmtHours, colorFn: null,          span: years.length },
+        { key: 'nonPosHours',  label: 'Non-positive hours (Price ≤ 0)',     fmt: fmtHours, colorFn: null,          span: years.length }
     ];
 
     let html = '<thead>';
@@ -1397,13 +1395,12 @@ function updateTitles() {
         document.getElementById('card2Title').textContent = `${sName} Capture Price – ${cName}`;
     }
     // Update table card title
-    const tName = COUNTRIES.find(c=>c.code===state.tableCountry)?.name ?? state.tableCountry;
     const tSrc  = state.tableSource==='solar' ? 'Solar' : 'Wind';
-    document.getElementById('card4Title').textContent = `Capture Price Summary Table – ${tName} · ${tSrc}`;
+    document.getElementById('card4Title').textContent = `Capture Price Summary Table – ${cName} · ${tSrc}`;
 }
 
 function renderAllChart2() { renderChart2Daily(); renderChart2Weekly(); renderChart2Monthly(); renderChart2Quarterly(); renderChart2Yearly(); }
-function renderAll() { updateTitles(); renderChart1(); renderAllChart2(); }
+function renderAll() { updateTitles(); renderChart1(); renderAllChart2(); renderSummaryTable(); }
 
 /* ═══════════════════════════════════════════════════════════
    UI SETUP
@@ -1513,19 +1510,7 @@ function bindMapControls() {
 }
 
 /* Table controls */
-function populateTableCountrySelect() {
-    const sel = document.getElementById('tableCountrySelect');
-    sel.innerHTML = COUNTRIES.map(c =>
-        `<option value="${c.code}" ${c.code===state.tableCountry?'selected':''}>${c.name}</option>`
-    ).join('');
-}
-
 function bindTableControls() {
-    document.getElementById('tableCountrySelect').addEventListener('change', e => {
-        state.tableCountry = e.target.value;
-        updateTitles();
-        renderSummaryTable();
-    });
     document.getElementById('tableBtnSolar').addEventListener('click', () => {
         state.tableSource='solar';
         document.getElementById('tableBtnSolar').classList.add('active');
@@ -1705,7 +1690,8 @@ function exportSummaryTableCSV() {
         ['baseload',    'Baseload (EUR/MWh)'],
         ['ratioPost',   'Capture Ratio post-Curtailment (%)'],
         ['ratioPre',    'Capture Ratio pre-Curtailment (%)'],
-        ['nonPosHours', 'Non-positive Hours']
+        ['negHours',    'Negative Hours (Price < 0)'],
+        ['nonPosHours', 'Non-positive Hours (Price <= 0)']
     ];
 
     const header = ['Period'];
@@ -1718,13 +1704,13 @@ function exportSummaryTableCSV() {
             row.byYear.forEach(d => {
                 const v = d ? d[key] : null;
                 if (v === null || v === undefined) { r.push(''); return; }
-                r.push(key === 'nonPosHours' ? Math.round(v).toString() : v.toFixed(2));
+                r.push((key === 'nonPosHours' || key === 'negHours') ? Math.round(v).toString() : v.toFixed(2));
             });
         });
         rows.push(r);
     });
 
-    downloadCSV(`capture_summary_${state.tableCountry}_${state.tableSource}.csv`, toCSV(rows));
+    downloadCSV(`capture_summary_${state.country}_${state.tableSource}.csv`, toCSV(rows));
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -1745,7 +1731,6 @@ async function main() {
     bindModeGroup();
     populateMapYearSelect();
     bindMapControls();
-    populateTableCountrySelect();
     bindTableControls();
 
     initCharts();

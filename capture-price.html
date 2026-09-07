@@ -527,10 +527,10 @@
                             <button class="table-source-btn solar active" id="tableBtnSolar">☀ Solar</button>
                             <button class="table-source-btn wind"         id="tableBtnWind">💨 Wind</button>
                         </div>
-                        <label>Hours</label>
+                        <label>Threshold</label>
                         <div class="btn-group-sm" id="tableThreshGroup">
                             <button class="active" data-thresh="negative">Price &lt; 0</button>
-                            <button               data-thresh="zero_only">Price = 0</button>
+                            <button               data-thresh="nonpositive">Price ≤ 0</button>
                         </div>
                         <button class="export-btn" id="summaryExportBtn" onclick="exportSummaryTableCSV()"> Export CSV</button>
                     </div>
@@ -600,7 +600,7 @@ const state = {
     negThreshSet: new Set(['negative']),
     displayMode : 'price',
     tableSource : 'solar',
-    tableThreshSet: new Set(['negative']),
+    tableThresh : 'negative',
     tableRangeStart: 1,
     tableRangeEnd  : 12
 };
@@ -1008,16 +1008,23 @@ function getTableYears() {
     return [...years].sort();
 }
 
-/* Aggregate full hourly data for a given year-filter function */
+/* Aggregate full hourly data for a given year-filter function.
+   The curtailment threshold (price < 0 vs price <= 0) is read from
+   state.tableThresh: it decides which hours count as curtailed for
+   curtPct/capPost/ratioPost, since "pre-curtailment" figures assume no
+   curtailment at all and don't depend on the threshold. */
 function tableAggregate(hours, filterFn) {
     const filtered = hours.filter(filterFn);
     if (!filtered.length) return null;
-    let sumPr=0, cntPr=0, sumGen=0, sumGenPost=0, sumRev=0, sumRevPre=0, sumNeg=0, sumZero=0, sumNonPos=0;
+    const curtailedIfNeg = state.tableThresh === 'negative';
+    let sumPr=0, cntPr=0, sumGen=0, sumGenPost=0, sumRev=0, sumRevPre=0, sumNeg=0, sumNonPos=0;
     filtered.forEach(h => {
         sumPr += h.pr; cntPr++;
-        sumGen += h.gen; sumGenPost += h.genPost;
-        sumRev += h.rev; sumRevPre += h.revPre;
-        sumNeg += h.isNeg; sumZero += h.isZero; sumNonPos += h.isNonPos;
+        const isCurtailed = curtailedIfNeg ? h.pr < 0 : h.pr <= 0;
+        const genPost = isCurtailed ? 0 : h.gen;
+        sumGen += h.gen; sumGenPost += genPost;
+        sumRev += genPost * h.pr; sumRevPre += h.gen * h.pr;
+        sumNeg += h.isNeg; sumNonPos += h.isNonPos;
     });
     const baseload  = cntPr > 0     ? sumPr     / cntPr      : null;
     const capPost   = sumGenPost > 0 ? sumRev    / sumGenPost : null;
@@ -1025,7 +1032,7 @@ function tableAggregate(hours, filterFn) {
     const curtPct   = sumGen     > 0 ? (sumGen - sumGenPost) / sumGen * 100 : null;
     const ratioPost = (baseload && capPost !== null) ? capPost / baseload * 100 : null;
     const ratioPre  = (baseload && capPre  !== null) ? capPre  / baseload * 100 : null;
-    return { baseload, capPost, capPre, curtPct, ratioPost, ratioPre, negHours: sumNeg, zeroHours: sumZero, nonPosHours: sumNonPos };
+    return { baseload, capPost, capPre, curtPct, ratioPost, ratioPre, negHours: sumNeg, nonPosHours: sumNonPos };
 }
 
 /* Build all row data for the table */
@@ -1105,19 +1112,11 @@ function ratioCellClass(v) {
 
 /* Threshold label + selected-hours value, mirroring the map's negative-hours toggle */
 function tableThreshLabel() {
-    const hasNeg = state.tableThreshSet.has('negative'), hasZero = state.tableThreshSet.has('zero_only');
-    if (hasNeg && hasZero) return 'Non-positive hours (Price ≤ 0)';
-    if (hasNeg) return 'Negative hours (Price < 0)';
-    if (hasZero) return 'Zero-price hours (Price = 0)';
-    return 'Hours';
+    return state.tableThresh === 'negative' ? 'Negative hours (hrs)' : 'Non-positive hours (hrs)';
 }
 function tableThreshHours(d) {
     if (!d) return null;
-    const hasNeg = state.tableThreshSet.has('negative'), hasZero = state.tableThreshSet.has('zero_only');
-    if (hasNeg && hasZero) return d.nonPosHours;
-    if (hasNeg) return d.negHours;
-    if (hasZero) return d.zeroHours;
-    return 0;
+    return state.tableThresh === 'negative' ? d.negHours : d.nonPosHours;
 }
 
 function renderSummaryTable() {
@@ -1551,12 +1550,9 @@ function bindTableControls() {
 
     document.querySelectorAll('#tableThreshGroup button').forEach(btn => {
         btn.addEventListener('click', () => {
-            const t = btn.dataset.thresh;
-            if (state.tableThreshSet.has(t)) {
-                if (state.tableThreshSet.size > 1) { state.tableThreshSet.delete(t); btn.classList.remove('active'); }
-            } else {
-                state.tableThreshSet.add(t); btn.classList.add('active');
-            }
+            state.tableThresh = btn.dataset.thresh;
+            document.querySelectorAll('#tableThreshGroup button').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
             renderSummaryTable();
         });
     });

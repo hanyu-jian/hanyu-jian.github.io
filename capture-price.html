@@ -1085,8 +1085,8 @@ function buildTableData() {
 }
 
 /* Format helpers */
-function fmtPct(v)   { return v===null ? '<span class="tbl-null">–</span>' : v.toFixed(0)+'%'; }
-function fmtEur(v)   { return v===null ? '<span class="tbl-null">–</span>' : v.toFixed(0); }
+function fmtPct(v)   { return v===null ? '<span class="tbl-null">–</span>' : v.toFixed(1)+'%'; }
+function fmtEur(v)   { return v===null ? '<span class="tbl-null">–</span>' : v.toFixed(1); }
 function fmtHours(v) { return v===null ? '<span class="tbl-null">–</span>' : v===0 ? '<span class="tbl-null">–</span>' : Math.round(v).toString(); }
 
 /* Color capture ratio cells */

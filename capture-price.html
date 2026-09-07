@@ -373,7 +373,7 @@
                 <div class="chart-card-header">
                     <div>
                         <h3 id="card1Title">Capture Prices Overview – HU</h3>
-                        <div class="subtitle" id="card1Subtitle">Baseload (bar) · Solar capture price · Wind capture price (post-curtailment)</div>
+                        <div class="subtitle" id="card1Subtitle">Baseload (bar) · Solar capture price · Wind capture price (pre-curtailment)</div>
                     </div>
                     <div class="chart-card-controls">
                         <label>Frequency</label>
@@ -1224,16 +1224,16 @@ function renderChart1() {
     lastChart1Rows = dates.map(d => ({
         date: d,
         baseload: sMap[d]?.baseload ?? wMap[d]?.baseload ?? null,
-        solarCapPost: sMap[d]?.capPost ?? null,
-        solarCapRatioPost: sMap[d]?.capRatioPost ?? null,
-        windCapPost: wMap[d]?.capPost ?? null,
-        windCapRatioPost: wMap[d]?.capRatioPost ?? null
+        solarCapPre: sMap[d]?.capPre ?? null,
+        solarCapRatioPre: sMap[d]?.capRatioPre ?? null,
+        windCapPre: wMap[d]?.capPre ?? null,
+        windCapRatioPre: wMap[d]?.capRatioPre ?? null
     }));
 
-    const sPostKey = isRatio ? 'capRatioPost' : 'capPost';
-    const wPostKey = isRatio ? 'capRatioPost' : 'capPost';
-    const sLabel   = isRatio ? 'Solar CR (post)' : 'Solar CP (post)';
-    const wLabel   = isRatio ? 'Wind CR (post)'  : 'Wind CP (post)';
+    const sPreKey = isRatio ? 'capRatioPre' : 'capPre';
+    const wPreKey = isRatio ? 'capRatioPre' : 'capPre';
+    const sLabel   = isRatio ? 'Solar CR (pre)' : 'Solar CP (pre)';
+    const wLabel   = isRatio ? 'Wind CR (pre)'  : 'Wind CP (pre)';
     const yAxes = isRatio ? [
         { type:'value', name:'€/MWh', nameTextStyle:{color:'#6c757d',fontSize:11}, ...axisStyle },
         { type:'value', name:'%', nameTextStyle:{color:'#6c757d',fontSize:11}, position:'right',
@@ -1245,19 +1245,19 @@ function renderChart1() {
         { name:'Baseload', type:'bar', data:dates.map(d=>sMap[d]?.baseload??wMap[d]?.baseload??null),
           barMaxWidth:12, itemStyle:{color:COLORS.baseload,borderWidth:0}, z:1, yAxisIndex:0 },
         { name:sLabel, type:'line', symbol:'none', smooth:false,
-          data:dates.map(d=>sMap[d]?.[sPostKey]??null),
+          data:dates.map(d=>sMap[d]?.[sPreKey]??null),
           lineStyle:{color:COLORS.solar,width:2}, itemStyle:{color:COLORS.solar}, z:3, yAxisIndex:1 },
         { name:wLabel, type:'line', symbol:'none', smooth:false,
-          data:dates.map(d=>wMap[d]?.[wPostKey]??null),
+          data:dates.map(d=>wMap[d]?.[wPreKey]??null),
           lineStyle:{color:COLORS.wind,width:2}, itemStyle:{color:COLORS.wind}, z:3, yAxisIndex:1 }
     ] : [
         { name:'Baseload', type:'bar', data:dates.map(d=>sMap[d]?.baseload??wMap[d]?.baseload??null),
           barMaxWidth:12, itemStyle:{color:COLORS.baseload,borderWidth:0}, z:1 },
         { name:sLabel, type:'line', symbol:'none', smooth:false,
-          data:dates.map(d=>sMap[d]?.[sPostKey]??null),
+          data:dates.map(d=>sMap[d]?.[sPreKey]??null),
           lineStyle:{color:COLORS.solar,width:2}, itemStyle:{color:COLORS.solar}, z:3 },
         { name:wLabel, type:'line', symbol:'none', smooth:false,
-          data:dates.map(d=>wMap[d]?.[wPostKey]??null),
+          data:dates.map(d=>wMap[d]?.[wPreKey]??null),
           lineStyle:{color:COLORS.wind,width:2}, itemStyle:{color:COLORS.wind}, z:3 }
     ];
     ec1.setOption({
@@ -1411,11 +1411,11 @@ function updateTitles() {
     const isRatio = state.displayMode==='ratio';
     if (isRatio) {
         document.getElementById('card1Title').textContent = `Capture Ratio Overview – ${cName}`;
-        document.getElementById('card1Subtitle').textContent = 'Baseload (bar) · Solar capture ratio · Wind capture ratio (post-curtailment)';
+        document.getElementById('card1Subtitle').textContent = 'Baseload (bar) · Solar capture ratio · Wind capture ratio (pre-curtailment)';
         document.getElementById('card2Title').textContent = `${sName} Capture Ratio – ${cName}`;
     } else {
         document.getElementById('card1Title').textContent = `Capture Prices Overview – ${cName}`;
-        document.getElementById('card1Subtitle').textContent = 'Baseload (bar) · Solar capture price · Wind capture price (post-curtailment)';
+        document.getElementById('card1Subtitle').textContent = 'Baseload (bar) · Solar capture price · Wind capture price (pre-curtailment)';
         document.getElementById('card2Title').textContent = `${sName} Capture Price – ${cName}`;
     }
     // Update table card title
@@ -1604,14 +1604,14 @@ function exportChart1CSV() {
     const header = [
         'Date',
         'Baseload (EUR/MWh)',
-        isRatio ? 'Solar Capture Ratio Post-Curtailment (%)' : 'Solar Capture Price Post-Curtailment (EUR/MWh)',
-        isRatio ? 'Wind Capture Ratio Post-Curtailment (%)'  : 'Wind Capture Price Post-Curtailment (EUR/MWh)'
+        isRatio ? 'Solar Capture Ratio Pre-Curtailment (%)' : 'Solar Capture Price Pre-Curtailment (EUR/MWh)',
+        isRatio ? 'Wind Capture Ratio Pre-Curtailment (%)'  : 'Wind Capture Price Pre-Curtailment (EUR/MWh)'
     ];
     const rows = [header];
 
     lastChart1Rows.forEach(r => {
-        const solarVal = isRatio ? r.solarCapRatioPost : r.solarCapPost;
-        const windVal  = isRatio ? r.windCapRatioPost  : r.windCapPost;
+        const solarVal = isRatio ? r.solarCapRatioPre : r.solarCapPre;
+        const windVal  = isRatio ? r.windCapRatioPre  : r.windCapPre;
         rows.push([
             r.date,
             r.baseload !== null && r.baseload !== undefined ? r.baseload.toFixed(2) : '',

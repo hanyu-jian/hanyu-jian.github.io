@@ -527,6 +527,11 @@
                             <button class="table-source-btn solar active" id="tableBtnSolar">☀ Solar</button>
                             <button class="table-source-btn wind"         id="tableBtnWind">💨 Wind</button>
                         </div>
+                        <label>Hours</label>
+                        <div class="btn-group-sm" id="tableThreshGroup">
+                            <button class="active" data-thresh="negative">Price &lt; 0</button>
+                            <button               data-thresh="zero_only">Price = 0</button>
+                        </div>
                         <button class="export-btn" id="summaryExportBtn" onclick="exportSummaryTableCSV()"> Export CSV</button>
                     </div>
                 </div>
@@ -595,6 +600,7 @@ const state = {
     negThreshSet: new Set(['negative']),
     displayMode : 'price',
     tableSource : 'solar',
+    tableThreshSet: new Set(['negative']),
     tableRangeStart: 1,
     tableRangeEnd  : 12
 };
@@ -1006,12 +1012,12 @@ function getTableYears() {
 function tableAggregate(hours, filterFn) {
     const filtered = hours.filter(filterFn);
     if (!filtered.length) return null;
-    let sumPr=0, cntPr=0, sumGen=0, sumGenPost=0, sumRev=0, sumRevPre=0, sumNeg=0, sumNonPos=0;
+    let sumPr=0, cntPr=0, sumGen=0, sumGenPost=0, sumRev=0, sumRevPre=0, sumNeg=0, sumZero=0, sumNonPos=0;
     filtered.forEach(h => {
         sumPr += h.pr; cntPr++;
         sumGen += h.gen; sumGenPost += h.genPost;
         sumRev += h.rev; sumRevPre += h.revPre;
-        sumNeg += h.isNeg; sumNonPos += h.isNonPos;
+        sumNeg += h.isNeg; sumZero += h.isZero; sumNonPos += h.isNonPos;
     });
     const baseload  = cntPr > 0     ? sumPr     / cntPr      : null;
     const capPost   = sumGenPost > 0 ? sumRev    / sumGenPost : null;
@@ -1019,7 +1025,7 @@ function tableAggregate(hours, filterFn) {
     const curtPct   = sumGen     > 0 ? (sumGen - sumGenPost) / sumGen * 100 : null;
     const ratioPost = (baseload && capPost !== null) ? capPost / baseload * 100 : null;
     const ratioPre  = (baseload && capPre  !== null) ? capPre  / baseload * 100 : null;
-    return { baseload, capPost, capPre, curtPct, ratioPost, ratioPre, negHours: sumNeg, nonPosHours: sumNonPos };
+    return { baseload, capPost, capPre, curtPct, ratioPost, ratioPre, negHours: sumNeg, zeroHours: sumZero, nonPosHours: sumNonPos };
 }
 
 /* Build all row data for the table */
@@ -1097,11 +1103,31 @@ function ratioCellClass(v) {
     return 'val-med';
 }
 
+/* Threshold label + selected-hours value, mirroring the map's negative-hours toggle */
+function tableThreshLabel() {
+    const hasNeg = state.tableThreshSet.has('negative'), hasZero = state.tableThreshSet.has('zero_only');
+    if (hasNeg && hasZero) return 'Non-positive hours (Price ≤ 0)';
+    if (hasNeg) return 'Negative hours (Price < 0)';
+    if (hasZero) return 'Zero-price hours (Price = 0)';
+    return 'Hours';
+}
+function tableThreshHours(d) {
+    if (!d) return null;
+    const hasNeg = state.tableThreshSet.has('negative'), hasZero = state.tableThreshSet.has('zero_only');
+    if (hasNeg && hasZero) return d.nonPosHours;
+    if (hasNeg) return d.negHours;
+    if (hasZero) return d.zeroHours;
+    return 0;
+}
+
 function renderSummaryTable() {
     const tbl = document.getElementById('summaryTable');
     const built = buildTableData();
     lastSummaryTableData = built; // ▼ ADDED: cache for CSV export
     const { rows, years, data } = built;
+
+    /* Inject the currently-selected threshold's hour count into each row */
+    data.forEach(row => row.byYear.forEach(d => { if (d) d.selHours = tableThreshHours(d); }));
 
     /* Section definitions */
     const sections = [
@@ -1111,8 +1137,7 @@ function renderSummaryTable() {
         { key: 'baseload',  label: 'Baseload (EUR/MWh)',                    fmt: fmtEur,   colorFn: null,          span: years.length },
         { key: 'ratioPost', label: 'post-Curtailment (%)',                  fmt: fmtPct,   colorFn: ratioCellClass, span: years.length },
         { key: 'ratioPre',  label: 'pre-Curtailment (%)',                   fmt: fmtPct,   colorFn: ratioCellClass, span: years.length },
-        { key: 'negHours',     label: 'Negative hours (Price < 0)',         fmt: fmtHours, colorFn: null,          span: years.length },
-        { key: 'nonPosHours',  label: 'Non-positive hours (Price ≤ 0)',     fmt: fmtHours, colorFn: null,          span: years.length }
+        { key: 'selHours',  label: tableThreshLabel(),                      fmt: fmtHours, colorFn: null,          span: years.length }
     ];
 
     let html = '<thead>';
@@ -1524,6 +1549,18 @@ function bindTableControls() {
         updateTitles(); renderSummaryTable();
     });
 
+    document.querySelectorAll('#tableThreshGroup button').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const t = btn.dataset.thresh;
+            if (state.tableThreshSet.has(t)) {
+                if (state.tableThreshSet.size > 1) { state.tableThreshSet.delete(t); btn.classList.remove('active'); }
+            } else {
+                state.tableThreshSet.add(t); btn.classList.add('active');
+            }
+            renderSummaryTable();
+        });
+    });
+
     /* Custom range month selects */
     const MON_OPTS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
     const startSel = document.getElementById('tableRangeStart');
@@ -1683,6 +1720,7 @@ function exportSummaryTableCSV() {
     if (!lastSummaryTableData) { alert('No data loaded yet.'); return; }
 
     const { years, data } = lastSummaryTableData;
+    const threshLbl = tableThreshLabel();
     const metrics = [
         ['curtPct',     'Curtailed Production (%)'],
         ['capPost',     'Capture Price post-Curtailment (EUR/MWh)'],
@@ -1690,8 +1728,7 @@ function exportSummaryTableCSV() {
         ['baseload',    'Baseload (EUR/MWh)'],
         ['ratioPost',   'Capture Ratio post-Curtailment (%)'],
         ['ratioPre',    'Capture Ratio pre-Curtailment (%)'],
-        ['negHours',    'Negative Hours (Price < 0)'],
-        ['nonPosHours', 'Non-positive Hours (Price <= 0)']
+        ['selHours',    threshLbl]
     ];
 
     const header = ['Period'];
@@ -1702,9 +1739,9 @@ function exportSummaryTableCSV() {
         const r = [row.label];
         metrics.forEach(([key]) => {
             row.byYear.forEach(d => {
-                const v = d ? d[key] : null;
+                const v = d ? (key === 'selHours' ? tableThreshHours(d) : d[key]) : null;
                 if (v === null || v === undefined) { r.push(''); return; }
-                r.push((key === 'nonPosHours' || key === 'negHours') ? Math.round(v).toString() : v.toFixed(2));
+                r.push(key === 'selHours' ? Math.round(v).toString() : v.toFixed(2));
             });
         });
         rows.push(r);

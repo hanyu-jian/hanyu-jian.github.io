@@ -14,8 +14,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>Price Spread – European Electricity Dashboard</title>
     <script src="nav.js"></script>
-    <!-- ▼ ADDED: Chart.js -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+    <!-- ▼ ADDED: ECharts (styled to match price-overview.html) -->
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -249,10 +249,9 @@
             border-bottom: 1px solid #e6e9ed;
             background: #fff;
         }
-        .chart-wrap canvas {
-            display: block;
-            width: 100% !important;
-            height: 280px !important;
+        .chart-wrap #spChart {
+            width: 100%;
+            height: 320px;
         }
 
         .table-wrap { overflow-x: auto; }
@@ -392,7 +391,7 @@
 
             <!-- ▼ ADDED: Chart container -->
             <div class="chart-wrap" id="spChartWrap" style="display:none">
-                <canvas id="spChart"></canvas>
+                <div id="spChart"></div>
             </div>
 
             <div class="spinner-wrap" id="spSpinner"><div class="spinner"></div> Calculating…</div>
@@ -432,8 +431,41 @@ let currentCountry = 'HU';
 let currentTab     = 'monthly';
 let renderDebounce = null;
 
-// ▼ ADDED: Chart.js instance reference
+// ▼ ADDED: ECharts instance reference
 let spreadChartInstance = null;
+
+// ▼ ADDED: shared chart style helpers (mirrors price-overview.html)
+const spreadAxisStyle = {
+    axisLine: { lineStyle: { color: '#ccc' } },
+    axisLabel: { color: '#6c757d', fontSize: 11 },
+    splitLine: { lineStyle: { color: '#f0f2f5' } }
+};
+
+const spreadLegendStyle = {
+    type: 'scroll',
+    icon: 'circle',
+    itemWidth: 10,
+    itemHeight: 10,
+    textStyle: { color: '#2c3e50', fontSize: 12 }
+};
+
+const SPREAD_YEAR_COLORS = { 2024: '#5a9bd4', 2025: '#e8783a', 2026: '#3aab6d' };
+
+function spreadTooltipFmt(params) {
+    let html =
+        `<div style="font-weight:600;margin-bottom:5px;color:#2c3e50">${params[0]?.axisValue}</div>`;
+    params.forEach(p => {
+        if (p.value == null) return;
+        const v = Number(p.value);
+        html +=
+            `<div style="display:flex;align-items:center;gap:8px;margin:2px 0;font-size:12px">
+            <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${p.color}"></span>
+            <span style="flex:1;color:#555">${p.seriesName}</span>
+            <span style="font-weight:600;color:#2c3e50">${v >= 0 ? '+' : ''}${v.toFixed(2)} €/MWh</span>
+        </div>`;
+    });
+    return html;
+}
 
 // ▼ ADDED: cache of currently rendered spread table, used for CSV export
 let lastSpreadTableRows = null;
@@ -444,6 +476,8 @@ window.addEventListener('DOMContentLoaded', () => {
     document.getElementById('nPeak')  .addEventListener('change', onParamChange);
     document.getElementById('nValley').addEventListener('change', onParamChange);
 });
+
+window.addEventListener('resize', () => { if (spreadChartInstance) spreadChartInstance.resize(); });
 
 async function fetchCSV() {
     try {
@@ -899,10 +933,10 @@ function _renderSpread() {
     document.getElementById('spTableWrap').style.display = 'block';
 }
 
-// ▼ ADDED: Chart rendering function
+// ▼ ADDED: Chart rendering function (ECharts, styled to match price-overview.html)
 function renderSpreadChart(tableRows) {
     const wrap = document.getElementById('spChartWrap');
-    const canvas = document.getElementById('spChart');
+    const chartDom = document.getElementById('spChart');
 
     // Filter out the "Annual" total row for the chart
     const dataRows = tableRows.filter(r => !r.isTotal);
@@ -911,109 +945,62 @@ function renderSpreadChart(tableRows) {
     wrap.style.display = 'block';
 
     const labels = dataRows.map(r => r.label);
+    const dense = dataRows.length > 30;
 
-    // Year colors: 2024 steel blue, 2025 orange, 2026 teal
-    const yearStyles = {
-        2024: { color: '#5a8fc2', bg: 'rgba(90,143,194,0.10)' },
-        2025: { color: '#e67e22', bg: 'rgba(230,126,34,0.10)'  },
-        2026: { color: '#27ae60', bg: 'rgba(39,174,96,0.10)'   },
-    };
+    const series = YEARS.map(yr => ({
+        name: String(yr),
+        type: 'line',
+        data: dataRows.map(r => {
+            const d = r[yr];
+            return (d && d.spread !== null) ? parseFloat(d.spread.toFixed(2)) : null;
+        }),
+        connectNulls: false,
+        lineStyle: { width: 2, color: SPREAD_YEAR_COLORS[yr] },
+        itemStyle: { color: SPREAD_YEAR_COLORS[yr] },
+        symbol: 'circle',
+        symbolSize: dense ? 0 : 6,
+        label: {
+            show: !dense,
+            position: 'top',
+            fontSize: 10,
+            color: SPREAD_YEAR_COLORS[yr],
+            fontFamily: 'Segoe UI, Tahoma, Geneva, Verdana, sans-serif',
+            formatter: p => p.value != null ? `${p.value >= 0 ? '+' : ''}${Number(p.value).toFixed(2)}` : ''
+        }
+    }));
 
-    const datasets = YEARS.map(yr => {
-        const style = yearStyles[yr];
-        return {
-            label: String(yr),
-            data: dataRows.map(r => {
-                const d = r[yr];
-                return (d && d.spread !== null) ? parseFloat(d.spread.toFixed(2)) : null;
-            }),
-            borderColor: style.color,
-            backgroundColor: style.bg,
-            pointBackgroundColor: style.color,
-            pointRadius: dataRows.length > 30 ? 0 : 4,
-            pointHoverRadius: 6,
-            borderWidth: 2,
-            fill: false,
-            spanGaps: false,
-        };
-    });
-
-    // Destroy old chart if exists
-    if (spreadChartInstance) {
-        spreadChartInstance.destroy();
-        spreadChartInstance = null;
+    if (!spreadChartInstance) {
+        spreadChartInstance = echarts.init(chartDom);
     }
 
-    spreadChartInstance = new Chart(canvas, {
-        type: 'line',
-        data: { labels, datasets },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            interaction: {
-                mode: 'index',
-                intersect: false,
-            },
-            plugins: {
-                legend: {
-                    position: 'top',
-                    align: 'end',
-                    labels: {
-                        boxWidth: 12,
-                        boxHeight: 2,
-                        padding: 16,
-                        font: { size: 12, family: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif" },
-                        color: '#495057',
-                        usePointStyle: true,
-                        pointStyle: 'none',
-                    }
-                },
-                tooltip: {
-                    backgroundColor: 'rgba(44,62,80,0.92)',
-                    titleColor: '#ecf0f1',
-                    bodyColor: '#bdc3c7',
-                    padding: 10,
-                    titleFont: { size: 12, weight: '600' },
-                    bodyFont: { size: 12 },
-                    callbacks: {
-                        label: ctx => {
-                            const v = ctx.parsed.y;
-                            if (v === null) return `${ctx.dataset.label}: —`;
-                            return `${ctx.dataset.label}: ${v >= 0 ? '+' : ''}${v.toFixed(2)} €/MWh`;
-                        }
-                    }
-                }
-            },
-            scales: {
-                x: {
-                    grid: { color: 'rgba(0,0,0,0.05)', drawBorder: false },
-                    ticks: {
-                        font: { size: 11, family: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif" },
-                        color: '#6c757d',
-                        maxRotation: dataRows.length > 30 ? 45 : 0,
-                        autoSkip: true,
-                        maxTicksLimit: dataRows.length > 30 ? 26 : 20,
-                    },
-                    border: { display: false }
-                },
-                y: {
-                    grid: { color: 'rgba(0,0,0,0.06)', drawBorder: false },
-                    ticks: {
-                        font: { size: 11, family: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif" },
-                        color: '#6c757d',
-                        callback: v => v.toFixed(0) ,
-                    },
-                    border: { display: false },
-                    title: {
-                        display: true,
-                        text: 'Spread (€/MWh)',
-                        color: '#6c757d',
-                        font: { size: 11 }
-                    }
-                }
+    spreadChartInstance.setOption({
+        tooltip: {
+            trigger: 'axis',
+            axisPointer: { type: 'cross', lineStyle: { color: '#bbb' } },
+            formatter: spreadTooltipFmt
+        },
+        legend: { ...spreadLegendStyle, top: 5, right: 8 },
+        grid: { left: 55, right: 20, top: 40, bottom: dense ? 60 : 40 },
+        xAxis: {
+            type: 'category',
+            data: labels,
+            ...spreadAxisStyle,
+            axisLabel: {
+                ...spreadAxisStyle.axisLabel,
+                fontSize: 12,
+                rotate: dense ? 45 : 0,
+                interval: dense ? 'auto' : 0
             }
-        }
-    });
+        },
+        yAxis: {
+            type: 'value',
+            name: 'Spread (€/MWh)',
+            nameTextStyle: { color: '#6c757d', fontSize: 11 },
+            nameGap: 12,
+            ...spreadAxisStyle
+        },
+        series
+    }, true);
 }
 
 function agg(days) {

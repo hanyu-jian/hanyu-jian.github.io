@@ -496,13 +496,15 @@ let lastCompareExport  = null; // { country, freq, keys, imbalVals, spotVals }
 function parseCSV(text) {
     const lines = text.trim().split(/\r?\n/);
     if (!lines.length) return [];
-    let headers = lines[0].split(',').map(h => h.trim());
+    // Accept tab-separated files too (e.g. MNB.csv saved from Excel)
+    const delim = lines[0].includes('\t') && !lines[0].includes(',') ? '\t' : ',';
+    let headers = lines[0].split(delim).map(h => h.trim());
     while (headers.length && headers[headers.length - 1] === '') headers.pop();
     const rows = [];
     for (let i = 1; i < lines.length; i++) {
         const line = lines[i];
         if (!line.trim()) continue;
-        let vals = line.split(',').map(v => v.trim());
+        let vals = line.split(delim).map(v => v.trim());
         while (vals.length > headers.length && vals[vals.length - 1] === '') vals.pop();
         if (vals.length > headers.length) vals = vals.slice(0, headers.length);
         while (vals.length < headers.length) vals.push('');

@@ -268961,7 +268961,9 @@ date,category,value
 2026/10/8 8:30,Nuclear,0.0
 2026/10/8 8:30,Solar,1488.0
 2026/10/8 8:30,Wind Onshore,648.0
+2026/10/8 8:45,Biomass,60.0
 2026/10/8 8:45,Energy Storage,5.0
+2026/10/8 8:45,Fossil Brown Coal/Lignite,542.0
 2026/10/8 8:45,Fossil Gas,1208.0
 2026/10/8 8:45,Fossil Hard Coal,71.0
 2026/10/8 8:45,Hydro Run-of-river and Poundage,678.0
@@ -269569,3 +269571,963 @@ date,category,value
 2026/10/8 23:45,Nuclear,0.0
 2026/10/8 23:45,Solar,0.0
 2026/10/8 23:45,Wind Onshore,1798.0
+2026/10/9 0:00,Biomass,59.0
+2026/10/9 0:00,Energy Storage,12.0
+2026/10/9 0:00,Fossil Brown Coal/Lignite,532.0
+2026/10/9 0:00,Fossil Gas,1255.0
+2026/10/9 0:00,Fossil Hard Coal,67.0
+2026/10/9 0:00,Hydro Run-of-river and Poundage,381.0
+2026/10/9 0:00,Hydro Water Reservoir,778.0
+2026/10/9 0:00,Nuclear,0.0
+2026/10/9 0:00,Solar,0.0
+2026/10/9 0:00,Wind Onshore,1726.0
+2026/10/9 0:15,Biomass,58.0
+2026/10/9 0:15,Energy Storage,8.0
+2026/10/9 0:15,Fossil Brown Coal/Lignite,532.0
+2026/10/9 0:15,Fossil Gas,1242.0
+2026/10/9 0:15,Fossil Hard Coal,67.0
+2026/10/9 0:15,Hydro Run-of-river and Poundage,380.0
+2026/10/9 0:15,Hydro Water Reservoir,776.0
+2026/10/9 0:15,Nuclear,0.0
+2026/10/9 0:15,Solar,0.0
+2026/10/9 0:15,Wind Onshore,1650.0
+2026/10/9 0:30,Biomass,59.0
+2026/10/9 0:30,Energy Storage,4.0
+2026/10/9 0:30,Fossil Brown Coal/Lignite,539.0
+2026/10/9 0:30,Fossil Gas,1241.0
+2026/10/9 0:30,Fossil Hard Coal,66.0
+2026/10/9 0:30,Hydro Run-of-river and Poundage,378.0
+2026/10/9 0:30,Hydro Water Reservoir,775.0
+2026/10/9 0:30,Nuclear,0.0
+2026/10/9 0:30,Solar,0.0
+2026/10/9 0:30,Wind Onshore,1617.0
+2026/10/9 0:45,Biomass,59.0
+2026/10/9 0:45,Energy Storage,1.0
+2026/10/9 0:45,Fossil Brown Coal/Lignite,528.0
+2026/10/9 0:45,Fossil Gas,1237.0
+2026/10/9 0:45,Fossil Hard Coal,66.0
+2026/10/9 0:45,Hydro Run-of-river and Poundage,377.0
+2026/10/9 0:45,Hydro Water Reservoir,774.0
+2026/10/9 0:45,Nuclear,0.0
+2026/10/9 0:45,Solar,0.0
+2026/10/9 0:45,Wind Onshore,1585.0
+2026/10/9 1:00,Biomass,57.0
+2026/10/9 1:00,Energy Storage,12.0
+2026/10/9 1:00,Fossil Brown Coal/Lignite,546.0
+2026/10/9 1:00,Fossil Gas,1231.0
+2026/10/9 1:00,Fossil Hard Coal,67.0
+2026/10/9 1:00,Hydro Run-of-river and Poundage,309.0
+2026/10/9 1:00,Hydro Water Reservoir,686.0
+2026/10/9 1:00,Nuclear,0.0
+2026/10/9 1:00,Solar,0.0
+2026/10/9 1:00,Wind Onshore,1536.0
+2026/10/9 1:15,Biomass,58.0
+2026/10/9 1:15,Energy Storage,1.0
+2026/10/9 1:15,Fossil Brown Coal/Lignite,536.0
+2026/10/9 1:15,Fossil Gas,1227.0
+2026/10/9 1:15,Fossil Hard Coal,67.0
+2026/10/9 1:15,Hydro Run-of-river and Poundage,305.0
+2026/10/9 1:15,Hydro Water Reservoir,674.0
+2026/10/9 1:15,Nuclear,0.0
+2026/10/9 1:15,Solar,0.0
+2026/10/9 1:15,Wind Onshore,1484.0
+2026/10/9 1:30,Biomass,59.0
+2026/10/9 1:30,Energy Storage,20.0
+2026/10/9 1:30,Fossil Brown Coal/Lignite,556.0
+2026/10/9 1:30,Fossil Gas,1230.0
+2026/10/9 1:30,Fossil Hard Coal,67.0
+2026/10/9 1:30,Hydro Run-of-river and Poundage,305.0
+2026/10/9 1:30,Hydro Water Reservoir,679.0
+2026/10/9 1:30,Nuclear,0.0
+2026/10/9 1:30,Solar,0.0
+2026/10/9 1:30,Wind Onshore,1415.0
+2026/10/9 1:45,Biomass,58.0
+2026/10/9 1:45,Energy Storage,8.0
+2026/10/9 1:45,Fossil Brown Coal/Lignite,560.0
+2026/10/9 1:45,Fossil Gas,1232.0
+2026/10/9 1:45,Fossil Hard Coal,67.0
+2026/10/9 1:45,Hydro Run-of-river and Poundage,305.0
+2026/10/9 1:45,Hydro Water Reservoir,678.0
+2026/10/9 1:45,Nuclear,0.0
+2026/10/9 1:45,Solar,0.0
+2026/10/9 1:45,Wind Onshore,1355.0
+2026/10/9 2:00,Biomass,59.0
+2026/10/9 2:00,Energy Storage,3.0
+2026/10/9 2:00,Fossil Brown Coal/Lignite,550.0
+2026/10/9 2:00,Fossil Gas,1241.0
+2026/10/9 2:00,Fossil Hard Coal,67.0
+2026/10/9 2:00,Hydro Run-of-river and Poundage,181.0
+2026/10/9 2:00,Hydro Water Reservoir,693.0
+2026/10/9 2:00,Nuclear,0.0
+2026/10/9 2:00,Solar,0.0
+2026/10/9 2:00,Wind Onshore,1315.0
+2026/10/9 2:15,Biomass,59.0
+2026/10/9 2:15,Energy Storage,5.0
+2026/10/9 2:15,Fossil Brown Coal/Lignite,552.0
+2026/10/9 2:15,Fossil Gas,1243.0
+2026/10/9 2:15,Fossil Hard Coal,67.0
+2026/10/9 2:15,Hydro Run-of-river and Poundage,176.0
+2026/10/9 2:15,Hydro Water Reservoir,695.0
+2026/10/9 2:15,Nuclear,0.0
+2026/10/9 2:15,Solar,0.0
+2026/10/9 2:15,Wind Onshore,1268.0
+2026/10/9 2:30,Biomass,57.0
+2026/10/9 2:30,Energy Storage,34.0
+2026/10/9 2:30,Fossil Brown Coal/Lignite,560.0
+2026/10/9 2:30,Fossil Gas,1247.0
+2026/10/9 2:30,Fossil Hard Coal,67.0
+2026/10/9 2:30,Hydro Run-of-river and Poundage,176.0
+2026/10/9 2:30,Hydro Water Reservoir,698.0
+2026/10/9 2:30,Nuclear,0.0
+2026/10/9 2:30,Solar,0.0
+2026/10/9 2:30,Wind Onshore,1192.0
+2026/10/9 2:45,Biomass,60.0
+2026/10/9 2:45,Energy Storage,67.0
+2026/10/9 2:45,Fossil Brown Coal/Lignite,561.0
+2026/10/9 2:45,Fossil Gas,1275.0
+2026/10/9 2:45,Fossil Hard Coal,67.0
+2026/10/9 2:45,Hydro Run-of-river and Poundage,175.0
+2026/10/9 2:45,Hydro Water Reservoir,710.0
+2026/10/9 2:45,Nuclear,0.0
+2026/10/9 2:45,Solar,0.0
+2026/10/9 2:45,Wind Onshore,1107.0
+2026/10/9 3:00,Biomass,60.0
+2026/10/9 3:00,Energy Storage,91.0
+2026/10/9 3:00,Fossil Brown Coal/Lignite,555.0
+2026/10/9 3:00,Fossil Gas,1276.0
+2026/10/9 3:00,Fossil Hard Coal,67.0
+2026/10/9 3:00,Hydro Run-of-river and Poundage,173.0
+2026/10/9 3:00,Hydro Water Reservoir,546.0
+2026/10/9 3:00,Nuclear,0.0
+2026/10/9 3:00,Solar,0.0
+2026/10/9 3:00,Wind Onshore,1024.0
+2026/10/9 3:15,Biomass,59.0
+2026/10/9 3:15,Energy Storage,15.0
+2026/10/9 3:15,Fossil Brown Coal/Lignite,555.0
+2026/10/9 3:15,Fossil Gas,1299.0
+2026/10/9 3:15,Fossil Hard Coal,66.0
+2026/10/9 3:15,Hydro Run-of-river and Poundage,196.0
+2026/10/9 3:15,Hydro Water Reservoir,613.0
+2026/10/9 3:15,Nuclear,0.0
+2026/10/9 3:15,Solar,0.0
+2026/10/9 3:15,Wind Onshore,973.0
+2026/10/9 3:30,Biomass,59.0
+2026/10/9 3:30,Energy Storage,22.0
+2026/10/9 3:30,Fossil Brown Coal/Lignite,555.0
+2026/10/9 3:30,Fossil Gas,1281.0
+2026/10/9 3:30,Fossil Hard Coal,67.0
+2026/10/9 3:30,Hydro Run-of-river and Poundage,201.0
+2026/10/9 3:30,Hydro Water Reservoir,605.0
+2026/10/9 3:30,Nuclear,0.0
+2026/10/9 3:30,Solar,0.0
+2026/10/9 3:30,Wind Onshore,949.0
+2026/10/9 3:45,Biomass,59.0
+2026/10/9 3:45,Energy Storage,30.0
+2026/10/9 3:45,Fossil Brown Coal/Lignite,553.0
+2026/10/9 3:45,Fossil Gas,1307.0
+2026/10/9 3:45,Fossil Hard Coal,67.0
+2026/10/9 3:45,Hydro Run-of-river and Poundage,217.0
+2026/10/9 3:45,Hydro Water Reservoir,626.0
+2026/10/9 3:45,Nuclear,0.0
+2026/10/9 3:45,Solar,0.0
+2026/10/9 3:45,Wind Onshore,935.0
+2026/10/9 4:00,Biomass,59.0
+2026/10/9 4:00,Energy Storage,3.0
+2026/10/9 4:00,Fossil Brown Coal/Lignite,545.0
+2026/10/9 4:00,Fossil Gas,1153.0
+2026/10/9 4:00,Fossil Hard Coal,66.0
+2026/10/9 4:00,Hydro Run-of-river and Poundage,310.0
+2026/10/9 4:00,Hydro Water Reservoir,836.0
+2026/10/9 4:00,Nuclear,0.0
+2026/10/9 4:00,Solar,0.0
+2026/10/9 4:00,Wind Onshore,903.0
+2026/10/9 4:15,Biomass,60.0
+2026/10/9 4:15,Energy Storage,1.0
+2026/10/9 4:15,Fossil Brown Coal/Lignite,534.0
+2026/10/9 4:15,Fossil Gas,1077.0
+2026/10/9 4:15,Fossil Hard Coal,66.0
+2026/10/9 4:15,Hydro Run-of-river and Poundage,316.0
+2026/10/9 4:15,Hydro Water Reservoir,845.0
+2026/10/9 4:15,Nuclear,0.0
+2026/10/9 4:15,Solar,0.0
+2026/10/9 4:15,Wind Onshore,883.0
+2026/10/9 4:30,Biomass,60.0
+2026/10/9 4:30,Energy Storage,1.0
+2026/10/9 4:30,Fossil Brown Coal/Lignite,528.0
+2026/10/9 4:30,Fossil Gas,1075.0
+2026/10/9 4:30,Fossil Hard Coal,67.0
+2026/10/9 4:30,Hydro Run-of-river and Poundage,317.0
+2026/10/9 4:30,Hydro Water Reservoir,847.0
+2026/10/9 4:30,Nuclear,0.0
+2026/10/9 4:30,Solar,0.0
+2026/10/9 4:30,Wind Onshore,861.0
+2026/10/9 4:45,Biomass,59.0
+2026/10/9 4:45,Energy Storage,2.0
+2026/10/9 4:45,Fossil Brown Coal/Lignite,532.0
+2026/10/9 4:45,Fossil Gas,1071.0
+2026/10/9 4:45,Fossil Hard Coal,67.0
+2026/10/9 4:45,Hydro Run-of-river and Poundage,322.0
+2026/10/9 4:45,Hydro Water Reservoir,850.0
+2026/10/9 4:45,Nuclear,0.0
+2026/10/9 4:45,Solar,0.0
+2026/10/9 4:45,Wind Onshore,809.0
+2026/10/9 5:00,Biomass,59.0
+2026/10/9 5:00,Energy Storage,8.0
+2026/10/9 5:00,Fossil Brown Coal/Lignite,544.0
+2026/10/9 5:00,Fossil Gas,892.0
+2026/10/9 5:00,Fossil Hard Coal,66.0
+2026/10/9 5:00,Hydro Run-of-river and Poundage,547.0
+2026/10/9 5:00,Hydro Water Reservoir,856.0
+2026/10/9 5:00,Nuclear,0.0
+2026/10/9 5:00,Solar,0.0
+2026/10/9 5:00,Wind Onshore,762.0
+2026/10/9 5:15,Biomass,59.0
+2026/10/9 5:15,Energy Storage,20.0
+2026/10/9 5:15,Fossil Brown Coal/Lignite,563.0
+2026/10/9 5:15,Fossil Gas,859.0
+2026/10/9 5:15,Fossil Hard Coal,66.0
+2026/10/9 5:15,Hydro Run-of-river and Poundage,558.0
+2026/10/9 5:15,Hydro Water Reservoir,877.0
+2026/10/9 5:15,Nuclear,0.0
+2026/10/9 5:15,Solar,0.0
+2026/10/9 5:15,Wind Onshore,738.0
+2026/10/9 5:30,Biomass,60.0
+2026/10/9 5:30,Energy Storage,47.0
+2026/10/9 5:30,Fossil Brown Coal/Lignite,555.0
+2026/10/9 5:30,Fossil Gas,879.0
+2026/10/9 5:30,Fossil Hard Coal,66.0
+2026/10/9 5:30,Hydro Run-of-river and Poundage,576.0
+2026/10/9 5:30,Hydro Water Reservoir,883.0
+2026/10/9 5:30,Nuclear,0.0
+2026/10/9 5:30,Solar,0.0
+2026/10/9 5:30,Wind Onshore,724.0
+2026/10/9 5:45,Biomass,61.0
+2026/10/9 5:45,Energy Storage,48.0
+2026/10/9 5:45,Fossil Brown Coal/Lignite,536.0
+2026/10/9 5:45,Fossil Gas,904.0
+2026/10/9 5:45,Fossil Hard Coal,66.0
+2026/10/9 5:45,Hydro Run-of-river and Poundage,582.0
+2026/10/9 5:45,Hydro Water Reservoir,886.0
+2026/10/9 5:45,Nuclear,0.0
+2026/10/9 5:45,Solar,0.0
+2026/10/9 5:45,Wind Onshore,713.0
+2026/10/9 6:00,Biomass,61.0
+2026/10/9 6:00,Energy Storage,256.0
+2026/10/9 6:00,Fossil Brown Coal/Lignite,546.0
+2026/10/9 6:00,Fossil Gas,928.0
+2026/10/9 6:00,Fossil Hard Coal,67.0
+2026/10/9 6:00,Hydro Run-of-river and Poundage,583.0
+2026/10/9 6:00,Hydro Water Reservoir,925.0
+2026/10/9 6:00,Nuclear,0.0
+2026/10/9 6:00,Solar,0.0
+2026/10/9 6:00,Wind Onshore,718.0
+2026/10/9 6:15,Biomass,63.0
+2026/10/9 6:15,Energy Storage,415.0
+2026/10/9 6:15,Fossil Brown Coal/Lignite,528.0
+2026/10/9 6:15,Fossil Gas,927.0
+2026/10/9 6:15,Fossil Hard Coal,67.0
+2026/10/9 6:15,Hydro Run-of-river and Poundage,566.0
+2026/10/9 6:15,Hydro Water Reservoir,930.0
+2026/10/9 6:15,Nuclear,0.0
+2026/10/9 6:15,Solar,0.0
+2026/10/9 6:15,Wind Onshore,719.0
+2026/10/9 6:30,Biomass,62.0
+2026/10/9 6:30,Energy Storage,336.0
+2026/10/9 6:30,Fossil Brown Coal/Lignite,528.0
+2026/10/9 6:30,Fossil Gas,927.0
+2026/10/9 6:30,Fossil Hard Coal,67.0
+2026/10/9 6:30,Hydro Run-of-river and Poundage,591.0
+2026/10/9 6:30,Hydro Water Reservoir,924.0
+2026/10/9 6:30,Nuclear,0.0
+2026/10/9 6:30,Solar,18.0
+2026/10/9 6:30,Wind Onshore,708.0
+2026/10/9 6:45,Biomass,62.0
+2026/10/9 6:45,Energy Storage,324.0
+2026/10/9 6:45,Fossil Brown Coal/Lignite,534.0
+2026/10/9 6:45,Fossil Gas,908.0
+2026/10/9 6:45,Fossil Hard Coal,67.0
+2026/10/9 6:45,Hydro Run-of-river and Poundage,544.0
+2026/10/9 6:45,Hydro Water Reservoir,921.0
+2026/10/9 6:45,Nuclear,0.0
+2026/10/9 6:45,Solar,77.0
+2026/10/9 6:45,Wind Onshore,704.0
+2026/10/9 7:00,Biomass,62.0
+2026/10/9 7:00,Energy Storage,332.0
+2026/10/9 7:00,Fossil Brown Coal/Lignite,534.0
+2026/10/9 7:00,Fossil Gas,883.0
+2026/10/9 7:00,Fossil Hard Coal,66.0
+2026/10/9 7:00,Hydro Run-of-river and Poundage,526.0
+2026/10/9 7:00,Hydro Water Reservoir,934.0
+2026/10/9 7:00,Nuclear,0.0
+2026/10/9 7:00,Solar,194.0
+2026/10/9 7:00,Wind Onshore,708.0
+2026/10/9 7:15,Biomass,63.0
+2026/10/9 7:15,Energy Storage,269.0
+2026/10/9 7:15,Fossil Brown Coal/Lignite,542.0
+2026/10/9 7:15,Fossil Gas,863.0
+2026/10/9 7:15,Fossil Hard Coal,66.0
+2026/10/9 7:15,Hydro Run-of-river and Poundage,514.0
+2026/10/9 7:15,Hydro Water Reservoir,931.0
+2026/10/9 7:15,Nuclear,0.0
+2026/10/9 7:15,Solar,321.0
+2026/10/9 7:15,Wind Onshore,701.0
+2026/10/9 7:30,Biomass,63.0
+2026/10/9 7:30,Energy Storage,242.0
+2026/10/9 7:30,Fossil Brown Coal/Lignite,528.0
+2026/10/9 7:30,Fossil Gas,854.0
+2026/10/9 7:30,Fossil Hard Coal,66.0
+2026/10/9 7:30,Hydro Run-of-river and Poundage,517.0
+2026/10/9 7:30,Hydro Water Reservoir,936.0
+2026/10/9 7:30,Nuclear,0.0
+2026/10/9 7:30,Solar,506.0
+2026/10/9 7:30,Wind Onshore,661.0
+2026/10/9 7:45,Biomass,63.0
+2026/10/9 7:45,Energy Storage,202.0
+2026/10/9 7:45,Fossil Brown Coal/Lignite,531.0
+2026/10/9 7:45,Fossil Gas,850.0
+2026/10/9 7:45,Fossil Hard Coal,66.0
+2026/10/9 7:45,Hydro Run-of-river and Poundage,519.0
+2026/10/9 7:45,Hydro Water Reservoir,939.0
+2026/10/9 7:45,Nuclear,0.0
+2026/10/9 7:45,Solar,667.0
+2026/10/9 7:45,Wind Onshore,586.0
+2026/10/9 8:00,Biomass,62.0
+2026/10/9 8:00,Energy Storage,171.0
+2026/10/9 8:00,Fossil Brown Coal/Lignite,555.0
+2026/10/9 8:00,Fossil Gas,824.0
+2026/10/9 8:00,Fossil Hard Coal,66.0
+2026/10/9 8:00,Hydro Run-of-river and Poundage,476.0
+2026/10/9 8:00,Hydro Water Reservoir,927.0
+2026/10/9 8:00,Nuclear,0.0
+2026/10/9 8:00,Solar,872.0
+2026/10/9 8:00,Wind Onshore,510.0
+2026/10/9 8:15,Biomass,61.0
+2026/10/9 8:15,Energy Storage,127.0
+2026/10/9 8:15,Fossil Brown Coal/Lignite,555.0
+2026/10/9 8:15,Fossil Gas,816.0
+2026/10/9 8:15,Fossil Hard Coal,66.0
+2026/10/9 8:15,Hydro Run-of-river and Poundage,472.0
+2026/10/9 8:15,Hydro Water Reservoir,926.0
+2026/10/9 8:15,Nuclear,0.0
+2026/10/9 8:15,Solar,1130.0
+2026/10/9 8:15,Wind Onshore,420.0
+2026/10/9 8:30,Biomass,60.0
+2026/10/9 8:30,Energy Storage,19.0
+2026/10/9 8:30,Fossil Brown Coal/Lignite,541.0
+2026/10/9 8:30,Fossil Gas,820.0
+2026/10/9 8:30,Fossil Hard Coal,70.0
+2026/10/9 8:30,Hydro Run-of-river and Poundage,472.0
+2026/10/9 8:30,Hydro Water Reservoir,924.0
+2026/10/9 8:30,Nuclear,0.0
+2026/10/9 8:30,Solar,1323.0
+2026/10/9 8:30,Wind Onshore,353.0
+2026/10/9 8:45,Biomass,59.0
+2026/10/9 8:45,Energy Storage,1.0
+2026/10/9 8:45,Fossil Brown Coal/Lignite,526.0
+2026/10/9 8:45,Fossil Gas,798.0
+2026/10/9 8:45,Fossil Hard Coal,71.0
+2026/10/9 8:45,Hydro Run-of-river and Poundage,472.0
+2026/10/9 8:45,Hydro Water Reservoir,913.0
+2026/10/9 8:45,Nuclear,0.0
+2026/10/9 8:45,Solar,1477.0
+2026/10/9 8:45,Wind Onshore,309.0
+2026/10/9 9:00,Biomass,59.0
+2026/10/9 9:00,Energy Storage,70.0
+2026/10/9 9:00,Fossil Brown Coal/Lignite,536.0
+2026/10/9 9:00,Fossil Gas,793.0
+2026/10/9 9:00,Fossil Hard Coal,71.0
+2026/10/9 9:00,Hydro Run-of-river and Poundage,239.0
+2026/10/9 9:00,Hydro Water Reservoir,296.0
+2026/10/9 9:00,Nuclear,0.0
+2026/10/9 9:00,Solar,1630.0
+2026/10/9 9:00,Wind Onshore,275.0
+2026/10/9 9:15,Biomass,58.0
+2026/10/9 9:15,Energy Storage,51.0
+2026/10/9 9:15,Fossil Brown Coal/Lignite,544.0
+2026/10/9 9:15,Fossil Gas,790.0
+2026/10/9 9:15,Fossil Hard Coal,71.0
+2026/10/9 9:15,Hydro Run-of-river and Poundage,232.0
+2026/10/9 9:15,Hydro Water Reservoir,279.0
+2026/10/9 9:15,Nuclear,0.0
+2026/10/9 9:15,Solar,1766.0
+2026/10/9 9:15,Wind Onshore,256.0
+2026/10/9 9:30,Biomass,59.0
+2026/10/9 9:30,Energy Storage,5.0
+2026/10/9 9:30,Fossil Brown Coal/Lignite,529.0
+2026/10/9 9:30,Fossil Gas,782.0
+2026/10/9 9:30,Fossil Hard Coal,70.0
+2026/10/9 9:30,Hydro Run-of-river and Poundage,232.0
+2026/10/9 9:30,Hydro Water Reservoir,280.0
+2026/10/9 9:30,Nuclear,0.0
+2026/10/9 9:30,Solar,1856.0
+2026/10/9 9:30,Wind Onshore,243.0
+2026/10/9 9:45,Biomass,59.0
+2026/10/9 9:45,Energy Storage,3.0
+2026/10/9 9:45,Fossil Brown Coal/Lignite,543.0
+2026/10/9 9:45,Fossil Gas,782.0
+2026/10/9 9:45,Fossil Hard Coal,70.0
+2026/10/9 9:45,Hydro Run-of-river and Poundage,232.0
+2026/10/9 9:45,Hydro Water Reservoir,277.0
+2026/10/9 9:45,Nuclear,0.0
+2026/10/9 9:45,Solar,1899.0
+2026/10/9 9:45,Wind Onshore,248.0
+2026/10/9 10:00,Biomass,58.0
+2026/10/9 10:00,Energy Storage,10.0
+2026/10/9 10:00,Fossil Brown Coal/Lignite,519.0
+2026/10/9 10:00,Fossil Gas,763.0
+2026/10/9 10:00,Fossil Hard Coal,70.0
+2026/10/9 10:00,Hydro Run-of-river and Poundage,215.0
+2026/10/9 10:00,Hydro Water Reservoir,100.0
+2026/10/9 10:00,Nuclear,0.0
+2026/10/9 10:00,Solar,1940.0
+2026/10/9 10:00,Wind Onshore,253.0
+2026/10/9 10:15,Biomass,59.0
+2026/10/9 10:15,Energy Storage,3.0
+2026/10/9 10:15,Fossil Brown Coal/Lignite,513.0
+2026/10/9 10:15,Fossil Gas,759.0
+2026/10/9 10:15,Fossil Hard Coal,70.0
+2026/10/9 10:15,Hydro Run-of-river and Poundage,210.0
+2026/10/9 10:15,Hydro Water Reservoir,77.0
+2026/10/9 10:15,Nuclear,0.0
+2026/10/9 10:15,Solar,2090.0
+2026/10/9 10:15,Wind Onshore,269.0
+2026/10/9 10:30,Biomass,58.0
+2026/10/9 10:30,Energy Storage,6.0
+2026/10/9 10:30,Fossil Brown Coal/Lignite,513.0
+2026/10/9 10:30,Fossil Gas,758.0
+2026/10/9 10:30,Fossil Hard Coal,70.0
+2026/10/9 10:30,Hydro Run-of-river and Poundage,216.0
+2026/10/9 10:30,Hydro Water Reservoir,65.0
+2026/10/9 10:30,Nuclear,0.0
+2026/10/9 10:30,Solar,2160.0
+2026/10/9 10:30,Wind Onshore,277.0
+2026/10/9 10:45,Biomass,59.0
+2026/10/9 10:45,Energy Storage,9.0
+2026/10/9 10:45,Fossil Brown Coal/Lignite,520.0
+2026/10/9 10:45,Fossil Gas,760.0
+2026/10/9 10:45,Fossil Hard Coal,70.0
+2026/10/9 10:45,Hydro Run-of-river and Poundage,221.0
+2026/10/9 10:45,Hydro Water Reservoir,66.0
+2026/10/9 10:45,Nuclear,0.0
+2026/10/9 10:45,Solar,2109.0
+2026/10/9 10:45,Wind Onshore,287.0
+2026/10/9 11:00,Biomass,57.0
+2026/10/9 11:00,Energy Storage,8.0
+2026/10/9 11:00,Fossil Brown Coal/Lignite,500.0
+2026/10/9 11:00,Fossil Gas,751.0
+2026/10/9 11:00,Fossil Hard Coal,70.0
+2026/10/9 11:00,Hydro Run-of-river and Poundage,206.0
+2026/10/9 11:00,Hydro Water Reservoir,86.0
+2026/10/9 11:00,Nuclear,0.0
+2026/10/9 11:00,Solar,2208.0
+2026/10/9 11:00,Wind Onshore,283.0
+2026/10/9 11:15,Biomass,59.0
+2026/10/9 11:15,Energy Storage,1.0
+2026/10/9 11:15,Fossil Brown Coal/Lignite,540.0
+2026/10/9 11:15,Fossil Gas,749.0
+2026/10/9 11:15,Fossil Hard Coal,71.0
+2026/10/9 11:15,Hydro Run-of-river and Poundage,204.0
+2026/10/9 11:15,Hydro Water Reservoir,82.0
+2026/10/9 11:15,Nuclear,0.0
+2026/10/9 11:15,Solar,2300.0
+2026/10/9 11:15,Wind Onshore,288.0
+2026/10/9 11:30,Biomass,59.0
+2026/10/9 11:30,Energy Storage,0.0
+2026/10/9 11:30,Fossil Brown Coal/Lignite,548.0
+2026/10/9 11:30,Fossil Gas,750.0
+2026/10/9 11:30,Fossil Hard Coal,71.0
+2026/10/9 11:30,Hydro Run-of-river and Poundage,204.0
+2026/10/9 11:30,Hydro Water Reservoir,83.0
+2026/10/9 11:30,Nuclear,0.0
+2026/10/9 11:30,Solar,2296.0
+2026/10/9 11:30,Wind Onshore,286.0
+2026/10/9 11:45,Biomass,58.0
+2026/10/9 11:45,Energy Storage,0.0
+2026/10/9 11:45,Fossil Brown Coal/Lignite,540.0
+2026/10/9 11:45,Fossil Gas,747.0
+2026/10/9 11:45,Fossil Hard Coal,70.0
+2026/10/9 11:45,Hydro Run-of-river and Poundage,204.0
+2026/10/9 11:45,Hydro Water Reservoir,81.0
+2026/10/9 11:45,Nuclear,0.0
+2026/10/9 11:45,Solar,2279.0
+2026/10/9 11:45,Wind Onshore,300.0
+2026/10/9 12:00,Biomass,57.0
+2026/10/9 12:00,Energy Storage,0.0
+2026/10/9 12:00,Fossil Brown Coal/Lignite,562.0
+2026/10/9 12:00,Fossil Gas,740.0
+2026/10/9 12:00,Fossil Hard Coal,70.0
+2026/10/9 12:00,Hydro Run-of-river and Poundage,201.0
+2026/10/9 12:00,Hydro Water Reservoir,80.0
+2026/10/9 12:00,Nuclear,0.0
+2026/10/9 12:00,Solar,2257.0
+2026/10/9 12:00,Wind Onshore,316.0
+2026/10/9 12:15,Biomass,57.0
+2026/10/9 12:15,Energy Storage,0.0
+2026/10/9 12:15,Fossil Brown Coal/Lignite,583.0
+2026/10/9 12:15,Fossil Gas,758.0
+2026/10/9 12:15,Fossil Hard Coal,70.0
+2026/10/9 12:15,Hydro Run-of-river and Poundage,200.0
+2026/10/9 12:15,Hydro Water Reservoir,81.0
+2026/10/9 12:15,Nuclear,0.0
+2026/10/9 12:15,Solar,2301.0
+2026/10/9 12:15,Wind Onshore,344.0
+2026/10/9 12:30,Biomass,58.0
+2026/10/9 12:30,Energy Storage,0.0
+2026/10/9 12:30,Fossil Brown Coal/Lignite,594.0
+2026/10/9 12:30,Fossil Gas,768.0
+2026/10/9 12:30,Fossil Hard Coal,70.0
+2026/10/9 12:30,Hydro Run-of-river and Poundage,200.0
+2026/10/9 12:30,Hydro Water Reservoir,82.0
+2026/10/9 12:30,Nuclear,0.0
+2026/10/9 12:30,Solar,2347.0
+2026/10/9 12:30,Wind Onshore,344.0
+2026/10/9 12:45,Biomass,58.0
+2026/10/9 12:45,Energy Storage,0.0
+2026/10/9 12:45,Fossil Brown Coal/Lignite,592.0
+2026/10/9 12:45,Fossil Gas,776.0
+2026/10/9 12:45,Fossil Hard Coal,71.0
+2026/10/9 12:45,Hydro Run-of-river and Poundage,200.0
+2026/10/9 12:45,Hydro Water Reservoir,84.0
+2026/10/9 12:45,Nuclear,0.0
+2026/10/9 12:45,Solar,2292.0
+2026/10/9 12:45,Wind Onshore,360.0
+2026/10/9 13:00,Biomass,59.0
+2026/10/9 13:00,Energy Storage,0.0
+2026/10/9 13:00,Fossil Brown Coal/Lignite,611.0
+2026/10/9 13:00,Fossil Gas,826.0
+2026/10/9 13:00,Fossil Hard Coal,71.0
+2026/10/9 13:00,Hydro Run-of-river and Poundage,210.0
+2026/10/9 13:00,Hydro Water Reservoir,61.0
+2026/10/9 13:00,Nuclear,0.0
+2026/10/9 13:00,Solar,2278.0
+2026/10/9 13:00,Wind Onshore,386.0
+2026/10/9 13:15,Biomass,58.0
+2026/10/9 13:15,Energy Storage,0.0
+2026/10/9 13:15,Fossil Brown Coal/Lignite,608.0
+2026/10/9 13:15,Fossil Gas,829.0
+2026/10/9 13:15,Fossil Hard Coal,71.0
+2026/10/9 13:15,Hydro Run-of-river and Poundage,208.0
+2026/10/9 13:15,Hydro Water Reservoir,71.0
+2026/10/9 13:15,Nuclear,0.0
+2026/10/9 13:15,Solar,2308.0
+2026/10/9 13:15,Wind Onshore,454.0
+2026/10/9 13:30,Biomass,60.0
+2026/10/9 13:30,Energy Storage,7.0
+2026/10/9 13:30,Fossil Brown Coal/Lignite,608.0
+2026/10/9 13:30,Fossil Gas,841.0
+2026/10/9 13:30,Fossil Hard Coal,71.0
+2026/10/9 13:30,Hydro Run-of-river and Poundage,206.0
+2026/10/9 13:30,Hydro Water Reservoir,80.0
+2026/10/9 13:30,Nuclear,0.0
+2026/10/9 13:30,Solar,2199.0
+2026/10/9 13:30,Wind Onshore,519.0
+2026/10/9 13:45,Biomass,60.0
+2026/10/9 13:45,Energy Storage,9.0
+2026/10/9 13:45,Fossil Brown Coal/Lignite,614.0
+2026/10/9 13:45,Fossil Gas,845.0
+2026/10/9 13:45,Fossil Hard Coal,71.0
+2026/10/9 13:45,Hydro Run-of-river and Poundage,206.0
+2026/10/9 13:45,Hydro Water Reservoir,81.0
+2026/10/9 13:45,Nuclear,0.0
+2026/10/9 13:45,Solar,2052.0
+2026/10/9 13:45,Wind Onshore,537.0
+2026/10/9 14:00,Biomass,61.0
+2026/10/9 14:00,Energy Storage,9.0
+2026/10/9 14:00,Fossil Brown Coal/Lignite,642.0
+2026/10/9 14:00,Fossil Gas,855.0
+2026/10/9 14:00,Fossil Hard Coal,71.0
+2026/10/9 14:00,Hydro Run-of-river and Poundage,198.0
+2026/10/9 14:00,Hydro Water Reservoir,75.0
+2026/10/9 14:00,Nuclear,0.0
+2026/10/9 14:00,Solar,1981.0
+2026/10/9 14:00,Wind Onshore,518.0
+2026/10/9 14:15,Biomass,61.0
+2026/10/9 14:15,Energy Storage,28.0
+2026/10/9 14:15,Fossil Brown Coal/Lignite,653.0
+2026/10/9 14:15,Fossil Gas,846.0
+2026/10/9 14:15,Fossil Hard Coal,71.0
+2026/10/9 14:15,Hydro Run-of-river and Poundage,215.0
+2026/10/9 14:15,Hydro Water Reservoir,76.0
+2026/10/9 14:15,Nuclear,0.0
+2026/10/9 14:15,Solar,1885.0
+2026/10/9 14:15,Wind Onshore,500.0
+2026/10/9 14:30,Biomass,60.0
+2026/10/9 14:30,Energy Storage,22.0
+2026/10/9 14:30,Fossil Brown Coal/Lignite,643.0
+2026/10/9 14:30,Fossil Gas,848.0
+2026/10/9 14:30,Fossil Hard Coal,70.0
+2026/10/9 14:30,Hydro Run-of-river and Poundage,206.0
+2026/10/9 14:30,Hydro Water Reservoir,77.0
+2026/10/9 14:30,Nuclear,0.0
+2026/10/9 14:30,Solar,1840.0
+2026/10/9 14:30,Wind Onshore,439.0
+2026/10/9 14:45,Biomass,59.0
+2026/10/9 14:45,Energy Storage,74.0
+2026/10/9 14:45,Fossil Brown Coal/Lignite,686.0
+2026/10/9 14:45,Fossil Gas,873.0
+2026/10/9 14:45,Fossil Hard Coal,66.0
+2026/10/9 14:45,Hydro Run-of-river and Poundage,206.0
+2026/10/9 14:45,Hydro Water Reservoir,96.0
+2026/10/9 14:45,Nuclear,0.0
+2026/10/9 14:45,Solar,1658.0
+2026/10/9 14:45,Wind Onshore,414.0
+2026/10/9 15:00,Biomass,59.0
+2026/10/9 15:00,Energy Storage,100.0
+2026/10/9 15:00,Fossil Brown Coal/Lignite,710.0
+2026/10/9 15:00,Fossil Gas,1017.0
+2026/10/9 15:00,Fossil Hard Coal,66.0
+2026/10/9 15:00,Hydro Run-of-river and Poundage,191.0
+2026/10/9 15:00,Hydro Water Reservoir,121.0
+2026/10/9 15:00,Nuclear,0.0
+2026/10/9 15:00,Solar,1488.0
+2026/10/9 15:00,Wind Onshore,403.0
+2026/10/9 15:15,Biomass,60.0
+2026/10/9 15:15,Energy Storage,82.0
+2026/10/9 15:15,Fossil Brown Coal/Lignite,694.0
+2026/10/9 15:15,Fossil Gas,1123.0
+2026/10/9 15:15,Fossil Hard Coal,66.0
+2026/10/9 15:15,Hydro Run-of-river and Poundage,193.0
+2026/10/9 15:15,Hydro Water Reservoir,123.0
+2026/10/9 15:15,Nuclear,0.0
+2026/10/9 15:15,Solar,1333.0
+2026/10/9 15:15,Wind Onshore,417.0
+2026/10/9 15:30,Biomass,59.0
+2026/10/9 15:30,Energy Storage,66.0
+2026/10/9 15:30,Fossil Brown Coal/Lignite,702.0
+2026/10/9 15:30,Fossil Gas,1125.0
+2026/10/9 15:30,Fossil Hard Coal,66.0
+2026/10/9 15:30,Hydro Run-of-river and Poundage,194.0
+2026/10/9 15:30,Hydro Water Reservoir,243.0
+2026/10/9 15:30,Nuclear,0.0
+2026/10/9 15:30,Solar,1182.0
+2026/10/9 15:30,Wind Onshore,414.0
+2026/10/9 15:45,Biomass,60.0
+2026/10/9 15:45,Energy Storage,42.0
+2026/10/9 15:45,Fossil Brown Coal/Lignite,711.0
+2026/10/9 15:45,Fossil Gas,1136.0
+2026/10/9 15:45,Fossil Hard Coal,66.0
+2026/10/9 15:45,Hydro Run-of-river and Poundage,202.0
+2026/10/9 15:45,Hydro Water Reservoir,318.0
+2026/10/9 15:45,Nuclear,0.0
+2026/10/9 15:45,Solar,1020.0
+2026/10/9 15:45,Wind Onshore,404.0
+2026/10/9 16:00,Biomass,60.0
+2026/10/9 16:00,Energy Storage,9.0
+2026/10/9 16:00,Fossil Brown Coal/Lignite,705.0
+2026/10/9 16:00,Fossil Gas,1167.0
+2026/10/9 16:00,Fossil Hard Coal,66.0
+2026/10/9 16:00,Hydro Run-of-river and Poundage,482.0
+2026/10/9 16:00,Hydro Water Reservoir,1116.0
+2026/10/9 16:00,Nuclear,0.0
+2026/10/9 16:00,Solar,794.0
+2026/10/9 16:00,Wind Onshore,392.0
+2026/10/9 16:15,Biomass,60.0
+2026/10/9 16:15,Energy Storage,18.0
+2026/10/9 16:15,Fossil Brown Coal/Lignite,710.0
+2026/10/9 16:15,Fossil Gas,1177.0
+2026/10/9 16:15,Fossil Hard Coal,66.0
+2026/10/9 16:15,Hydro Run-of-river and Poundage,498.0
+2026/10/9 16:15,Hydro Water Reservoir,1091.0
+2026/10/9 16:15,Nuclear,0.0
+2026/10/9 16:15,Solar,678.0
+2026/10/9 16:15,Wind Onshore,362.0
+2026/10/9 16:30,Biomass,59.0
+2026/10/9 16:30,Energy Storage,24.0
+2026/10/9 16:30,Fossil Brown Coal/Lignite,713.0
+2026/10/9 16:30,Fossil Gas,1182.0
+2026/10/9 16:30,Fossil Hard Coal,66.0
+2026/10/9 16:30,Hydro Run-of-river and Poundage,498.0
+2026/10/9 16:30,Hydro Water Reservoir,1079.0
+2026/10/9 16:30,Nuclear,0.0
+2026/10/9 16:30,Solar,481.0
+2026/10/9 16:30,Wind Onshore,357.0
+2026/10/9 16:45,Biomass,56.0
+2026/10/9 16:45,Energy Storage,34.0
+2026/10/9 16:45,Fossil Brown Coal/Lignite,717.0
+2026/10/9 16:45,Fossil Gas,1195.0
+2026/10/9 16:45,Fossil Hard Coal,66.0
+2026/10/9 16:45,Hydro Run-of-river and Poundage,509.0
+2026/10/9 16:45,Hydro Water Reservoir,1081.0
+2026/10/9 16:45,Nuclear,0.0
+2026/10/9 16:45,Solar,322.0
+2026/10/9 16:45,Wind Onshore,359.0
+2026/10/9 17:00,Biomass,55.0
+2026/10/9 17:00,Energy Storage,14.0
+2026/10/9 17:00,Fossil Brown Coal/Lignite,721.0
+2026/10/9 17:00,Fossil Gas,1208.0
+2026/10/9 17:00,Fossil Hard Coal,66.0
+2026/10/9 17:00,Hydro Run-of-river and Poundage,561.0
+2026/10/9 17:00,Hydro Water Reservoir,1063.0
+2026/10/9 17:00,Nuclear,0.0
+2026/10/9 17:00,Solar,179.0
+2026/10/9 17:00,Wind Onshore,362.0
+2026/10/9 17:15,Biomass,54.0
+2026/10/9 17:15,Energy Storage,10.0
+2026/10/9 17:15,Fossil Brown Coal/Lignite,725.0
+2026/10/9 17:15,Fossil Gas,1213.0
+2026/10/9 17:15,Fossil Hard Coal,66.0
+2026/10/9 17:15,Hydro Run-of-river and Poundage,566.0
+2026/10/9 17:15,Hydro Water Reservoir,1066.0
+2026/10/9 17:15,Nuclear,0.0
+2026/10/9 17:15,Solar,74.0
+2026/10/9 17:15,Wind Onshore,378.0
+2026/10/9 17:30,Biomass,55.0
+2026/10/9 17:30,Energy Storage,57.0
+2026/10/9 17:30,Fossil Brown Coal/Lignite,726.0
+2026/10/9 17:30,Fossil Gas,1214.0
+2026/10/9 17:30,Fossil Hard Coal,66.0
+2026/10/9 17:30,Hydro Run-of-river and Poundage,555.0
+2026/10/9 17:30,Hydro Water Reservoir,995.0
+2026/10/9 17:30,Nuclear,0.0
+2026/10/9 17:30,Solar,17.0
+2026/10/9 17:30,Wind Onshore,399.0
+2026/10/9 17:45,Biomass,57.0
+2026/10/9 17:45,Energy Storage,94.0
+2026/10/9 17:45,Fossil Brown Coal/Lignite,735.0
+2026/10/9 17:45,Fossil Gas,1216.0
+2026/10/9 17:45,Fossil Hard Coal,69.0
+2026/10/9 17:45,Hydro Run-of-river and Poundage,551.0
+2026/10/9 17:45,Hydro Water Reservoir,994.0
+2026/10/9 17:45,Nuclear,0.0
+2026/10/9 17:45,Solar,0.0
+2026/10/9 17:45,Wind Onshore,407.0
+2026/10/9 18:00,Biomass,58.0
+2026/10/9 18:00,Energy Storage,341.0
+2026/10/9 18:00,Fossil Brown Coal/Lignite,747.0
+2026/10/9 18:00,Fossil Gas,1265.0
+2026/10/9 18:00,Fossil Hard Coal,71.0
+2026/10/9 18:00,Hydro Run-of-river and Poundage,665.0
+2026/10/9 18:00,Hydro Water Reservoir,923.0
+2026/10/9 18:00,Nuclear,0.0
+2026/10/9 18:00,Solar,0.0
+2026/10/9 18:00,Wind Onshore,414.0
+2026/10/9 18:15,Biomass,58.0
+2026/10/9 18:15,Energy Storage,434.0
+2026/10/9 18:15,Fossil Brown Coal/Lignite,751.0
+2026/10/9 18:15,Fossil Gas,1274.0
+2026/10/9 18:15,Fossil Hard Coal,66.0
+2026/10/9 18:15,Hydro Run-of-river and Poundage,670.0
+2026/10/9 18:15,Hydro Water Reservoir,921.0
+2026/10/9 18:15,Nuclear,0.0
+2026/10/9 18:15,Solar,0.0
+2026/10/9 18:15,Wind Onshore,428.0
+2026/10/9 18:30,Biomass,58.0
+2026/10/9 18:30,Energy Storage,497.0
+2026/10/9 18:30,Fossil Brown Coal/Lignite,748.0
+2026/10/9 18:30,Fossil Gas,1281.0
+2026/10/9 18:30,Fossil Hard Coal,67.0
+2026/10/9 18:30,Hydro Run-of-river and Poundage,671.0
+2026/10/9 18:30,Hydro Water Reservoir,925.0
+2026/10/9 18:30,Nuclear,0.0
+2026/10/9 18:30,Solar,0.0
+2026/10/9 18:30,Wind Onshore,427.0
+2026/10/9 18:45,Biomass,58.0
+2026/10/9 18:45,Energy Storage,517.0
+2026/10/9 18:45,Fossil Brown Coal/Lignite,746.0
+2026/10/9 18:45,Fossil Gas,1299.0
+2026/10/9 18:45,Fossil Hard Coal,66.0
+2026/10/9 18:45,Hydro Run-of-river and Poundage,670.0
+2026/10/9 18:45,Hydro Water Reservoir,928.0
+2026/10/9 18:45,Nuclear,0.0
+2026/10/9 18:45,Solar,0.0
+2026/10/9 18:45,Wind Onshore,420.0
+2026/10/9 19:00,Biomass,58.0
+2026/10/9 19:00,Energy Storage,539.0
+2026/10/9 19:00,Fossil Brown Coal/Lignite,740.0
+2026/10/9 19:00,Fossil Gas,1319.0
+2026/10/9 19:00,Fossil Hard Coal,66.0
+2026/10/9 19:00,Hydro Run-of-river and Poundage,660.0
+2026/10/9 19:00,Hydro Water Reservoir,937.0
+2026/10/9 19:00,Nuclear,0.0
+2026/10/9 19:00,Solar,0.0
+2026/10/9 19:00,Wind Onshore,427.0
+2026/10/9 19:15,Biomass,57.0
+2026/10/9 19:15,Energy Storage,502.0
+2026/10/9 19:15,Fossil Brown Coal/Lignite,738.0
+2026/10/9 19:15,Fossil Gas,1319.0
+2026/10/9 19:15,Fossil Hard Coal,66.0
+2026/10/9 19:15,Hydro Run-of-river and Poundage,661.0
+2026/10/9 19:15,Hydro Water Reservoir,935.0
+2026/10/9 19:15,Nuclear,0.0
+2026/10/9 19:15,Solar,0.0
+2026/10/9 19:15,Wind Onshore,407.0
+2026/10/9 19:30,Biomass,57.0
+2026/10/9 19:30,Energy Storage,501.0
+2026/10/9 19:30,Fossil Brown Coal/Lignite,736.0
+2026/10/9 19:30,Fossil Gas,1317.0
+2026/10/9 19:30,Fossil Hard Coal,66.0
+2026/10/9 19:30,Hydro Run-of-river and Poundage,659.0
+2026/10/9 19:30,Hydro Water Reservoir,932.0
+2026/10/9 19:30,Nuclear,0.0
+2026/10/9 19:30,Solar,0.0
+2026/10/9 19:30,Wind Onshore,357.0
+2026/10/9 19:45,Biomass,58.0
+2026/10/9 19:45,Energy Storage,447.0
+2026/10/9 19:45,Fossil Brown Coal/Lignite,738.0
+2026/10/9 19:45,Fossil Gas,1316.0
+2026/10/9 19:45,Fossil Hard Coal,66.0
+2026/10/9 19:45,Hydro Run-of-river and Poundage,660.0
+2026/10/9 19:45,Hydro Water Reservoir,934.0
+2026/10/9 19:45,Nuclear,0.0
+2026/10/9 19:45,Solar,0.0
+2026/10/9 19:45,Wind Onshore,344.0
+2026/10/9 20:00,Biomass,59.0
+2026/10/9 20:00,Energy Storage,227.0
+2026/10/9 20:00,Fossil Brown Coal/Lignite,748.0
+2026/10/9 20:00,Fossil Gas,1318.0
+2026/10/9 20:00,Fossil Hard Coal,65.0
+2026/10/9 20:00,Hydro Run-of-river and Poundage,646.0
+2026/10/9 20:00,Hydro Water Reservoir,907.0
+2026/10/9 20:00,Nuclear,0.0
+2026/10/9 20:00,Solar,0.0
+2026/10/9 20:00,Wind Onshore,371.0
+2026/10/9 20:15,Biomass,60.0
+2026/10/9 20:15,Energy Storage,137.0
+2026/10/9 20:15,Fossil Brown Coal/Lignite,739.0
+2026/10/9 20:15,Fossil Gas,1307.0
+2026/10/9 20:15,Fossil Hard Coal,65.0
+2026/10/9 20:15,Hydro Run-of-river and Poundage,645.0
+2026/10/9 20:15,Hydro Water Reservoir,908.0
+2026/10/9 20:15,Nuclear,0.0
+2026/10/9 20:15,Solar,0.0
+2026/10/9 20:15,Wind Onshore,390.0
+2026/10/9 20:30,Biomass,60.0
+2026/10/9 20:30,Energy Storage,100.0
+2026/10/9 20:30,Fossil Brown Coal/Lignite,748.0
+2026/10/9 20:30,Fossil Gas,1317.0
+2026/10/9 20:30,Fossil Hard Coal,65.0
+2026/10/9 20:30,Hydro Run-of-river and Poundage,648.0
+2026/10/9 20:30,Hydro Water Reservoir,912.0
+2026/10/9 20:30,Nuclear,0.0
+2026/10/9 20:30,Solar,0.0
+2026/10/9 20:30,Wind Onshore,391.0
+2026/10/9 20:45,Biomass,60.0
+2026/10/9 20:45,Energy Storage,66.0
+2026/10/9 20:45,Fossil Brown Coal/Lignite,752.0
+2026/10/9 20:45,Fossil Gas,1325.0
+2026/10/9 20:45,Fossil Hard Coal,65.0
+2026/10/9 20:45,Hydro Run-of-river and Poundage,649.0
+2026/10/9 20:45,Hydro Water Reservoir,914.0
+2026/10/9 20:45,Nuclear,0.0
+2026/10/9 20:45,Solar,0.0
+2026/10/9 20:45,Wind Onshore,421.0
+2026/10/9 21:00,Biomass,60.0
+2026/10/9 21:00,Energy Storage,170.0
+2026/10/9 21:00,Fossil Brown Coal/Lignite,768.0
+2026/10/9 21:00,Fossil Gas,1332.0
+2026/10/9 21:00,Fossil Hard Coal,64.0
+2026/10/9 21:00,Hydro Run-of-river and Poundage,638.0
+2026/10/9 21:00,Hydro Water Reservoir,847.0
+2026/10/9 21:00,Nuclear,0.0
+2026/10/9 21:00,Solar,0.0
+2026/10/9 21:00,Wind Onshore,454.0
+2026/10/9 21:15,Biomass,61.0
+2026/10/9 21:15,Energy Storage,92.0
+2026/10/9 21:15,Fossil Brown Coal/Lignite,786.0
+2026/10/9 21:15,Fossil Gas,1334.0
+2026/10/9 21:15,Fossil Hard Coal,64.0
+2026/10/9 21:15,Hydro Run-of-river and Poundage,636.0
+2026/10/9 21:15,Hydro Water Reservoir,846.0
+2026/10/9 21:15,Nuclear,0.0
+2026/10/9 21:15,Solar,0.0
+2026/10/9 21:15,Wind Onshore,497.0
+2026/10/9 21:30,Biomass,62.0
+2026/10/9 21:30,Energy Storage,41.0
+2026/10/9 21:30,Fossil Brown Coal/Lignite,752.0
+2026/10/9 21:30,Fossil Gas,1335.0
+2026/10/9 21:30,Fossil Hard Coal,64.0
+2026/10/9 21:30,Hydro Run-of-river and Poundage,638.0
+2026/10/9 21:30,Hydro Water Reservoir,840.0
+2026/10/9 21:30,Nuclear,0.0
+2026/10/9 21:30,Solar,0.0
+2026/10/9 21:30,Wind Onshore,532.0
+2026/10/9 21:45,Biomass,61.0
+2026/10/9 21:45,Energy Storage,30.0
+2026/10/9 21:45,Fossil Brown Coal/Lignite,740.0
+2026/10/9 21:45,Fossil Gas,1333.0
+2026/10/9 21:45,Fossil Hard Coal,64.0
+2026/10/9 21:45,Hydro Run-of-river and Poundage,634.0
+2026/10/9 21:45,Hydro Water Reservoir,832.0
+2026/10/9 21:45,Nuclear,0.0
+2026/10/9 21:45,Solar,0.0
+2026/10/9 21:45,Wind Onshore,590.0
+2026/10/9 22:00,Biomass,62.0
+2026/10/9 22:00,Energy Storage,50.0
+2026/10/9 22:00,Fossil Brown Coal/Lignite,765.0
+2026/10/9 22:00,Fossil Gas,1324.0
+2026/10/9 22:00,Fossil Hard Coal,64.0
+2026/10/9 22:00,Hydro Run-of-river and Poundage,609.0
+2026/10/9 22:00,Hydro Water Reservoir,750.0
+2026/10/9 22:00,Nuclear,0.0
+2026/10/9 22:00,Solar,0.0
+2026/10/9 22:00,Wind Onshore,611.0
+2026/10/9 22:15,Biomass,62.0
+2026/10/9 22:15,Energy Storage,32.0
+2026/10/9 22:15,Fossil Brown Coal/Lignite,775.0
+2026/10/9 22:15,Fossil Gas,1313.0
+2026/10/9 22:15,Fossil Hard Coal,64.0
+2026/10/9 22:15,Hydro Run-of-river and Poundage,603.0
+2026/10/9 22:15,Hydro Water Reservoir,737.0
+2026/10/9 22:15,Nuclear,0.0
+2026/10/9 22:15,Solar,0.0
+2026/10/9 22:15,Wind Onshore,652.0
+2026/10/9 22:30,Biomass,61.0
+2026/10/9 22:30,Energy Storage,8.0
+2026/10/9 22:30,Fossil Brown Coal/Lignite,766.0
+2026/10/9 22:30,Fossil Gas,1314.0
+2026/10/9 22:30,Fossil Hard Coal,64.0
+2026/10/9 22:30,Hydro Run-of-river and Poundage,604.0
+2026/10/9 22:30,Hydro Water Reservoir,728.0
+2026/10/9 22:30,Nuclear,0.0
+2026/10/9 22:30,Solar,0.0
+2026/10/9 22:30,Wind Onshore,686.0
+2026/10/9 22:45,Biomass,62.0
+2026/10/9 22:45,Energy Storage,12.0
+2026/10/9 22:45,Fossil Brown Coal/Lignite,738.0
+2026/10/9 22:45,Fossil Gas,1313.0
+2026/10/9 22:45,Fossil Hard Coal,64.0
+2026/10/9 22:45,Hydro Run-of-river and Poundage,604.0
+2026/10/9 22:45,Hydro Water Reservoir,731.0
+2026/10/9 22:45,Nuclear,0.0
+2026/10/9 22:45,Solar,0.0
+2026/10/9 22:45,Wind Onshore,690.0
+2026/10/9 23:00,Biomass,61.0
+2026/10/9 23:00,Energy Storage,114.0
+2026/10/9 23:00,Fossil Brown Coal/Lignite,690.0
+2026/10/9 23:00,Fossil Gas,1312.0
+2026/10/9 23:00,Fossil Hard Coal,63.0
+2026/10/9 23:00,Hydro Run-of-river and Poundage,414.0
+2026/10/9 23:00,Hydro Water Reservoir,876.0
+2026/10/9 23:00,Nuclear,0.0
+2026/10/9 23:00,Solar,0.0
+2026/10/9 23:00,Wind Onshore,599.0
+2026/10/9 23:15,Biomass,61.0
+2026/10/9 23:15,Energy Storage,83.0
+2026/10/9 23:15,Fossil Brown Coal/Lignite,705.0
+2026/10/9 23:15,Fossil Gas,1353.0
+2026/10/9 23:15,Fossil Hard Coal,64.0
+2026/10/9 23:15,Hydro Run-of-river and Poundage,406.0
+2026/10/9 23:15,Hydro Water Reservoir,853.0
+2026/10/9 23:15,Nuclear,0.0
+2026/10/9 23:15,Solar,0.0
+2026/10/9 23:15,Wind Onshore,532.0
+2026/10/9 23:30,Biomass,62.0
+2026/10/9 23:30,Energy Storage,21.0
+2026/10/9 23:30,Fossil Brown Coal/Lignite,670.0
+2026/10/9 23:30,Fossil Gas,1310.0
+2026/10/9 23:30,Fossil Hard Coal,64.0
+2026/10/9 23:30,Hydro Run-of-river and Poundage,453.0
+2026/10/9 23:30,Hydro Water Reservoir,913.0
+2026/10/9 23:30,Nuclear,0.0
+2026/10/9 23:30,Solar,0.0
+2026/10/9 23:30,Wind Onshore,499.0
+2026/10/9 23:45,Biomass,61.0
+2026/10/9 23:45,Energy Storage,13.0
+2026/10/9 23:45,Fossil Brown Coal/Lignite,665.0
+2026/10/9 23:45,Fossil Gas,1309.0
+2026/10/9 23:45,Fossil Hard Coal,64.0
+2026/10/9 23:45,Hydro Run-of-river and Poundage,467.0
+2026/10/9 23:45,Hydro Water Reservoir,913.0
+2026/10/9 23:45,Nuclear,0.0
+2026/10/9 23:45,Solar,0.0
+2026/10/9 23:45,Wind Onshore,475.0

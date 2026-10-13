@@ -225,6 +225,10 @@ jobs:
           python py/fetch_entsoe.py --mode "$MODE"
           python py/fetch_imbalance.py --mode "$MODE"
 
+      # ── rebuild 15-min wide tables for capture-price.html ───
+      - name: Build 15-min capture price data
+        run: python py/build_15min.py
+
       # ── commit ──────────────────────────────────────────────
       - name: Commit and push updated data
         run: |

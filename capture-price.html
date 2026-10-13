@@ -638,7 +638,8 @@ function extractDate(dtStr) {
     if (m2) return m2[1];
     return null;
 }
-function buildStore(rows, store) {
+/* Price: missing values stay NaN (interval skipped); generation: missing -> 0 */
+function buildStore(rows, store, missing = 0) {
     if (!rows.length) return;
     const dtCol = getDTCol(rows[0]);
     COUNTRIES.forEach(c => { store[c.code] = []; });
@@ -647,24 +648,25 @@ function buildStore(rows, store) {
         if (!date) return;
         COUNTRIES.forEach(c => {
             const v = parseFloat(row[c.code]);
-            store[c.code].push({ date, value: isNaN(v) ? 0 : v });
+            store[c.code].push({ date, value: isNaN(v) ? missing : v });
         });
     });
 }
 
 /* ═══════════════════════════════════════════════════════════
-   FETCH
+   FETCH  (raw 15-min data: 96 intervals per day, each = 0.25 h)
 ═══════════════════════════════════════════════════════════ */
+const INTERVAL_H = 0.25;
 let geoData = null;
 
 async function loadAllData() {
     const [priceText, solarText, windText, geoResp] = await Promise.all([
-        fetch('data/price.csv').then(r => r.text()),
-        fetch('data/solar.csv').then(r => r.text()),
-        fetch('data/wind.csv' ).then(r => r.text()),
+        fetch('data/price_15min.csv').then(r => r.text()),
+        fetch('data/solar_15min.csv').then(r => r.text()),
+        fetch('data/wind_15min.csv' ).then(r => r.text()),
         fetch('https://raw.githubusercontent.com/leakyMirror/map-of-europe/master/GeoJSON/europe.geojson').then(r => r.json())
     ]);
-    buildStore(parseCSV(priceText), rawPrice);
+    buildStore(parseCSV(priceText), rawPrice, NaN);
     buildStore(parseCSV(solarText), rawSolar);
     buildStore(parseCSV(windText),  rawWind);
     geoData = geoResp;
@@ -680,15 +682,16 @@ function computeHourly(country, source) {
     const hours = [];
     for (let i = 0; i < n; i++) {
         const date = prices[i].date, pr = prices[i].value, gen = gens[i].value;
+        if (!Number.isFinite(pr)) continue;
         const isPos = pr > 0;
         hours.push({
             date, pr, gen,
             genPost  : gen * (isPos ? 1 : 0),
             rev      : gen * (isPos ? 1 : 0) * pr,
             revPre   : gen * pr,
-            isNeg    : pr < 0  ? 1 : 0,
-            isZero   : pr === 0 ? 1 : 0,
-            isNonPos : pr <= 0  ? 1 : 0
+            isNeg    : pr < 0  ? INTERVAL_H : 0,
+            isZero   : pr === 0 ? INTERVAL_H : 0,
+            isNonPos : pr <= 0  ? INTERVAL_H : 0
         });
     }
     return hours;
@@ -781,19 +784,21 @@ function mapNegHours(country) {
     let total = 0;
     const hasNeg = state.negThreshSet.has('negative'), hasZero = state.negThreshSet.has('zero_only');
     prices.forEach(h => {
+        if (!Number.isFinite(h.value)) return;
         const yr = parseInt(h.date.slice(0,4)), mo = parseInt(h.date.slice(5,7));
         if (yr !== state.mapYear) return;
         if (state.mapFreq === 'quarterly' && Math.ceil(mo/3) !== state.mapQ)  return;
         if (state.mapFreq === 'monthly'   && mo !== state.mapMonth)            return;
-        if (hasNeg && hasZero && h.value <= 0) total++;
-        else if (hasNeg  && !hasZero && h.value < 0)  total++;
-        else if (!hasNeg && hasZero  && h.value === 0) total++;
+        if (hasNeg && hasZero && h.value <= 0) total += INTERVAL_H;
+        else if (hasNeg  && !hasZero && h.value < 0)  total += INTERVAL_H;
+        else if (!hasNeg && hasZero  && h.value === 0) total += INTERVAL_H;
     });
     return total;
 }
 function mapBaseload(country) {
     const prices = rawPrice[country] || [];
     const filtered = prices.filter(h => {
+        if (!Number.isFinite(h.value)) return false;
         const yr = parseInt(h.date.slice(0,4)), mo = parseInt(h.date.slice(5,7));
         if (yr !== state.mapYear) return false;
         if (state.mapFreq === 'quarterly' && Math.ceil(mo/3) !== state.mapQ)  return false;

@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
 由 raw_data（15min 原始数据）生成 capture-price.html 使用的 15min 宽表：
-  data/price_15min.csv   <- raw_data/{YEAR}/A44.csv
-  data/solar_15min.csv   <- raw_data/{YEAR}/generation/{CC}.csv (Solar)
-  data/wind_15min.csv    <- raw_data/{YEAR}/generation/{CC}.csv (Wind Onshore + Wind Offshore)
+  data/15min/price.csv   <- raw_data/{YEAR}/A44.csv
+  data/15min/solar.csv   <- raw_data/{YEAR}/generation/{CC}.csv (Solar)
+  data/15min/wind.csv    <- raw_data/{YEAR}/generation/{CC}.csv (Wind Onshore + Wind Offshore)
 时间轴格式与原 raw_data 一致："YYYY/M/D H:MM"。缺失值保留为空。
 """
 from pathlib import Path
@@ -19,6 +19,7 @@ def fmt_index(idx: pd.DatetimeIndex) -> list[str]:
 
 
 def save(df: pd.DataFrame, path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
     df = df.sort_index()
     df.index = fmt_index(df.index)
     df.index.name = "Date"
@@ -44,7 +45,7 @@ def build_price() -> None:
         if col in hourly.columns:
             fb = pd.Series(hourly[col].reindex(hour_key).to_numpy(), index=df.index)
             df[col] = df[col].fillna(fb)
-    save(df, DATA_DIR / "price_15min.csv")
+    save(df, DATA_DIR / "15min" / "price.csv")
 
 
 def build_gen() -> None:
@@ -65,7 +66,7 @@ def build_gen() -> None:
             if parts:
                 s = pd.concat(parts)
                 cols[cc] = s[~s.index.duplicated(keep="last")]
-        save(pd.DataFrame(cols).sort_index(axis=1), DATA_DIR / f"{name}_15min.csv")
+        save(pd.DataFrame(cols).sort_index(axis=1), DATA_DIR / "15min" / f"{name}.csv")
 
 
 if __name__ == "__main__":

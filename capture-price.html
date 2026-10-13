@@ -661,9 +661,9 @@ let geoData = null;
 
 async function loadAllData() {
     const [priceText, solarText, windText, geoResp] = await Promise.all([
-        fetch('data/price_15min.csv').then(r => r.text()),
-        fetch('data/solar_15min.csv').then(r => r.text()),
-        fetch('data/wind_15min.csv' ).then(r => r.text()),
+        fetch('data/15min/price.csv').then(r => r.text()),
+        fetch('data/15min/solar.csv').then(r => r.text()),
+        fetch('data/15min/wind.csv' ).then(r => r.text()),
         fetch('https://raw.githubusercontent.com/leakyMirror/map-of-europe/master/GeoJSON/europe.geojson').then(r => r.json())
     ]);
     buildStore(parseCSV(priceText), rawPrice, NaN);

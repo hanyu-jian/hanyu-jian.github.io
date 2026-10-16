@@ -118,24 +118,6 @@
             padding-top: 24px;
         }
 
-        .logout-btn {
-            position: fixed;
-            top: 16px;
-            right: 16px;
-            background: #e74c3c;
-            color: white;
-            border: none;
-            padding: 8px 16px;
-            border-radius: 20px;
-            font-size: 0.85rem;
-            cursor: pointer;
-            transition: background 0.2s;
-        }
-
-        .logout-btn:hover {
-            background: #c0392b;
-        }
-
         @media (max-width: 1080px) {
             .cards { gap: 24px; }
             .card { width: 280px; }
@@ -150,9 +132,6 @@
     </style>
 </head>
 <body>
-
-<!-- Logout Button -->
-<button class="logout-btn" onclick="logout()">🔓 Log Out</button>
 
 <div class="container">
     <div class="header">
@@ -188,11 +167,6 @@
     </div>
 </div>
 
-<script>
-    function logout() {
-        window.location.href = '/logout';
-    }
-</script>
 
 </body>
 </html>

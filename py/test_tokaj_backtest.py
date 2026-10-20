@@ -32,8 +32,8 @@ def test_id3_morning_uses_ida_position_and_all_revenues():
     assert (r["H"], r["S"], r["T"], r["U"], r["Y"], r["Z"]) == (100, 10, 0, 0, 0, 20)
     close(r.position, 130); close(r.AI, 10)
     close(r.Q, 5.0); close(r.AB, 0.6); close(r.AE, 1.4); close(r.AF, 7.0)
-    close(r.fee, -0.4)                        # 缺电（AI>0）付费
-    close(r.result, 6.6)
+    close(r.fee, 0.4)                         # Putnok 模板：缺电 AI>0 → 费用为正（AJ 缺失，只算一次）
+    close(r.result, 7.4)
 
 
 def test_ida2_ida3_and_noon_id3_basis():
@@ -60,22 +60,40 @@ def test_k_blank_vs_k_zero():
     close(blank["U"], -10); close(zero["U"], -10)   # 两种情况 U 都以 J 为基准
 
 
-def test_surplus_earns_shortage_pays():
-    s = T.compute(one("2026-10-01 12:00", I=100, J=100, AH=120, Pneg=50, Ppos=50)).iloc[0]
-    close(s.AI, -20); close(s.fee, 1.0)       # 余电 20 kWh × 50 EUR/MWh = +1 EUR
-    n = T.compute(one("2026-10-01 12:00", I=100, J=100, AH=80, Pneg=50, Ppos=50)).iloc[0]
-    close(n.AI, 20); close(n.fee, -1.0)
-    # 负价格：余电反而要付钱
-    neg = T.compute(one("2026-10-01 12:00", I=100, J=100, AH=120, Pneg=-10, Ppos=-10)).iloc[0]
-    close(neg.fee, -0.2)
-
-
-def test_workbook_putnok_template_has_opposite_sign():
-    r = T.compute(one("2026-10-01 12:00", I=100, J=100, AH=80, Ppos=50, Pneg=50, AJ=5), "putnok").iloc[0]
-    close(r.AO, 1.0); close(r.fee, 1.0)       # 缺电 20 kWh：Putnok 模板里是 +1（和默认相反）
-    # 系统方向为 0 时 AM/AN（或 AO/AP）都会成立，按模板原样重复计一次
-    z = T.compute(one("2026-10-01 12:00", I=100, J=100, AH=120, Ppos=50, Pneg=50, AJ=0), "putnok").iloc[0]
+def test_putnok_template_is_the_default_and_direction_is_optional():
+    # 缺电 20 kWh，价格 50：+AI×价格/1000 = +1（不管系统方向是正是负，只有一列成立）
+    for sd in (5.0, -5.0):
+        r = T.compute(one("2026-10-01 12:00", I=100, J=100, AH=80, Ppos=50, Pneg=50, AJ=sd)).iloc[0]
+        close(r.fee, 1.0)
+    pos = T.compute(one("2026-10-01 12:00", I=100, J=100, AH=80, Ppos=50, Pneg=50, AJ=5.0)).iloc[0]
+    close(pos.AO, 1.0); close(pos.AP, 0.0)    # AJ>0 → AO；AJ<0 → AP
+    neg = T.compute(one("2026-10-01 12:00", I=100, J=100, AH=80, Ppos=50, Pneg=50, AJ=-5.0)).iloc[0]
+    close(neg.AO, 0.0); close(neg.AP, 1.0)
+    # 余电 20 kWh：−1
+    sur = T.compute(one("2026-10-01 12:00", I=100, J=100, AH=120, Ppos=50, Pneg=50, AJ=5.0)).iloc[0]
+    close(sur.AI, -20); close(sur.AM, -1.0); close(sur.fee, -1.0)
+    # 系统方向缺失：只算一次，AM~AP 留空，并标记
+    na = T.compute(one("2026-10-01 12:00", I=100, J=100, AH=80, Ppos=50, Pneg=50)).iloc[0]
+    close(na.fee, 1.0); assert na["no_direction"] and np.isnan(na.AM) and np.isnan(na.AP)
+    # 系统方向恰好为 0：两列同时成立，按 Putnok 模板原样重复计一次
+    z = T.compute(one("2026-10-01 12:00", I=100, J=100, AH=120, Ppos=50, Pneg=50, AJ=0)).iloc[0]
     close(z.fee, -2.0)
+
+
+def test_missing_direction_column_entirely():
+    # 数据里根本没有 AJ 这一列（另外四个站的情形）也要当「方向未知」处理，而不是报错
+    df = one("2026-10-01 12:00", I=100, J=100, AH=80, Ppos=50, Pneg=50).drop(columns=["AJ"])
+    r = T.compute(df).iloc[0]
+    close(r.fee, 1.0); assert r["no_direction"]
+
+
+def test_legacy_mode_has_the_opposite_sign():
+    s = T.compute(one("2026-10-01 12:00", I=100, J=100, AH=120, Pneg=50, Ppos=50), "legacy").iloc[0]
+    close(s.AI, -20); close(s.fee, 1.0)       # 旧写法：余电 20 kWh × 50 EUR/MWh = +1 EUR
+    n = T.compute(one("2026-10-01 12:00", I=100, J=100, AH=80, Pneg=50, Ppos=50), "legacy").iloc[0]
+    close(n.AI, 20); close(n.fee, -1.0)       # 缺电付钱
+    neg = T.compute(one("2026-10-01 12:00", I=100, J=100, AH=120, Pneg=-10, Ppos=-10), "legacy").iloc[0]
+    close(neg.fee, -0.2)                      # 负价格：余电反而要付钱
 
 
 def test_invalid_and_uncovered():

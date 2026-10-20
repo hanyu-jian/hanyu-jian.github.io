@@ -13,6 +13,7 @@ Tokaj 五站「预测 → 报量 → 不平衡」回溯计算（复现 PV_Genera
   可选（本仓库没有，有就给）
       --ida-prices FILE               列 Date,IDA1,IDA2,IDA3（EUR/MWh，15 分钟，区间起点，当地时间）→ V/W/X 列
       --imbalance-price-csv FILE      列 Date,price（EUR/MWh，15 分钟）→ 覆盖 A85（例如 MAVIR 官方的月度结算价）
+      --system-direction FILE         列 Date 加 AJ（或 system_direction）：系统方向，15 分钟，区间起点，当地时间 → AJ 列
 
 计算（每个 15 分钟，kWh / EUR），和工作簿一致：
     H = I                                   日前仓位
@@ -23,14 +24,19 @@ Tokaj 五站「预测 → 报量 → 不平衡」回溯计算（复现 PV_Genera
     Z = 0 若 N 空，否则 N − (J 若 K 空或为 0，否则 K)（11:00~11:45）；12:00~15:45 为 N − L
     不平衡 AI = H+S+T+U+Y+Z − AH            （正 = 报多了/缺电，负 = 报少了/余电）
     收入：Q = P·H/1000，AB = V·S/1000，AC = W·T/1000，AD = X·U/1000，AE = AA·(Y+Z)/1000，AF = Q+AB+AC+AD+AE
-    不平衡费用（默认，和工作簿里 Serényfalva/Sajókaza/Szuhakálló 的公式一致）：
-        余电（AI<0）按 Pneg 得到收入 −AI·Pneg/1000；缺电（AI>0）按 Ppos 付费 −AI·Ppos/1000
-    结果 = AF + 不平衡费用
+    不平衡费用（默认，和工作簿 Putnok 那张表一致，五个站统一用它；--fee-mode legacy 是另外四张旧表的写法）：
+        AM = AI<=0 且 AJ>=0 时 −AI·Pneg/1000·(−1)，AN = AI<=0 且 AJ<=0 时同式，
+        AO = AI>=0 且 AJ>=0 时 −AI·Ppos/1000·(−1)，AP = AI>=0 且 AJ<=0 时同式，费用 AQ = AM+AN+AO+AP
+        （AJ 是系统方向。两个负号抵消，实际是 +AI·价格：缺电 AI>0 时费用为正，余电 AI<0 时为负。）
+        AJ 非零时四列里恰好一列成立；AJ 为 0 时两列同时成立，按模板原样重复计一次。
+        AJ 缺失（本仓库没有这份数据）：Excel 会把空当成 0 而重复计算，这里按「方向未知、只算一次」处理，
+        AM~AP 留空，并在汇总里统计没有系统方向的格子数（cells_no_system_direction）。
+        可用 --system-direction FILE 提供系统方向。
     价格缺失按 0 计（和 Excel 的空单元格一样），但会在汇总里统计「没有价格覆盖的成交量」。
     实测 AH 缺失（或日前预测 I 缺失）的格子整格剔除，不参与任何汇总（工作簿里这类格子结果为 0）。
 
-注意：工作簿里 Putnok 一张表用的是另一套不平衡费用公式（符号相反：缺电反而增加收入）。
-默认按另外四张表的逻辑；--fee-mode putnok 才按 Putnok 那张表原样复现（用来验证，需要 AJ 系统方向列）。
+说明：工作簿里只有 Putnok 一张表带系统方向，用的是上面这套公式；另外四张表还是旧公式（符号相反：缺电付费、
+余电得钱，且没有系统方向）。按约定一切以 Putnok 为准，所以默认五站都用 Putnok 的写法；旧写法保留为 --fee-mode legacy。
 
 输出（--out，默认 data/tokaj/）：
     daily.csv     每个场站 × 每天的汇总
@@ -65,12 +71,13 @@ FCST_COL = {  # vcom 里 production forecast 的列名 -> 模板列字母
 
 # ───────────────────────── 核心计算（只依赖 DataFrame，和读文件无关）─────────────────────────
 
-def compute(df, fee_mode="consistent"):
+def compute(df, fee_mode="putnok"):
     """df：以 15 分钟起点（当地时间）为索引，列 I J K L M N（预测 kWh）、AH（实测 kWh）、
     P（日前价）、V W X（IDA1/2/3 价）、AA（ID3 价）、Pneg、Ppos（不平衡价，EUR/MWh）；
-    fee_mode='putnok' 时还要有 AJ（系统方向）。返回加上计算列的拷贝，列名沿用工作簿的字母。"""
+    AJ（系统方向）可选，缺失时费用只算一次（见模块说明）。fee_mode：'putnok'（默认，Putnok 模板）或 'legacy'
+    （另外四张旧表）。返回加上计算列的拷贝，列名沿用工作簿的字母。"""
     d = df.copy()
-    for c in FCST_LETTERS + ["AH", "P", "V", "W", "X", "AA", "Pneg", "Ppos"]:
+    for c in FCST_LETTERS + ["AH", "P", "V", "W", "X", "AA", "Pneg", "Ppos", "AJ"]:
         if c not in d:
             d[c] = np.nan
     hour = d.index.hour
@@ -98,20 +105,29 @@ def compute(df, fee_mode="consistent"):
     d["AE"] = f("AA") * (d["Y"] + d["Z"]) / 1000
     d["AF"] = d[["Q", "AB", "AC", "AD", "AE"]].sum(axis=1)
 
-    if fee_mode == "consistent":
-        d["AL"] = (-d["AI"] / 1000 * f("Pneg")).where(d["AI"] < 0, 0.0)   # 余电
-        d["AM"] = (-d["AI"] / 1000 * f("Ppos")).where(d["AI"] > 0, 0.0)   # 缺电
+    if fee_mode == "legacy":
+        d["AL"] = (-d["AI"] / 1000 * f("Pneg")).where(d["AI"] < 0, 0.0)   # 余电得钱
+        d["AM"] = (-d["AI"] / 1000 * f("Ppos")).where(d["AI"] > 0, 0.0)   # 缺电付钱
         d["fee"] = d["AL"] + d["AM"]
     elif fee_mode == "putnok":
-        sd = f("AJ")
-        ai = d["AI"]
-        d["AM"] = np.where((ai <= 0) & (sd >= 0), -ai / 1000 * f("Pneg") * (-1), 0.0)
-        d["AN"] = np.where((ai <= 0) & (sd <= 0), -ai / 1000 * f("Pneg") * (-1), 0.0)
-        d["AO"] = np.where((ai >= 0) & (sd >= 0), -ai / 1000 * f("Ppos") * (-1), 0.0)
-        d["AP"] = np.where((ai >= 0) & (sd <= 0), -ai / 1000 * f("Ppos") * (-1), 0.0)
-        d["fee"] = d[["AM", "AN", "AO", "AP"]].sum(axis=1)
+        ai = d["AI"].to_numpy()
+        known = d["AJ"].notna().to_numpy()
+        sd = d["AJ"].fillna(0).to_numpy()
+        v_neg = -ai / 1000 * f("Pneg").to_numpy() * (-1)
+        v_pos = -ai / 1000 * f("Ppos").to_numpy() * (-1)
+        parts = {
+            "AM": np.where((ai <= 0) & (sd >= 0), v_neg, 0.0),
+            "AN": np.where((ai <= 0) & (sd <= 0), v_neg, 0.0),
+            "AO": np.where((ai >= 0) & (sd >= 0), v_pos, 0.0),
+            "AP": np.where((ai >= 0) & (sd <= 0), v_pos, 0.0),
+        }
+        single = np.where(ai < 0, v_neg, np.where(ai > 0, v_pos, 0.0))      # 方向未知：只算一次
+        for k, v in parts.items():
+            d[k] = np.where(known, v, np.nan)
+        d["fee"] = np.where(known, sum(parts.values()), single)
+        d["no_direction"] = ~known
     else:
-        raise ValueError(f"fee_mode 只能是 consistent 或 putnok，收到 {fee_mode!r}")
+        raise ValueError(f"fee_mode 只能是 putnok 或 legacy，收到 {fee_mode!r}")
     d["result"] = d["AF"] + d["fee"]
     d["valid"] = d["AH"].notna() & d["I"].notna()
     # 没有价格覆盖的成交量（价格缺失按 0 计，这里把它暴露出来）
@@ -130,6 +146,7 @@ def summarize(d, freq="D"):
     v["Pneg_missing"] = v["Pneg"].isna() | v["Ppos"].isna()
     v["DA_missing"] = v["P"].isna()
     v["Pneg_zero"] = v["Pneg"] == 0          # 恰好为 0 的不平衡价，很可能是缺失被记成了 0
+    v["no_direction"] = v["no_direction"] if "no_direction" in v else False
     g = v.groupby(v.index.to_period(freq))
     out = pd.DataFrame({
         "cells": g.size(),
@@ -150,6 +167,7 @@ def summarize(d, freq="D"):
         "cells_no_da_price": g["DA_missing"].sum(),
         "cells_no_imbalance_price": g["Pneg_missing"].sum(),
         "cells_zero_imbalance_price": g["Pneg_zero"].sum(),
+        "cells_no_system_direction": g["no_direction"].sum(),
     })
     return add_ratios(out)
 
@@ -179,7 +197,7 @@ def load_site(plant_dir, site):
 
 
 def load_prices(data_dir=DATA, ida_csv=None, imb_csv=None, fx_lag_days=1, eur_from=IMBALANCE_EUR_FROM,
-                imb_source="raw"):
+                imb_source="raw", sd_csv=None):
     """返回 15 分钟价格表：P（日前）、AA（ID3）、V/W/X（IDA，没给则空）、Pneg/Ppos（不平衡价 EUR/MWh）。"""
     data_dir = Path(data_dir)
     da = pd.read_csv(data_dir / "15min" / "price.csv", usecols=["Date", "HU"])
@@ -233,10 +251,15 @@ def load_prices(data_dir=DATA, ida_csv=None, imb_csv=None, fx_lag_days=1, eur_fr
             eur = eur.where(~native, huf)
         p["Pneg"] = eur.reindex(p.index.floor(step) if step else p.index).to_numpy()   # 小时价展开到 15 分钟
     p["Ppos"] = p["Pneg"]
+    p["AJ"] = np.nan                                                                   # 系统方向，没给就留空
+    if sd_csv:
+        x = pd.read_csv(sd_csv, parse_dates=["Date"]).drop_duplicates("Date", keep="first").set_index("Date")
+        col = "AJ" if "AJ" in x else "system_direction"
+        p["AJ"] = x[col]
     return p
 
 
-def run_site(plant_dir, site, prices, start=None, end=None, fee_mode="consistent"):
+def run_site(plant_dir, site, prices, start=None, end=None, fee_mode="putnok"):
     x = load_site(plant_dir, site)
     x = x.join(prices, how="left")
     if start:
@@ -261,13 +284,15 @@ def main():
                     help="仓库里的 HU 不平衡价从这一天起已经是 EUR/MWh（不再除汇率），默认 %(default)s；留空表示全部按 HUF 折算")
     ap.add_argument("--imbalance-source", choices=["raw", "hourly"], default="raw",
                     help="不平衡价来源：raw = raw_data/*/A85.csv（15 分钟，默认）；hourly = data/imbalance_price.csv（小时）")
-    ap.add_argument("--fee-mode", choices=["consistent", "putnok"], default="consistent")
+    ap.add_argument("--system-direction", help="CSV：Date 加 AJ（或 system_direction），15 分钟，区间起点，当地时间")
+    ap.add_argument("--fee-mode", choices=["putnok", "legacy"], default="putnok",
+                    help="putnok = Putnok 表的不平衡费用公式（默认，五站统一）；legacy = 另外四张旧表的写法（符号相反）")
     ap.add_argument("--out", default=str(DATA / "tokaj"), help="输出目录（默认 data/tokaj）")
     ap.add_argument("--detail", help="另外把逐 15 分钟明细写到这个目录（不要提交）")
     args = ap.parse_args()
 
     prices = load_prices(ida_csv=args.ida_prices, imb_csv=args.imbalance_price_csv, eur_from=args.imbalance_eur_from or None,
-                          imb_source=args.imbalance_source)
+                          imb_source=args.imbalance_source, sd_csv=args.system_direction)
     for name, col in (("IDA1/2/3 价格", "V"), ("ID3 指数", "AA")):
         if args.start and prices[col].loc[args.start:args.end].isna().all():
             print(f"提示：这段时间没有 {name}，相关成交量的收入按 0 计（汇总里的 uncovered_trade_kWh 是没有价格覆盖的成交量）")

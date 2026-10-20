@@ -8,10 +8,11 @@ Tokaj 五站「预测 → 报量 → 不平衡」回溯计算（复现 PV_Genera
   价格（本仓库 data/）
       data/15min/price.csv            HU 日前价 EUR/MWh（工作簿 P 列）
       data/intraday/HU.csv            ID3 指数 EUR/MWh（工作簿 AA 列）
-      data/imbalance_price.csv        HU 不平衡价，小时，HUF/MWh；用 data/MNB.csv 的 EUR 汇率折成 EUR/MWh
+      raw_data/<年>/A85.csv           HU 不平衡价，15 分钟（2021~），福林；用 data/MNB.csv 的 EUR 汇率折成 EUR/MWh（默认）
+      data/imbalance_price.csv        同一份数据的小时均值（--imbalance-source hourly 才用）
   可选（本仓库没有，有就给）
       --ida-prices FILE               列 Date,IDA1,IDA2,IDA3（EUR/MWh，15 分钟，区间起点，当地时间）→ V/W/X 列
-      --imbalance-price-csv FILE      列 Date,price（EUR/MWh，15 分钟）→ 覆盖小时价（MAVIR 的 15 分钟价）
+      --imbalance-price-csv FILE      列 Date,price（EUR/MWh，15 分钟）→ 覆盖 A85（例如 MAVIR 官方的月度结算价）
 
 计算（每个 15 分钟，kWh / EUR），和工作簿一致：
     H = I                                   日前仓位
@@ -52,8 +53,8 @@ BASE = Path(__file__).resolve().parent.parent
 DATA = BASE / "data"
 SITES = ["Putnok", "Serenyfalva", "Sajokaza", "Szuhakálló 1", "Szuhakálló 2"]
 FCST_LETTERS = ["I", "J", "K", "L", "M", "N"]
-# data/imbalance_price.csv 的 HU 列：2026-09-30 及以前是 HUF/MWh（6~8 万量级），2026-10-01 起就是 EUR/MWh（几百量级，
-# 不用再除汇率）。这个日期是从数据量级判断出来的，不是数据源的说明；可用 --imbalance-eur-from 修改。
+# A85（以及由它得到的 imbalance_price.csv）的 HU 列：2026-09-30 及以前是 HUF/MWh（几万量级），2026-10-01 起就是
+# EUR/MWh（几百量级，不用再除汇率）。这个日期是从数据量级判断出来的，不是数据源的说明；可用 --imbalance-eur-from 修改。
 IMBALANCE_EUR_FROM = "2026-10-01"
 FCST_COL = {  # vcom 里 production forecast 的列名 -> 模板列字母
     "Production fcst I (DA) [kWh]": "I", "Production fcst J (IDA1) [kWh]": "J",
@@ -177,7 +178,8 @@ def load_site(plant_dir, site):
     return fc.join(ac, how="outer")
 
 
-def load_prices(data_dir=DATA, ida_csv=None, imb_csv=None, fx_lag_days=1, eur_from=IMBALANCE_EUR_FROM):
+def load_prices(data_dir=DATA, ida_csv=None, imb_csv=None, fx_lag_days=1, eur_from=IMBALANCE_EUR_FROM,
+                imb_source="raw"):
     """返回 15 分钟价格表：P（日前）、AA（ID3）、V/W/X（IDA，没给则空）、Pneg/Ppos（不平衡价 EUR/MWh）。"""
     data_dir = Path(data_dir)
     da = pd.read_csv(data_dir / "15min" / "price.csv", usecols=["Date", "HU"])
@@ -204,9 +206,22 @@ def load_prices(data_dir=DATA, ida_csv=None, imb_csv=None, fx_lag_days=1, eur_fr
         x = pd.read_csv(imb_csv, parse_dates=["Date"]).drop_duplicates("Date", keep="first").set_index("Date")
         p["Pneg"] = x["price"]
     else:
-        ib = pd.read_csv(data_dir / "imbalance_price.csv", usecols=["Date", "HU"])
-        ib["Date"] = pd.to_datetime(ib["Date"], format="%Y/%m/%d %H:%M")
-        huf = ib.drop_duplicates("Date", keep="first").set_index("Date")["HU"]          # HUF/MWh，小时起点
+        raw_files = sorted((data_dir.parent / "raw_data").glob("*/A85.csv")) if imb_source == "raw" else []
+        if raw_files:                                                                      # 15 分钟，福林
+            parts = []
+            for f in raw_files:
+                x = pd.read_csv(f, usecols=["Date", "HU"])
+                x["Date"] = pd.to_datetime(x["Date"], format="%Y/%m/%d %H:%M")
+                parts.append(x)
+            huf = pd.concat(parts).drop_duplicates("Date", keep="first").set_index("Date")["HU"].sort_index()
+            step = None
+        else:                                                                              # 小时，福林
+            if imb_source == "raw":
+                print("提示：没找到 raw_data/*/A85.csv，改用小时价 data/imbalance_price.csv", file=sys.stderr)
+            ib = pd.read_csv(data_dir / "imbalance_price.csv", usecols=["Date", "HU"])
+            ib["Date"] = pd.to_datetime(ib["Date"], format="%Y/%m/%d %H:%M")
+            huf = ib.drop_duplicates("Date", keep="first").set_index("Date")["HU"]
+            step = "1h"
         fx = pd.read_csv(data_dir / "MNB.csv", usecols=["Date", "EUR"])
         fx["Date"] = pd.to_datetime(fx["Date"], format="%Y/%m/%d")
         fx = fx.drop_duplicates("Date").set_index("Date")["EUR"]                         # HUF per EUR，工作日
@@ -214,9 +229,9 @@ def load_prices(data_dir=DATA, ida_csv=None, imb_csv=None, fx_lag_days=1, eur_fr
         rate = fx.sort_index().reindex(day, method="ffill").to_numpy()                   # T-1 的最近一个工作日汇率
         eur = (huf / rate).rename("Pneg")
         if eur_from:
-            native = huf.index >= pd.Timestamp(eur_from)                               # 这些小时本来就是 EUR/MWh
+            native = huf.index >= pd.Timestamp(eur_from)                               # 这些时段本来就是 EUR/MWh
             eur = eur.where(~native, huf)
-        p["Pneg"] = eur.reindex(p.index.floor("1h")).to_numpy()                          # 小时价展开到 15 分钟
+        p["Pneg"] = eur.reindex(p.index.floor(step) if step else p.index).to_numpy()   # 小时价展开到 15 分钟
     p["Ppos"] = p["Pneg"]
     return p
 
@@ -244,12 +259,15 @@ def main():
     ap.add_argument("--imbalance-price-csv", help="CSV：Date,price（EUR/MWh，15 分钟），覆盖仓库里的小时价")
     ap.add_argument("--imbalance-eur-from", default=IMBALANCE_EUR_FROM,
                     help="仓库里的 HU 不平衡价从这一天起已经是 EUR/MWh（不再除汇率），默认 %(default)s；留空表示全部按 HUF 折算")
+    ap.add_argument("--imbalance-source", choices=["raw", "hourly"], default="raw",
+                    help="不平衡价来源：raw = raw_data/*/A85.csv（15 分钟，默认）；hourly = data/imbalance_price.csv（小时）")
     ap.add_argument("--fee-mode", choices=["consistent", "putnok"], default="consistent")
     ap.add_argument("--out", default=str(DATA / "tokaj"), help="输出目录（默认 data/tokaj）")
     ap.add_argument("--detail", help="另外把逐 15 分钟明细写到这个目录（不要提交）")
     args = ap.parse_args()
 
-    prices = load_prices(ida_csv=args.ida_prices, imb_csv=args.imbalance_price_csv, eur_from=args.imbalance_eur_from or None)
+    prices = load_prices(ida_csv=args.ida_prices, imb_csv=args.imbalance_price_csv, eur_from=args.imbalance_eur_from or None,
+                          imb_source=args.imbalance_source)
     for name, col in (("IDA1/2/3 价格", "V"), ("ID3 指数", "AA")):
         if args.start and prices[col].loc[args.start:args.end].isna().all():
             print(f"提示：这段时间没有 {name}，相关成交量的收入按 0 计（汇总里的 uncovered_trade_kWh 是没有价格覆盖的成交量）")

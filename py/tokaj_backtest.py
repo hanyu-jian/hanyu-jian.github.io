@@ -13,6 +13,8 @@ Tokaj 五站「预测 → 报量 → 不平衡」回溯计算（复现 PV_Genera
   可选（本仓库没有，有就给）
       --ida-prices FILE               列 Date,IDA1,IDA2,IDA3（EUR/MWh，15 分钟，区间起点，当地时间）→ V/W/X 列
       --imbalance-price-csv FILE      列 Date,price（EUR/MWh，15 分钟）→ 覆盖 A85（例如 MAVIR 官方的月度结算价）
+      --montel FILE                   Montel 导出的 CSV（Date (CET)、DA/IDA1~3 价格、IDA1~3 成交量、SYSTEM DIRECTION，15 分钟，
+                                      第二行是单位）→ IDA1/2/3 价格（V/W/X）和系统方向（AJ，符号取反，见下）
       --system-direction FILE         列 Date 加 AJ（或 system_direction）：系统方向，15 分钟，区间起点，当地时间 → AJ 列
 
 计算（每个 15 分钟，kWh / EUR），和工作簿一致：
@@ -31,7 +33,10 @@ Tokaj 五站「预测 → 报量 → 不平衡」回溯计算（复现 PV_Genera
         AJ 非零时四列里恰好一列成立；AJ 为 0 时两列同时成立，按模板原样重复计一次。
         AJ 缺失（本仓库没有这份数据）：Excel 会把空当成 0 而重复计算，这里按「方向未知、只算一次」处理，
         AM~AP 留空，并在汇总里统计没有系统方向的格子数（cells_no_system_direction）。
-        可用 --system-direction FILE 提供系统方向。
+        可用 --montel 或 --system-direction 提供系统方向。
+        Montel 的 SYSTEM DIRECTION（MW）和工作簿 Putnok 的 AJ 符号相反（8 月 97.5% 的格子相反，取反后四列费用与 Excel
+        只有 0.8% 的格子落在不同的列，总费用相同），所以读 Montel 时 AJ = −SYSTEM DIRECTION。
+        Montel 里个别日子的 IDA1/IDA2 只有 00:00~00:45 四个格子（和工作簿一样是「残缺日」），整日按缺失处理。
     价格缺失按 0 计（和 Excel 的空单元格一样），但会在汇总里统计「没有价格覆盖的成交量」。
     实测 AH 缺失（或日前预测 I 缺失）的格子整格剔除，不参与任何汇总（工作簿里这类格子结果为 0）。
 
@@ -62,6 +67,8 @@ FCST_LETTERS = ["I", "J", "K", "L", "M", "N"]
 # A85（以及由它得到的 imbalance_price.csv）的 HU 列：2026-09-30 及以前是 HUF/MWh（几万量级），2026-10-01 起就是
 # EUR/MWh（几百量级，不用再除汇率）。这个日期是从数据量级判断出来的，不是数据源的说明；可用 --imbalance-eur-from 修改。
 IMBALANCE_EUR_FROM = "2026-10-01"
+# Montel 里某个日子某个 IDA 价格只有这么多个格子以内，就当作残缺日整日留空（工作簿的做法；文件最后一天除外）
+INCOMPLETE_DAY_MAX_CELLS = 8
 FCST_COL = {  # vcom 里 production forecast 的列名 -> 模板列字母
     "Production fcst I (DA) [kWh]": "I", "Production fcst J (IDA1) [kWh]": "J",
     "Production fcst K (IDA2) [kWh]": "K", "Production fcst L (IDA3) [kWh]": "L",
@@ -196,8 +203,44 @@ def load_site(plant_dir, site):
     return fc.join(ac, how="outer")
 
 
+def _find_col(cols, *words):
+    for c in cols:
+        if all(w.lower() in str(c).lower() for w in words):
+            return c
+    raise KeyError(f"Montel 文件里找不到包含 {words} 的列，实际列名: {list(cols)}")
+
+
+def load_montel(path, quiet=False):
+    """读 Montel 导出的 CSV，返回以当地时间（区间起点）为索引的表：
+    V/W/X = IDA1/2/3 价格（EUR/MWh），AJ = −SYSTEM DIRECTION（MW，符号取反，见模块说明），
+    DA = Montel 的日前价（只用来核对），VOL1/2/3 = IDA 成交量（MW，目前不参与计算）。"""
+    m = pd.read_csv(path, skiprows=[1], encoding="utf-8-sig")        # 第 2 行是单位
+    date = m.columns[0]
+    out = pd.DataFrame({
+        "Date": pd.to_datetime(m[date], format="%d/%m/%Y %H:%M"),
+        "DA": m[_find_col(m.columns, "DA", "price")],
+        "V": m[_find_col(m.columns, "IDA1", "price")], "W": m[_find_col(m.columns, "IDA2", "price")],
+        "X": m[_find_col(m.columns, "IDA3", "price")],
+        "VOL1": m[_find_col(m.columns, "IDA1", "volume")], "VOL2": m[_find_col(m.columns, "IDA2", "volume")],
+        "VOL3": m[_find_col(m.columns, "IDA3", "volume")],
+        "AJ": -pd.to_numeric(m[_find_col(m.columns, "system", "direction")], errors="coerce"),
+    }).drop_duplicates("Date", keep="first").set_index("Date").sort_index()
+    out = out.apply(pd.to_numeric, errors="coerce")
+    last_day = out.index.max().normalize()
+    day = out.index.normalize()
+    for c in ("V", "W", "X"):
+        n = out[c].notna().groupby(day).transform("sum")
+        bad = (n > 0) & (n <= INCOMPLETE_DAY_MAX_CELLS) & (day != last_day)
+        if bad.any() and not quiet:
+            days = sorted({d.strftime("%Y-%m-%d") for d in day[bad]})
+            print(f"提示：Montel {c} 有 {len(days)} 个残缺日（每天只有 {INCOMPLETE_DAY_MAX_CELLS} 个格子以内）按缺失处理: "
+                  f"{', '.join(days[:6])}{' ...' if len(days) > 6 else ''}", file=sys.stderr)
+        out.loc[bad, c] = np.nan
+    return out
+
+
 def load_prices(data_dir=DATA, ida_csv=None, imb_csv=None, fx_lag_days=1, eur_from=IMBALANCE_EUR_FROM,
-                imb_source="raw", sd_csv=None):
+                imb_source="raw", sd_csv=None, sd_sign=1, montel_csv=None):
     """返回 15 分钟价格表：P（日前）、AA（ID3）、V/W/X（IDA，没给则空）、Pneg/Ppos（不平衡价 EUR/MWh）。"""
     data_dir = Path(data_dir)
     da = pd.read_csv(data_dir / "15min" / "price.csv", usecols=["Date", "HU"])
@@ -214,6 +257,10 @@ def load_prices(data_dir=DATA, ida_csv=None, imb_csv=None, fx_lag_days=1, eur_fr
         p["AA"] = np.nan
     for c in ("V", "W", "X"):
         p[c] = np.nan
+    montel = load_montel(montel_csv) if montel_csv else None
+    if montel is not None:
+        for c in ("V", "W", "X"):
+            p[c] = montel[c]
     if ida_csv:
         x = pd.read_csv(ida_csv, parse_dates=["Date"]).drop_duplicates("Date", keep="first").set_index("Date")
         for src, dst in (("IDA1", "V"), ("IDA2", "W"), ("IDA3", "X")):
@@ -255,7 +302,9 @@ def load_prices(data_dir=DATA, ida_csv=None, imb_csv=None, fx_lag_days=1, eur_fr
     if sd_csv:
         x = pd.read_csv(sd_csv, parse_dates=["Date"]).drop_duplicates("Date", keep="first").set_index("Date")
         col = "AJ" if "AJ" in x else "system_direction"
-        p["AJ"] = x[col]
+        p["AJ"] = x[col] * sd_sign
+    elif montel is not None:
+        p["AJ"] = montel["AJ"]
     return p
 
 
@@ -284,6 +333,9 @@ def main():
                     help="仓库里的 HU 不平衡价从这一天起已经是 EUR/MWh（不再除汇率），默认 %(default)s；留空表示全部按 HUF 折算")
     ap.add_argument("--imbalance-source", choices=["raw", "hourly"], default="raw",
                     help="不平衡价来源：raw = raw_data/*/A85.csv（15 分钟，默认）；hourly = data/imbalance_price.csv（小时）")
+    ap.add_argument("--montel", help="Montel 导出的 CSV（IDA1/2/3 价格、成交量、SYSTEM DIRECTION；SYSTEM DIRECTION 会取反当 AJ）")
+    ap.add_argument("--system-direction-sign", type=int, choices=[1, -1], default=1,
+                    help="--system-direction 文件的符号：1 = 原样当 AJ（默认），-1 = 取反")
     ap.add_argument("--system-direction", help="CSV：Date 加 AJ（或 system_direction），15 分钟，区间起点，当地时间")
     ap.add_argument("--fee-mode", choices=["putnok", "legacy"], default="putnok",
                     help="putnok = Putnok 表的不平衡费用公式（默认，五站统一）；legacy = 另外四张旧表的写法（符号相反）")
@@ -292,7 +344,8 @@ def main():
     args = ap.parse_args()
 
     prices = load_prices(ida_csv=args.ida_prices, imb_csv=args.imbalance_price_csv, eur_from=args.imbalance_eur_from or None,
-                          imb_source=args.imbalance_source, sd_csv=args.system_direction)
+                          imb_source=args.imbalance_source, sd_csv=args.system_direction,
+                          sd_sign=args.system_direction_sign, montel_csv=args.montel)
     for name, col in (("IDA1/2/3 价格", "V"), ("ID3 指数", "AA")):
         if args.start and prices[col].loc[args.start:args.end].isna().all():
             print(f"提示：这段时间没有 {name}，相关成交量的收入按 0 计（汇总里的 uncovered_trade_kWh 是没有价格覆盖的成交量）")

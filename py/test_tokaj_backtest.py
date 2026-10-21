@@ -107,6 +107,32 @@ def test_invalid_and_uncovered():
     assert not T.compute(one("2026-10-01 12:00", I=NAN, J=1, AH=1)).iloc[0].valid   # 日前预测缺失也剔除
 
 
+def test_load_montel_parsing_sign_and_incomplete_days():
+    import tempfile
+    head = "Date (CET),DA Price,IDA1 Price (HUPX),IDA2 Price (HUPX),IDA3 Price (HUPX),IDA1 Volume (HUPX),IDA2 Volume (HUPX),IDA3 Volume (HUPX),SYSTEM DIRECTION\n"
+    units = ",EUR/MWh,EUR/MWh,EUR/MWh,EUR/MWh,MW,MW,MW,MW\n"
+    rows = []
+    for ts in pd.date_range("2026-08-04 00:00", periods=96, freq="15min"):       # 残缺日：IDA1 只有前 4 格
+        rows.append((ts, 50.0, 60.0 if ts.hour == 0 else None, 70.0, None, 1, 2, None, 5.0))
+    for ts in pd.date_range("2026-08-05 00:00", periods=96, freq="15min"):       # 完整日；系统方向 −3 → AJ = +3
+        rows.append((ts, 50.0, 61.0, 71.0, 81.0 if ts.hour >= 12 else None, 1, 2, 3, -3.0 if ts.minute else None))
+    for ts in pd.date_range("2026-08-06 00:00", periods=6, freq="15min"):        # 文件最后一天只有 6 行：IDA1 保留
+        rows.append((ts, 50.0, 62.0, None, None, 1, None, None, 1.0))
+    body = "".join(",".join(["" if v is None else (v.strftime("%d/%m/%Y %H:%M") if hasattr(v, "strftime") else str(v)) for v in r]) + "\n"
+                   for r in rows)
+    with tempfile.NamedTemporaryFile("w", suffix=".csv", delete=False, encoding="utf-8") as f:
+        f.write(head + units + body)
+    m = T.load_montel(f.name, quiet=True)
+    assert len(m) == 96 + 96 + 6 and m.index[0] == pd.Timestamp("2026-08-04 00:00")      # dd/mm/yyyy，当地时间起点
+    assert m.loc["2026-08-04", "V"].isna().all()                                         # 残缺日整日按缺失
+    assert m.loc["2026-08-04", "W"].eq(70.0).all()                                       # 其它列不受影响
+    assert m.loc["2026-08-05", "V"].eq(61.0).all()
+    assert m.loc["2026-08-05", "X"].notna().sum() == 48                                  # IDA3 只有 12:00 起
+    assert m.loc["2026-08-06", "V"].eq(62.0).all()                                       # 最后一天不算残缺日
+    assert m.loc["2026-08-04", "AJ"].eq(-5.0).all()                                      # AJ = −SYSTEM DIRECTION
+    assert m.loc["2026-08-05 00:15", "AJ"] == 3.0 and np.isnan(m.loc["2026-08-05 00:00", "AJ"])
+
+
 if __name__ == "__main__":
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     for f in fns:

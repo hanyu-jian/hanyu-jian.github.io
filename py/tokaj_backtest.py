@@ -11,6 +11,8 @@ Tokaj 五站「预测 → 报量 → 不平衡」回溯计算（复现 PV_Genera
       raw_data/<年>/A85.csv           HU 不平衡价，15 分钟（2021~），福林；用 data/MNB.csv 的 EUR 汇率折成 EUR/MWh（默认）
       data/imbalance_price.csv        同一份数据的小时均值（--imbalance-source hourly 才用）
   可选（本仓库没有，有就给）
+      --forecast-xlsx FILE            用工作簿（PV_Generation_Forecast_Test…xlsx）里的 I~N 六列当预测（乙方对 8 月的回算），
+                                      实测仍用 vcom 的理论发电量。乙方 API 的预测只从 2026-09-24 起有，8 月只能这样回溯。
       --ida-prices FILE               列 Date,IDA1,IDA2,IDA3（EUR/MWh，15 分钟，区间起点，当地时间）→ V/W/X 列
       --imbalance-price-csv FILE      列 Date,price（EUR/MWh，15 分钟）→ 覆盖 A85（例如 MAVIR 官方的月度结算价）
       --id3 FILE                      Montel 导出的 ID3 指数 CSV（Date (CET) 带方括号、HU HUPX PRICE INDEX ID3、成交量；第二行是单位）→ AA 列
@@ -205,6 +207,28 @@ def load_site(plant_dir, site):
     return fc.join(ac, how="outer")
 
 
+XLSX_SHEET = {"Putnok": "Putnok", "Serenyfalva": "Serényfalva", "Sajokaza": "Sajókaza",
+              "Szuhakálló 1": "Szuhakálló I", "Szuhakálló 2": "Szuhakálló II"}
+
+
+def load_forecast_xlsx(path, site):
+    """从工作簿读某个场站的预测 I~N（kWh，15 分钟，当地时间区间起点）。读的是 Excel 缓存的数值，不是公式。
+    A 列是时间（第 5 行起），读到第一个不是时间的行为止（后面是 Total 等汇总行）。"""
+    import datetime as dt
+    import openpyxl
+    wb = openpyxl.load_workbook(path, data_only=True, read_only=True)
+    ws = wb[XLSX_SHEET[site]]
+    idx, vals = [], []
+    for r in ws.iter_rows(min_row=5, min_col=1, max_col=14, values_only=True):
+        if not isinstance(r[0], dt.datetime):
+            break
+        idx.append(pd.Timestamp(r[0]).round("min"))
+        vals.append(r[8:14])                                        # I~N = 第 9~14 列
+    wb.close()
+    fc = pd.DataFrame(vals, index=pd.DatetimeIndex(idx), columns=FCST_LETTERS).apply(pd.to_numeric, errors="coerce")
+    return fc[~fc.index.duplicated(keep="first")]
+
+
 def _find_col(cols, *words):
     for c in cols:
         if all(w.lower() in str(c).lower() for w in words):
@@ -327,8 +351,10 @@ def load_prices(data_dir=DATA, ida_csv=None, imb_csv=None, fx_lag_days=1, eur_fr
     return p
 
 
-def run_site(plant_dir, site, prices, start=None, end=None, fee_mode="putnok"):
+def run_site(plant_dir, site, prices, start=None, end=None, fee_mode="putnok", forecast_xlsx=None):
     x = load_site(plant_dir, site)
+    if forecast_xlsx:                                       # 预测换成工作簿里的（实测 AH 仍是 vcom 的）
+        x = load_forecast_xlsx(forecast_xlsx, site).join(x["AH"], how="left")
     x = x.join(prices, how="left")
     if start:
         x = x[x.index >= pd.Timestamp(start)]
@@ -352,6 +378,7 @@ def main():
                     help="仓库里的 HU 不平衡价从这一天起已经是 EUR/MWh（不再除汇率），默认 %(default)s；留空表示全部按 HUF 折算")
     ap.add_argument("--imbalance-source", choices=["raw", "hourly"], default="raw",
                     help="不平衡价来源：raw = raw_data/*/A85.csv（15 分钟，默认）；hourly = data/imbalance_price.csv（小时）")
+    ap.add_argument("--forecast-xlsx", help="工作簿路径：用它的 I~N 六列当预测（8 月回溯用）；实测仍用 vcom 的理论发电量")
     ap.add_argument("--id3", help="Montel 导出的 ID3 指数 CSV（给了就用它，不再用 data/intraday/HU.csv）")
     ap.add_argument("--montel", help="Montel 导出的 CSV（IDA1/2/3 价格、成交量、SYSTEM DIRECTION；SYSTEM DIRECTION 会取反当 AJ）")
     ap.add_argument("--system-direction-sign", type=int, choices=[1, -1], default=1,
@@ -372,7 +399,7 @@ def main():
 
     daily = []
     for site in args.sites:
-        d = run_site(args.plant_dir, site, prices, args.start, args.end, args.fee_mode)
+        d = run_site(args.plant_dir, site, prices, args.start, args.end, args.fee_mode, args.forecast_xlsx)
         s = summarize(d, "D")
         s.insert(0, "site", site)
         s.index = s.index.to_timestamp()

@@ -146,6 +146,32 @@ def test_load_montel_id3_brackets_and_blanks():
     close(a[pd.Timestamp("2026-10-20 23:45")], 328.81)                                    # dd/mm/yyyy，当地时间起点
 
 
+def test_load_forecast_xlsx_reads_cached_values_and_stops_at_totals():
+    import datetime as dt
+    import tempfile
+    import openpyxl
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Putnok"
+    ws["A4"] = "Date"
+    base = dt.datetime(2026, 8, 1, 0, 0)
+    for i in range(3):
+        r = 5 + i
+        ws.cell(r, 1, base + dt.timedelta(minutes=15 * i))
+        for j, col in enumerate(range(9, 15)):                  # I~N
+            if not (j >= 3 and i == 0):                         # 第一行 L~N 留空
+                ws.cell(r, col, 100 * (j + 1) + i)
+    ws.cell(9, 1, "Total")                                      # 汇总行：读到这里停
+    ws.cell(9, 9, 12345)
+    with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as f:
+        wb.save(f.name)
+    fc = T.load_forecast_xlsx(f.name, "Putnok")
+    assert list(fc.columns) == T.FCST_LETTERS and len(fc) == 3
+    assert fc.index[1] == pd.Timestamp("2026-08-01 00:15")
+    assert fc.loc["2026-08-01 00:30", "I"] == 102 and fc.loc["2026-08-01 00:30", "N"] == 602
+    assert np.isnan(fc.loc["2026-08-01 00:00", "L"]) and fc.loc["2026-08-01 00:15", "L"] == 401
+
+
 if __name__ == "__main__":
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     for f in fns:

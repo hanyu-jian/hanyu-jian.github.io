@@ -86,6 +86,19 @@ on:
         type: string
         default: ""
 
+      ida_only:
+        description: "Only fetch HUPX IDA1/2/3 from EnAppSys (updates data/enappsys/HU/IDA/{YEAR}.csv)"
+        type: boolean
+        default: false
+      ida_start:
+        description: "IDA-only start date, for example 2026-08-01. Empty = last 3 days."
+        type: string
+        default: ""
+      ida_end:
+        description: "IDA-only end date (exclusive), for example 2026-09-01. Empty = tomorrow."
+        type: string
+        default: ""
+
 jobs:
   update:
     runs-on: ubuntu-latest
@@ -104,7 +117,7 @@ jobs:
           cache: "pip"
 
       - name: Install dependencies
-        run: pip install pandas requests lxml
+        run: pip install pandas requests lxml "enappsys[pandas]"
 
       # ── repair ──────────────────────────────────────────────
       - name: Run repair
@@ -212,7 +225,7 @@ jobs:
 
       # ── normal update（fetch_entsoe + fetch_imbalance）──────
       - name: Run normal update script
-        if: ${{ (github.event_name == 'workflow_dispatch' && inputs.repair_country == '' && inputs.price_only == false && inputs.generation_load_only == false && inputs.imbalance_only == false && inputs.capacity_only == false) || (github.event_name == 'schedule' && github.event.schedule != '0 5 1 * *') }}
+        if: ${{ (github.event_name == 'workflow_dispatch' && inputs.repair_country == '' && inputs.price_only == false && inputs.generation_load_only == false && inputs.imbalance_only == false && inputs.capacity_only == false && inputs.ida_only == false) || (github.event_name == 'schedule' && github.event.schedule != '0 5 1 * *') }}
         env:
           ENTSOE_TOKEN: ${{ secrets.ENTSOE_TOKEN }}
           FULL_MODE: ${{ github.event_name == 'workflow_dispatch' && inputs.full_mode || false }}
@@ -224,6 +237,26 @@ jobs:
           fi
           python py/fetch_entsoe.py --mode "$MODE"
           python py/fetch_imbalance.py --mode "$MODE"
+
+      # ── EnAppSys: HUPX IDA1/2/3（每日定时 + 手动 ida_only）────
+      # 定时运行时失败只告警，不影响上面 ENTSO-E 数据的提交
+      - name: Fetch HUPX IDA from EnAppSys
+        if: ${{ (github.event_name == 'workflow_dispatch' && inputs.ida_only == true) || (github.event_name == 'schedule' && github.event.schedule != '0 5 1 * *') }}
+        continue-on-error: ${{ github.event_name == 'schedule' }}
+        env:
+          ENAPPSYS_USER: ${{ secrets.ENAPPSYS_USER }}
+          ENAPPSYS_PASS: ${{ secrets.ENAPPSYS_PASS }}
+          IDA_START: ${{ inputs.ida_start }}
+          IDA_END: ${{ inputs.ida_end }}
+        run: |
+          args=()
+          if [ -n "$IDA_START" ]; then
+            args+=(--start "$IDA_START")
+          fi
+          if [ -n "$IDA_END" ]; then
+            args+=(--end "$IDA_END")
+          fi
+          python py/fetch_enappsys_ida.py "${args[@]}"
 
       # ── rebuild 15-min wide tables for capture-price.html ───
       - name: Build 15-min capture price data

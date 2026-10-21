@@ -4,10 +4,14 @@ on:
     - cron: "40 7 * * *"
   workflow_dispatch:
     inputs:
-      months_back:
-        description: "Rolling months to download (1 = daily update; larger = backfill)"
+      start_date:
+        description: "Backfill start date, e.g. 2026-08-01. Empty = daily update (last 3 days)"
         type: string
-        default: "1"
+        default: ""
+      end_date:
+        description: "Backfill end date (exclusive). Empty = tomorrow"
+        type: string
+        default: ""
 
 permissions:
   contents: write
@@ -30,8 +34,13 @@ jobs:
         env:
           ENAPPSYS_USER: ${{ secrets.ENAPPSYS_USER }}
           ENAPPSYS_PASS: ${{ secrets.ENAPPSYS_PASS }}
-          MONTHS_BACK: ${{ inputs.months_back || '1' }}
-        run: python py/fetch_enappsys_ida.py --months-back "$MONTHS_BACK"
+          START_DATE: ${{ inputs.start_date }}
+          END_DATE: ${{ inputs.end_date }}
+        run: |
+          args=()
+          [ -n "$START_DATE" ] && args+=(--start "$START_DATE")
+          [ -n "$END_DATE" ] && args+=(--end "$END_DATE")
+          python py/fetch_enappsys_ida.py "${args[@]}"
       - name: Commit
         run: |
           git config user.name "github-actions[bot]"

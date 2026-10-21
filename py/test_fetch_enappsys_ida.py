@@ -1,36 +1,36 @@
-import sys, tempfile
+import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 import fetch_enappsys_ida as f
+from enappsys.services.chart import ChartCSV
 
-SAMPLE = """Title line,,,
-Date/Time,IDA1 Price,IDA1 Volume,IDA2 Price
-2026-10-01 00:00,100.5,10,
-2026-10-01 00:15,101,,95.5
-"""
+HEAD = "DateTime,IDA1 Price,IDA1 Volume,IDA2 Price\n,EUR/MWh,MW,EUR/MWh\n"
 
-def test_parse_and_merge():
-    df = f.parse(SAMPLE)
-    assert list(df.columns) == ["datetime", "IDA1 Price", "IDA1 Volume", "IDA2 Price"]
-    assert len(df) == 2 and df["IDA1 Price"].iloc[0] == 100.5 and df["IDA2 Price"].isna().iloc[0]
-    newer = f.parse(SAMPLE.replace("101,,95.5", "102,3,96").replace("2026-10-01 00:15", "2026-10-01 00:30"))
-    out = f.merge(df, newer)
-    assert out["datetime"].tolist() == ["2026-10-01 00:00", "2026-10-01 00:15", "2026-10-01 00:30"]
 
-def test_dayfirst_and_redact():
-    df = f.parse("t\nDate,A\n01/10/2026 00:15,1\n")
-    assert df["datetime"].iloc[0] == "2026-10-01 00:15"
-    assert "secret" not in f.redact("url?pass=secret", "secret")
+def chart(body):
+    return ChartCSV(HEAD + body, "u", {}, "csv", f.CODE, None, None, "qh", "CET", "EUR", False)
 
-def test_cli_from_file():
-    with tempfile.TemporaryDirectory() as d:
-        src, out = Path(d, "s.csv"), Path(d, "o", "x.csv")
-        src.write_text(SAMPLE)
-        f.main(["--from-file", str(src), "--out", str(out)])
-        f.main(["--from-file", str(src), "--out", str(out)])
-        assert len(f.pd.read_csv(out)) == 2
+
+def test_to_frame_two_header_rows_and_dst_fold():
+    body = ("[25/10/2026 01:45],10,1,\n[25/10/2026 02:00],11,2,5\n[25/10/2026 02:15],12,3,6\n"
+            "[25/10/2026 02:00],13,4,7\n[25/10/2026 02:15],14,5,8\n")
+    df = f.to_frame(chart(body))
+    assert list(df.columns) == [f.TIME_COL, "IDA1 Price (EUR/MWh)", "IDA1 Volume (MW)", "IDA2 Price (EUR/MWh)"]
+    assert df[f.TIME_COL].iloc[1] == "2026-10-25T02:00:00+02:00"
+    assert df[f.TIME_COL].iloc[3] == "2026-10-25T02:00:00+01:00"
+    assert df[f.TIME_COL].is_unique
+
+
+def test_merge_keeps_newest_and_sorts():
+    a = f.to_frame(chart("[01/10/2026 00:00],1,1,\n[01/10/2026 00:15],2,1,\n"))
+    b = f.to_frame(chart("[01/10/2026 00:15],9,1,3\n[01/10/2026 00:30],4,1,\n"))
+    out = f.merge(a, b)
+    assert out["IDA1 Price (EUR/MWh)"].tolist() == [1, 9, 4]
+    assert len(f.merge(out, b)) == 3
+
 
 if __name__ == "__main__":
     for n, fn in list(globals().items()):
-        if n.startswith("test_"): fn()
+        if n.startswith("test_"):
+            fn()
     print("ok")

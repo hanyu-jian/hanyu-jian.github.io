@@ -1,0 +1,61 @@
+name: Daily EnAppSys (Montel) Update
+on:
+  schedule:
+    - cron: "40 7 * * *"
+  workflow_dispatch:
+    inputs:
+      start_date:
+        description: "Backfill start date, for example 2026-08-01. Empty = daily update (last 3 days)."
+        type: string
+        default: ""
+      end_date:
+        description: "Backfill end date (exclusive), for example 2026-09-01. Empty = tomorrow."
+        type: string
+        default: ""
+
+# 与 Daily Energy Data Update 共用同一个提交队列，避免两边同时 push 冲突
+concurrency:
+  group: data-commit
+  cancel-in-progress: false
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: pip install pandas "enappsys[pandas]"
+
+      - name: Fetch HUPX IDA1/2/3
+        env:
+          ENAPPSYS_USER: ${{ secrets.ENAPPSYS_USER }}
+          ENAPPSYS_PASS: ${{ secrets.ENAPPSYS_PASS }}
+          START_DATE: ${{ inputs.start_date }}
+          END_DATE: ${{ inputs.end_date }}
+        run: |
+          args=()
+          if [ -n "$START_DATE" ]; then
+            args+=(--start "$START_DATE")
+          fi
+          if [ -n "$END_DATE" ]; then
+            args+=(--end "$END_DATE")
+          fi
+          python py/fetch_enappsys_ida.py "${args[@]}"
+
+      - name: Commit and push updated data
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/enappsys
+          git diff --cached --quiet || \
+            git commit -m "chore: update EnAppSys data $(date -u +'%Y-%m-%d')"
+          git pull --rebase origin "${GITHUB_REF_NAME}"
+          git push

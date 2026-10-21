@@ -107,6 +107,71 @@ def test_invalid_and_uncovered():
     assert not T.compute(one("2026-10-01 12:00", I=NAN, J=1, AH=1)).iloc[0].valid   # 日前预测缺失也剔除
 
 
+def test_load_montel_parsing_sign_and_incomplete_days():
+    import tempfile
+    head = "Date (CET),DA Price,IDA1 Price (HUPX),IDA2 Price (HUPX),IDA3 Price (HUPX),IDA1 Volume (HUPX),IDA2 Volume (HUPX),IDA3 Volume (HUPX),SYSTEM DIRECTION\n"
+    units = ",EUR/MWh,EUR/MWh,EUR/MWh,EUR/MWh,MW,MW,MW,MW\n"
+    rows = []
+    for ts in pd.date_range("2026-08-04 00:00", periods=96, freq="15min"):       # 残缺日：IDA1 只有前 4 格
+        rows.append((ts, 50.0, 60.0 if ts.hour == 0 else None, 70.0, None, 1, 2, None, 5.0))
+    for ts in pd.date_range("2026-08-05 00:00", periods=96, freq="15min"):       # 完整日；系统方向 −3 → AJ = +3
+        rows.append((ts, 50.0, 61.0, 71.0, 81.0 if ts.hour >= 12 else None, 1, 2, 3, -3.0 if ts.minute else None))
+    for ts in pd.date_range("2026-08-06 00:00", periods=6, freq="15min"):        # 文件最后一天只有 6 行：IDA1 保留
+        rows.append((ts, 50.0, 62.0, None, None, 1, None, None, 1.0))
+    body = "".join(",".join(["" if v is None else (v.strftime("%d/%m/%Y %H:%M") if hasattr(v, "strftime") else str(v)) for v in r]) + "\n"
+                   for r in rows)
+    with tempfile.NamedTemporaryFile("w", suffix=".csv", delete=False, encoding="utf-8") as f:
+        f.write(head + units + body)
+    m = T.load_montel(f.name, quiet=True)
+    assert len(m) == 96 + 96 + 6 and m.index[0] == pd.Timestamp("2026-08-04 00:00")      # dd/mm/yyyy，当地时间起点
+    assert m.loc["2026-08-04", "V"].isna().all()                                         # 残缺日整日按缺失
+    assert m.loc["2026-08-04", "W"].eq(70.0).all()                                       # 其它列不受影响
+    assert m.loc["2026-08-05", "V"].eq(61.0).all()
+    assert m.loc["2026-08-05", "X"].notna().sum() == 48                                  # IDA3 只有 12:00 起
+    assert m.loc["2026-08-06", "V"].eq(62.0).all()                                       # 最后一天不算残缺日
+    assert m.loc["2026-08-04", "AJ"].eq(-5.0).all()                                      # AJ = −SYSTEM DIRECTION
+    assert m.loc["2026-08-05 00:15", "AJ"] == 3.0 and np.isnan(m.loc["2026-08-05 00:00", "AJ"])
+
+
+def test_load_montel_id3_brackets_and_blanks():
+    import tempfile
+    txt = ("Date (CET),HU HUPX PRICE INDEX ID3,HU HUPX TRADED VOLUME INDEX ID3\n,EUR/MWh,MW\n"
+           "[01/01/2026 00:00],108.90,514.7\n[01/01/2026 00:15],,522.4\n[20/10/2026 23:45],328.81,686.1\n")
+    with tempfile.NamedTemporaryFile("w", suffix=".csv", delete=False, encoding="utf-8") as f:
+        f.write(txt)
+    a = T.load_montel_id3(f.name)
+    assert a.name == "AA" and len(a) == 3
+    close(a[pd.Timestamp("2026-01-01 00:00")], 108.9)
+    assert np.isnan(a[pd.Timestamp("2026-01-01 00:15")])                                  # 空值保持空，不当 0
+    close(a[pd.Timestamp("2026-10-20 23:45")], 328.81)                                    # dd/mm/yyyy，当地时间起点
+
+
+def test_load_forecast_xlsx_reads_cached_values_and_stops_at_totals():
+    import datetime as dt
+    import tempfile
+    import openpyxl
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Putnok"
+    ws["A4"] = "Date"
+    base = dt.datetime(2026, 8, 1, 0, 0)
+    for i in range(3):
+        r = 5 + i
+        ws.cell(r, 1, base + dt.timedelta(minutes=15 * i))
+        for j, col in enumerate(range(9, 15)):                  # I~N
+            if not (j >= 3 and i == 0):                         # 第一行 L~N 留空
+                ws.cell(r, col, 100 * (j + 1) + i)
+    ws.cell(9, 1, "Total")                                      # 汇总行：读到这里停
+    ws.cell(9, 9, 12345)
+    with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as f:
+        wb.save(f.name)
+    fc = T.load_forecast_xlsx(f.name, "Putnok")
+    assert list(fc.columns) == T.FCST_LETTERS and len(fc) == 3
+    assert fc.index[1] == pd.Timestamp("2026-08-01 00:15")
+    assert fc.loc["2026-08-01 00:30", "I"] == 102 and fc.loc["2026-08-01 00:30", "N"] == 602
+    assert np.isnan(fc.loc["2026-08-01 00:00", "L"]) and fc.loc["2026-08-01 00:15", "L"] == 401
+
+
 if __name__ == "__main__":
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     for f in fns:

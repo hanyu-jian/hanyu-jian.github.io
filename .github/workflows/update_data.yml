@@ -86,6 +86,11 @@ on:
         type: string
         default: ""
 
+# 与 EnAppSys workflow 共用同一个提交队列，避免两边同时 push 冲突
+concurrency:
+  group: data-commit
+  cancel-in-progress: false
+
 jobs:
   update:
     runs-on: ubuntu-latest

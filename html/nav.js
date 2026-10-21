@@ -113,10 +113,24 @@
     }`;
 
   /* ── 4. Detect active page ──────────────────────────────────────────── */
+  // 取地址最后一段并去掉 .html，/html/load、/html/load.html、/html/load/ 都得到 "load"
+  const pageName = p => (String(p).split(/[?#]/)[0].replace(/\/+$/, '').split('/').pop() || '').replace(/\.html$/, '');
+  const currentPage = pageName(window.location.pathname);
+
   function isActive(item) {
-    const path = window.location.pathname;
-    const candidates = item.match || [item.href];
-    return candidates.some(h => path.endsWith(h) || path.endsWith('/' + h));
+    return (item.match || [item.href]).some(h => pageName(h) === currentPage);
+  }
+
+  /* Sub-nav (页面里的二级标签)：按当前页面自动高亮，不再依赖每页手写 active */
+  function markSubNav() {
+    const links = document.querySelectorAll('.sub-nav-link');
+    if (!links.length) return;
+    let hit = false;
+    links.forEach(a => {
+      const on = pageName(a.getAttribute('href')) === currentPage;
+      a.classList.toggle('active', on);
+      hit = hit || on;
+    });
   }
 
   /* ── 5. Build nav HTML ─────────────────────────────────────────────── */
@@ -186,6 +200,8 @@
     const modalDiv = document.createElement('div');
     modalDiv.innerHTML = buildModalHTML();
     document.body.appendChild(modalDiv.firstElementChild);
+
+    markSubNav();
 
     /* Wire up modal */
     const overlay = document.getElementById('navModalOverlay');

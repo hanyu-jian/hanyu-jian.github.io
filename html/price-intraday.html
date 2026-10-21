@@ -267,7 +267,7 @@ function getFilters() {
 
 async function loadData() {
     try {
-        const text = await fetch('data/intraday/HU.csv').then(r => {
+        const text = await fetch('/data/intraday/HU.csv').then(r => {
             if (!r.ok) throw new Error(`HTTP ${r.status}`);
             return r.text();
         });

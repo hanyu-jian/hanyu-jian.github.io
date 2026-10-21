@@ -350,7 +350,7 @@
 <body>
 <div class="container">
     <div class="sub-nav">
-        <a class="sub-nav-link active" href="projects.html">Portfolio Overview</a>
+        <a class="sub-nav-link active" href="project.html">Portfolio Overview</a>
     </div>
 
     <div id="loadingMsg" class="loading">⏳ Loading map data...</div>
@@ -622,7 +622,7 @@ const S = { geoFeatures: [], selectedCountry: null, leafletMap: null };
 
 /* ─── GeoJSON load ─── */
 async function loadGeoJSON() {
-    const resp = await fetch('europe.geojson');
+    const resp = await fetch('/europe.geojson');
     const geo  = await resp.json();
     S.geoFeatures = geo.features || [];
 }

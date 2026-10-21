@@ -472,7 +472,7 @@ window.addEventListener('resize', () => { if (spreadChartInstance) spreadChartIn
 
 async function fetchCSV() {
     try {
-        const res = await fetch('data/price.csv');
+        const res = await fetch('/data/price.csv');
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         await parseAndAggregate(await res.text());
     } catch(e) {

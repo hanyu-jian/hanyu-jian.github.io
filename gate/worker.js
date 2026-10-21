@@ -119,6 +119,11 @@ export default {
       return new Response("Unauthorized", { status: 401, headers: { "Cache-Control": "no-store" } });
     }
 
+    // 页面已搬到 /html/：旧地址（书签、已发出的链接）自动跳转到新位置
+    const legacy = url.pathname.match(/^\/([a-z-]+\.html)$/);
+    if (legacy && legacy[1] !== "index.html") return redirect("/html/" + legacy[1] + url.search);
+    if (url.pathname === "/nav.js") return redirect("/html/nav.js");
+
     // 通过验证：交给静态资源（HTML/CSV/JS……）
     const res = await env.ASSETS.fetch(request);
     const out = new Response(res.body, res);

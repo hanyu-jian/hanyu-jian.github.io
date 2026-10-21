@@ -622,7 +622,7 @@ const S = { geoFeatures: [], selectedCountry: null, leafletMap: null };
 
 /* ─── GeoJSON load ─── */
 async function loadGeoJSON() {
-    const resp = await fetch('europe.geojson');
+    const resp = await fetch('/europe.geojson');
     const geo  = await resp.json();
     S.geoFeatures = geo.features || [];
 }

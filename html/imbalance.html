@@ -531,7 +531,7 @@ function parseMNBDate(s) {
    LOAD & CONVERT DATA
 ================================================================ */
 async function loadMNBRates() {
-    const res = await fetch('data/MNB.csv');
+    const res = await fetch('/data/MNB.csv');
     if (!res.ok) throw new Error('Failed to load MNB.csv');
     const rows = parseCSV(await res.text());
 
@@ -649,7 +649,7 @@ async function fetchRawYearlyCSV(name) {
         (_, i) => EARLIEST_PROBE_YEAR + i
     );
     const texts = await Promise.all(years.map(y =>
-        fetch(`raw_data/${y}/${name}.csv`)
+        fetch(`/raw_data/${y}/${name}.csv`)
             .then(r => r.ok ? r.text() : null)
             .catch(() => null)
     ));
@@ -663,11 +663,11 @@ async function fetchRawYearlyCSV(name) {
 async function fetchAllData() {
     const [mnbRates, imbalRes, spotRes, solarRes, windRes, loadRes, a85Rows] = await Promise.all([
         loadMNBRates(),
-        fetch('data/imbalance_price.csv'),
-        fetch('data/price.csv'),
-        fetch('data/solar.csv'),
-        fetch('data/wind.csv'),
-        fetch('data/load.csv'),
+        fetch('/data/imbalance_price.csv'),
+        fetch('/data/price.csv'),
+        fetch('/data/solar.csv'),
+        fetch('/data/wind.csv'),
+        fetch('/data/load.csv'),
         fetchRawYearlyCSV('A85')
     ]);
 

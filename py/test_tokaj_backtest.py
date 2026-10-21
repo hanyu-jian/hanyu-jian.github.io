@@ -133,6 +133,19 @@ def test_load_montel_parsing_sign_and_incomplete_days():
     assert m.loc["2026-08-05 00:15", "AJ"] == 3.0 and np.isnan(m.loc["2026-08-05 00:00", "AJ"])
 
 
+def test_load_montel_id3_brackets_and_blanks():
+    import tempfile
+    txt = ("Date (CET),HU HUPX PRICE INDEX ID3,HU HUPX TRADED VOLUME INDEX ID3\n,EUR/MWh,MW\n"
+           "[01/01/2026 00:00],108.90,514.7\n[01/01/2026 00:15],,522.4\n[20/10/2026 23:45],328.81,686.1\n")
+    with tempfile.NamedTemporaryFile("w", suffix=".csv", delete=False, encoding="utf-8") as f:
+        f.write(txt)
+    a = T.load_montel_id3(f.name)
+    assert a.name == "AA" and len(a) == 3
+    close(a[pd.Timestamp("2026-01-01 00:00")], 108.9)
+    assert np.isnan(a[pd.Timestamp("2026-01-01 00:15")])                                  # 空值保持空，不当 0
+    close(a[pd.Timestamp("2026-10-20 23:45")], 328.81)                                    # dd/mm/yyyy，当地时间起点
+
+
 if __name__ == "__main__":
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     for f in fns:

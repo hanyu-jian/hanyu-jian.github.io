@@ -9,7 +9,7 @@
 //   2. 浏览器记住 30 天（HttpOnly Cookie）。想停用某人，从 DASHBOARD_TOKENS 里删掉他那一项即可。
 //   3. /logout 退出登录。
 
-const LEGACY_PAGES = new Set([
+const PAGES = new Set([
   "capacity", "capture-price", "generation-overview", "generation-type", "imbalance",
   "load", "price-intraday", "price-overview", "price-spread", "project",
 ]);
@@ -123,13 +123,23 @@ export default {
       return new Response("Unauthorized", { status: 401, headers: { "Cache-Control": "no-store" } });
     }
 
-    // 页面已搬到 /html/：旧地址（书签、已发出的链接）自动跳转到新位置
-    const legacy = url.pathname.match(/^\/([a-z-]+?)(?:\.html)?$/);
-    if (legacy && LEGACY_PAGES.has(legacy[1])) return redirect("/html/" + legacy[1] + url.search);
-    if (url.pathname === "/nav.js") return redirect("/html/nav.js");
+    // 页面文件放在 html/ 里，但对外网址保持 /price-overview、/load.html 这样（不带 /html/）：
+    // 在服务器内部把请求映射到 html/ 下的文件，浏览器地址栏不变。
+    let assetReq = request;
+    const page = url.pathname.match(/^\/(?:html\/)?([a-z-]+?)(?:\.html)?$/);
+    if (url.pathname === "/nav.js") {
+      assetReq = new Request(new URL("/html/nav.js", url), request);
+    } else if (page && PAGES.has(page[1])) {
+      if (url.pathname.startsWith("/html/")) return redirect("/" + page[1] + url.search); // 旧的带 /html/ 地址 → 去掉前缀
+      assetReq = new Request(new URL("/html/" + page[1], url), request);
+    }
 
     // 通过验证：交给静态资源（HTML/CSV/JS……）
-    const res = await env.ASSETS.fetch(request);
+    let res = await env.ASSETS.fetch(assetReq);
+    // 静态资源层可能把 /html/x 再重定向一次，这里在内部跟随，避免把 /html/ 地址暴露给浏览器
+    if (assetReq !== request && res.status >= 300 && res.status < 400 && res.headers.get("Location")) {
+      res = await env.ASSETS.fetch(new Request(new URL(res.headers.get("Location"), url), request));
+    }
     const out = new Response(res.body, res);
     out.headers.set("Cache-Control", "private, no-cache");
     out.headers.set("X-Robots-Tag", "noindex");

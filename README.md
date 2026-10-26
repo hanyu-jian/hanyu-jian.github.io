@@ -10,7 +10,6 @@
 - [Generation 发电](#generation-overviewhtml)：[generation-overview](#generation-overviewhtml) · [generation-type](#generation-typehtml)
 - [Installed Capacity 装机](#capacityhtml)
 - [Project 项目](#projecthtml)
-- [已知问题](#已知问题)
 
 ---
 
@@ -37,7 +36,7 @@ raw_data/<年>/  ENTSO-E 15 分钟原始数据（A44 日前价、A65 负荷、A8
 | `entsoe/load.csv` | 负荷 | 小时 | MW |
 | `entsoe/solar.csv` / `wind.csv` | 光伏 / 风电（风电=陆上+海上） | 小时 | MW |
 | `entsoe/residual_load.csv` | 剩余负荷 = 负荷 − 光伏 − 风电 | 小时 | MW |
-| `entsoe/imbalance_price.csv` | 不平衡价 | 小时 | HU 为福林 HUF/MWh（2026-10-01 起为欧元），其他国家为 €/MWh |
+| `entsoe/imbalance_price.csv` | 不平衡价 | 小时 | HU 在 2026-09-30 及以前为福林 HUF/MWh，2026-10-01 起为 €/MWh，其他国家为 €/MWh |
 | `entsoe/generation/<国家>.csv` | 分技术发电 | 小时 | MW |
 | `entsoe/capacity.csv` | 分技术装机容量 | 年 / 月 | MW |
 | `entsoe/15min/*.csv` | 价格、光伏、风电 | 15 分钟 | €/MWh、MW |
@@ -159,6 +158,7 @@ raw_data/<年>/  ENTSO-E 15 分钟原始数据（A44 日前价、A65 负荷、A8
 - RO：`EUR/MWh = RON/MWh × 当月 RON 汇率 ÷ 当月 EUR 汇率`
 - 其他国家本身就是 €/MWh，不换算。
 - 小时数据和 A85 15 分钟数据使用同一套换算。
+- **例外**：HU 从 2026-10-01 起加入 PICASSO，ENTSO-E 上的 HU 不平衡价已经是 €/MWh，所以 2026-10-01 及以后的 HU 数据不再做汇率换算（RO 不受影响）。
 
 **过滤器**（趋势图和对比图共用）：工作日（周一至周五）/ 周末（周六、周日）勾选，小时区间 `[起, 止]`（含两端）。按日期判断星期。
 
@@ -179,6 +179,7 @@ raw_data/<年>/  ENTSO-E 15 分钟原始数据（A44 日前价、A65 负荷、A8
 数据：`entsoe/load.csv`（小时，MW）。
 
 1. **7 日移动平均（7-Day Moving Average）**，单国家，按年份画线：
+   - X 轴按 2024（闰年）日历，非闰年的 2 月 29 日留空，保证各年同一日期对齐。
    - 过滤：工作日 / 周末勾选、小时区间。
    - `日均(日) = 该日通过过滤的所有小时负荷的均值`。
    - `7日均(日) = 最近 7 个有效日均值的平均`（"有效"指该日有数据，所以过滤后不会断线；不满 7 个有效日时为空）。
@@ -250,10 +251,3 @@ raw_data/<年>/  ENTSO-E 15 分钟原始数据（A44 日前价、A65 负荷、A8
 首页，仅三个入口：Price、Load、Installed Capacity。
 
 ---
-
-## 已知问题
-
-写文档时对照代码发现的问题，尚未修改：
-
-1. **imbalance.html 在 2026-10-01 之后的匈牙利不平衡价会被多除一次汇率。** `imbalance_price.csv` 与 A85 中 HU 列在 2026-09-30 及以前是福林，2026-10-01 起已经是欧元（例如 2026-10-01 12:00 为 -24.29），页面仍按月均汇率 `÷ EUR` 换算，导致之后的 HU 数值被缩小约 400 倍。`py/tokaj_backtest.py` 用 `IMBALANCE_EUR_FROM` 处理了这个切换，页面还没有。
-2. **load.html 的 7 日移动平均，非闰年 3 月 1 日之后的日期对应的标签会晚一天。** X 轴标签按 2024（闰年）日历生成，2025、2026 的第 60 个点其实是 3 月 1 日，却显示成 2/29，之后到年底整体错一天。

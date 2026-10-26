@@ -552,14 +552,17 @@ function computeMovingAvg(data, country, showWeekday, showWeekend, hourStart, ho
 
     for (const year of selectedYears) {
         const isLeap = (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
-        const days   = isLeap ? 366 : 365;
+        // Index by the 2024 (leap) calendar, same as xAxis, so every year lines up
+        // on the same date labels; Feb 29 stays empty in non-leap years.
+        const days   = 366;
         const color  = YEAR_COLORS[year] ?? '#888888';
 
         // Daily average
         const raw = new Array(366).fill(null);
         for (let i = 0; i < days; i++) {
-            const d   = new Date(Date.UTC(year, 0, i + 1));
+            const d   = new Date(Date.UTC(2024, 0, i + 1));
             const key = `${d.getUTCMonth() + 1}-${d.getUTCDate()}`;
+            if (!isLeap && key === '2-29') continue;
             const slot = byYear[year][key];
             if (slot && slot.cnt > 0) raw[i] = slot.total / slot.cnt;
         }

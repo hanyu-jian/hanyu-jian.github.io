@@ -149,6 +149,12 @@ raw_data/<年>/  ENTSO-E 15 分钟原始数据（A44 日前价、A65 负荷、A8
      - Monthly Avg Uplift = `Total Uplift / 有数据的月份数`
      - ID3 Premium (%) = `(Σ netID3 − Σ netDA) / |Σ netDA| × 100`
 
+3. **HUPX Intraday Auctions（IDA1 / IDA2 / IDA3 价格与成交量）**，数据：`enappsys/IDA/HU_<年>.csv`（15 分钟）。选年份、频率（Daily / Weekly / Monthly，周以周一为起点）。
+   - **柱（灰色，左轴 MW）**：各 IDA 成交量；**折线（右轴 €/MWh）**：各 IDA 价格。
+   - **Threshold**：IDA1/2/3 各自的最小成交量（MW），默认 0。某个 15 分钟点该 IDA 成交量低于阈值（或价格/量缺失）则该点不计入，价格与成交量都不算。
+   - 周期值 = 通过阈值的 15 分钟点的算术平均（量为平均功率 MW），没有合格点则留空。
+   - Export CSV 导出当前年份/频率/阈值下的价格、成交量及参与平均的点数。
+
 ## imbalance.html
 
 数据：`entsoe/imbalance_price.csv`（小时）、`raw_data/<年>/A85.csv`（15 分钟原始不平衡价）、`entsoe/price.csv`、`solar.csv`、`wind.csv`、`load.csv`、`fx/MNB.csv`。

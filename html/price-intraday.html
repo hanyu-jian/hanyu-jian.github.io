@@ -157,10 +157,17 @@
                         <button data-freq="weekly">Weekly</button>
                         <button data-freq="monthly">Monthly</button>
                     </div>
+                    <label>Threshold</label>
+                    <div class="btn-group-inline" id="idaSel">
+                        <button class="active" data-sel="all">All</button>
+                        <button data-sel="0">IDA1</button>
+                        <button data-sel="1">IDA2</button>
+                        <button data-sel="2">IDA3</button>
+                    </div>
                 </div>
                 <div class="no-data" id="idaNoData" style="display:none"><p>No IDA data for this selection.</p></div>
                 <div id="idaChart" style="width:100%; height:460px;"></div>
-                <div class="chart-note">Period value = simple mean of the 15-min points that have both price and volume (volume in MW is average power). Empty where there is no data.</div>
+                <div class="chart-note">Threshold selects which auction is shown (All = IDA1/2/3). Period value = simple mean of the 15-min points that have both price and volume (volume in MW is average power). Empty where there is no data.</div>
             </div>
         </div>
 
@@ -861,6 +868,11 @@ let idaRows = null;      // [{date, ts, p:[3], v:[3]}]
 let idaChart = null;
 let lastIdaSeries = null; // {keys, price:[3][], vol:[3][], cnt:[3][], freq, year}
 
+function idaSelected() {
+    const v = document.querySelector('#idaSel button.active').dataset.sel;
+    return v === 'all' ? [0, 1, 2] : [+v];
+}
+
 function idaFreq() { return document.querySelector('#idaFreq button.active').dataset.freq; }
 
 function idaPeriodKey(date, freq) {
@@ -895,6 +907,7 @@ function renderIdaChart() {
     if (!idaRows) return;
     const year = document.getElementById('idaYear').value;
     const freq = idaFreq();
+    const sel  = idaSelected();
     const acc = new Map();   // key -> per-IDA {ps, vs, n}
     idaRows.forEach(r => {
         if (r.date.slice(0, 4) !== year) return;
@@ -910,20 +923,20 @@ function renderIdaChart() {
     const price = [0, 1, 2].map(j => keys.map(k => { const x = acc.get(k)[j]; return x.n ? +(x.ps / x.n).toFixed(2) : null; }));
     const vol   = [0, 1, 2].map(j => keys.map(k => { const x = acc.get(k)[j]; return x.n ? +(x.vs / x.n).toFixed(1) : null; }));
     const cnt   = [0, 1, 2].map(j => keys.map(k => acc.get(k)[j].n));
-    lastIdaSeries = { keys, price, vol, cnt, freq, year };
+    lastIdaSeries = { keys, price, vol, cnt, freq, year, sel };
     document.getElementById('idaNoData').style.display = keys.length ? 'none' : 'block';
 
     if (!idaChart) { idaChart = echarts.init(document.getElementById('idaChart')); window.addEventListener('resize', () => idaChart.resize()); }
     const series = [];
-    IDA_NAMES.forEach((n, j) => series.push({
+    sel.forEach(j => { const n = IDA_NAMES[j]; series.push({
         name: n + ' Volume', type: 'bar', yAxisIndex: 0, data: vol[j],
         itemStyle: { color: IDA_GREYS[j] }, barMaxWidth: 14, z: 1
-    }));
-    IDA_NAMES.forEach((n, j) => series.push({
+    }); });
+    sel.forEach(j => { const n = IDA_NAMES[j]; series.push({
         name: n + ' Price', type: 'line', yAxisIndex: 1, data: price[j],
         symbol: 'circle', symbolSize: 4, showSymbol: keys.length < 60, connectNulls: false,
         lineStyle: { width: 1.8, color: IDA_COLORS[j] }, itemStyle: { color: IDA_COLORS[j] }, z: 3
-    }));
+    }); });
     idaChart.setOption({
         animation: false,
         grid: { left: 64, right: 64, top: 46, bottom: 72 },
@@ -944,23 +957,23 @@ function exportIdaCSV() {
     const d = lastIdaSeries;
     if (!d || !d.keys.length) { alert('No data loaded yet.'); return; }
     const head = [d.freq === 'weekly' ? 'Week start' : d.freq === 'monthly' ? 'Month' : 'Date'];
-    IDA_NAMES.forEach(n => head.push(`${n} Price (EUR/MWh)`, `${n} Volume (MW)`, `${n} Points`));
+    d.sel.forEach(j => { const n = IDA_NAMES[j]; head.push(`${n} Price (EUR/MWh)`, `${n} Volume (MW)`, `${n} Points`); });
     const rows = [head];
     d.keys.forEach((k, i) => {
         const r = [k];
-        for (let j = 0; j < 3; j++) r.push(d.price[j][i] ?? '', d.vol[j][i] ?? '', d.cnt[j][i]);
+        d.sel.forEach(j => r.push(d.price[j][i] ?? '', d.vol[j][i] ?? '', d.cnt[j][i]));
         rows.push(r);
     });
-    downloadCSV(`ida_price_volume_HU_${d.year}_${d.freq}.csv`, toCSV(rows));
+    downloadCSV(`ida_price_volume_HU_${d.year}_${d.freq}_${d.sel.length === 3 ? 'all' : IDA_NAMES[d.sel[0]]}.csv`, toCSV(rows));
 }
 
 window.addEventListener('DOMContentLoaded', () => {
     document.getElementById('idaYear').addEventListener('change', renderIdaChart);
-    document.querySelectorAll('#idaFreq button').forEach(b => b.addEventListener('click', () => {
-        document.querySelectorAll('#idaFreq button').forEach(x => x.classList.remove('active'));
+    ['idaFreq', 'idaSel'].forEach(g => document.querySelectorAll('#' + g + ' button').forEach(b => b.addEventListener('click', () => {
+        document.querySelectorAll('#' + g + ' button').forEach(x => x.classList.remove('active'));
         b.classList.add('active');
         renderIdaChart();
-    }));
+    })));
     loadIdaData().catch(e => { console.error('IDA load failed:', e.message); document.getElementById('idaNoData').style.display = 'block'; });
 });
 </script>

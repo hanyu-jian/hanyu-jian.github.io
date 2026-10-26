@@ -25,7 +25,7 @@ data/
     15min/{price,solar,wind}.csv  由 raw_data 生成的 15 分钟宽表（py/build_15min.py）
   enappsys/  Montel / EnAppSys 数据（按年份拆分，避免单文件过大）
     IDA/HU_<年>.csv   HUPX 日内拍卖 IDA1/2/3 价格、成交量，15 分钟
-    ID3/HU_<年>.csv   ID3 指数，列 Date, ID3, Vol, DA（制表符分隔，日/月/年）
+    ID3/HU_<年>.csv   ID3 指数，列 Date, ID3, Vol（制表符分隔，日/月/年）；每天由 py/fetch_enappsys_id3.py 接着往下更新
   fx/MNB.csv  匈牙利央行汇率（HUF per EUR / RON / PLN，工作日）
 raw_data/<年>/  ENTSO-E 15 分钟原始数据（A44 日前价、A65 负荷、A85 不平衡价、generation/）
 ```
@@ -129,7 +129,7 @@ raw_data/<年>/  ENTSO-E 15 分钟原始数据（A44 日前价、A65 负荷、A8
 
 ## price-intraday.html
 
-数据：`enappsys/ID3/HU_<年>.csv`，仅匈牙利。每行 15 分钟，包含 `ID3`（日内 ID3 指数）和 `DA`（日前价），单位 €/MWh。
+数据：`enappsys/ID3/HU_<年>.csv`（每行 15 分钟，`ID3` 指数 €/MWh）和 `entsoe/15min/price.csv` 的 `HU` 列（日前价 DA，€/MWh），仅匈牙利，两者按时间戳对上；任一边缺值的时段跳过。ID3 数据每天由 `update_enappsys.yml` 抓取（Montel / EnAppSys Chart API，`hu/elec/hupx/indexes/id3/version2`），接着现有表格往下写。
 
 1. **ID3 − DA 价差热力图（H01–H24）**
    - 每个 15 分钟点：`spread = ID3 − DA`。

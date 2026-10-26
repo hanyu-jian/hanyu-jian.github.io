@@ -50,6 +50,22 @@ jobs:
           fi
           python py/fetch_enappsys_ida.py "${args[@]}"
 
+      - name: Fetch HUPX ID3
+        env:
+          ENAPPSYS_USER: ${{ secrets.ENAPPSYS_USER }}
+          ENAPPSYS_PASS: ${{ secrets.ENAPPSYS_PASS }}
+          START_DATE: ${{ inputs.start_date }}
+          END_DATE: ${{ inputs.end_date }}
+        run: |
+          args=()
+          if [ -n "$START_DATE" ]; then
+            args+=(--start "$START_DATE")
+          fi
+          if [ -n "$END_DATE" ]; then
+            args+=(--end "$END_DATE")
+          fi
+          python py/fetch_enappsys_id3.py "${args[@]}"
+
       - name: Commit and push updated data
         run: |
           git config user.name "github-actions[bot]"

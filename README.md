@@ -25,7 +25,7 @@ data/
     15min/{price,solar,wind}.csv  由 raw_data 生成的 15 分钟宽表（py/build_15min.py）
   enappsys/  Montel / EnAppSys 数据（按年份拆分，避免单文件过大）
     IDA/HU_<年>.csv   HUPX 日内拍卖 IDA1/2/3 价格、成交量，15 分钟
-    ID3/HU_<年>.csv   ID3 指数，列 Date, ID3, Vol（制表符分隔，日/月/年）；每天由 py/fetch_enappsys_id3.py 接着往下更新
+    ID3/HU_<年>.csv   ID3 指数，列 Date, ID3, Vol（制表符分隔，日/月/年）；每天由 py/fetch_enappsys_id3.py 接着往下更新（`update_enappsys.yml` 手动运行时可勾选 `ida_only` / `id3_only` 只更新其中一个）
   fx/MNB.csv  匈牙利央行汇率（HUF per EUR / RON / PLN，工作日）
 raw_data/<年>/  ENTSO-E 15 分钟原始数据（A44 日前价、A65 负荷、A85 不平衡价、generation/）
 ```

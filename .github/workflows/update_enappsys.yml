@@ -12,6 +12,14 @@ on:
         description: "Backfill end date (exclusive), for example 2026-09-01. Empty = tomorrow."
         type: string
         default: ""
+      ida_only:
+        description: "Only fetch HUPX IDA1/2/3 (updates data/enappsys/IDA)"
+        type: boolean
+        default: false
+      id3_only:
+        description: "Only fetch HUPX ID3 (updates data/enappsys/ID3)"
+        type: boolean
+        default: false
 
 # 与 Daily Energy Data Update 共用同一个提交队列，避免两边同时 push 冲突
 concurrency:
@@ -35,6 +43,7 @@ jobs:
         run: pip install pandas "enappsys[pandas]"
 
       - name: Fetch HUPX IDA1/2/3
+        if: ${{ !(inputs.id3_only == true && inputs.ida_only != true) }}
         env:
           ENAPPSYS_USER: ${{ secrets.ENAPPSYS_USER }}
           ENAPPSYS_PASS: ${{ secrets.ENAPPSYS_PASS }}
@@ -51,6 +60,7 @@ jobs:
           python py/fetch_enappsys_ida.py "${args[@]}"
 
       - name: Fetch HUPX ID3
+        if: ${{ !(inputs.ida_only == true && inputs.id3_only != true) }}
         env:
           ENAPPSYS_USER: ${{ secrets.ENAPPSYS_USER }}
           ENAPPSYS_PASS: ${{ secrets.ENAPPSYS_PASS }}

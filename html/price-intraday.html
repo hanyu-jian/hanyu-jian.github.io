@@ -277,7 +277,10 @@ async function loadData() {
         const parts = texts.filter(Boolean);
         if (!parts.length) throw new Error('no ID3 files');
         const text = parts.map((t, i) => i === 0 ? t : t.slice(t.indexOf('\n') + 1)).join('');
-        await processData(text);
+        // Day-ahead price comes from the ENTSO-E 15-min price table (HU column)
+        const daRes = await fetch('/data/entsoe/15min/price.csv');
+        if (!daRes.ok) throw new Error(`HTTP ${daRes.status} (15min/price.csv)`);
+        await processData(text, await daRes.text());
     } catch(e) {
         console.error('Failed to load:', e.message);
         document.getElementById('hmSpinner').classList.remove('show');
@@ -294,15 +297,36 @@ function parseDate15min(str) {
     return null;
 }
 
-async function processData(text) {
+function dateKey(dt) { return `${dt.year}-${dt.month}-${dt.day} ${dt.hour}:${dt.minute}`; }
+
+// 15-min day-ahead prices of HU, keyed by timestamp (first occurrence wins on the DST fold)
+function buildDaMap(daText) {
+    const lines = daText.trim().split(/\r?\n/);
+    const hdr   = lines[0].split(',').map(s => s.trim());
+    const huCol = hdr.indexOf('HU');
+    const map   = new Map();
+    if (huCol < 0) return map;
+    for (let i = 1; i < lines.length; i++) {
+        const cols = lines[i].split(',');
+        const dt = parseDate15min(cols[0]);
+        if (!dt) continue;
+        const v = parseFloat(cols[huCol]);
+        if (isNaN(v)) continue;
+        const k = dateKey(dt);
+        if (!map.has(k)) map.set(k, v);
+    }
+    return map;
+}
+
+async function processData(text, daText) {
     await yieldFrame();
+    const daMap  = buildDaMap(daText);
     const lines  = text.trim().split(/\r?\n/);
     const sep    = lines[0].includes('\t') ? /\t/ : /,/;
     const header = lines[0].split(sep).map(s => s.trim());
     const id3Col = header.findIndex(h => h === 'ID3');
-    const daCol  = header.findIndex(h => h === 'DA');
 
-    if (id3Col < 0 || daCol < 0) {
+    if (id3Col < 0 || !daMap.size) {
         document.getElementById('hmSpinner').classList.remove('show');
         document.getElementById('hmNoData').style.display = 'block';
         return;
@@ -320,12 +344,12 @@ async function processData(text) {
     for (let i = 1; i < lines.length; i++) {
         if (i % CHUNK === 0) await yieldFrame();
         const cols = lines[i].split(sep);
-        if (cols.length < Math.max(id3Col, daCol) + 1) continue;
+        if (cols.length < id3Col + 1) continue;
         const dt = parseDate15min(cols[0]);
         if (!dt || !YEARS.includes(dt.year)) continue;
         const id3 = parseFloat(cols[id3Col].trim());
-        const da  = parseFloat(cols[daCol].trim());
-        if (isNaN(id3) || isNaN(da)) continue;
+        const da  = daMap.get(dateKey(dt));
+        if (isNaN(id3) || da === undefined) continue;
 
         const spread = id3 - da;
 

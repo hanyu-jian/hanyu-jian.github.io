@@ -394,7 +394,7 @@ async function loadAllCountries() {
 
     await Promise.all(BASE_COUNTRIES.map(async c => {
         try {
-            const res = await fetch(`/data/generation/${c}.csv`);
+            const res = await fetch(`/data/entsoe/generation/${c}.csv`);
             if (!res.ok) { loadReport.fail.push(c); loadFailReason[c] = `HTTP ${res.status}`; return; }
             const text = await res.text();
             const rows = parseCSV(text);
@@ -407,11 +407,11 @@ async function loadAllCountries() {
         }
     }));
 
-    const loadRes = await fetch('/data/load.csv');
+    const loadRes = await fetch('/data/entsoe/load.csv');
     if (!loadRes.ok) throw new Error(`load.csv HTTP ${loadRes.status}`);
     loadData = parseLoadCSV(await loadRes.text());
 
-    const priceRes = await fetch('/data/price.csv');
+    const priceRes = await fetch('/data/entsoe/price.csv');
     if (!priceRes.ok) throw new Error(`price.csv HTTP ${priceRes.status}`);
     priceData = parsePriceCSV(await priceRes.text());
 }

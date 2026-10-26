@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
 """
 由 raw_data（15min 原始数据）生成 capture-price.html 使用的 15min 宽表：
-  data/15min/price.csv   <- raw_data/{YEAR}/A44.csv
-  data/15min/solar.csv   <- raw_data/{YEAR}/generation/{CC}.csv (Solar)
-  data/15min/wind.csv    <- raw_data/{YEAR}/generation/{CC}.csv (Wind Onshore + Wind Offshore)
+  data/entsoe/15min/price.csv   <- raw_data/{YEAR}/A44.csv
+  data/entsoe/15min/solar.csv   <- raw_data/{YEAR}/generation/{CC}.csv (Solar)
+  data/entsoe/15min/wind.csv    <- raw_data/{YEAR}/generation/{CC}.csv (Wind Onshore + Wind Offshore)
 时间轴格式与原 raw_data 一致："YYYY/M/D H:MM"。缺失值保留为空。
 """
 from pathlib import Path
 import pandas as pd
 
 RAW_DIR  = Path("raw_data")
-DATA_DIR = Path("data")
+DATA_DIR = Path("data/entsoe")
 FMT = "%Y/%m/%d %H:%M"
 
 
@@ -35,7 +35,7 @@ def build_price() -> None:
         frames.append(d.set_index("Date"))
     df = pd.concat(frames)
     df = df[~df.index.duplicated(keep="last")]
-    # 个别国家/时段 raw A44 缺 15min 数据（如 IT 2024-2025）：回退到 data/price.csv 的小时价，
+    # 个别国家/时段 raw A44 缺 15min 数据（如 IT 2024-2025）：回退到 data/entsoe/price.csv 的小时价，
     # 展开为 4 个 15min 点
     hourly = pd.read_csv(DATA_DIR / "price.csv")
     hourly["Date"] = pd.to_datetime(hourly["Date"], format=FMT)

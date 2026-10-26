@@ -6,17 +6,17 @@ Tokaj 五站「预测 → 报量 → 不平衡」回溯计算（复现 PV_Genera
       <plant-dir>/data/production forecast/<年>/15min/<场站>.csv    乙方的发电量预测 I~N 六列，kWh
       <plant-dir>/data/theoretical production/<年>/15min/<场站>.csv  实测理论发电量 kWh（工作簿的 AH 列）
   价格（本仓库 data/）
-      data/15min/price.csv            HU 日前价 EUR/MWh（工作簿 P 列）
-      data/intraday/HU.csv            ID3 指数 EUR/MWh（工作簿 AA 列），只到 2026-08-30；之后用 --id3 FILE
-      raw_data/<年>/A85.csv           HU 不平衡价，15 分钟（2021~），福林；用 data/MNB.csv 的 EUR 汇率折成 EUR/MWh（默认）
-      data/imbalance_price.csv        同一份数据的小时均值（--imbalance-source hourly 才用）
+      data/entsoe/15min/price.csv            HU 日前价 EUR/MWh（工作簿 P 列）
+      data/enappsys/ID3/HU_<年>.csv     ID3 指数 EUR/MWh（工作簿 AA 列），只到 2026-08-30；之后用 --id3 FILE
+      raw_data/<年>/A85.csv           HU 不平衡价，15 分钟（2021~），福林；用 data/fx/MNB.csv 的 EUR 汇率折成 EUR/MWh（默认）
+      data/entsoe/imbalance_price.csv        同一份数据的小时均值（--imbalance-source hourly 才用）
   可选（本仓库没有，有就给）
       --forecast-xlsx FILE            用工作簿（PV_Generation_Forecast_Test…xlsx）里的 I~N 六列当预测（乙方对 8 月的回算），
                                       实测仍用 vcom 的理论发电量。乙方 API 的预测只从 2026-09-24 起有，8 月只能这样回溯。
       --ida-prices FILE               列 Date,IDA1,IDA2,IDA3（EUR/MWh，15 分钟，区间起点，当地时间）→ V/W/X 列
       --imbalance-price-csv FILE      列 Date,price（EUR/MWh，15 分钟）→ 覆盖 A85（例如 MAVIR 官方的月度结算价）
       --id3 FILE                      Montel 导出的 ID3 指数 CSV（Date (CET) 带方括号、HU HUPX PRICE INDEX ID3、成交量；第二行是单位）→ AA 列
-                                      （给了就用它，不再用 data/intraday/HU.csv）
+                                      （给了就用它，不再用 data/enappsys/ID3/HU_*.csv）
       --montel FILE                   Montel 导出的 CSV（Date (CET)、DA/IDA1~3 价格、IDA1~3 成交量、SYSTEM DIRECTION，15 分钟，
                                       第二行是单位）→ IDA1/2/3 价格（V/W/X）和系统方向（AJ，符号取反，见下）
       --system-direction FILE         列 Date 加 AJ（或 system_direction）：系统方向，15 分钟，区间起点，当地时间 → AJ 列
@@ -278,7 +278,7 @@ def load_prices(data_dir=DATA, ida_csv=None, imb_csv=None, fx_lag_days=1, eur_fr
                 imb_source="raw", sd_csv=None, sd_sign=1, montel_csv=None, id3_csv=None):
     """返回 15 分钟价格表：P（日前）、AA（ID3）、V/W/X（IDA，没给则空）、Pneg/Ppos（不平衡价 EUR/MWh）。"""
     data_dir = Path(data_dir)
-    da = pd.read_csv(data_dir / "15min" / "price.csv", usecols=["Date", "HU"])
+    da = pd.read_csv(data_dir / "entsoe" / "15min" / "price.csv", usecols=["Date", "HU"])
     da["Date"] = pd.to_datetime(da["Date"], format="%Y/%m/%d %H:%M")
     da = da.drop_duplicates("Date", keep="first").set_index("Date")["HU"].rename("P")
 
@@ -290,9 +290,9 @@ def load_prices(data_dir=DATA, ida_csv=None, imb_csv=None, fx_lag_days=1, eur_fr
             p = p.reindex(p.index.union(extra.index))
     if montel is not None:
         p["P"] = p["P"].combine_first(montel["DA"])             # 仓库日前价没有的时段用 Montel 的补（两者逐格相同）
-    it_path = data_dir / "intraday" / "HU.csv"
-    if it_path.exists():
-        it = pd.read_csv(it_path, sep="\t", usecols=["Date", "ID3"])
+    it_paths = sorted((data_dir / "enappsys" / "ID3").glob("HU_*.csv"))
+    if it_paths:
+        it = pd.concat([pd.read_csv(f, sep="\t", usecols=["Date", "ID3"]) for f in it_paths])
         it["Date"] = pd.to_datetime(it["Date"], format="%d/%m/%Y %H:%M")
         p["AA"] = it.drop_duplicates("Date", keep="first").set_index("Date")["ID3"]
     else:
@@ -325,12 +325,12 @@ def load_prices(data_dir=DATA, ida_csv=None, imb_csv=None, fx_lag_days=1, eur_fr
             step = None
         else:                                                                              # 小时，福林
             if imb_source == "raw":
-                print("提示：没找到 raw_data/*/A85.csv，改用小时价 data/imbalance_price.csv", file=sys.stderr)
-            ib = pd.read_csv(data_dir / "imbalance_price.csv", usecols=["Date", "HU"])
+                print("提示：没找到 raw_data/*/A85.csv，改用小时价 data/entsoe/imbalance_price.csv", file=sys.stderr)
+            ib = pd.read_csv(data_dir / "entsoe" / "imbalance_price.csv", usecols=["Date", "HU"])
             ib["Date"] = pd.to_datetime(ib["Date"], format="%Y/%m/%d %H:%M")
             huf = ib.drop_duplicates("Date", keep="first").set_index("Date")["HU"]
             step = "1h"
-        fx = pd.read_csv(data_dir / "MNB.csv", usecols=["Date", "EUR"])
+        fx = pd.read_csv(data_dir / "fx" / "MNB.csv", usecols=["Date", "EUR"])
         fx["Date"] = pd.to_datetime(fx["Date"], format="%Y/%m/%d")
         fx = fx.drop_duplicates("Date").set_index("Date")["EUR"]                         # HUF per EUR，工作日
         day = huf.index.normalize() - pd.Timedelta(days=fx_lag_days)
@@ -377,9 +377,9 @@ def main():
     ap.add_argument("--imbalance-eur-from", default=IMBALANCE_EUR_FROM,
                     help="仓库里的 HU 不平衡价从这一天起已经是 EUR/MWh（不再除汇率），默认 %(default)s；留空表示全部按 HUF 折算")
     ap.add_argument("--imbalance-source", choices=["raw", "hourly"], default="raw",
-                    help="不平衡价来源：raw = raw_data/*/A85.csv（15 分钟，默认）；hourly = data/imbalance_price.csv（小时）")
+                    help="不平衡价来源：raw = raw_data/*/A85.csv（15 分钟，默认）；hourly = data/entsoe/imbalance_price.csv（小时）")
     ap.add_argument("--forecast-xlsx", help="工作簿路径：用它的 I~N 六列当预测（8 月回溯用）；实测仍用 vcom 的理论发电量")
-    ap.add_argument("--id3", help="Montel 导出的 ID3 指数 CSV（给了就用它，不再用 data/intraday/HU.csv）")
+    ap.add_argument("--id3", help="Montel 导出的 ID3 指数 CSV（给了就用它，不再用 data/enappsys/ID3/HU_*.csv）")
     ap.add_argument("--montel", help="Montel 导出的 CSV（IDA1/2/3 价格、成交量、SYSTEM DIRECTION；SYSTEM DIRECTION 会取反当 AJ）")
     ap.add_argument("--system-direction-sign", type=int, choices=[1, -1], default=1,
                     help="--system-direction 文件的符号：1 = 原样当 AJ（默认），-1 = 取反")

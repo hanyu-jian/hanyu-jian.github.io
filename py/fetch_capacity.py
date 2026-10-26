@@ -4,7 +4,7 @@ ENTSOE API 数据更新脚本 — Installed Capacity per Production Type（A68�
 - 文档类型：A68（14.1.A Installed Capacity per Production Type）
 - processType：A33（Year Ahead）
 - 每次请求覆盖一整年（ENTSOE 限制单次请求跨度 ≤ 1 年，正好一年一条）
-- 输出与人工从 ENTSO-E 网站下载的 data/capacity.csv 格式完全一致：
+- 输出与人工从 ENTSO-E 网站下载的 data/entsoe/capacity.csv 格式完全一致：
     Year,Month,Country,Production Type,Installed Capacity (MW),Total Grand Capacity (MW)
   - Month 列固定为空（年度数据，无月度粒度）
   - API 未返回的发电类型标记为 "n/e"（与原始人工下载数据一致）
@@ -60,7 +60,7 @@ COUNTRY_CONFIG = {
     "bg": {"bzn_eic": "10YCA-BULGARIA-R"},
 }
 
-# Production Type 文案与 data/capacity.csv 现有内容逐字对齐（大小写/拼写），
+# Production Type 文案与 data/entsoe/capacity.csv 现有内容逐字对齐（大小写/拼写），
 # 保证新旧年份在 capacity.html 里按同一字符串分组、legend 不分裂。
 PSR_TYPE_MAP = {
     "B01": "Biomass",
@@ -91,7 +91,7 @@ COUNTRIES       = list(COUNTRY_CONFIG.keys())
 REQUEST_DELAY   = 1.5
 PAGE_SIZE       = 100
 DEFAULT_TIMEOUT = 90
-DATA_DIR        = Path("data")
+DATA_DIR        = Path("data/entsoe")
 ENTSOE_FMT      = "%Y%m%d%H%M"
 CSV_FIELDS      = ["Year", "Month", "Country", "Production Type",
                    "Installed Capacity (MW)", "Total Grand Capacity (MW)"]

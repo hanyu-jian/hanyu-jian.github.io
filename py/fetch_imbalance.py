@@ -4,7 +4,7 @@ ENTSOE API 数据更新脚本 — Imbalance Price（A85）
 - 文档类型：A85（Imbalance prices）
 - 只抓取 <imbalance_Price.amount>（category=A04，即 Generation 侧失衡价）
 - 原始 15min 数据 → raw_data/{YEAR}/A85.csv（按年拆分，格式与 A44/A65 完全一致）
-- 小时均值   → data/imbalance_price.csv（格式与 price.csv 完全一致）
+- 小时均值   → data/entsoe/imbalance_price.csv（格式与 price.csv 完全一致）
 - 响应可能是 ZIP 包，自动解压；只处理文件名含 "IMBALANCE_PRICES" 的条目
 - 支持模式：
     --mode incremental  最近 7 天（默认）
@@ -58,7 +58,7 @@ REQUEST_DELAY         = 1.5
 CHUNK_DAYS            = 365          # A85 每请求最多 1 年
 PAGE_SIZE             = 100
 DEFAULT_TIMEOUT       = 90
-DATA_DIR              = Path("data")
+DATA_DIR              = Path("data/entsoe")
 RAW_DIR               = Path("raw_data")
 ENTSOE_FMT            = "%Y%m%d%H%M"
 HOURLY_ROUND_DECIMALS = 6

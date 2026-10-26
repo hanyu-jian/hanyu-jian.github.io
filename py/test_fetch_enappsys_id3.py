@@ -54,3 +54,12 @@ def test_roundtrip_of_real_file_is_byte_identical(tmp_path):
     out = tmp_path / "x.csv"
     f.write(f.read_old(src), out)
     assert out.read_bytes() == src.read_bytes()
+
+
+def test_real_manual_download_headers():
+    head = "Date (CET),HU HUPX PRICE INDEX ID3,HU HUPX TRADED VOLUME INDEX ID3\n,EUR/MWh,MW\n"
+    fr = frame("[26/12/2025 16:15],117.92,579.1\n[26/12/2025 16:30],117.67,600\n", head)
+    out = f.to_legacy(fr, pd.Series([100.0], index=pd.to_datetime(["2025-12-26 16:15"])))
+    assert out["ID3"].tolist() == [117.92, 117.67] and out["Vol"].tolist() == [579.1, 600]
+    assert out["DA"].iloc[0] == 100.0 and pd.isna(out["DA"].iloc[1])
+    assert out["Date"].dt.strftime(f.DATE_FMT).tolist() == ["26/12/2025 16:15", "26/12/2025 16:30"]

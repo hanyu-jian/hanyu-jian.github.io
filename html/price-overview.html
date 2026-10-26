@@ -868,7 +868,7 @@
 
         async function fetchData() {
             try {
-                const res = await fetch('/data/price.csv');
+                const res = await fetch('/data/entsoe/price.csv');
                 if (!res.ok) throw new Error(`HTTP ${res.status}`);
                 const text = await res.text();
                 const rows = parseCSV(text);

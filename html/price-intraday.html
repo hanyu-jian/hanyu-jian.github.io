@@ -267,10 +267,16 @@ function getFilters() {
 
 async function loadData() {
     try {
-        const text = await fetch('/data/intraday/HU.csv').then(r => {
-            if (!r.ok) throw new Error(`HTTP ${r.status}`);
-            return r.text();
-        });
+        // ID3 按年拆分：/data/enappsys/ID3/HU_<年>.csv，从 2024 起逐年读到今年，缺的年份跳过
+        const years = Array.from({ length: new Date().getFullYear() - 2023 }, (_, i) => 2024 + i);
+        const texts = await Promise.all(years.map(y =>
+            fetch(`/data/enappsys/ID3/HU_${y}.csv`)
+                .then(r => r.ok ? r.text() : null)
+                .catch(() => null)
+        ));
+        const parts = texts.filter(Boolean);
+        if (!parts.length) throw new Error('no ID3 files');
+        const text = parts.map((t, i) => i === 0 ? t : t.slice(t.indexOf('\n') + 1)).join('');
         await processData(text);
     } catch(e) {
         console.error('Failed to load:', e.message);

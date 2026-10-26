@@ -5,7 +5,7 @@ EnAppSys 下载脚本 — HUPX IDA1/IDA2/IDA3（价格 + 成交量，15min）
 - 凭证只从环境变量读取：ENAPPSYS_USER，以及 ENAPPSYS_PASS（或 ENAPPSYS_SECRET）；
   官方包会在日志里把 secret 屏蔽
 - 返回的列原样保留（列名带单位，如 "IDA1 Price (EUR/MWh)"），按时间合并进
-  data/enappsys/HU/IDA/<年>.csv（按当地时间的年份分文件；站点本身有 token 门卫保护）
+  data/enappsys/IDA/HU_<年>.csv（按当地时间的年份分文件；站点本身有 token 门卫保护）
 - 时间列 datetime：请求 time_zone=CET，官方包按行序判定秋季回拨的重复小时，
   文件里存带偏移的 ISO 时间（如 2026-10-25T02:15:00+01:00），无歧义
 - 模式：
@@ -23,7 +23,7 @@ import pandas as pd
 from enappsys import EnAppSys
 
 CODE = "hu/elec/hupxauctionid/idsummary/version2"
-OUT_DIR_DEFAULT = Path("data/enappsys/HU/IDA")
+OUT_DIR_DEFAULT = Path("data/enappsys/IDA")
 TIME_COL = "datetime"
 
 
@@ -69,7 +69,7 @@ def main(argv=None):
         sys.exit(f"no data rows returned for {start} .. {end}")
     a.out_dir.mkdir(parents=True, exist_ok=True)
     for year, part in new.groupby(new[TIME_COL].str[:4]):
-        path = a.out_dir / f"{year}.csv"
+        path = a.out_dir / f"HU_{year}.csv"
         old = pd.read_csv(path, dtype={TIME_COL: str}) if path.exists() else None
         out = merge(old, part)
         out.to_csv(path, index=False)

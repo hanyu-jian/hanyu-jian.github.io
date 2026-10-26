@@ -9,7 +9,7 @@
 from pathlib import Path
 import pandas as pd
 
-DATA_DIR = Path("data")
+DATA_DIR = Path("data/entsoe")
 GEN_DIR  = DATA_DIR / "generation"
 
 WIDE_FILES = [

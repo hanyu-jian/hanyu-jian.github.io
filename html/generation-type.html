@@ -362,7 +362,7 @@ function parseCSV(text) {
 async function loadCountry(country) {
     if (countryData[country]) return true;
     try {
-        const res = await fetch(`/data/generation/${country}.csv`);
+        const res = await fetch(`/data/entsoe/generation/${country}.csv`);
         if (!res.ok) return false;
         const text = await res.text();
         countryData[country] = parseCSV(text);
@@ -547,7 +547,7 @@ let loadData = [];
 
 async function loadLoadData(){
     if(loadData.length) return;
-    const res = await fetch('/data/load.csv');
+    const res = await fetch('/data/entsoe/load.csv');
     const txt = await res.text();
     const lines = txt.trim().split(/\r?\n/);
     const headers = lines[0].split(',');

@@ -1230,7 +1230,7 @@ function exportMapCSV() {
 // ─────────────────────────────────────────────
 async function init() {
     try {
-        const res = await fetch('/data/load.csv');
+        const res = await fetch('/data/entsoe/load.csv');
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const text = await res.text();
         const rows = parseCSV(text);

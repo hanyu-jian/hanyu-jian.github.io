@@ -139,7 +139,7 @@
             <div class="section-head" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;">
                 <div>
                     <h2>HUPX Intraday Auctions (IDA1 / IDA2 / IDA3)</h2>
-                    <p>Bars = traded volume (MW, left axis) &nbsp;|&nbsp; Lines = auction price (€/MWh, right axis)</p>
+                    <p>Bars = traded volume (MW, left axis) &nbsp;|&nbsp; Lines = auction price (€/MWh, right axis) &nbsp;|&nbsp; Red line = Day-Ahead price</p>
                 </div>
                 <button class="export-btn" id="idaExportBtn" onclick="exportIdaCSV()"> Export CSV</button>
             </div>
@@ -864,7 +864,8 @@ function exportArbitrageCSV() {
 }
 /* ================= HUPX IDA1/2/3 price & volume chart ================= */
 const IDA_NAMES  = ['IDA1','IDA2','IDA3'];
-const IDA_COLORS = ['#457b9d','#e76f51','#2a9d8f'];
+const IDA_COLORS = ['#457b9d','#8e6bbf','#2a9d8f'];
+const DA_COLOR   = '#e03131';
 const IDA_GREYS  = ['#ced4da','#adb5bd','#868e96'];
 let idaRows = null;      // [{date, ts, p:[3], v:[3]}]
 let idaChart = null;
@@ -902,7 +903,7 @@ async function loadIdaData() {
             const c = lines[i].split(',');
             if (c.length < 8 || !c[0]) continue;
             const f = x => { const n = parseFloat(x); return isNaN(n) ? null : n; };
-            idaRows.push({ date: c[0].slice(0, 10), ts: c[0].slice(0, 16).replace('T', ' '), p: [f(c[2]), f(c[3]), f(c[4])], v: [f(c[5]), f(c[6]), f(c[7])] });
+            idaRows.push({ date: c[0].slice(0, 10), ts: c[0].slice(0, 16).replace('T', ' '), da: f(c[1]), p: [f(c[2]), f(c[3]), f(c[4])], v: [f(c[5]), f(c[6]), f(c[7])] });
         }
     });
     if (idaRows.length) document.getElementById('idaYear').value = idaRows[idaRows.length - 1].date.slice(0, 4);
@@ -919,7 +920,8 @@ function renderIdaChart() {
         if (r.date.slice(0, 4) !== year) return;
         const k = idaPeriodKey(r, freq);
         let a = acc.get(k);
-        if (!a) { a = [0, 1, 2].map(() => ({ ps: 0, vs: 0, n: 0 })); acc.set(k, a); }
+        if (!a) { a = [0, 1, 2].map(() => ({ ps: 0, vs: 0, n: 0 })); a.da = { s: 0, n: 0 }; acc.set(k, a); }
+        if (r.da !== null) { a.da.s += r.da; a.da.n++; }
         for (let j = 0; j < 3; j++) {
             if (r.p[j] === null || r.v[j] === null) continue;
             a[j].ps += r.p[j]; a[j].vs += r.v[j]; a[j].n++;
@@ -928,8 +930,9 @@ function renderIdaChart() {
     const keys = [...acc.keys()].sort();
     const price = [0, 1, 2].map(j => keys.map(k => { const x = acc.get(k)[j]; return x.n ? +(x.ps / x.n).toFixed(2) : null; }));
     const vol   = [0, 1, 2].map(j => keys.map(k => { const x = acc.get(k)[j]; return x.n ? +(x.vs / x.n).toFixed(1) : null; }));
+    const da    = keys.map(k => { const x = acc.get(k).da; return x.n ? +(x.s / x.n).toFixed(2) : null; });
     const cnt   = [0, 1, 2].map(j => keys.map(k => acc.get(k)[j].n));
-    lastIdaSeries = { keys, price, vol, cnt, freq, year, sel };
+    lastIdaSeries = { keys, price, vol, da, cnt, freq, year, sel };
     document.getElementById('idaNoData').style.display = keys.length ? 'none' : 'block';
 
     // 15min / hourly open on the most recent month of the selected year; the slider widens the window
@@ -951,6 +954,11 @@ function renderIdaChart() {
         symbol: 'circle', symbolSize: 4, showSymbol: keys.length < 60, connectNulls: false,
         lineStyle: { width: 1.8, color: IDA_COLORS[j] }, itemStyle: { color: IDA_COLORS[j] }, z: 3
     }); });
+    series.push({
+        name: 'DA Price', type: 'line', yAxisIndex: 1, data: da,
+        symbol: 'circle', symbolSize: 4, showSymbol: keys.length < 60, connectNulls: false,
+        lineStyle: { width: 1.8, color: DA_COLOR }, itemStyle: { color: DA_COLOR }, z: 4
+    });
     idaChart.setOption({
         animation: false,
         grid: { left: 64, right: 64, top: 46, bottom: 72 },
@@ -971,10 +979,11 @@ function exportIdaCSV() {
     const d = lastIdaSeries;
     if (!d || !d.keys.length) { alert('No data loaded yet.'); return; }
     const head = [{ '15min': 'Time', hourly: 'Hour', daily: 'Date', weekly: 'Week start', monthly: 'Month' }[d.freq]];
+    head.push('DA Price (EUR/MWh)');
     d.sel.forEach(j => { const n = IDA_NAMES[j]; head.push(`${n} Price (EUR/MWh)`, `${n} Volume (MW)`, `${n} Points`); });
     const rows = [head];
     d.keys.forEach((k, i) => {
-        const r = [k];
+        const r = [k, d.da[i] ?? ''];
         d.sel.forEach(j => r.push(d.price[j][i] ?? '', d.vol[j][i] ?? '', d.cnt[j][i]));
         rows.push(r);
     });

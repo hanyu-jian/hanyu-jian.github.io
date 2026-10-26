@@ -865,7 +865,7 @@ function exportArbitrageCSV() {
 /* ================= HUPX IDA1/2/3 price & volume chart ================= */
 const IDA_NAMES  = ['IDA1','IDA2','IDA3'];
 const IDA_COLORS = ['#457b9d','#8e6bbf','#2a9d8f'];
-const DA_COLOR   = '#e03131';
+const DA_COLOR   = '#d9696b';
 const IDA_GREYS  = ['#ced4da','#adb5bd','#868e96'];
 let idaRows = null;      // [{date, ts, p:[3], v:[3]}]
 let idaChart = null;
@@ -952,12 +952,12 @@ function renderIdaChart() {
     sel.forEach(j => { const n = IDA_NAMES[j]; series.push({
         name: n + ' Price', type: 'line', yAxisIndex: 1, data: price[j],
         symbol: 'circle', symbolSize: 4, showSymbol: keys.length < 60, connectNulls: false,
-        lineStyle: { width: 1.8, color: IDA_COLORS[j] }, itemStyle: { color: IDA_COLORS[j] }, z: 3
+        lineStyle: { width: 1.5, color: IDA_COLORS[j] }, itemStyle: { color: IDA_COLORS[j] }, z: 3
     }); });
     series.push({
         name: 'DA Price', type: 'line', yAxisIndex: 1, data: da,
         symbol: 'circle', symbolSize: 4, showSymbol: keys.length < 60, connectNulls: false,
-        lineStyle: { width: 1.8, color: DA_COLOR }, itemStyle: { color: DA_COLOR }, z: 4
+        lineStyle: { width: 1.3, color: DA_COLOR, opacity: 0.85 }, itemStyle: { color: DA_COLOR }, z: 2
     });
     idaChart.setOption({
         animation: false,

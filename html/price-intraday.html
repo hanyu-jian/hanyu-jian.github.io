@@ -148,12 +148,14 @@
                     <label>Year</label>
                     <select class="ida-select" id="idaYear">
                         <option value="2024">2024</option>
-                        <option value="2025" selected>2025</option>
-                        <option value="2026">2026</option>
+                        <option value="2025">2025</option>
+                        <option value="2026" selected>2026</option>
                     </select>
                     <label>Frequency</label>
                     <div class="btn-group-inline" id="idaFreq">
-                        <button class="active" data-freq="daily">Daily</button>
+                        <button class="active" data-freq="15min">15min</button>
+                        <button data-freq="hourly">Hourly</button>
+                        <button data-freq="daily">Daily</button>
                         <button data-freq="weekly">Weekly</button>
                         <button data-freq="monthly">Monthly</button>
                     </div>
@@ -875,7 +877,10 @@ function idaSelected() {
 
 function idaFreq() { return document.querySelector('#idaFreq button.active').dataset.freq; }
 
-function idaPeriodKey(date, freq) {
+function idaPeriodKey(r, freq) {
+    const date = r.date;
+    if (freq === '15min') return r.ts;
+    if (freq === 'hourly') return r.ts.slice(0, 13) + ':00';
     if (freq === 'monthly') return date.slice(0, 7);
     if (freq === 'weekly') {
         const d = new Date(date + 'T00:00:00Z');
@@ -897,9 +902,10 @@ async function loadIdaData() {
             const c = lines[i].split(',');
             if (c.length < 8 || !c[0]) continue;
             const f = x => { const n = parseFloat(x); return isNaN(n) ? null : n; };
-            idaRows.push({ date: c[0].slice(0, 10), p: [f(c[2]), f(c[3]), f(c[4])], v: [f(c[5]), f(c[6]), f(c[7])] });
+            idaRows.push({ date: c[0].slice(0, 10), ts: c[0].slice(0, 16).replace('T', ' '), p: [f(c[2]), f(c[3]), f(c[4])], v: [f(c[5]), f(c[6]), f(c[7])] });
         }
     });
+    if (idaRows.length) document.getElementById('idaYear').value = idaRows[idaRows.length - 1].date.slice(0, 4);
     renderIdaChart();
 }
 
@@ -911,7 +917,7 @@ function renderIdaChart() {
     const acc = new Map();   // key -> per-IDA {ps, vs, n}
     idaRows.forEach(r => {
         if (r.date.slice(0, 4) !== year) return;
-        const k = idaPeriodKey(r.date, freq);
+        const k = idaPeriodKey(r, freq);
         let a = acc.get(k);
         if (!a) { a = [0, 1, 2].map(() => ({ ps: 0, vs: 0, n: 0 })); acc.set(k, a); }
         for (let j = 0; j < 3; j++) {
@@ -926,6 +932,14 @@ function renderIdaChart() {
     lastIdaSeries = { keys, price, vol, cnt, freq, year, sel };
     document.getElementById('idaNoData').style.display = keys.length ? 'none' : 'block';
 
+    // 15min / hourly open on the most recent month of the selected year; the slider widens the window
+    let zoomStart = 0;
+    if ((freq === '15min' || freq === 'hourly') && keys.length) {
+        const last = new Date(keys[keys.length - 1].slice(0, 10) + 'T00:00:00Z');
+        last.setUTCMonth(last.getUTCMonth() - 1);
+        const cut = last.toISOString().slice(0, 10);
+        zoomStart = Math.max(0, keys.findIndex(k => k >= cut));
+    }
     if (!idaChart) { idaChart = echarts.init(document.getElementById('idaChart')); window.addEventListener('resize', () => idaChart.resize()); }
     const series = [];
     sel.forEach(j => { const n = IDA_NAMES[j]; series.push({
@@ -948,7 +962,7 @@ function renderIdaChart() {
             { type: 'value', name: 'Volume (MW)', nameTextStyle: { color: '#6c757d' }, axisLabel: { color: '#6c757d' }, splitLine: { lineStyle: { color: '#eef0f2' } } },
             { type: 'value', name: 'Price (EUR/MWh)', nameTextStyle: { color: '#6c757d' }, axisLabel: { color: '#6c757d' }, splitLine: { show: false } }
         ],
-        dataZoom: [{ type: 'inside' }, { type: 'slider', height: 20, bottom: 12 }],
+        dataZoom: [{ type: 'inside', startValue: zoomStart }, { type: 'slider', height: 20, bottom: 12, startValue: zoomStart }],
         series
     }, true);
 }
@@ -956,7 +970,7 @@ function renderIdaChart() {
 function exportIdaCSV() {
     const d = lastIdaSeries;
     if (!d || !d.keys.length) { alert('No data loaded yet.'); return; }
-    const head = [d.freq === 'weekly' ? 'Week start' : d.freq === 'monthly' ? 'Month' : 'Date'];
+    const head = [{ '15min': 'Time', hourly: 'Hour', daily: 'Date', weekly: 'Week start', monthly: 'Month' }[d.freq]];
     d.sel.forEach(j => { const n = IDA_NAMES[j]; head.push(`${n} Price (EUR/MWh)`, `${n} Volume (MW)`, `${n} Points`); });
     const rows = [head];
     d.keys.forEach((k, i) => {

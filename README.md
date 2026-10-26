@@ -131,7 +131,7 @@ raw_data/<年>/  ENTSO-E 15 分钟原始数据（A44 日前价、A65 负荷、A8
 
 数据：`enappsys/ID3/HU_<年>.csv`（每行 15 分钟，`ID3` 指数 €/MWh）和 `entsoe/15min/price.csv` 的 `HU` 列（日前价 DA，€/MWh），仅匈牙利，两者按时间戳对上；任一边缺值的时段跳过。ID3 数据每天由 `update_enappsys.yml` 抓取（Montel / EnAppSys Chart API，`hu/elec/hupx/indexes/id3/version2`），接着现有表格往下写。
 
-1. **HUPX Intraday Auctions（IDA1 / IDA2 / IDA3 价格与成交量）**，数据：`enappsys/IDA/HU_<年>.csv`（15 分钟）。选年份、频率（Daily / Weekly / Monthly，周以周一为起点）。
+1. **HUPX Intraday Auctions（IDA1 / IDA2 / IDA3 价格与成交量）**，数据：`enappsys/IDA/HU_<年>.csv`（15 分钟）。选年份、频率（15min / Hourly / Daily / Weekly / Monthly，周以周一为起点；小时 = 该小时 4 个 15 分钟点的平均）。默认 15min，年份默认数据中最新的一年，图上默认显示该年最近一个月，拖动下方缩放条可看更早的数据。
    - **柱（灰色，左轴 MW）**：各 IDA 成交量；**折线（右轴 €/MWh）**：各 IDA 价格。
    - **Threshold** 按钮：All / IDA1 / IDA2 / IDA3，选某一个时只显示该 IDA 的价格和成交量（CSV 同样只导出所选）。
    - 周期值 = 价格和成交量都有值的 15 分钟点的算术平均（量为平均功率 MW），没有数据则留空。

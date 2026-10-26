@@ -113,10 +113,6 @@
         .btn-group-inline button:last-child { border-right: none; }
         .btn-group-inline button:hover { background: #f0f2f5; color: #2c3e50; }
         .btn-group-inline button.active { background: #2c3e50; color: white; }
-        .thresh-group { display: flex; align-items: center; gap: 6px; padding: 0 10px; height: 36px; border: 1px solid #ccc; border-radius: 6px; background: #fff; font-size: 12px; color: #495057; }
-        .thresh-group .dot { width: 10px; height: 10px; border-radius: 50%; }
-        .thresh-group input { width: 64px; height: 26px; border: 1px solid #ccc; border-radius: 4px; padding: 0 6px; font-size: 13px; font-family: inherit; }
-        .thresh-group input:focus { outline: none; border-color: #2c3e50; }
         @media (max-width: 900px) { .kpi-grid { grid-template-columns: 1fr; } }
         @media (max-width: 800px) { .content-area { padding: 14px; } .header { padding: 16px 16px 0 16px; } .sub-nav { padding: 0 10px; overflow-x: auto; } .controls { padding: 14px; } .three-year-hm { flex-direction: column; } }
     </style>
@@ -143,7 +139,7 @@
             <div class="section-head" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;">
                 <div>
                     <h2>HUPX Intraday Auctions (IDA1 / IDA2 / IDA3)</h2>
-                    <p>Bars = traded volume (MW, left axis) &nbsp;|&nbsp; Lines = auction price (€/MWh, right axis) &nbsp;|&nbsp; Threshold = minimum volume (MW) for a 15-min point to be counted</p>
+                    <p>Bars = traded volume (MW, left axis) &nbsp;|&nbsp; Lines = auction price (€/MWh, right axis)</p>
                 </div>
                 <button class="export-btn" id="idaExportBtn" onclick="exportIdaCSV()"> Export CSV</button>
             </div>
@@ -161,14 +157,10 @@
                         <button data-freq="weekly">Weekly</button>
                         <button data-freq="monthly">Monthly</button>
                     </div>
-                    <label>Threshold (MW)</label>
-                    <div class="thresh-group"><span class="dot" style="background:#457b9d"></span>IDA1 ≥ <input type="number" min="0" step="1" value="0" id="thr1"></div>
-                    <div class="thresh-group"><span class="dot" style="background:#e76f51"></span>IDA2 ≥ <input type="number" min="0" step="1" value="0" id="thr2"></div>
-                    <div class="thresh-group"><span class="dot" style="background:#2a9d8f"></span>IDA3 ≥ <input type="number" min="0" step="1" value="0" id="thr3"></div>
                 </div>
                 <div class="no-data" id="idaNoData" style="display:none"><p>No IDA data for this selection.</p></div>
                 <div id="idaChart" style="width:100%; height:460px;"></div>
-                <div class="chart-note">Period value = simple mean of the 15-min points that pass the threshold (volume in MW is average power). Empty where no point qualifies.</div>
+                <div class="chart-note">Period value = simple mean of the 15-min points that have both price and volume (volume in MW is average power). Empty where there is no data.</div>
             </div>
         </div>
 
@@ -903,7 +895,6 @@ function renderIdaChart() {
     if (!idaRows) return;
     const year = document.getElementById('idaYear').value;
     const freq = idaFreq();
-    const thr  = [1, 2, 3].map(i => Math.max(0, parseFloat(document.getElementById('thr' + i).value) || 0));
     const acc = new Map();   // key -> per-IDA {ps, vs, n}
     idaRows.forEach(r => {
         if (r.date.slice(0, 4) !== year) return;
@@ -911,7 +902,7 @@ function renderIdaChart() {
         let a = acc.get(k);
         if (!a) { a = [0, 1, 2].map(() => ({ ps: 0, vs: 0, n: 0 })); acc.set(k, a); }
         for (let j = 0; j < 3; j++) {
-            if (r.p[j] === null || r.v[j] === null || r.v[j] < thr[j]) continue;
+            if (r.p[j] === null || r.v[j] === null) continue;
             a[j].ps += r.p[j]; a[j].vs += r.v[j]; a[j].n++;
         }
     });
@@ -919,7 +910,7 @@ function renderIdaChart() {
     const price = [0, 1, 2].map(j => keys.map(k => { const x = acc.get(k)[j]; return x.n ? +(x.ps / x.n).toFixed(2) : null; }));
     const vol   = [0, 1, 2].map(j => keys.map(k => { const x = acc.get(k)[j]; return x.n ? +(x.vs / x.n).toFixed(1) : null; }));
     const cnt   = [0, 1, 2].map(j => keys.map(k => acc.get(k)[j].n));
-    lastIdaSeries = { keys, price, vol, cnt, thr, freq, year };
+    lastIdaSeries = { keys, price, vol, cnt, freq, year };
     document.getElementById('idaNoData').style.display = keys.length ? 'none' : 'block';
 
     if (!idaChart) { idaChart = echarts.init(document.getElementById('idaChart')); window.addEventListener('resize', () => idaChart.resize()); }
@@ -960,12 +951,11 @@ function exportIdaCSV() {
         for (let j = 0; j < 3; j++) r.push(d.price[j][i] ?? '', d.vol[j][i] ?? '', d.cnt[j][i]);
         rows.push(r);
     });
-    downloadCSV(`ida_price_volume_HU_${d.year}_${d.freq}_thr${d.thr.join('-')}.csv`, toCSV(rows));
+    downloadCSV(`ida_price_volume_HU_${d.year}_${d.freq}.csv`, toCSV(rows));
 }
 
 window.addEventListener('DOMContentLoaded', () => {
     document.getElementById('idaYear').addEventListener('change', renderIdaChart);
-    ['thr1','thr2','thr3'].forEach(id => document.getElementById(id).addEventListener('input', renderIdaChart));
     document.querySelectorAll('#idaFreq button').forEach(b => b.addEventListener('click', () => {
         document.querySelectorAll('#idaFreq button').forEach(x => x.classList.remove('active'));
         b.classList.add('active');

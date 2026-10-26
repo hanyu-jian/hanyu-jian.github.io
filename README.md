@@ -131,10 +131,17 @@ raw_data/<年>/  ENTSO-E 15 分钟原始数据（A44 日前价、A65 负荷、A8
 
 数据：`enappsys/ID3/HU_<年>.csv`（每行 15 分钟，`ID3` 指数 €/MWh）和 `entsoe/15min/price.csv` 的 `HU` 列（日前价 DA，€/MWh），仅匈牙利，两者按时间戳对上；任一边缺值的时段跳过。ID3 数据每天由 `update_enappsys.yml` 抓取（Montel / EnAppSys Chart API，`hu/elec/hupx/indexes/id3/version2`），接着现有表格往下写。
 
-1. **ID3 − DA 价差热力图（H01–H24）**
+1. **HUPX Intraday Auctions（IDA1 / IDA2 / IDA3 价格与成交量）**，数据：`enappsys/IDA/HU_<年>.csv`（15 分钟）。选年份、频率（15min / Hourly / Daily / Weekly / Monthly，周以周一为起点；小时 = 该小时 4 个 15 分钟点的平均）。默认 15min，年份默认数据中最新的一年，图上默认显示该年最近一个月，拖动下方缩放条可看更早的数据。
+   - **柱（灰色，左轴 MW）**：各 IDA 成交量；**折线（右轴 €/MWh）**：各 IDA 价格。
+   - **红线（右轴）**：日前价 DA（同文件 `DA Price` 列），始终显示，不受 Threshold 按钮影响；同样按所选频率取 15 分钟点的平均。CSV 里也包含 DA 列。
+   - **Threshold** 按钮：All / IDA1 / IDA2 / IDA3，选某一个时只显示该 IDA 的价格和成交量（CSV 同样只导出所选）。
+   - 周期值 = 价格和成交量都有值的 15 分钟点的算术平均（量为平均功率 MW），没有数据则留空。
+   - Export CSV 导出当前年份/频率下的价格、成交量及参与平均的点数。
+
+2. **ID3 − DA 价差热力图（H01–H24）**
    - 每个 15 分钟点：`spread = ID3 − DA`。
    - 格值 = 该年该月该小时内所有 15 分钟 spread 的算术平均（每小时 4 个点，缺 ID3 或 DA 的点跳过）。
-2. **Arbitrage DA vs ID3（储能套利，事后最优）**，选年份、起止月。策略固定：
+3. **Arbitrage DA vs ID3（储能套利，事后最优）**，选年份、起止月。策略固定：
    - **充电**：03:00–05:00（小时 3、4）的 DA 价。`DA_charge = 这两个小时内所有 15 分钟 DA 价的均值`。
    - **DA 放电**：17:00–21:00 四个小时（17、18、19、20），先算每小时 DA 均价，取最高的 2 个小时再平均：`DA_discharge = mean(top2(小时 DA 均价))`。
    - **ID3 放电**：同样 17:00–21:00 共 16 个 15 分钟点，取 ID3 价最高的 8 个再平均：`ID3_discharge = mean(top8(ID3))`。

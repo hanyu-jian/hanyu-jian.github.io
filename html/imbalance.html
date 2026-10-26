@@ -520,6 +520,14 @@ function parseDateStr(s) {
     };
 }
 
+// HU joined PICASSO on 2026-10-01: from then on ENTSO-E reports the HU imbalance
+// price in EUR/MWh already, so no MNB conversion is applied to HU on/after this date.
+const HU_EUR_FROM = { year: 2026, month: 10, day: 1 };
+function huAlreadyEur(p) {
+    const a = p.year * 10000 + p.month * 100 + p.day;
+    return a >= HU_EUR_FROM.year * 10000 + HU_EUR_FROM.month * 100 + HU_EUR_FROM.day;
+}
+
 function parseMNBDate(s) {
     if (!s) return null;
     const m = s.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
@@ -572,7 +580,7 @@ function transformPriceCSV(rows, mnbRates, isImbalance) {
             if (isImbalance && mnbRates) {
                 const r = mnbRates[mKey];
                 if (k === 'HU' && r && r.EUR) {
-                    n = n / r.EUR;
+                    if (!huAlreadyEur(p)) n = n / r.EUR;
                 } else if (k === 'RO' && r && r.EUR && r.RON) {
                     const hufPerRon = r.RON;
                     const hufPerEur = r.EUR;
@@ -621,7 +629,7 @@ function transformA85CSV(rows, mnbRates) {
             if (mnbRates) {
                 const r = mnbRates[mKey];
                 if (k === 'HU' && r && r.EUR) {
-                    n = n / r.EUR;                    // HUF/MWh → EUR/MWh
+                    if (!huAlreadyEur(p)) n = n / r.EUR;   // HUF/MWh → EUR/MWh (HU is EUR/MWh from 2026-10-01)
                 } else if (k === 'RO' && r && r.EUR && r.RON) {
                     n = n * r.RON / r.EUR;            // RON/MWh → EUR/MWh
                 }

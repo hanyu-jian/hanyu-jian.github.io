@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """
-把匈牙利（HU）15 分钟数据整合成一张表，供同事通过 GitHub contents API 取用：
-  GET https://api.github.com/repos/hanyu-jian/hanyu-jian.github.io/contents/data/combined/HU_2026.csv
+把匈牙利（HU）15 分钟数据整合成一张表，供同事通过 GitHub contents API 取用。
+  表放在只含这一个文件的私有仓库 hanyu-jian/hu-market-data（由 build_combined.yml 推送），同事的
+  token 只授权那个仓库：
+  GET https://api.github.com/repos/hanyu-jian/hu-market-data/contents/HU_2026.csv
   头：Authorization: Bearer <token>、Accept: application/vnd.github.raw+json
 来源（都是已有文件，本脚本只读不抓）：
   data/enappsys/IDA/HU_<年>.csv   日前价、IDA1/2/3 价格与成交量、连续交易 QH 指标（原列名）
@@ -9,7 +11,7 @@
   data/mavir/imbalance/HU_<年>.csv  System direction [MWh]（MAVIR；1~9 月为修正数据，之后为 preliminary）
   raw_data/<年>/A85.csv           HU 不平衡价（ENTSO-E A85）：2026-10-01 前是 HUF/MWh，之后已是 EUR/MWh
 输出：
-  data/combined/HU_<年>.csv           全年一张表
+  <out>/HU_<年>.csv                   全年一张表（--out 指定，默认 data/combined）
 约定：
   Date 为匈牙利当地时间（Europe/Budapest 墙钟）YYYY-MM-DD HH:MM，每行 15 分钟；
   秋季回拨那天重复的当地时间只保留第一次出现的；任何来源缺的时段留空。
@@ -25,7 +27,7 @@ from pathlib import Path
 import pandas as pd
 
 ROOT = Path(__file__).resolve().parent.parent
-OUT = ROOT / "data" / "combined"
+OUT_DEFAULT = ROOT / "data" / "combined"
 EUR_FROM = "2026-10-01"     # A85 的 HU 从这天起已是 EUR/MWh
 FX_LAG_DAYS = 1
 DATE_FMT = "%Y-%m-%d %H:%M"
@@ -98,7 +100,9 @@ def write(df, path):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--years", nargs="+", type=int)
+    ap.add_argument("--out", type=Path, default=OUT_DEFAULT)
     a = ap.parse_args()
+    OUT = a.out
     OUT.mkdir(parents=True, exist_ok=True)
     years = a.years or sorted(
         int(m.group(1)) for p in (ROOT / "data" / "mavir" / "imbalance").glob("HU_*.csv")

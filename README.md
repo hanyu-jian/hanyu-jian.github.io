@@ -28,8 +28,8 @@ data/
     ID3/HU_<年>.csv   ID3 指数，列 Date, ID3, Vol（制表符分隔，日/月/年）；每天由 py/fetch_enappsys_id3.py 接着往下更新（`update_enappsys.yml` 手动运行时可勾选 `ida_only` / `id3_only` 只更新其中一个）
   fx/MNB.csv  匈牙利央行汇率（HUF per EUR / RON / PLN，工作日）
   mavir/imbalance/HU_<年>.csv  MAVIR System direction（及 10 月起的 preliminary 全部列），15 分钟；每天由 `update_mavir_imbalance.yml` 更新
-  combined/HU_<年>.csv  HU 15 分钟整合表：日前价、IDA1/2/3、ID3、System direction、不平衡价（EUR/MWh，A85 在 2026-10-01 前由 MNB 折算），由 `py/build_hu_combined.py` 生成（`build_combined.yml` 在上面几个数据 workflow 跑完后自动重建）。同事用 GitHub contents API 取：
-    `GET https://api.github.com/repos/hanyu-jian/hanyu-jian.github.io/contents/data/combined/HU_2026.csv`，头 `Authorization: Bearer <token>`、`Accept: application/vnd.github.raw+json`
+  （HU 整合表不放在本仓库：`py/build_hu_combined.py` 生成，`build_combined.yml` 在上面几个数据 workflow 跑完后重建并推送到只含这一个文件的私有仓库 `hanyu-jian/hu-market-data`。同事用只授权该仓库的只读 token 通过 GitHub contents API 取：
+    `GET https://api.github.com/repos/hanyu-jian/hu-market-data/contents/HU_2026.csv`，头 `Authorization: Bearer <token>`、`Accept: application/vnd.github.raw+json`；本仓库需要 secret `DATA_REPO_TOKEN`）
 raw_data/<年>/  ENTSO-E 15 分钟原始数据（A44 日前价、A65 负荷、A85 不平衡价、generation/）
 ```
 

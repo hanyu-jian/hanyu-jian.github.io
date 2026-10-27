@@ -6,9 +6,13 @@ MAVIR 不平衡价格下载脚本 — 15min，合并进 data/mavir/imbalance/HU_
                  约滞后一周；单位 EUR、MWh
     final        Up_BE_unitprice_<月初>_<发布日>.xlsx   月度修正后的数据，次月中旬左右发布；
                  单位 HUF、kWh，System direction 在最后一列
-- 对齐：final 里 System state / System direction 从 kWh 换成 MWh，并改成 preliminary 的列名
-  （System state [MWh]、System direction [MWh]）。其余列含义或币种不同（HUF），不做换算，
-  保留 final 原列名，另占一列；两个来源互相没有的列留空。
+- 对齐：final 的数值列按表头里的单位统一成 MWh / EUR / EUR/MWh，列名改成 "名称 [单位]"：
+    kWh→MWh（÷1000）；HUF→EUR、HUF/kWh→EUR/MWh（×1000）用 data/fx/MNB.csv 的 EUR 汇率，
+    取前一个工作日的汇率（与 tokaj_backtest.py 一致）；已经是 EUR、MWh 的（2026-10 起匈牙利加入
+    PICASSO，结算改为 EUR）原样保留。
+  含义相同的列与 preliminary 同名（System state / System direction / Price of positive BRP
+  imbalance / Market incentive price / Value of Avoided Activation Price）；其余（Positive …）
+  各占一列，互相没有的列留空。
 - 文件名里的发布日不固定，所以按范围逐个试：preliminary 试 数据日+1 … +MAX_LAG，
   final 试 次月 8 日 … 25 日，并依次试 FINAL_FOLDERS 里的文档库文件夹 ID。
 - CSV：逗号分隔，Date 为当地时间 dd/mm/YYYY HH:MM（取区间起始时刻）；
@@ -46,9 +50,24 @@ FINAL_PUB_DAYS = range(8, 26)   # 发布日 = 次月 8 日 … 25 日
 FINAL_LOOKBACK_MONTHS = 3
 HEADER_ROW = 6  # 0 起算，即第 7 行
 RANK = {"preliminary": 0, "final": 1}
-FINAL_RENAME = {
-    "System state (kWh)": "System state [MWh]",
-    "System direction (kWh)": "System direction [MWh]",
+MNB_CSV = Path("data/fx/MNB.csv")
+FX_LAG_DAYS = 1
+FX_MAX_STALE_DAYS = 7
+# final 表头 → preliminary 表头的名称对应（去掉单位之后）
+NAME_MAP = {
+    "Valueof Avoided Activation": "Value of Avoided Activation Price",
+    "Price for positive BRP net energy balance": "Price of positive BRP imbalance",
+}
+# 单位 → (目标单位, 乘数, 是否需要除以 HUF/EUR 汇率)
+UNITS = {
+    "kWh": ("MWh", 1e-3, False),
+    "MWh": ("MWh", 1, False),
+    "HUF": ("EUR", 1, True),
+    "EUR": ("EUR", 1, False),
+    "HUF/kWh": ("EUR/MWh", 1e3, True),
+    "HUF/MWh": ("EUR/MWh", 1, True),
+    "EUR/kWh": ("EUR/MWh", 1e3, False),
+    "EUR/MWh": ("EUR/MWh", 1, False),
 }
 
 
@@ -107,12 +126,32 @@ def parse_preliminary(content):
     return out.reset_index(drop=True)
 
 
+def eur_rate(stamps):
+    """每行 Date 对应的 HUF/EUR：T-1 往前最近一个工作日的 MNB 汇率；MNB 数据不够新就报错。"""
+    fx = pd.read_csv(MNB_CSV, usecols=["Date", "EUR"])
+    fx["Date"] = pd.to_datetime(fx["Date"], format="%Y/%m/%d")
+    fx = fx.drop_duplicates("Date").set_index("Date")["EUR"].sort_index()
+    day = stamps.dt.normalize() - pd.Timedelta(days=FX_LAG_DAYS)
+    if (day.max() - fx.index.max()).days > FX_MAX_STALE_DAYS:
+        sys.exit(f"{MNB_CSV} ends {fx.index.max():%Y-%m-%d}, too old to convert {day.max():%Y-%m-%d}")
+    return fx.reindex(day, method="ffill").to_numpy()
+
+
 def parse_final(content):
     df = read_xlsx(content)
     out = with_date(df, "Local Date", "Imbalance settlement period")
-    for col in FINAL_RENAME:
-        out[col] = out[col] / 1000
-    out = out.rename(columns=FINAL_RENAME)
+    rate = None
+    for col in [c for c in out.columns if c != "Date"]:
+        m = re.fullmatch(r"(.*?)\s*[\(\[]([^\)\]]+)[\)\]]", str(col))
+        if not m or m.group(2) not in UNITS:
+            sys.exit(f"cannot read unit of column {col!r}")
+        base, unit = m.group(1).strip(), m.group(2)
+        target, mult, needs_fx = UNITS[unit]
+        vals = out.pop(col) * mult
+        if needs_fx:
+            rate = eur_rate(out["Date"]) if rate is None else rate
+            vals = vals / rate
+        out[f"{NAME_MAP.get(base, base)} [{target}]"] = vals
     out.insert(1, "source", "final")
     return out.reset_index(drop=True)
 

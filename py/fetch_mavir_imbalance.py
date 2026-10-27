@@ -8,6 +8,7 @@ MAVIR 不平衡价格下载脚本 — Pos_ImbalancePrice_ENG_preliminary_<数据
 - 文件名里的发布日不固定（如 18 日 → 22 日，19 日 → 23 日），所以对每个缺失的数据日
   依次试 数据日+1 … +MAX_LAG 的发布日；拿不到就跳过，下次再试。
 - 2026-01-01 … 09-30 只有 System direction [MWh] 一列（手工提供的数据），其余列留空；10-01 起为 preliminary 全部列
+- 全空的列不写入；数值保留 9 位小数
 - 同一个 Date 以新数据为准；秋季回拨那天重复的当地时间只保留第一次出现的
 - 模式：
     默认                      取 [今天-30 天, 今天-3 天] 中尚未入库的数据日
@@ -81,6 +82,10 @@ def merge_into_files(new):
         part = part.drop_duplicates("Date", keep="first")
         merged = part if old is None else pd.concat([old[~old["Date"].isin(part["Date"])], part])
         merged = merged.sort_values("Date", kind="stable").drop_duplicates("Date", keep="first")
+        # 去掉没有任何数据的列；四舍五入到 9 位小数，避免浮点噪声（>15 位有效数字，WPS/Excel 会当成文本）
+        merged = merged.dropna(axis=1, how="all")
+        num = merged.select_dtypes("number").columns
+        merged[num] = merged[num].round(9)
         out = merged.copy()
         out["Date"] = out["Date"].dt.strftime(DATE_FMT)
         out.to_csv(path, index=False, lineterminator="\r\n")

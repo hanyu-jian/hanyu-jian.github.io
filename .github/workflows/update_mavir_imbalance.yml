@@ -12,6 +12,14 @@ on:
         description: "Backfill end data date (inclusive). Empty = 3 days ago."
         type: string
         default: ""
+      final_months:
+        description: "Download monthly corrected (final) data for these months, e.g. 2026-08,2026-09. Empty = auto."
+        type: string
+        default: ""
+      refresh:
+        description: "Re-download preliminary days already stored"
+        type: boolean
+        default: false
 
 concurrency:
   group: data-commit
@@ -37,10 +45,14 @@ jobs:
         env:
           START_DATE: ${{ inputs.start_date }}
           END_DATE: ${{ inputs.end_date }}
+          FINAL_MONTHS: ${{ inputs.final_months }}
+          REFRESH: ${{ inputs.refresh }}
         run: |
           args=()
           if [ -n "$START_DATE" ]; then args+=(--start "$START_DATE"); fi
           if [ -n "$END_DATE" ]; then args+=(--end "$END_DATE"); fi
+          if [ -n "$FINAL_MONTHS" ]; then args+=(--final-months "$FINAL_MONTHS"); fi
+          if [ "$REFRESH" = "true" ]; then args+=(--refresh); fi
           python py/fetch_mavir_imbalance.py "${args[@]}"
 
       - name: Commit and push updated data

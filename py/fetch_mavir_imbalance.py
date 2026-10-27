@@ -3,7 +3,7 @@
 MAVIR 不平衡价格下载脚本 — Pos_ImbalancePrice_ENG_preliminary_<数据日>_<发布日>.xlsx（15min）
 - 每个数据日一个 xlsx（表头在第 7 行，96 行）；下载后直接合并进
   data/mavir/imbalance/HU_<年>.csv，不保留 xlsx。格式与 data/enappsys 下的一致：
-    制表符分隔，Date 为当地时间 dd/mm/YYYY HH:MM（取 Period 的起始时刻），行尾 CRLF，
+    逗号分隔（Excel 双击可直接分列），Date 为当地时间 dd/mm/YYYY HH:MM（取 Period 的起始时刻），行尾 CRLF，
     其余列保持 xlsx 原列名（Pos 与 Neg 价格相同，只取这一个文件）
 - 文件名里的发布日不固定（如 18 日 → 22 日，19 日 → 23 日），所以对每个缺失的数据日
   依次试 数据日+1 … +MAX_LAG 的发布日；拿不到就跳过，下次再试。
@@ -67,7 +67,7 @@ def parse(content):
 def read_year(path):
     if not path.exists():
         return None
-    df = pd.read_csv(path, sep="\t")
+    df = pd.read_csv(path)
     df["Date"] = pd.to_datetime(df["Date"], format=DATE_FMT)
     return df
 
@@ -82,7 +82,7 @@ def merge_into_files(new):
         merged = merged.sort_values("Date", kind="stable").drop_duplicates("Date", keep="first")
         out = merged.copy()
         out["Date"] = out["Date"].dt.strftime(DATE_FMT)
-        out.to_csv(path, sep="\t", index=False, lineterminator="\r\n")
+        out.to_csv(path, index=False, lineterminator="\r\n")
         print(f"{path}: {len(merged)} rows")
 
 

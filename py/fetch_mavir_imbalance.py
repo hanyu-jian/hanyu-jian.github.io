@@ -1,17 +1,25 @@
 #!/usr/bin/env python3
 """
-MAVIR 不平衡价格下载脚本 — Pos_ImbalancePrice_ENG_preliminary_<数据日>_<发布日>.xlsx（15min）
-- 每个数据日一个 xlsx（表头在第 7 行，96 行）；下载后直接合并进
-  data/mavir/imbalance/HU_<年>.csv，不保留 xlsx。格式与 data/enappsys 下的一致：
-    逗号分隔（Excel 双击可直接分列），Date 为当地时间 dd/mm/YYYY HH:MM（取 Period 的起始时刻），行尾 CRLF，
-    其余列保持 xlsx 原列名（Pos 与 Neg 价格相同，只取这一个文件）
-- 文件名里的发布日不固定（如 18 日 → 22 日，19 日 → 23 日），所以对每个缺失的数据日
-  依次试 数据日+1 … +MAX_LAG 的发布日；拿不到就跳过，下次再试。
-- 同一个 Date 以新数据为准；秋季回拨那天重复的当地时间只保留第一次出现的
+MAVIR 不平衡价格下载脚本 — 15min，合并进 data/mavir/imbalance/HU_<年>.csv（不保留 xlsx）
+- 两种来源，用 source 列区分，同一个 Date 上 final 优先于 preliminary：
+    preliminary  Pos_ImbalancePrice_ENG_preliminary_<数据日>_<发布日>.xlsx   每个数据日一个文件，
+                 约滞后一周；单位 EUR、MWh
+    final        Up_BE_unitprice_<月初>_<发布日>.xlsx   月度修正后的数据，次月中旬左右发布；
+                 单位 HUF、kWh，System direction 在最后一列
+- 对齐：final 里 System state / System direction 从 kWh 换成 MWh，并改成 preliminary 的列名
+  （System state [MWh]、System direction [MWh]）。其余列含义或币种不同（HUF），不做换算，
+  保留 final 原列名，另占一列；两个来源互相没有的列留空。
+- 文件名里的发布日不固定，所以按范围逐个试：preliminary 试 数据日+1 … +MAX_LAG，
+  final 试 次月 8 日 … 25 日，并依次试 FINAL_FOLDERS 里的文档库文件夹 ID。
+- CSV：逗号分隔，Date 为当地时间 dd/mm/YYYY HH:MM（取区间起始时刻）；
+  秋季回拨那天重复的当地时间只保留第一次出现的。
 - 模式：
-    默认                      取 [今天-30 天, 今天-3 天] 中尚未入库的数据日
-    --start/--end YYYY-MM-DD  补数：数据日范围（含两端）
-    --refresh                 范围内已入库的数据日也重新下载并覆盖（preliminary 可能被修订）
+    默认                      preliminary：[今天-30 天, 今天-3 天] 中尚未入库的数据日；
+                              final：最近 3 个已结束、满 FINAL_AFTER_DAYS 天且还没有 final 的月份
+    --start/--end YYYY-MM-DD  preliminary 补数：数据日范围（含两端）
+    --final-months 2026-08,2026-09  只下载指定月份的 final（已有 final 的月份也重新下载覆盖）
+    --final-file PATH...      把手动下载的 final xlsx 直接并入（下载不到时用）
+    --refresh                 preliminary 范围内已入库的数据日也重新下载
 """
 
 import argparse
@@ -24,13 +32,24 @@ from pathlib import Path
 import pandas as pd
 import requests
 
-BASE = "https://mavir.hu/documents/187408084/358398864/"
-NAME = "Pos_ImbalancePrice_ENG_preliminary_{d}_{p}.xlsx"
+DOC_ROOT = "https://mavir.hu/documents/187408084/"
+PRELIM_BASE = DOC_ROOT + "358398864/"
+PRELIM_NAME = "Pos_ImbalancePrice_ENG_preliminary_{d}_{p}.xlsx"
+FINAL_FOLDERS = ["358579907", "356648811", "358398864"]
+FINAL_NAME = "Up_BE_unitprice_{m}_{p}.xlsx"
 OUT_DIR = Path("data/mavir/imbalance")
 DATE_FMT = "%d/%m/%Y %H:%M"
 MAX_LAG = 14
 SETTLE_DAYS = 3
+FINAL_AFTER_DAYS = 10     # 月末后满这么多天才开始找 final
+FINAL_PUB_DAYS = range(8, 26)   # 发布日 = 次月 8 日 … 25 日
+FINAL_LOOKBACK_MONTHS = 3
 HEADER_ROW = 6  # 0 起算，即第 7 行
+RANK = {"preliminary": 0, "final": 1}
+FINAL_RENAME = {
+    "System state (kWh)": "System state [MWh]",
+    "System direction (kWh)": "System direction [MWh]",
+}
 
 
 def get(url):
@@ -42,26 +61,65 @@ def get(url):
     return r.content if r.status_code == 200 and r.content[:2] == b"PK" else None
 
 
-def download(d):
+def download_preliminary(d):
     ds = d.strftime("%Y%m%d")
     for lag in range(1, MAX_LAG + 1):
         pub = (d + timedelta(days=lag)).strftime("%Y%m%d")
-        if c := get(BASE + NAME.format(d=ds, p=pub)):
+        if c := get(PRELIM_BASE + PRELIM_NAME.format(d=ds, p=pub)):
             return c
     return None
 
 
-def parse(content):
-    """xlsx 字节 → DataFrame：Date（当地时间 datetime）+ 其余列原样。"""
+def month_end(m):
+    return (m.replace(day=28) + timedelta(days=4)).replace(day=1)  # 次月 1 日
+
+
+def download_final(m):
+    """m 为月初 date；试各文件夹 × 各发布日。"""
+    nxt = month_end(m)
+    for day in FINAL_PUB_DAYS:
+        pub = nxt + timedelta(days=day - 1)
+        name = FINAL_NAME.format(m=m.strftime("%Y%m%d"), p=pub.strftime("%Y%m%d"))
+        for folder in FINAL_FOLDERS:
+            if c := get(f"{DOC_ROOT}{folder}/{name}"):
+                return c
+    return None
+
+
+def read_xlsx(content):
     df = pd.read_excel(io.BytesIO(content), header=HEADER_ROW)
-    df = df.loc[:, ~df.columns.astype(str).str.startswith("Unnamed")]
-    df = df.dropna(subset=["Period"])
-    start = df["Period"].astype(str).str.split("-").str[0].str.strip()
-    day = pd.to_datetime(df["Date"].astype(str).str.strip())
-    date_col = pd.to_datetime(day.dt.strftime("%Y-%m-%d") + " " + start)
-    out = df.drop(columns=["Date", "Period"]).copy()
-    out.insert(0, "Date", date_col)
+    return df.loc[:, ~df.columns.astype(str).str.startswith("Unnamed")]
+
+
+def with_date(df, date_col, period_col):
+    df = df.dropna(subset=[period_col]).copy()
+    start = df[period_col].astype(str).str.split("-").str[0].str.strip()
+    day = pd.to_datetime(df[date_col].astype(str).str.strip())
+    stamp = pd.to_datetime(day.dt.strftime("%Y-%m-%d") + " " + start)
+    out = df.drop(columns=[date_col, period_col])
+    out.insert(0, "Date", stamp)
+    return out
+
+
+def parse_preliminary(content):
+    out = with_date(read_xlsx(content), "Date", "Period")
+    out.insert(1, "source", "preliminary")
     return out.reset_index(drop=True)
+
+
+def parse_final(content):
+    df = read_xlsx(content)
+    out = with_date(df, "Local Date", "Imbalance settlement period")
+    for col in FINAL_RENAME:
+        out[col] = out[col] / 1000
+    out = out.rename(columns=FINAL_RENAME)
+    out.insert(1, "source", "final")
+    return out.reset_index(drop=True)
+
+
+def parse(content):
+    """按表头判断是 final 还是 preliminary。"""
+    return parse_final(content) if "Local Date" in read_xlsx(content).columns else parse_preliminary(content)
 
 
 def read_year(path):
@@ -69,28 +127,49 @@ def read_year(path):
         return None
     df = pd.read_csv(path)
     df["Date"] = pd.to_datetime(df["Date"], format=DATE_FMT)
+    if "source" not in df.columns:
+        df.insert(1, "source", "preliminary")
     return df
 
 
 def merge_into_files(new):
+    new = new.drop_duplicates(["Date", "source"], keep="first")
     for year, part in new.groupby(new["Date"].dt.year):
         path = OUT_DIR / f"HU_{year}.csv"
         old = read_year(path)
-        # 以新数据为准；回拨日重复的时间点只保留新数据里第一次出现的
-        part = part.drop_duplicates("Date", keep="first")
-        merged = part if old is None else pd.concat([old[~old["Date"].isin(part["Date"])], part])
-        merged = merged.sort_values("Date", kind="stable").drop_duplicates("Date", keep="first")
+        cols = list(part.columns)
+        if old is not None:
+            cols = list(old.columns) + [c for c in part.columns if c not in old.columns]
+            old = old.assign(_batch=0)
+        both = pd.concat([x for x in (old, part.assign(_batch=1)) if x is not None], ignore_index=True)
+        # 同一个 Date：final 优先于 preliminary，同来源以新数据为准
+        both["_rank"] = both["source"].map(RANK)
+        both = both.sort_values(["Date", "_rank", "_batch"], kind="stable")
+        merged = both.drop_duplicates("Date", keep="last")[cols]
         out = merged.copy()
         out["Date"] = out["Date"].dt.strftime(DATE_FMT)
         out.to_csv(path, index=False, lineterminator="\r\n")
         print(f"{path}: {len(merged)} rows")
 
 
-def stored_days():
-    days = set()
+def stored(source):
+    """某来源已入库的 Date 集合（按天 / 按月）。"""
+    stamps = []
     for p in OUT_DIR.glob("HU_*.csv"):
-        days |= set(read_year(p)["Date"].dt.strftime("%Y%m%d"))
-    return days
+        df = read_year(p)
+        stamps.append(df.loc[df["source"] == source, "Date"])
+    s = pd.concat(stamps) if stamps else pd.Series([], dtype="datetime64[ns]")
+    return s
+
+
+def final_months_due(today):
+    have = set(stored("final").dt.strftime("%Y-%m"))
+    due, m = [], today.replace(day=1)
+    for _ in range(FINAL_LOOKBACK_MONTHS + 1):
+        m = (m - timedelta(days=1)).replace(day=1)
+        if (today - month_end(m)).days + 1 >= FINAL_AFTER_DAYS and m.strftime("%Y-%m") not in have:
+            due.append(m)
+    return sorted(due)
 
 
 def main():
@@ -98,24 +177,47 @@ def main():
     ap.add_argument("--start")
     ap.add_argument("--end")
     ap.add_argument("--refresh", action="store_true")
+    ap.add_argument("--final-months", help="逗号分隔，如 2026-08,2026-09")
+    ap.add_argument("--final-file", nargs="+", type=Path)
     a = ap.parse_args()
-    today = date.today()
-    start = date.fromisoformat(a.start) if a.start else today - timedelta(days=30)
-    end = date.fromisoformat(a.end) if a.end else today - timedelta(days=SETTLE_DAYS)
     OUT_DIR.mkdir(parents=True, exist_ok=True)
-    have = set() if a.refresh else stored_days()
+    today = date.today()
     frames = []
-    d = start
-    while d <= end:
-        ds = d.strftime("%Y%m%d")
-        if ds not in have:
-            content = download(d)
-            if content:
-                frames.append(parse(content))
-                print(f"fetched {ds}")
+
+    for p in a.final_file or []:
+        frames.append(parse(p.read_bytes()))
+        print(f"loaded {p.name}")
+
+    if not a.final_file:
+        if a.final_months:
+            months = [date.fromisoformat(m.strip() + "-01") for m in a.final_months.split(",")]
+        elif a.start or a.end:
+            months = []
+        else:
+            months = final_months_due(today)
+        for m in months:
+            if c := download_final(m):
+                frames.append(parse_final(c))
+                print(f"fetched final {m:%Y-%m}")
             else:
-                print(f"not available: {ds}")
-        d += timedelta(days=1)
+                print(f"final not available: {m:%Y-%m}")
+
+        if not a.final_months:
+            start = date.fromisoformat(a.start) if a.start else today - timedelta(days=30)
+            end = date.fromisoformat(a.end) if a.end else today - timedelta(days=SETTLE_DAYS)
+            have = set() if a.refresh else set(stored("preliminary").dt.strftime("%Y%m%d")) | set(
+                stored("final").dt.strftime("%Y%m%d"))
+            d = start
+            while d <= end:
+                ds = d.strftime("%Y%m%d")
+                if ds not in have:
+                    if c := download_preliminary(d):
+                        frames.append(parse_preliminary(c))
+                        print(f"fetched {ds}")
+                    else:
+                        print(f"not available: {ds}")
+                d += timedelta(days=1)
+
     if frames:
         merge_into_files(pd.concat(frames, ignore_index=True))
 

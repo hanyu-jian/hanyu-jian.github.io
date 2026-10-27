@@ -7,7 +7,6 @@ MAVIR 不平衡价格下载脚本 — Pos_ImbalancePrice_ENG_preliminary_<数据
     其余列保持 xlsx 原列名（Pos 与 Neg 价格相同，只取这一个文件）
 - 文件名里的发布日不固定（如 18 日 → 22 日，19 日 → 23 日），所以对每个缺失的数据日
   依次试 数据日+1 … +MAX_LAG 的发布日；拿不到就跳过，下次再试。
-  完整链接（带 UUID）可写进 known_urls.txt，优先使用。
 - 同一个 Date 以新数据为准；秋季回拨那天重复的当地时间只保留第一次出现的
 - 模式：
     默认                      取 [今天-30 天, 今天-3 天] 中尚未入库的数据日
@@ -28,7 +27,6 @@ import requests
 BASE = "https://mavir.hu/documents/187408084/358398864/"
 NAME = "Pos_ImbalancePrice_ENG_preliminary_{d}_{p}.xlsx"
 OUT_DIR = Path("data/mavir/imbalance")
-KNOWN_URLS = OUT_DIR / "known_urls.txt"
 DATE_FMT = "%d/%m/%Y %H:%M"
 MAX_LAG = 14
 SETTLE_DAYS = 3
@@ -44,20 +42,8 @@ def get(url):
     return r.content if r.status_code == 200 and r.content[:2] == b"PK" else None
 
 
-def known_urls():
-    urls = {}
-    if KNOWN_URLS.exists():
-        for u in KNOWN_URLS.read_text().split():
-            m = re.search(r"preliminary_(\d{8})_\d{8}\.xlsx", u)
-            if m:
-                urls[m.group(1)] = u
-    return urls
-
-
-def download(d, known):
+def download(d):
     ds = d.strftime("%Y%m%d")
-    if ds in known and (c := get(known[ds])):
-        return c
     for lag in range(1, MAX_LAG + 1):
         pub = (d + timedelta(days=lag)).strftime("%Y%m%d")
         if c := get(BASE + NAME.format(d=ds, p=pub)):
@@ -118,13 +104,12 @@ def main():
     end = date.fromisoformat(a.end) if a.end else today - timedelta(days=SETTLE_DAYS)
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     have = set() if a.refresh else stored_days()
-    known = known_urls()
     frames = []
     d = start
     while d <= end:
         ds = d.strftime("%Y%m%d")
         if ds not in have:
-            content = download(d, known)
+            content = download(d)
             if content:
                 frames.append(parse(content))
                 print(f"fetched {ds}")

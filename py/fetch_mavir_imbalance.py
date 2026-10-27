@@ -83,7 +83,9 @@ def merge_into_files(new):
         merged = part if old is None else pd.concat([old[~old["Date"].isin(part["Date"])], part])
         merged = merged.sort_values("Date", kind="stable").drop_duplicates("Date", keep="first")
         # 去掉没有任何数据的列；四舍五入到 9 位小数，避免浮点噪声（>15 位有效数字，WPS/Excel 会当成文本）
-        merged = merged.dropna(axis=1, how="all").round(9)
+        merged = merged.dropna(axis=1, how="all")
+        num = merged.select_dtypes("number").columns
+        merged[num] = merged[num].round(9)
         out = merged.copy()
         out["Date"] = out["Date"].dt.strftime(DATE_FMT)
         out.to_csv(path, index=False, lineterminator="\r\n")

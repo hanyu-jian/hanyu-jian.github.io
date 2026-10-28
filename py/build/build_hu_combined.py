@@ -13,8 +13,13 @@
 输出：
   <out>/HU_<年>.csv                   全年一张表（--out 指定，默认 data/combined）
 约定：
-  Date 为匈牙利当地时间（Europe/Budapest 墙钟）YYYY-MM-DD HH:MM，每行 15 分钟；
-  秋季回拨那天重复的当地时间只保留第一次出现的；任何来源缺的时段留空。
+  Date 为匈牙利当地时间（Europe/Budapest 墙钟）YYYY-MM-DD HH:MM，UTC 为同一时刻的 UTC 时间，每行 15 分钟；
+  任何来源缺的时段留空。夏令时开始那天跳过 02:00~02:45（少 4 行，共 92 行）；
+  秋季回拨那天 02:00~02:45 出现两遍（Date 重复，UTC 不同，共 100 行），以 UTC 列区分、对齐各来源：
+    IDA 自带 +02:00 / +01:00 偏移，两遍都是准确的；
+    A85、ID3、MAVIR 的文件里重复的当地时间被去重过，只剩一遍，按它们抓取脚本的去重规则归属：
+    A85 留的是第二遍（UTC+1），ID3、MAVIR 留的是第一遍（UTC+2）；某来源的文件里如果出现了两遍，则按先后顺序当第一、二遍。
+    被去掉的那一遍留空，不会再把不同遍的数据拼进同一行。
   不平衡价统一成 EUR/MWh：HUF 的部分用 data/fx/MNB.csv 的 EUR 汇率，取前一个工作日（与
   analysis/tokaj_imbalance_price_calculation.py 一致）；2026-10-01 起原样。
   年份取 MAVIR / IDA / ID3 文件里有的年份（MAVIR 从 2025 年开始，更早的年份 System direction 一列留空）；--years 可指定。
@@ -24,6 +29,7 @@ import argparse
 import re
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 
 ROOT = Path(__file__).resolve().parent.parent.parent
@@ -31,11 +37,22 @@ OUT_DEFAULT = ROOT / "data" / "combined"
 EUR_FROM = "2026-10-01"     # A85 的 HU 从这天起已是 EUR/MWh
 FX_LAG_DAYS = 1
 DATE_FMT = "%Y-%m-%d %H:%M"
+LOCAL_TZ = "Europe/Budapest"
 
 
-def first(s):
-    """回拨日重复的时间点只留第一次出现的。"""
-    return s[~s.index.duplicated(keep="first")]
+def to_utc(df, single_is_first):
+    """当地墙钟索引 -> UTC 索引。回拨日重复的当地时间：来源里出现两次就按先后当第一、二遍；
+    只出现一次的按 single_is_first 归属（True = 第一遍 UTC+2，False = 第二遍 UTC+1）。"""
+    if df.empty:
+        return df
+    key = pd.Series(0, index=df.index)
+    n = key.groupby(level=0).transform("size").to_numpy()
+    occ = key.groupby(level=0).cumcount().to_numpy()
+    first_pass = np.where(n > 1, occ == 0, single_is_first)
+    out = df.copy()
+    out.index = df.index.tz_localize(LOCAL_TZ, ambiguous=first_pass, nonexistent="NaT").tz_convert("UTC")
+    out = out[out.index.notna()]
+    return out[~out.index.duplicated(keep="first")]
 
 
 def read_ida(year):
@@ -43,8 +60,8 @@ def read_ida(year):
     if not p.exists():
         return pd.DataFrame()
     df = pd.read_csv(p)
-    df.index = pd.to_datetime(df.pop("datetime").str[:19])   # 去掉偏移，当地墙钟
-    return first(df)
+    df.index = pd.to_datetime(df.pop("datetime"), utc=True)   # 带 +02:00 / +01:00 偏移，直接转 UTC
+    return df[~df.index.duplicated(keep="first")]
 
 
 def read_id3(year):
@@ -53,7 +70,7 @@ def read_id3(year):
         return pd.DataFrame()
     df = pd.read_csv(p, sep="\t")
     df.index = pd.to_datetime(df.pop("Date"), format="%d/%m/%Y %H:%M")
-    return first(df.rename(columns={"ID3": "ID3 Price (EUR/MWh)", "Vol": "ID3 Volume (MW)"}))
+    return df.rename(columns={"ID3": "ID3 Price (EUR/MWh)", "Vol": "ID3 Volume (MW)"})
 
 
 def read_direction(year):
@@ -62,7 +79,7 @@ def read_direction(year):
         return pd.DataFrame()
     df = pd.read_csv(p, usecols=["Date", "System direction [MWh]"])
     df.index = pd.to_datetime(df.pop("Date"), format="%d/%m/%Y %H:%M")
-    return first(df.rename(columns={"System direction [MWh]": "System direction (MWh)"}))
+    return df.rename(columns={"System direction [MWh]": "System direction (MWh)"})
 
 
 def read_imbalance(year):
@@ -71,7 +88,7 @@ def read_imbalance(year):
         return pd.DataFrame()
     x = pd.read_csv(p, usecols=["Date", "HU"])
     x.index = pd.to_datetime(x.pop("Date"), format="%Y/%m/%d %H:%M")
-    price = first(x["HU"].dropna())
+    price = x["HU"].dropna()
     fx = pd.read_csv(ROOT / "data" / "fx" / "MNB.csv", usecols=["Date", "EUR"])
     fx["Date"] = pd.to_datetime(fx["Date"], format="%Y/%m/%d")
     fx = fx.drop_duplicates("Date").set_index("Date")["EUR"].sort_index()
@@ -82,9 +99,12 @@ def read_imbalance(year):
 
 
 def build(year):
-    parts = [f(year) for f in (read_ida, read_id3, read_direction, read_imbalance)]
+    parts = [read_ida(year),                              # 已是 UTC
+             to_utc(read_id3(year), single_is_first=True),
+             to_utc(read_direction(year), single_is_first=True),
+             to_utc(read_imbalance(year), single_is_first=False)]   # A85 抓取脚本去重时留的是第二遍
     df = pd.concat([p for p in parts if not p.empty], axis=1).sort_index()
-    df = df[df.index.year == year]
+    df = df[df.index.tz_convert(LOCAL_TZ).year == year]
     # 没有 MAVIR 数据的年份（2025 年以前）也保留这一列（留空），所有年份的列一致
     direction, imbalance = "System direction (MWh)", "Imbalance Price (EUR/MWh)"
     if direction not in df:
@@ -97,7 +117,8 @@ def build(year):
 
 def write(df, path):
     out = df.copy()
-    out.index = out.index.strftime(DATE_FMT)
+    out.insert(0, "UTC", out.index.strftime(DATE_FMT))
+    out.index = out.index.tz_convert(LOCAL_TZ).strftime(DATE_FMT)
     out.index.name = "Date"
     out.to_csv(path, lineterminator="\r\n")
 

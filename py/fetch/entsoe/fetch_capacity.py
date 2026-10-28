@@ -16,7 +16,7 @@ ENTSOE API 数据更新脚本 — Installed Capacity per Production Type（A68�
 - Year-Ahead 容量预测数据变动很少，建议每月跑一次（见 workflow 中的月度 cron）
 - 默认只刷新「当前年」一年数据，不抓未来预测年份，不会动已有的历史年份
 - 也可用 --start-year / --end-year / --country 手动指定范围，独立运行：
-    python py/fetch_capacity.py --country DE --start-year 2023 --end-year 2026
+    python py/fetch/entsoe/fetch_capacity.py --country DE --start-year 2023 --end-year 2026
 
 合并策略：
 - 只替换本次实际抓到数据的 (Year, Country) 组合对应的行

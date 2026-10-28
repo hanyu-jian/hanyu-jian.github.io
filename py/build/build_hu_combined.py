@@ -16,7 +16,7 @@
   Date 为匈牙利当地时间（Europe/Budapest 墙钟）YYYY-MM-DD HH:MM，每行 15 分钟；
   秋季回拨那天重复的当地时间只保留第一次出现的；任何来源缺的时段留空。
   不平衡价统一成 EUR/MWh：HUF 的部分用 data/fx/MNB.csv 的 EUR 汇率，取前一个工作日（与
-  tokaj_backtest.py 一致）；2026-10-01 起原样。
+  analysis/tokaj_imbalance_price_calculation.py 一致）；2026-10-01 起原样。
   年份取 MAVIR / IDA / ID3 文件里有的年份（MAVIR 从 2025 年开始，更早的年份 System direction 一列留空）；--years 可指定。
 """
 
@@ -26,7 +26,7 @@ from pathlib import Path
 
 import pandas as pd
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).resolve().parent.parent.parent
 OUT_DEFAULT = ROOT / "data" / "combined"
 EUR_FROM = "2026-10-01"     # A85 的 HU 从这天起已是 EUR/MWh
 FX_LAG_DAYS = 1

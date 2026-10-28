@@ -1,6 +1,6 @@
 import sys
 from pathlib import Path
-sys.path.insert(0, str(Path(__file__).parent))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "fetch" / "enappsys"))
 import fetch_enappsys_id3 as f
 from enappsys.services.chart import ChartCSV
 
@@ -48,7 +48,7 @@ def test_real_manual_download_headers():
 
 
 def test_roundtrip_of_real_file_is_byte_identical(tmp_path):
-    src = Path(__file__).parent.parent / "data/enappsys/ID3/HU_2025.csv"
+    src = Path(__file__).resolve().parents[2] / "data/enappsys/ID3/HU_2025.csv"
     out = tmp_path / "x.csv"
     f.write(f.read_old(src), out)
     assert out.read_bytes() == src.read_bytes()

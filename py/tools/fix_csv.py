@@ -3,7 +3,7 @@
 一次性修复 data/ 目录下所有 CSV 的两个问题：
   1. 浮点精度：178.32999999999998 → 178.33
   2. 列类型退化：object 类型数字 → float64
-运行方法：python fix_csv.py
+运行方法：python py/tools/fix_csv.py（在仓库根目录运行）
 """
 
 from pathlib import Path

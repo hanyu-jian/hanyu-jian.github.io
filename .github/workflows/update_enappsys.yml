@@ -57,7 +57,7 @@ jobs:
           if [ -n "$END_DATE" ]; then
             args+=(--end "$END_DATE")
           fi
-          python py/fetch_enappsys_ida.py "${args[@]}"
+          python py/fetch/enappsys/fetch_enappsys_ida.py "${args[@]}"
 
       - name: Fetch HUPX ID3
         if: ${{ !(inputs.ida_only == true && inputs.id3_only != true) }}
@@ -74,7 +74,7 @@ jobs:
           if [ -n "$END_DATE" ]; then
             args+=(--end "$END_DATE")
           fi
-          python py/fetch_enappsys_id3.py "${args[@]}"
+          python py/fetch/enappsys/fetch_enappsys_id3.py "${args[@]}"
 
       - name: Commit and push updated data
         run: |

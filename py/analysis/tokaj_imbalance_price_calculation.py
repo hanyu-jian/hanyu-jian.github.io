@@ -53,7 +53,7 @@ Tokaj 五站「预测 → 报量 → 不平衡」回溯计算（复现 PV_Genera
   同一场站同一天重算会覆盖，其它天保留。--detail DIR 另外写出逐 15 分钟的明细（不要提交）。
 
 用法：
-    python py/tokaj_backtest.py --plant-dir ../vcom --start 2026-09-24 --end 2026-10-17
+    python py/analysis/tokaj_imbalance_price_calculation.py --plant-dir ../vcom --start 2026-09-24 --end 2026-10-17
 """
 
 import argparse
@@ -64,7 +64,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-BASE = Path(__file__).resolve().parent.parent
+BASE = Path(__file__).resolve().parent.parent.parent
 DATA = BASE / "data"
 SITES = ["Putnok", "Serenyfalva", "Sajokaza", "Szuhakálló 1", "Szuhakálló 2"]
 FCST_LETTERS = ["I", "J", "K", "L", "M", "N"]

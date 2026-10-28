@@ -59,6 +59,8 @@ def parse(content):
     df = df.loc[:, ~df.columns.astype(str).str.startswith("Unnamed")]
     df = df.dropna(subset=["Period"])
     start = df["Period"].astype(str).str.split("-").str[0].str.strip()
+    # 秋季回拨那天重复的一小时，MAVIR 标成 "02+00"、"02+15"…：这是第二次出现，丢掉，只保留第一次
+    df, start = df[~start.str.contains("+", regex=False)], start[~start.str.contains("+", regex=False)]
     day = pd.to_datetime(df["Date"].astype(str).str.strip())
     date_col = pd.to_datetime(day.dt.strftime("%Y-%m-%d") + " " + start)
     out = df.drop(columns=["Date", "Period"]).copy()

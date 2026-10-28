@@ -390,6 +390,7 @@ async function processData(text, daText) {
 
     rawDayData = {};
     const CHUNK = 5000;
+    const seenQuarter = new Set();   // 回拨日重复的当地时间只取第一次出现的有效值（与之前一致）
 
     for (let i = 1; i < lines.length; i++) {
         if (i % CHUNK === 0) await yieldFrame();
@@ -400,6 +401,9 @@ async function processData(text, daText) {
         const id3 = parseFloat(cols[id3Col].trim());
         const da  = daMap.get(dateKey(dt));
         if (isNaN(id3) || da === undefined) continue;
+        const qLabel = cols[0].trim();
+        if (seenQuarter.has(qLabel)) continue;
+        seenQuarter.add(qLabel);
 
         const spread = id3 - da;
 

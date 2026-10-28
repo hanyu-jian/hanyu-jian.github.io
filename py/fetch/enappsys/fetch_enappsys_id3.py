@@ -8,8 +8,9 @@ EnAppSys 下载脚本 — HUPX ID3 指数（价格 + 成交量，15min）
     制表符分隔，列 Date, ID3, Vol，Date 为当地时间 dd/mm/YYYY HH:MM，行尾 CRLF
   接口返回的列按名字对应到 ID3 / Vol（见 pick_columns）；日前价不放在这里，
   price-intraday.html 和回测都从 data/entsoe/15min/price.csv 的 HU 列读
-- 同一个 Date 以新数据为准（覆盖 TSO / 交易所的事后修正）；秋季回拨那一天重复的
-  当地时间只保留第一次出现的（与页面和回测读取时 keep first 的做法一致）
+- 同一个 Date 以新数据为准（覆盖 TSO / 交易所的事后修正）；秋季回拨那一天 02:00~02:45 出现两遍，
+  两遍都保留（Date 重复，先出现的是 +02:00 那一遍）。如果只有第二遍有数据，会在它前面补一行空的第一遍，
+  这样文件里的先后顺序始终能分出是哪一遍。夏令时开始那天不存在的 02:00~02:45 不会出现
 - 模式：
     --days-back 3            取 [今天-3 天, 明天)（默认，每日更新用）
     --start/--end YYYY-MM-DD 补数：指定起止日期（含 start，不含 end；过大会由官方包自动分段）
@@ -21,6 +22,7 @@ import sys
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 from enappsys import EnAppSys
 
@@ -30,6 +32,7 @@ CODE = "hu/elec/hupx/indexes/id3/version2"
 OUT_DIR_DEFAULT = Path("data/enappsys/ID3")
 DATE_FMT = "%d/%m/%Y %H:%M"
 COLS = ["Date", "ID3", "Vol"]
+LOCAL_TZ = "Europe/Budapest"
 
 
 def pick_columns(df):
@@ -60,9 +63,16 @@ def to_legacy(frame):
         "Date": local,
         "ID3": pd.to_numeric(frame[cols["ID3"]], errors="coerce"),
         "Vol": pd.to_numeric(frame[cols["Vol"]], errors="coerce"),
+        "_second": (frame[TIME_COL].str[-6:] == "+01:00").astype(int),   # 偏移 +01:00 = 冬令时（回拨日的第二遍）
     })
-    out = out.drop_duplicates("Date", keep="first")             # 秋季回拨的重复时间只留第一次
-    return out.dropna(subset=["ID3", "Vol"], how="all").reset_index(drop=True)
+    out = out.dropna(subset=["ID3", "Vol"], how="all")
+    # 回拨日：只有第二遍有数据时，在前面补一行空的第一遍，让文件里的先后顺序能分出两遍
+    ambiguous = pd.DatetimeIndex(out["Date"]).tz_localize(LOCAL_TZ, ambiguous="NaT", nonexistent="NaT").isna()
+    lone_second = ambiguous & ~out["Date"].duplicated(keep=False).to_numpy() & (out["_second"] == 1).to_numpy()
+    if lone_second.any():
+        blank = pd.DataFrame({"Date": out.loc[lone_second, "Date"], "ID3": np.nan, "Vol": np.nan, "_second": 0})
+        out = pd.concat([out, blank], ignore_index=True).sort_values(["Date", "_second"], kind="stable")
+    return out.drop(columns="_second").reset_index(drop=True)
 
 
 def read_old(path):
@@ -73,12 +83,15 @@ def read_old(path):
 
 
 def merge(old, new):
-    """新数据覆盖同一 Date 的旧行，其余旧行（含回拨日的重复行）原样保留，按时间稳定排序。"""
+    """新数据覆盖同一 Date 的旧行，其余旧行（含回拨日的重复行）原样保留，按真实时间先后排序。"""
     new_s = new.assign(Date=new["Date"].dt.strftime(DATE_FMT))
     keep = old[~old["Date"].isin(set(new_s["Date"]))]
     out = pd.concat([keep, new_s.astype(object).where(new_s.notna(), "")], ignore_index=True)
-    key = pd.to_datetime(out["Date"], format=DATE_FMT)
-    return out.iloc[key.argsort(kind="stable")].reset_index(drop=True)
+    # 按真实时间先后排序：回拨日重复的 02:00~02:45，按出现的先后当第一遍（+02:00）、第二遍（+01:00），第一遍整块在前
+    label = pd.DatetimeIndex(pd.to_datetime(out["Date"], format=DATE_FMT))
+    first_pass = (out.groupby("Date").cumcount() == 0).to_numpy()
+    utc = label.tz_localize(LOCAL_TZ, ambiguous=first_pass, nonexistent="NaT").tz_convert("UTC")
+    return out.iloc[np.argsort(utc.asi8, kind="stable")].reset_index(drop=True)
 
 
 def write(out, path):

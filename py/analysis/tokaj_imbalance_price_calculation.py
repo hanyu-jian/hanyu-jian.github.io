@@ -321,7 +321,7 @@ def load_prices(data_dir=DATA, ida_csv=None, imb_csv=None, fx_lag_days=1, eur_fr
                 x = pd.read_csv(f, usecols=["Date", "HU"])
                 x["Date"] = pd.to_datetime(x["Date"], format="%Y/%m/%d %H:%M")
                 parts.append(x)
-            huf = pd.concat(parts).drop_duplicates("Date", keep="first").set_index("Date")["HU"].sort_index()
+            huf = pd.concat(parts).drop_duplicates("Date", keep="last").set_index("Date")["HU"].sort_index()   # 回拨日重复的 02:00 取第二遍（与之前一致）
             step = None
         else:                                                                              # 小时，福林
             if imb_source == "raw":

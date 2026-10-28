@@ -11,13 +11,31 @@ def frame(body, head=HEAD):
     return f.to_frame(ChartCSV(head + body, "u", {}, "csv", f.CODE, None, None, "qh", "CET", "EUR", False))
 
 
-def test_to_legacy_maps_columns_and_drops_fold_duplicates():
+def test_to_legacy_maps_columns_and_keeps_both_fold_passes():
     fr = frame("[25/10/2026 01:45],10,1\n[25/10/2026 02:00],11,2\n[25/10/2026 02:15],12,3\n"
                "[25/10/2026 02:00],13,4\n[25/10/2026 02:15],14,5\n")
     out = f.to_legacy(fr)
     assert list(out.columns) == f.COLS
-    assert out["Date"].dt.strftime(f.DATE_FMT).tolist() == ["25/10/2026 01:45", "25/10/2026 02:00", "25/10/2026 02:15"]
-    assert out["ID3"].tolist() == [10, 11, 12] and out["Vol"].tolist() == [1, 2, 3]
+    assert out["Date"].dt.strftime(f.DATE_FMT).tolist() == [
+        "25/10/2026 01:45", "25/10/2026 02:00", "25/10/2026 02:15", "25/10/2026 02:00", "25/10/2026 02:15"]
+    assert out["ID3"].tolist() == [10, 11, 12, 13, 14] and out["Vol"].tolist() == [1, 2, 3, 4, 5]
+
+
+def test_lone_second_pass_gets_blank_first_pass_placeholder():
+    fr = frame("[25/10/2026 01:45],10,1\n[25/10/2026 02:00],,\n[25/10/2026 02:15],12,3\n"
+               "[25/10/2026 02:00],13,4\n[25/10/2026 02:15],14,5\n")
+    out = f.to_legacy(fr)
+    assert out["Date"].dt.strftime(f.DATE_FMT).tolist() == [
+        "25/10/2026 01:45", "25/10/2026 02:00", "25/10/2026 02:00", "25/10/2026 02:15", "25/10/2026 02:15"]
+    assert out["ID3"].isna().tolist() == [False, True, False, False, False]
+    assert out["ID3"].tolist()[2] == 13.0                       # 空行在前，第二遍的数据在后
+
+
+def test_merge_replaces_both_passes_of_a_label():
+    old = f.pd.DataFrame({"Date": ["25/10/2026 02:00", "25/10/2026 02:00"], "ID3": ["", ""], "Vol": ["", ""]})
+    new = f.to_legacy(frame("[25/10/2026 02:00],1,1\n[25/10/2026 02:00],2,2\n"))
+    out = f.merge(old, new)
+    assert out["ID3"].tolist() == ["1.0", "2.0"] or out["ID3"].tolist() == [1.0, 2.0] or list(map(float, out["ID3"])) == [1.0, 2.0]
 
 
 def test_merge_keeps_legacy_text_overwrites_same_date_and_sorts(tmp_path):

@@ -10,6 +10,10 @@ ENTSOE API 数据更新脚本 — Imbalance Price（A85）
     --mode incremental  最近 7 天（默认）
     --mode full         FULL_START_DATE → yesterday
 - 支持 --country / --start / --end 参数（与主脚本一致）
+- 冬夏令时：raw_data/{YEAR}/A85.csv 的时间是当地墙钟 "YYYY/M/D H:MM"。夏令时开始那天跳过 02:00~02:45；
+  秋季回拨那天 02:00~02:45 出现两遍（Date 重复，先出现的是 UTC+2 那一遍），两遍都保留。
+  小时表 data/entsoe/imbalance_price.csv 仍是每个当地小时一行：回拨日 02:00 那一行取两遍共 8 个点的平均。
+  只带一遍的旧文件当作第二遍（旧版本去重时留的是第二遍），重新抓取该日期范围后会补全第一遍。
 """
 
 import argparse
@@ -22,6 +26,7 @@ import zipfile
 from datetime import datetime, timedelta
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 import requests
 
@@ -177,7 +182,7 @@ def _parse_imbalance_period(period_el: ET.Element) -> pd.Series:
         <imbalance_Price.amount>  ← 我们要的值
         <imbalance_Price.category> A04=Generation / A05=Load
     只取 A04（Generation）；若某点无 category 标签则也纳入。
-    返回：UTC → CET/CEST 本地时间的 pd.Series（naive）
+    返回：UTC → CET/CEST 本地时间的 pd.Series（带时区；回拨日 02:00~02:45 的两遍靠时区偏移区分）
     """
     start_el = period_el.find(".//{*}start")
     res_el   = period_el.find(".//{*}resolution")
@@ -236,13 +241,8 @@ def _parse_imbalance_period(period_el: ET.Element) -> pd.Series:
         return pd.Series(dtype=float)
 
     s = pd.Series(records)
-    # UTC → CET/CEST naive（与主脚本一致）
-    s.index = (
-        pd.DatetimeIndex(s.index)
-          .tz_localize("UTC")
-          .tz_convert(ENTSOE_DISPLAY_TZ)
-          .tz_localize(None)
-    )
+    # UTC → CET/CEST，保留时区：回拨日重复的那一小时（两遍）不会被当成重复删掉
+    s.index = pd.DatetimeIndex(s.index).tz_localize("UTC").tz_convert(ENTSOE_DISPLAY_TZ)
     return s
 
 
@@ -360,8 +360,12 @@ def fetch_imbalance_price(
         return None, None
 
     raw_combined = pd.concat(raw_parts).sort_index()
-    raw_combined = raw_combined[~raw_combined.index.duplicated(keep="last")]
-    hourly = raw_combined.resample("h").mean()
+    raw_combined = raw_combined[~raw_combined.index.duplicated(keep="last")]   # 同一时刻（带时区）去重
+    # 小时均值按当地墙钟的小时算：回拨日 02:00 那一小时取两遍共 8 个点的平均，夏令时开始那天的 02:00 留空
+    local = raw_combined.copy()
+    local.index = local.index.tz_localize(None)
+    h = local.groupby(local.index.floor("h")).mean()
+    hourly = h.reindex(pd.date_range(h.index.min(), h.index.max(), freq="h"))
     return hourly, raw_combined
 
 
@@ -412,11 +416,49 @@ def _year_path(base_path: Path, year: int) -> Path:
     return base_path.parent / str(int(year)) / base_path.name
 
 
+def _is_ambiguous(labels: pd.DatetimeIndex) -> np.ndarray:
+    """当地墙钟时间点是否落在回拨日重复的那一小时（02:00~02:45 出现两遍）。"""
+    return labels.tz_localize(ENTSOE_DISPLAY_TZ, ambiguous="NaT", nonexistent="NaT").isna()
+
+
+def _keys_from_aware(index: pd.DatetimeIndex) -> pd.MultiIndex:
+    """带时区的时间轴 → (当地墙钟, 第几遍)。回拨日 02:00~02:45：UTC+2 是第 0 遍，UTC+1 是第 1 遍。"""
+    labels = index.tz_localize(None)
+    offset = labels - index.tz_convert("UTC").tz_localize(None)
+    second = _is_ambiguous(labels) & (offset == pd.Timedelta(hours=1))
+    return pd.MultiIndex.from_arrays([labels, second.astype(int)], names=["label", "pass"])
+
+
+def _keys_from_labels(labels: pd.DatetimeIndex) -> pd.MultiIndex:
+    """已有 CSV 的当地时间标签 → (当地墙钟, 第几遍)。重复的标签按先后顺序当第 0、1 遍；
+    回拨日只出现一次的是旧文件按 keep="last" 留下的第二遍（第 1 遍）。"""
+    s = pd.Series(0, index=labels)
+    n = s.groupby(level=0).transform("size").to_numpy()
+    occ = s.groupby(level=0).cumcount().to_numpy()
+    occ = np.where((n == 1) & _is_ambiguous(labels), 1, occ)
+    return pd.MultiIndex.from_arrays([labels, occ], names=["label", "pass"])
+
+
+def _chronological(df: pd.DataFrame) -> pd.DataFrame:
+    """按真实时间先后排序：回拨日 02:00~02:45 的第一遍整块在前，第二遍整块在后。"""
+    labels = pd.DatetimeIndex(df.index.get_level_values(0))
+    first_pass = df.index.get_level_values(1) == 0
+    utc = labels.tz_localize(ENTSOE_DISPLAY_TZ, ambiguous=first_pass, nonexistent="NaT").tz_convert("UTC")
+    return df.iloc[np.argsort(utc.asi8, kind="stable")]
+
+
+def _label_strings(index: pd.MultiIndex) -> list[str]:
+    return fmt_index_15min(pd.DatetimeIndex(index.get_level_values(0)))
+
+
 def merge_and_save_raw_wide(new_raw_cols: dict[str, pd.Series],
                             path: Path, label: str):
     """
     按年拆分写入宽表原始数据（raw_data/{YEAR}/{path.name}），
     避免单个原始 CSV 随时间无限增长撞到 GitHub 单文件体积限制。
+
+    时间列是当地墙钟 "YYYY/M/D H:MM"。回拨日 02:00~02:45 出现两遍（Date 重复，先出现的是 UTC+2 那一遍），
+    夏令时开始那天跳过 02:00~02:45。合并时按 (当地时间, 第几遍) 对齐，不会把两遍混在一起。
     """
     if not new_raw_cols:
         print(f"  [SKIP RAW] {label}: 无新数据")
@@ -446,30 +488,28 @@ def merge_and_save_raw_wide(new_raw_cols: dict[str, pd.Series],
         year_path.parent.mkdir(parents=True, exist_ok=True)
 
         year_df = year_df.copy()
-        year_df.index = fmt_index_15min(year_df.index)
-        year_df.index.name = "Date"
+        year_df.index = _keys_from_aware(pd.DatetimeIndex(year_df.index))
 
         if year_path.exists():
             old_df = pd.read_csv(year_path, index_col=0)
             old_df = _coerce_df_numeric(old_df)
+            labels = pd.to_datetime(old_df.index, errors="coerce")
+            old_df = old_df[labels.notna()]
+            old_df.index = _keys_from_labels(pd.DatetimeIndex(labels[labels.notna()]))
             all_cols = old_df.columns.union(year_df.columns)
             old_df   = old_df.reindex(columns=all_cols)
             year_df  = year_df.reindex(columns=all_cols)
             old_df.update(year_df)
             merged = old_df.combine_first(year_df)
             merged = _coerce_df_numeric(merged)
-            merged = merged.round(HOURLY_ROUND_DECIMALS)
-            merged.index.name = "Date"
-            merged = _sort_index_by_time(merged)
-            merged.index = fmt_index_15min(merged.index)
+            merged = _chronological(merged.round(HOURLY_ROUND_DECIMALS))
+            merged.index = _label_strings(merged.index)
             merged.index.name = "Date"
             merged.to_csv(year_path)
             print(f"  ✓ RAW {year_path}: 合并后 {len(merged)} 行 × {len(merged.columns)} 列")
         else:
-            year_df = _sort_index_by_time(year_df)
-            year_df = _coerce_df_numeric(year_df)
-            year_df = year_df.round(HOURLY_ROUND_DECIMALS)
-            year_df.index = fmt_index_15min(year_df.index)
+            year_df = _chronological(_coerce_df_numeric(year_df).round(HOURLY_ROUND_DECIMALS))
+            year_df.index = _label_strings(year_df.index)
             year_df.index.name = "Date"
             year_df.to_csv(year_path)
             print(f"  ✓ RAW {year_path}: 新建 {len(year_df)} 行 × {len(year_df.columns)} 列")
@@ -503,9 +543,9 @@ def main():
         ).strftime("%Y-%m-%d")
         mode_label = f"增量模式（最近 {LOOKBACK_DAYS} 天）"
 
-    # 截止时间（naive，CET/CEST）
-    cutoff_local = pd.Timestamp(end_date).tz_localize(ENTSOE_DISPLAY_TZ) + timedelta(days=1)
-    cutoff_naive = cutoff_local.tz_localize(None)
+    # 截止时间：end_date 次日的当地 00:00（小时表用墙钟，原始 15 分钟数据带时区）
+    cutoff_naive = pd.Timestamp(end_date) + pd.Timedelta(days=1)
+    cutoff_aware = cutoff_naive.tz_localize(ENTSOE_DISPLAY_TZ)
 
     # 国家过滤
     if args.country:
@@ -539,7 +579,7 @@ def main():
 
         if s_hourly is not None:
             s_hourly = s_hourly[s_hourly.index < cutoff_naive]
-            s_raw    = s_raw[s_raw.index < cutoff_naive]
+            s_raw    = s_raw[s_raw.index < cutoff_aware]
             hourly_cols[col] = s_hourly
             raw_cols[col]    = s_raw
             print(f"     ✓ {s_hourly.notna().sum()} 有效值(1h) | "

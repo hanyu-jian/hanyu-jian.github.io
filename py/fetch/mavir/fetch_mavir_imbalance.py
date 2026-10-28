@@ -9,7 +9,9 @@ MAVIR 不平衡价格下载脚本 — Pos_ImbalancePrice_ENG_preliminary_<数据
   依次试 数据日+1 … +MAX_LAG 的发布日；拿不到就跳过，下次再试。
 - 2026-01-01 … 09-30 只有 System direction [MWh] 一列（手工提供的数据），其余列留空；10-01 起为 preliminary 全部列
 - 全空的列不写入；数值保留 9 位小数
-- 同一个 Date 以新数据为准；秋季回拨那天重复的当地时间只保留第一次出现的
+- 同一个 Date 以新数据为准；秋季回拨那天 02:00~02:45 出现两遍（xlsx 里第二遍标成 "02+00"、"02+15"…），
+  两遍都保留：Date 重复，先出现的是第一遍（UTC+2），共 100 行。旧文件里只有第一遍的日子，
+  用 --start/--end --refresh 重新下载该日即可补上第二遍
 - 模式：
     默认                      取 [今天-30 天, 今天-3 天] 中尚未入库的数据日
     --start/--end YYYY-MM-DD  补数：数据日范围（含两端）
@@ -23,6 +25,7 @@ import sys
 from datetime import date, timedelta
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 import requests
 
@@ -33,6 +36,7 @@ DATE_FMT = "%d/%m/%Y %H:%M"
 MAX_LAG = 14
 SETTLE_DAYS = 3
 HEADER_ROW = 6  # 0 起算，即第 7 行
+LOCAL_TZ = "Europe/Budapest"
 
 
 def get(url):
@@ -59,13 +63,21 @@ def parse(content):
     df = df.loc[:, ~df.columns.astype(str).str.startswith("Unnamed")]
     df = df.dropna(subset=["Period"])
     start = df["Period"].astype(str).str.split("-").str[0].str.strip()
-    # 秋季回拨那天重复的一小时，MAVIR 标成 "02+00"、"02+15"…：这是第二次出现，丢掉，只保留第一次
-    df, start = df[~start.str.contains("+", regex=False)], start[~start.str.contains("+", regex=False)]
+    # 秋季回拨那天重复的一小时，MAVIR 标成 "02+00"、"02+15"…：这是第二遍，也保留，时间写成 02:00、02:15…
+    # （xlsx 里第一遍在前、第二遍在后，保持原顺序）
+    start = start.str.replace("+", ":", regex=False)
     day = pd.to_datetime(df["Date"].astype(str).str.strip())
     date_col = pd.to_datetime(day.dt.strftime("%Y-%m-%d") + " " + start)
     out = df.drop(columns=["Date", "Period"]).copy()
     out.insert(0, "Date", date_col)
     return out.reset_index(drop=True)
+
+
+def sort_chronologically(df):
+    """按真实时间先后排序。回拨日重复的 02:00~02:45：按出现的先后当第一遍（UTC+2）、第二遍（UTC+1），第一遍整块在前。"""
+    first_pass = (df.groupby("Date").cumcount() == 0).to_numpy()
+    utc = pd.DatetimeIndex(df["Date"]).tz_localize(LOCAL_TZ, ambiguous=first_pass, nonexistent="NaT").tz_convert("UTC")
+    return df.iloc[np.argsort(utc.asi8, kind="stable")].reset_index(drop=True)
 
 
 def read_year(path):
@@ -80,10 +92,9 @@ def merge_into_files(new):
     for year, part in new.groupby(new["Date"].dt.year):
         path = OUT_DIR / f"HU_{year}.csv"
         old = read_year(path)
-        # 以新数据为准；回拨日重复的时间点只保留新数据里第一次出现的
-        part = part.drop_duplicates("Date", keep="first")
+        # 以新数据为准：新数据里出现的 Date，旧文件里同一 Date 的行（含回拨日的两遍）整体被替换
         merged = part if old is None else pd.concat([old[~old["Date"].isin(part["Date"])], part])
-        merged = merged.sort_values("Date", kind="stable").drop_duplicates("Date", keep="first")
+        merged = sort_chronologically(merged)
         # 去掉没有任何数据的列；四舍五入到 9 位小数，避免浮点噪声（>15 位有效数字，WPS/Excel 会当成文本）
         merged = merged.dropna(axis=1, how="all")
         num = merged.select_dtypes("number").columns

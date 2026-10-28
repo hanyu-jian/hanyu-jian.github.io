@@ -127,7 +127,7 @@ jobs:
           if [ -n "$REPAIR_END" ]; then
             args+=(--end "$REPAIR_END")
           fi
-          python py/repair_entsoe.py "${args[@]}"
+          python py/fetch/entsoe/repair_entsoe.py "${args[@]}"
 
       # ── price only ──────────────────────────────────────────
       - name: Run price-only update
@@ -148,7 +148,7 @@ jobs:
           if [ -n "$PRICE_END" ]; then
             args+=(--end "$PRICE_END")
           fi
-          python py/fetch_entsoe.py "${args[@]}"
+          python py/fetch/entsoe/fetch_entsoe.py "${args[@]}"
 
       # ── generation+load only ────────────────────────────────
       - name: Run generation+load-only update
@@ -169,7 +169,7 @@ jobs:
           if [ -n "$GEN_LOAD_END" ]; then
             args+=(--end "$GEN_LOAD_END")
           fi
-          python py/fetch_entsoe.py "${args[@]}"
+          python py/fetch/entsoe/fetch_entsoe.py "${args[@]}"
 
       # ── imbalance only ──────────────────────────────────────
       - name: Run imbalance-only update
@@ -192,7 +192,7 @@ jobs:
           if [ -n "$IMBALANCE_END" ]; then
             args+=(--end "$IMBALANCE_END")
           fi
-          python py/fetch_imbalance.py "${args[@]}"
+          python py/fetch/entsoe/fetch_imbalance.py "${args[@]}"
 
       # ── installed capacity only（月度，A68 Year Ahead）───────
       - name: Run capacity-only update
@@ -213,7 +213,7 @@ jobs:
           if [ -n "$CAPACITY_END_YEAR" ]; then
             args+=(--end-year "$CAPACITY_END_YEAR")
           fi
-          python py/fetch_capacity.py "${args[@]}"
+          python py/fetch/entsoe/fetch_capacity.py "${args[@]}"
 
       # ── normal update（fetch_entsoe + fetch_imbalance）──────
       - name: Run normal update script
@@ -227,12 +227,12 @@ jobs:
           else
             MODE=incremental
           fi
-          python py/fetch_entsoe.py --mode "$MODE"
-          python py/fetch_imbalance.py --mode "$MODE"
+          python py/fetch/entsoe/fetch_entsoe.py --mode "$MODE"
+          python py/fetch/entsoe/fetch_imbalance.py --mode "$MODE"
 
       # ── rebuild 15-min wide tables for capture-price.html ───
       - name: Build 15-min capture price data
-        run: python py/build_15min.py
+        run: python py/build/build_15min.py
 
       # ── commit ──────────────────────────────────────────────
       - name: Commit and push updated data

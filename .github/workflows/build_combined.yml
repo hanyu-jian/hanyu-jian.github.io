@@ -44,7 +44,7 @@ jobs:
           fi
 
       - name: Build combined HU tables
-        run: python py/build_hu_combined.py --out build/combined
+        run: python py/build/build_hu_combined.py --out build/combined
 
       - name: Check out data repo
         uses: actions/checkout@v4

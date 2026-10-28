@@ -41,7 +41,7 @@ jobs:
           args=()
           if [ -n "$START_DATE" ]; then args+=(--start "$START_DATE"); fi
           if [ -n "$END_DATE" ]; then args+=(--end "$END_DATE"); fi
-          python py/fetch_mavir_imbalance.py "${args[@]}"
+          python py/fetch/mavir/fetch_mavir_imbalance.py "${args[@]}"
 
       - name: Commit and push updated data
         run: |

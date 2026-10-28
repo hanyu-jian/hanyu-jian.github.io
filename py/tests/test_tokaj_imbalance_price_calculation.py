@@ -1,6 +1,6 @@
-"""tokaj_backtest.compute() 的小测试：期望值都是手算的，不依赖 Excel 或任何数据文件。
+"""tokaj_imbalance_price_calculation.compute() 的小测试：期望值都是手算的，不依赖 Excel 或任何数据文件。
 
-    python py/test_tokaj_backtest.py
+    python py/tests/test_tokaj_imbalance_price_calculation.py
 （也兼容 pytest）
 """
 import sys
@@ -9,8 +9,8 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-import tokaj_backtest as T  # noqa: E402
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "analysis"))
+import tokaj_imbalance_price_calculation as T  # noqa: E402
 
 NAN = np.nan
 

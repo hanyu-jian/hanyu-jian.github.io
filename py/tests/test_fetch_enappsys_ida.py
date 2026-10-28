@@ -1,6 +1,6 @@
 import sys
 from pathlib import Path
-sys.path.insert(0, str(Path(__file__).parent))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "fetch" / "enappsys"))
 import fetch_enappsys_ida as f
 from enappsys.services.chart import ChartCSV
 

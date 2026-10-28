@@ -17,7 +17,7 @@
   秋季回拨那天重复的当地时间只保留第一次出现的；任何来源缺的时段留空。
   不平衡价统一成 EUR/MWh：HUF 的部分用 data/fx/MNB.csv 的 EUR 汇率，取前一个工作日（与
   tokaj_backtest.py 一致）；2026-10-01 起原样。
-  年份取 data/mavir/imbalance 下有的年份；--years 可指定。
+  年份取 MAVIR / IDA / ID3 文件里有的年份（MAVIR 从 2025 年开始，更早的年份 System direction 一列留空）；--years 可指定。
 """
 
 import argparse
@@ -85,6 +85,11 @@ def build(year):
     parts = [f(year) for f in (read_ida, read_id3, read_direction, read_imbalance)]
     df = pd.concat([p for p in parts if not p.empty], axis=1).sort_index()
     df = df[df.index.year == year]
+    # 没有 MAVIR 数据的年份（2025 年以前）也保留这一列（留空），所有年份的列一致
+    direction, imbalance = "System direction (MWh)", "Imbalance Price (EUR/MWh)"
+    if direction not in df:
+        df[direction] = float("nan")
+    df = df[[c for c in df if c not in (direction, imbalance)] + [direction] + ([imbalance] if imbalance in df else [])]
     num = df.select_dtypes("number").columns
     df[num] = df[num].round(9)
     return df.dropna(how="all")
@@ -104,9 +109,11 @@ def main():
     a = ap.parse_args()
     OUT = a.out
     OUT.mkdir(parents=True, exist_ok=True)
-    years = a.years or sorted(
-        int(m.group(1)) for p in (ROOT / "data" / "mavir" / "imbalance").glob("HU_*.csv")
-        if (m := re.fullmatch(r"HU_(\d{4})\.csv", p.name)))
+    years = a.years or sorted({
+        int(m.group(1))
+        for d in ("data/mavir/imbalance", "data/enappsys/IDA", "data/enappsys/ID3")
+        for p in (ROOT / d).glob("HU_*.csv")
+        if (m := re.fullmatch(r"HU_(\d{4})\.csv", p.name))})
     for year in years:
         df = build(year)
         write(df, OUT / f"HU_{year}.csv")

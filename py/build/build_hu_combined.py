@@ -13,13 +13,13 @@
 输出：
   <out>/HU_<年>.csv                   全年一张表（--out 指定，默认 data/combined）
 约定：
-  Date 为匈牙利当地时间（Europe/Budapest 墙钟）YYYY-MM-DD HH:MM，UTC 为同一时刻的 UTC 时间，每行 15 分钟；
-  任何来源缺的时段留空。夏令时开始那天跳过 02:00~02:45（少 4 行，共 92 行）；
-  秋季回拨那天 02:00~02:45 出现两遍（Date 重复，UTC 不同，共 100 行），以 UTC 列区分、对齐各来源：
+  Date 为匈牙利当地时间（Europe/Budapest 墙钟）YYYY-MM-DD HH:MM，每行 15 分钟；任何来源缺的时段留空。
+  夏令时开始那天跳过 02:00~02:45（少 4 行，共 92 行）；
+  秋季回拨那天 02:00~02:45 出现两遍（Date 重复，先出现的是第一遍，共 100 行），各来源按遍对齐（内部用 UTC 对齐，不输出）：
     IDA 自带 +02:00 / +01:00 偏移，两遍都是准确的；
-    A85、ID3、MAVIR 的文件里重复的当地时间被去重过，只剩一遍，按它们抓取脚本的去重规则归属：
-    A85 留的是第二遍（UTC+1），ID3、MAVIR 留的是第一遍（UTC+2）；某来源的文件里如果出现了两遍，则按先后顺序当第一、二遍。
-    被去掉的那一遍留空，不会再把不同遍的数据拼进同一行。
+    A85、ID3 的文件里应有两遍，按先后顺序当第一、二遍；
+    只剩一遍的旧数据（A85 旧文件、MAVIR、ID3 旧文件）按原抓取脚本的去重规则归属：
+    A85 留的是第二遍（UTC+1），ID3、MAVIR 留的是第一遍（UTC+2）；缺的那一遍留空，不会把不同遍的数据拼进同一行。
   不平衡价统一成 EUR/MWh：HUF 的部分用 data/fx/MNB.csv 的 EUR 汇率，取前一个工作日（与
   analysis/tokaj_imbalance_price_calculation.py 一致）；2026-10-01 起原样。
   年份取 MAVIR / IDA / ID3 文件里有的年份（MAVIR 从 2025 年开始，更早的年份 System direction 一列留空）；--years 可指定。
@@ -117,7 +117,6 @@ def build(year):
 
 def write(df, path):
     out = df.copy()
-    out.insert(0, "UTC", out.index.strftime(DATE_FMT))
     out.index = out.index.tz_convert(LOCAL_TZ).strftime(DATE_FMT)
     out.index.name = "Date"
     out.to_csv(path, lineterminator="\r\n")

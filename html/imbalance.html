@@ -614,9 +614,12 @@ function parseDateStr15(s) {
 ---------------------------------------------------------------- */
 function transformA85CSV(rows, mnbRates) {
     const data = [], cSet = new Set();
-    for (const row of rows) {
+    // 回拨日 02:00~02:45 在文件里出现两遍（Date 重复）：只取最后一次出现的（第二遍），与之前一致
+    const lastIdx = new Map();
+    rows.forEach((row, i) => { const k = row['Date'] || row['datetime']; if (k) lastIdx.set(k, i); });
+    for (const [i, row] of rows.entries()) {
         const dtStr = row['Date'] || row['datetime'];
-        if (!dtStr) continue;
+        if (!dtStr || lastIdx.get(dtStr) !== i) continue;
         const p = parseDateStr15(dtStr);
         if (!p) continue;
         const mKey = `${p.year}-${String(p.month).padStart(2,'0')}`;

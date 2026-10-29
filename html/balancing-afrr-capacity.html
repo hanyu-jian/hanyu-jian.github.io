@@ -180,7 +180,7 @@
             <div class="section-head" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;">
                 <div>
                     <h2>aFRR Capacity Heatmap (H01–H24)</h2>
-                    <p>Top = weighted average price (€/MW/h) &nbsp;|&nbsp; Bottom = contracted volume (MW) &nbsp;|&nbsp; Hour of day × month, 2024–2026</p>
+                    <p>Top = weighted average price of the selected product (€/MW/h) &nbsp;|&nbsp; Bottom = total contracted volume (MW) &nbsp;|&nbsp; Hour of day × month, 2024–2026</p>
                 </div>
                 <button class="export-btn" id="hmExportBtn" onclick="exportHeatmapCSV()"> Export CSV</button>
             </div>
@@ -191,11 +191,17 @@
                         <button class="active" data-dir="up">Up</button>
                         <button data-dir="down">Down</button>
                     </div>
+                    <label>Price product</label>
+                    <div class="btn-group-inline" id="hmProd">
+                        <button data-prod="0">Hourly</button>
+                        <button class="active" data-prod="1">Daily</button>
+                        <button data-prod="2">Monthly</button>
+                    </div>
                 </div>
                 <div class="spinner-wrap show" id="hmSpinner"><div class="spinner"></div> Loading data…</div>
                 <div id="hmContent"></div>
                 <div class="no-data" id="hmNoData" style="display:none"><p>No aFRR capacity data.</p></div>
-                <div class="chart-note">Price = volume-weighted average of the hourly / daily / monthly product WAPs (weights = each product's volume), then volume-weighted over the 15-min points in the cell. Volume = mean total volume (MW). Empty where there is no data.</div>
+                <div class="chart-note">Price = WAP of the selected product (Hourly / Daily / Monthly), volume-weighted over the 15-min points in the cell (weights = that product's volume). Volume = mean total volume (MW, all products). Empty where there is no data.</div>
             </div>
         </div>
     </div>
@@ -373,26 +379,23 @@ window.addEventListener('DOMContentLoaded', () => {
 /* ================= Heatmap: hour of day x month, price (top) / volume (bottom) ================= */
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 const HM_YEARS = [2024, 2025, 2026];
-let hmCache = null;   // {dir, price:{yr:[24][12]}, vol:{yr:[24][12]}}
+let hmCache = null;   // {dir, price:[3]{yr:[24][12]}, vol:{yr:[24][12]}}
 
 function buildHeatmap(rows) {
-    const mk = () => Array.from({ length: 24 }, () => Array.from({ length: 12 }, () => ({ pv: 0, v: 0, ts: 0, n: 0 })));
+    const mk = () => Array.from({ length: 24 }, () => Array.from({ length: 12 }, () => ({ pv: [0, 0, 0], v: [0, 0, 0], ts: 0, n: 0 })));
     const acc = {}; HM_YEARS.forEach(y => acc[y] = mk());
     rows.forEach(r => {
         const y = +r.date.slice(0, 4);
         if (!acc[y]) return;
         const c = acc[y][+r.ts.slice(11, 13)][+r.date.slice(5, 7) - 1];
-        // blended price of this 15-min point: product WAPs weighted by product volumes
-        let pv = 0, v = 0;
-        for (let j = 0; j < 3; j++) if (r.p[j] !== null && r.v[j] !== null && r.v[j] > 0) { pv += r.p[j] * r.v[j]; v += r.v[j]; }
-        c.pv += pv; c.v += v;
+        for (let j = 0; j < 3; j++) if (r.p[j] !== null && r.v[j] !== null && r.v[j] > 0) { c.pv[j] += r.p[j] * r.v[j]; c.v[j] += r.v[j]; }
         const tot = r.t !== null ? r.t : (r.v.some(x => x !== null) ? r.v.reduce((a, x) => a + (x || 0), 0) : null);
         if (tot !== null) { c.ts += tot; c.n++; }
     });
-    const price = {}, vol = {};
+    const price = [0, 1, 2].map(() => ({})), vol = {};
     HM_YEARS.forEach(y => {
-        price[y] = acc[y].map(row => row.map(c => c.v > 0 ? c.pv / c.v : null));
-        vol[y]   = acc[y].map(row => row.map(c => c.n > 0 ? c.ts / c.n : null));
+        for (let j = 0; j < 3; j++) price[j][y] = acc[y].map(row => row.map(c => c.v[j] > 0 ? c.pv[j] / c.v[j] : null));
+        vol[y] = acc[y].map(row => row.map(c => c.n > 0 ? c.ts / c.n : null));
     });
     return { price, vol };
 }
@@ -475,7 +478,8 @@ async function renderHeatmaps() {
     if (!rows.length) { hmCache = null; document.getElementById('hmNoData').style.display = 'block'; return; }
     const hm = buildHeatmap(rows);
     hmCache = { dir, ...hm };
-    renderHmRow(host, 'Weighted average price', hm.price, '€/MW/h', 1);
+    const prod = +document.querySelector('#hmProd button.active').dataset.prod;
+    renderHmRow(host, `Weighted average price – ${PRODUCTS[prod]}`, hm.price[prod], '€/MW/h', 1);
     const gap = document.createElement('div'); gap.style.height = '22px'; host.appendChild(gap);
     renderHmRow(host, 'Volume', hm.vol, 'MW', 0);
 }
@@ -483,7 +487,8 @@ async function renderHeatmaps() {
 function exportHeatmapCSV() {
     if (!hmCache) { alert('No data loaded yet.'); return; }
     const out = [['Direction', 'Metric', 'Year', 'Hour', ...MONTHS]];
-    [['WAP (EUR/MW/h)', hmCache.price], ['Volume (MW)', hmCache.vol]].forEach(([name, data]) => {
+    const prod = +document.querySelector('#hmProd button.active').dataset.prod;
+    [[`${PRODUCTS[prod]} WAP (EUR/MW/h)`, hmCache.price[prod]], ['Total Volume (MW)', hmCache.vol]].forEach(([name, data]) => {
         HM_YEARS.forEach(y => {
             for (let h = 0; h < 24; h++) {
                 out.push([hmCache.dir, name, y, `H${String(h + 1).padStart(2, '0')}`,
@@ -491,15 +496,15 @@ function exportHeatmapCSV() {
             }
         });
     });
-    downloadCSV(`afrr_capacity_heatmap_${hmCache.dir}_HU.csv`, toCSV(out));
+    downloadCSV(`afrr_capacity_heatmap_${hmCache.dir}_${PRODUCTS[prod].toLowerCase()}_HU.csv`, toCSV(out));
 }
 
 window.addEventListener('DOMContentLoaded', () => {
-    document.querySelectorAll('#hmDir button').forEach(b => b.addEventListener('click', () => {
-        document.querySelectorAll('#hmDir button').forEach(x => x.classList.remove('active'));
+    ['hmDir', 'hmProd'].forEach(g => document.querySelectorAll('#' + g + ' button').forEach(b => b.addEventListener('click', () => {
+        document.querySelectorAll('#' + g + ' button').forEach(x => x.classList.remove('active'));
         b.classList.add('active');
         renderHeatmaps().catch(e => { console.error(e.message); document.getElementById('hmNoData').style.display = 'block'; });
-    }));
+    })));
     renderHeatmaps().catch(e => { console.error(e.message); document.getElementById('hmSpinner').classList.remove('show'); document.getElementById('hmNoData').style.display = 'block'; });
 });
 </script>

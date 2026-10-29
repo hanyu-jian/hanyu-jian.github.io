@@ -10,7 +10,7 @@
 //   3. /logout 退出登录。
 
 const PAGES = new Set([
-  "capacity", "capture-price", "generation-overview", "generation-type", "imbalance",
+  "capacity", "capture-price", "generation-overview", "generation-type", "imbalance", "balancing-afrr-capacity",
   "load", "price-intraday", "price-overview", "price-spread", "project",
 ]);
 const COOKIE = "dash_token";

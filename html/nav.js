@@ -28,7 +28,7 @@
     { label: 'Load',               href: 'load.html' },
     { label: 'Generation',         href: 'generation-overview.html', match: ['generation-overview.html', 'generation-type.html'] },
     { label: 'Installed Capacity', href: 'capacity.html' },
-    { label: 'Balancing',          href: 'imbalance.html' }
+    { label: 'Balancing',          href: 'imbalance.html', match: ['imbalance.html', 'balancing-afrr-capacity.html'] }
   ];
 
   /* ── 2. Disclaimer text ─────────────────────────────────────────────── */

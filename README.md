@@ -5,7 +5,7 @@
 
 - [目录结构与数据文件](#目录结构与数据文件)
 - [通用约定](#通用约定)
-- [Price 价格](#price-价格)：[price-overview](#price-overviewhtml) · [capture-price](#capture-pricehtml) · [price-spread](#price-spreadhtml) · [price-intraday](#price-intradayhtml) · [imbalance](#imbalancehtml)
+- [Price 价格](#price-价格)：[price-overview](#price-overviewhtml) · [capture-price](#capture-pricehtml) · [price-spread](#price-spreadhtml) · [price-intraday](#price-intradayhtml) · [imbalance](#imbalancehtml) · [balancing-afrr-capacity](#balancing-afrr-capacityhtml)
 - [Load 负荷](#loadhtml)
 - [Generation 发电](#generation-overviewhtml)：[generation-overview](#generation-overviewhtml) · [generation-type](#generation-typehtml)
 - [Installed Capacity 装机](#capacityhtml)
@@ -269,3 +269,12 @@ raw_data/<年>/  ENTSO-E 15 分钟原始数据（A44 日前价、A65 负荷、A8
 首页，仅三个入口：Price、Load、Installed Capacity。
 
 ---
+
+## balancing-afrr-capacity.html
+
+匈牙利 aFRR 容量（Balancing 下，Imbalance Prices 后面的 aFRR Capacity 页）。数据：`enappsys/afrr/capacity/<up|down>/15min/HU_<年>.csv`（15 分钟，来源 EnAppSys，每天由 `update_enappsys.yml` 更新）。
+
+- 控件：Year、Direction（Up / Down）、Frequency（15min / Hourly / Daily / Weekly / Monthly，周以周一为起点）、Product（Total / Hourly / Daily / Monthly）。默认 15min，年份默认数据中最新的一年，图上默认显示该年最近一个月，拖动下方缩放条可看更早的数据。
+- 图：柱 = 容量（MW，左轴），线 = 加权平均价 WAP（€/MW/h，右轴）。Product = Total 时，柱为 hourly / daily / monthly 三个产品的堆叠（顶部即 Total volume），并画三条 WAP 线；选单个产品时只画该产品的容量和 WAP。
+- 周期值 = 该周期内 15 分钟点的简单平均（价格和容量各自只对有值的点求均值）。
+- Export CSV 导出当前图表所见的序列。

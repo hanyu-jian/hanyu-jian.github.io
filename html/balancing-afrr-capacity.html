@@ -384,9 +384,11 @@ let hmCache = null;   // {dir, price:[3]{yr:[24][12]}, vol:[3]{yr:[24][12]}}
 function buildHeatmap(rows) {
     const mk = () => Array.from({ length: 24 }, () => Array.from({ length: 12 }, () => ({ pv: [0, 0, 0], v: [0, 0, 0], vs: [0, 0, 0], vn: [0, 0, 0] })));
     const acc = {}; HM_YEARS.forEach(y => acc[y] = mk());
+    const monthHas = {}; HM_YEARS.forEach(y => monthHas[y] = Array.from({ length: 12 }, () => [false, false, false]));   // month has any volume point of that product
     rows.forEach(r => {
         const y = +r.date.slice(0, 4);
         if (!acc[y]) return;
+        for (let j = 0; j < 3; j++) if (r.v[j] !== null) monthHas[y][+r.date.slice(5, 7) - 1][j] = true;
         const c = acc[y][+r.ts.slice(11, 13)][+r.date.slice(5, 7) - 1];
         for (let j = 0; j < 3; j++) if (r.p[j] !== null && r.v[j] !== null && r.v[j] > 0) { c.pv[j] += r.p[j] * r.v[j]; c.v[j] += r.v[j]; }
         for (let j = 0; j < 3; j++) if (r.v[j] !== null) { c.vs[j] += r.v[j]; c.vn[j]++; }
@@ -395,7 +397,7 @@ function buildHeatmap(rows) {
     HM_YEARS.forEach(y => {
         for (let j = 0; j < 3; j++) {
             price[j][y] = acc[y].map(row => row.map(c => c.v[j] > 0 ? c.pv[j] / c.v[j] : null));
-            vol[j][y]   = acc[y].map(row => row.map(c => c.vn[j] > 0 ? c.vs[j] / c.vn[j] : null));
+            vol[j][y]   = acc[y].map(row => row.map((c, mo) => c.vn[j] > 0 ? c.vs[j] / c.vn[j] : (monthHas[y][mo][j] ? 0 : null)));   // no point in an hour of a month that has data = nothing contracted -> 0
         }
     });
     return { price, vol };

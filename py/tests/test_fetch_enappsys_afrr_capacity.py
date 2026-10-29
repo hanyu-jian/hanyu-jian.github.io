@@ -39,10 +39,11 @@ def test_output_layout_and_merge(tmp_path, monkeypatch):
 def test_fill_daily_volume():
     import pandas as pd
     df = pd.DataFrame({"datetime": list("abcd"), "p1": 0, "p2": 0, "p3": 0, "v1": 0,
-                       "vd": [None, 5.0, None, None], "vm": 0, "t": 0})
+                       "vd": [None, 5.0, None, None], "vm": [None, None, 7.0, None], "t": 0})
     out = f.fill_daily_volume(df)
     assert out["vd"].iloc[:2].tolist() == [0.0, 5.0]
     assert out["vd"].iloc[2:].isna().all()  # 最后一个有值之后（未来）不补
+    assert out["vm"].tolist()[:3] == [0.0, 0.0, 7.0] and out["vm"].iloc[3] != out["vm"].iloc[3]
 
 
 if __name__ == "__main__":

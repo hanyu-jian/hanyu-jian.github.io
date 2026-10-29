@@ -10,13 +10,14 @@ def test_codes():
 
 
 def test_output_layout_and_merge(tmp_path, monkeypatch):
-    head = ("DateTime,ACCEPTED PRICE MIN (DAILY),WEIGHTED AVERAGE PRICE UP (HOURLY),WEIGHTED AVERAGE PRICE UP (MONTHLY),"
+    head = ("DateTime,ACCEPTED PRICE MIN (DAILY),WEIGHTED AVERAGE PRICE UP (HOURLY),WEIGHTED AVERAGE PRICE UP (DAILY),"
+            "WEIGHTED AVERAGE PRICE UP (MONTHLY),
             "VOLUME UP (HOURLY),VOLUME UP (DAILY),VOLUME UP (MONTHLY),TOTAL VOLUME (UP)\n"
-            ",EUR/MW/h,EUR/MW/h,EUR/MW/h,MW,MW,MW,MW\n")
+            ",EUR/MW/h,EUR/MW/h,EUR/MW/h,EUR/MW/h,MW,MW,MW,MW\n")
 
     class Chart:
         def get(self, fmt, code, **kw):
-            return ChartCSV(head + "[28/10/2026 10:45],0.1,,11.4,,50,200,250\n[28/10/2026 11:00],0.2,,11.4,,60,200,260\n",
+            return ChartCSV(head + "[28/10/2026 10:45],0.1,,0.2,11.4,,50,200,250\n[28/10/2026 11:00],0.2,,0.2,11.4,,60,200,260\n",
                             "u", {}, "csv", code, None, None, "qh", "CET", "EUR", False)
 
     class Client:
@@ -29,7 +30,8 @@ def test_output_layout_and_merge(tmp_path, monkeypatch):
         f.main(["--start", "2026-10-28", "--end", "2026-10-29", "--out-root", str(tmp_path)])
     for d in ("up", "down"):
         text = (tmp_path / d / "15min" / "HU_2026.csv").read_text().splitlines()
-        assert text[0] == ("datetime,WEIGHTED AVERAGE PRICE UP (HOURLY) (EUR/MW/h),WEIGHTED AVERAGE PRICE UP (MONTHLY) (EUR/MW/h),"
+        assert text[0] == ("datetime,WEIGHTED AVERAGE PRICE UP (HOURLY) (EUR/MW/h),WEIGHTED AVERAGE PRICE UP (DAILY) (EUR/MW/h),"
+                           "WEIGHTED AVERAGE PRICE UP (MONTHLY) (EUR/MW/h),VOLUME UP (HOURLY) (MW),"
                            "VOLUME UP (DAILY) (MW),VOLUME UP (MONTHLY) (MW),TOTAL VOLUME (UP) (MW)")
         assert len(text) == 3
 

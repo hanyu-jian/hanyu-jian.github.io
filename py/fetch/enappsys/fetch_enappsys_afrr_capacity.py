@@ -6,8 +6,8 @@ EnAppSys 下载脚本 — 匈牙利 aFRR 容量（capacity）up / down，15min
 - 两个方向各一个 code：
     up    hu/elec/ancillary/afrr/summary/up
     down  hu/elec/ancillary/afrr/summary/down
-- 接口返回 14 列，只保留 5 列（列名原样、带单位，up / down 各自的名字）：
-    WEIGHTED AVERAGE PRICE (HOURLY / MONTHLY)、VOLUME (DAILY / MONTHLY)、TOTAL VOLUME
+- 接口返回 14 列，只保留 7 列（列名原样、带单位，up / down 各自的名字）：
+    WEIGHTED AVERAGE PRICE (HOURLY / DAILY / MONTHLY)、VOLUME (HOURLY / DAILY / MONTHLY)、TOTAL VOLUME
   按名字匹配，对应不上就报错并打出全部列名；按时间合并进
     data/enappsys/afrr/capacity/<up|down>/15min/HU_<年>.csv（按当地时间的年份分文件）
 - 时间列 datetime 的格式与 IDA 相同（带偏移的 ISO 时间，秋季回拨无歧义）
@@ -36,9 +36,9 @@ OUT_ROOT_DEFAULT = Path("data/enappsys/afrr/capacity")
 
 
 def pick_columns(df):
-    """只留 WAP(hourly/monthly)、Volume(daily/monthly)、Total volume 五列；对应不上就报错。"""
-    want = [("weighted average price", "(hourly)"), ("weighted average price", "(monthly)"),
-            ("volume", "(daily)"), ("volume", "(monthly)"), ("total volume", "")]
+    """只留 WAP(hourly/daily/monthly)、Volume(hourly/daily/monthly)、Total volume 七列；对应不上就报错。"""
+    want = [("weighted average price", p) for p in ("(hourly)", "(daily)", "(monthly)")]
+    want += [("volume", p) for p in ("(hourly)", "(daily)", "(monthly)")] + [("total volume", "")]
     cols = []
     for name, period in want:
         hit = [c for c in df.columns if c != TIME_COL and name in c.lower() and period in c.lower()

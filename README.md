@@ -5,7 +5,7 @@
 
 - [目录结构与数据文件](#目录结构与数据文件)
 - [通用约定](#通用约定)
-- [Price 价格](#price-价格)：[price-overview](#price-overviewhtml) · [capture-price](#capture-pricehtml) · [price-spread](#price-spreadhtml) · [price-intraday](#price-intradayhtml) · [imbalance](#imbalancehtml) · [balancing_afrr_capacity](#balancing_afrr_capacityhtml)
+- [Price 价格](#price-价格)：[price-overview](#price-overviewhtml) · [capture-price](#capture-pricehtml) · [price-spread](#price-spreadhtml) · [price-intraday](#price-intradayhtml) · [imbalance](#imbalancehtml) · [balancing-afrr-capacity](#balancing-afrr-capacityhtml)
 - [Load 负荷](#loadhtml)
 - [Generation 发电](#generation-overviewhtml)：[generation-overview](#generation-overviewhtml) · [generation-type](#generation-typehtml)
 - [Installed Capacity 装机](#capacityhtml)
@@ -270,7 +270,7 @@ raw_data/<年>/  ENTSO-E 15 分钟原始数据（A44 日前价、A65 负荷、A8
 
 ---
 
-## balancing_afrr_capacity.html
+## balancing-afrr-capacity.html
 
 匈牙利 aFRR 容量（Balancing 下，Imbalance Prices 后面的 aFRR Capacity 页）。数据：`enappsys/afrr/capacity/<up|down>/15min/HU_<年>.csv`（15 分钟，来源 EnAppSys，每天由 `update_enappsys.yml` 更新）。
 

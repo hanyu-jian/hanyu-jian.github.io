@@ -20,6 +20,10 @@ on:
         description: "Only fetch HUPX ID3 (updates data/enappsys/ID3)"
         type: boolean
         default: false
+      afrr_capacity_only:
+        description: "Only fetch HU aFRR capacity up/down (updates data/enappsys/afrr/capacity)"
+        type: boolean
+        default: false
 
 # 与 Daily Energy Data Update 共用同一个提交队列，避免两边同时 push 冲突
 concurrency:
@@ -43,7 +47,7 @@ jobs:
         run: pip install pandas "enappsys[pandas]"
 
       - name: Fetch HUPX IDA1/2/3
-        if: ${{ !(inputs.id3_only == true && inputs.ida_only != true) }}
+        if: ${{ inputs.ida_only == true || !(inputs.id3_only == true || inputs.afrr_capacity_only == true) }}
         env:
           ENAPPSYS_USER: ${{ secrets.ENAPPSYS_USER }}
           ENAPPSYS_PASS: ${{ secrets.ENAPPSYS_PASS }}
@@ -60,7 +64,7 @@ jobs:
           python py/fetch/enappsys/fetch_enappsys_ida.py "${args[@]}"
 
       - name: Fetch HUPX ID3
-        if: ${{ !(inputs.ida_only == true && inputs.id3_only != true) }}
+        if: ${{ inputs.id3_only == true || !(inputs.ida_only == true || inputs.afrr_capacity_only == true) }}
         env:
           ENAPPSYS_USER: ${{ secrets.ENAPPSYS_USER }}
           ENAPPSYS_PASS: ${{ secrets.ENAPPSYS_PASS }}
@@ -75,6 +79,23 @@ jobs:
             args+=(--end "$END_DATE")
           fi
           python py/fetch/enappsys/fetch_enappsys_id3.py "${args[@]}"
+
+      - name: Fetch HU aFRR capacity (up/down)
+        if: ${{ inputs.afrr_capacity_only == true || !(inputs.ida_only == true || inputs.id3_only == true) }}
+        env:
+          ENAPPSYS_USER: ${{ secrets.ENAPPSYS_USER }}
+          ENAPPSYS_PASS: ${{ secrets.ENAPPSYS_PASS }}
+          START_DATE: ${{ inputs.start_date }}
+          END_DATE: ${{ inputs.end_date }}
+        run: |
+          args=()
+          if [ -n "$START_DATE" ]; then
+            args+=(--start "$START_DATE")
+          fi
+          if [ -n "$END_DATE" ]; then
+            args+=(--end "$END_DATE")
+          fi
+          python py/fetch/enappsys/fetch_enappsys_afrr_capacity.py "${args[@]}"
 
       - name: Commit and push updated data
         run: |

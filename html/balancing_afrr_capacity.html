@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+      
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>aFRR Capacity – European Electricity Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+    <script src="nav.js"></script>
+    
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f2f5; padding: 20px; }
+        .container { max-width: 1600px; margin: 0 auto; background: white; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); overflow: hidden; }
+        .header { background: #2c3e50; color: white; padding: 20px 30px 0 30px; }
+        .header-top { padding-bottom: 16px; }
+        .header-top h1 { font-size: 24px; font-weight: 500; letter-spacing: 0.2px; }
+        .main-nav { display: flex; gap: 2px; margin-top: 4px; }
+        .main-nav-link {
+            display: inline-flex; align-items: center; gap: 7px;
+            padding: 10px 24px; font-size: 14px; font-weight: 600;
+            color: rgba(255,255,255,0.65); text-decoration: none;
+            border-radius: 6px 6px 0 0; background: rgba(255,255,255,0.06);
+            border: 1px solid transparent; border-bottom: none;
+            letter-spacing: 0.2px; transition: background 0.2s, color 0.2s, border-color 0.2s;
+            white-space: nowrap; position: relative; top: 1px;
+        }
+        .main-nav-link:hover { color: rgba(255,255,255,0.95); background: rgba(255,255,255,0.14); }
+        .main-nav-link.active { color: #2c3e50; background: #f8f9fa; border-color: #e6e9ed; border-bottom-color: #f8f9fa; }
+        .sub-nav { background: #f8f9fa; border-bottom: 2px solid #e6e9ed; padding: 0 30px; display: flex; }
+        .sub-nav-link {
+            display: inline-block; padding: 14px 22px; font-size: 14px; font-weight: 600;
+            color: #6c757d; text-decoration: none; border-bottom: 3px solid transparent;
+            margin-bottom: -2px; transition: color 0.2s, border-color 0.2s; white-space: nowrap;
+        }
+        .sub-nav-link:hover { color: #2c3e50; }
+        .sub-nav-link.active { color: #2c3e50; border-bottom-color: #2c3e50; }
+        .controls { padding: 20px 30px; display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start; background: #fff; border-bottom: 1px solid #e6e9ed; }
+        .control-group { display: flex; flex-direction: column; gap: 6px; }
+        .control-group > label { font-size: 13px; font-weight: 600; color: #2c3e50; }
+        .country-static { height: 36px; padding: 0 12px; border: 1px solid #ccc; border-radius: 6px; font-size: 14px; font-family: inherit; background: #f8f9fa; color: #2c3e50; font-weight: 600; display: flex; align-items: center; }
+        .content-area { padding: 24px 30px 10px; }
+        .section-card { background: #fff; border-radius: 8px; border: 1px solid #e6e9ed; margin-bottom: 24px; overflow: hidden; }
+        .section-head { padding: 16px 20px 12px; border-bottom: 1px solid #e6e9ed; }
+        .section-head h2 { font-size: 18px; font-weight: 500; color: #2c3e50; border-left: 4px solid #2c3e50; padding-left: 12px; }
+        .section-head p { font-size: 12px; color: #868e96; margin-top: 6px; padding-left: 16px; }
+        .section-body { padding: 16px 20px; }
+        .heatmap-outer { overflow-x: auto; }
+        .three-year-hm { display: flex; gap: 20px; min-width: 600px; }
+        .year-hm-block { flex: 1; min-width: 0; }
+        .year-hm-title { text-align: center; font-size: 13px; font-weight: 700; margin-bottom: 6px; letter-spacing: 0.5px; color: #2c3e50; }
+        .hm-row { display: flex; align-items: center; }
+        .hm-ylabel { width: 30px; flex-shrink: 0; font-size: 9px; color: #868e96; text-align: right; padding-right: 5px; white-space: nowrap; line-height: 1; }
+        .hm-cells-row { display: grid; grid-template-columns: repeat(12, 1fr); gap: 0; flex: 1; }
+        .hm-cell { height: 16px; cursor: default; transition: outline 0.1s; display: flex; align-items: center; justify-content: center; font-size: 7px; font-weight: 700; color: rgba(0,0,0,0.65); overflow: hidden; }
+        .hm-cell:hover { outline: 2px solid rgba(44,62,80,0.7); z-index: 5; position: relative; }
+        .hm-month-header { display: flex; margin-bottom: 3px; }
+        .hm-month-spacer { width: 30px; flex-shrink: 0; }
+        .hm-month-labels { display: grid; grid-template-columns: repeat(12, 1fr); flex: 1; }
+        .hm-month-label { font-size: 9px; color: #495057; font-weight: 600; text-align: center; }
+        .hm-year-legend { display: flex; align-items: center; gap: 6px; margin-top: 6px; font-size: 10px; color: #6c757d; padding-left: 30px; }
+        .hm-legend-bar { flex: 1; height: 7px; border-radius: 4px; }
+        .hm-legend-val { white-space: nowrap; font-size: 10px; color: #495057; }
+        .hm-tooltip { position: fixed; background: rgba(44,62,80,0.93); color: white; padding: 6px 11px; border-radius: 6px; font-size: 12px; pointer-events: none; z-index: 9999; display: none; white-space: nowrap; box-shadow: 0 3px 10px rgba(0,0,0,0.25); }
+        .spinner-wrap { display: none; justify-content: center; align-items: center; padding: 36px; gap: 12px; color: #6c757d; font-size: 13px; }
+        .spinner-wrap.show { display: flex; }
+        .spinner { width: 24px; height: 24px; border: 3px solid #dee2e6; border-top-color: #5a8fc2; border-radius: 50%; animation: spin 0.8s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .no-data { text-align: center; padding: 40px 20px; }
+        .no-data .nd-icon { font-size: 36px; margin-bottom: 8px; }
+        .no-data p { font-size: 13px; color: #6c757d; }
+        .kpi-grid { display: grid; grid-template-columns: repeat(3, minmax(180px, 1fr)); gap: 12px; margin-bottom: 16px; }
+        .kpi { border: 1px solid #e6e9ed; border-radius: 8px; padding: 10px 12px; background: #fafbfc; }
+        .kpi-label { font-size: 12px; color: #6c757d; }
+        .kpi-value { font-size: 20px; color: #2c3e50; font-weight: 700; margin-top: 2px; }
+        .uplift-controls { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end; margin-bottom: 16px; padding: 12px 16px; background: #f8f9fa; border-radius: 8px; border: 1px solid #e6e9ed; }
+        .uplift-ctrl-group { display: flex; flex-direction: column; gap: 5px; }
+        .uplift-ctrl-group label { font-size: 12px; font-weight: 600; color: #2c3e50; }
+        .uplift-ctrl-group select { height: 32px; padding: 0 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 13px; font-family: inherit; background: #fff; color: #2c3e50; cursor: pointer; }
+        .ctrl-divider { width: 1px; background: #dee2e6; align-self: stretch; margin: 0 4px; }
+        .chart-wrap { border: 1px solid #e6e9ed; border-radius: 8px; padding: 10px; margin-bottom: 12px; }
+        .chart-title { font-size: 13px; color: #2c3e50; font-weight: 700; margin-bottom: 8px; }
+        .chart-note { font-size: 11px; color: #868e96; margin-top: 6px; }
+        .chart-legend { display: flex; gap: 16px; margin-bottom: 8px; align-items: center; }
+        .legend-item { display: flex; align-items: center; gap: 5px; font-size: 12px; color: #495057; }
+        .legend-swatch { width: 14px; height: 14px; border-radius: 3px; flex-shrink: 0; }
+        .info { padding: 12px 30px 20px; font-size: 13px; color: #6c757d; text-align: center; border-top: 1px solid #e6e9ed; margin-top: 10px; }
+        .info a { color: #5a8fc2; text-decoration: none; }
+        .info a:hover { text-decoration: underline; }
+        .strategy-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 2px; }
+        .stag { display: inline-block; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+        .stag-charge { background: #e8f4fd; color: #1a6fa0; border: 1px solid #b3d9f5; }
+        .stag-da     { background: #e8f0f8; color: #2c5f8a; border: 1px solid #9fbfd8; }
+        .stag-id3    { background: #fdf0eb; color: #b94a24; border: 1px solid #f5c4b0; }
+        /* ▼ ADDED: Export button styles (matches price-spread.html) */
+        .export-btn {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 7px 14px; font-size: 12px; font-weight: 600;
+            color: #2c3e50; background: #fff;
+            border: 1px solid #ced4da; border-radius: 6px;
+            cursor: pointer; white-space: nowrap;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            transition: background 0.15s, border-color 0.15s;
+        }
+        .export-btn:hover { background: #f0f4f8; border-color: #5a8fc2; }
+        .export-btn:active { background: #e6ecf2; }
+        .ida-controls { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; }
+        .ida-controls label { font-size: 13px; font-weight: 600; color: #2c3e50; white-space: nowrap; }
+        .ida-select { font-family: inherit; height: 36px; padding: 0 12px; border: 1px solid #ccc; border-radius: 6px; font-size: 14px; cursor: pointer; background: white; }
+        .ida-select:focus { outline: none; border-color: #2c3e50; }
+        .btn-group-inline { display: flex; border: 1px solid #ccc; border-radius: 6px; overflow: hidden; }
+        .btn-group-inline button { font-family: inherit; height: 36px; padding: 0 14px; background: white; border: none; border-right: 1px solid #ccc; font-size: 13px; font-weight: 500; color: #6c757d; cursor: pointer; transition: all 0.15s; }
+        .btn-group-inline button:last-child { border-right: none; }
+        .btn-group-inline button:hover { background: #f0f2f5; color: #2c3e50; }
+        .btn-group-inline button.active { background: #2c3e50; color: white; }
+        @media (max-width: 900px) { .kpi-grid { grid-template-columns: 1fr; } }
+        @media (max-width: 800px) { .content-area { padding: 14px; } .header { padding: 16px 16px 0 16px; } .sub-nav { padding: 0 10px; overflow-x: auto; } .controls { padding: 14px; } .three-year-hm { flex-direction: column; } }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="sub-nav">
+        <a class="sub-nav-link" href="imbalance.html">Imbalance Prices</a>
+        <a class="sub-nav-link active" href="balancing_afrr_capacity.html">aFRR Capacity</a>
+    </div>
+
+    <div class="controls">
+        <div class="control-group">
+            <label>🌍 Country</label>
+            <div class="country-static">HU</div>
+        </div>
+    </div>
+
+    <div class="content-area">
+        <div class="section-card">
+            <div class="section-head" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;">
+                <div>
+                    <h2>aFRR Capacity Auction – Volume &amp; Weighted Average Price</h2>
+                    <p>Bars = contracted capacity (MW, left axis) &nbsp;|&nbsp; Lines = weighted average price (€/MW/h, right axis)</p>
+                </div>
+                <button class="export-btn" id="afrrExportBtn" onclick="exportAfrrCSV()"> Export CSV</button>
+            </div>
+            <div class="section-body">
+                <div class="ida-controls" style="margin-bottom:14px">
+                    <label>Year</label>
+                    <select class="ida-select" id="afrrYear">
+                        <option value="2024">2024</option>
+                        <option value="2025">2025</option>
+                        <option value="2026" selected>2026</option>
+                    </select>
+                    <label>Direction</label>
+                    <div class="btn-group-inline" id="afrrDir">
+                        <button class="active" data-dir="up">Up</button>
+                        <button data-dir="down">Down</button>
+                    </div>
+                    <label>Frequency</label>
+                    <div class="btn-group-inline" id="afrrFreq">
+                        <button class="active" data-freq="15min">15min</button>
+                        <button data-freq="hourly">Hourly</button>
+                        <button data-freq="daily">Daily</button>
+                        <button data-freq="weekly">Weekly</button>
+                        <button data-freq="monthly">Monthly</button>
+                    </div>
+                    <label>Product</label>
+                    <div class="btn-group-inline" id="afrrSel">
+                        <button class="active" data-sel="total">Total</button>
+                        <button data-sel="0">Hourly</button>
+                        <button data-sel="1">Daily</button>
+                        <button data-sel="2">Monthly</button>
+                    </div>
+                </div>
+                <div class="no-data" id="afrrNoData" style="display:none"><p>No aFRR capacity data for this selection.</p></div>
+                <div id="afrrChart" style="width:100%; height:460px;"></div>
+                <div class="chart-note">Product selects the capacity product: Total = hourly + daily + monthly products (stacked volume, one price line per product); otherwise that product's volume and weighted average price. Period value = simple mean of the 15-min points that have a value (volume in MW is average power). Empty where there is no data.</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="info">
+        Data source: <a href="https://app.enappsys.com/" target="_blank">EnAppSys</a>
+        &nbsp;|&nbsp; aFRR capacity (HU) &nbsp;|&nbsp; Volume: MW &nbsp;|&nbsp; Price: €/MW/h &nbsp;|&nbsp; Author: Hanyu Jian
+    </div>
+</div>
+
+<script>
+const PRODUCTS    = ['Hourly', 'Daily', 'Monthly'];
+const PRICE_COLORS = ['#457b9d', '#8e6bbf', '#2a9d8f'];
+const VOL_GREYS    = ['#ced4da', '#adb5bd', '#868e96'];
+const afrrData = {};      // direction -> [{date, ts, p:[3], v:[3], t}]
+let afrrChart = null;
+let lastAfrrSeries = null;
+
+function downloadCSV(filename, csvString) {
+    // BOM so Excel opens UTF-8 correctly
+    const blob = new Blob(['﻿' + csvString], { type: 'text/csv;charset=utf-8;' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+function csvEscape(v) {
+    if (v === null || v === undefined) return '';
+    const s = String(v);
+    return /[",\r\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+}
+function toCSV(rows) { return rows.map(r => r.map(csvEscape).join(',')).join('\r\n'); }
+
+function afrrDir()  { return document.querySelector('#afrrDir button.active').dataset.dir; }
+function afrrFreq() { return document.querySelector('#afrrFreq button.active').dataset.freq; }
+function afrrSelected() {
+    const v = document.querySelector('#afrrSel button.active').dataset.sel;
+    return v === 'total' ? [0, 1, 2] : [+v];
+}
+function isTotal() { return document.querySelector('#afrrSel button.active').dataset.sel === 'total'; }
+
+function periodKey(r, freq) {
+    if (freq === '15min') return r.ts;
+    if (freq === 'hourly') return r.ts.slice(0, 13) + ':00';
+    if (freq === 'monthly') return r.date.slice(0, 7);
+    if (freq === 'weekly') {
+        const d = new Date(r.date + 'T00:00:00Z');
+        d.setUTCDate(d.getUTCDate() - (d.getUTCDay() + 6) % 7);   // Monday = week start
+        return d.toISOString().slice(0, 10);
+    }
+    return r.date;
+}
+
+// columns: datetime, WAP hourly/daily/monthly, Volume hourly/daily/monthly, Total volume
+async function loadAfrr(dir) {
+    if (afrrData[dir]) return afrrData[dir];
+    const years = Array.from({ length: new Date().getFullYear() - 2023 }, (_, i) => 2024 + i);
+    const texts = await Promise.all(years.map(y =>
+        fetch(`/data/enappsys/afrr/capacity/${dir}/15min/HU_${y}.csv`).then(r => r.ok ? r.text() : null).catch(() => null)));
+    const f = x => { const n = parseFloat(x); return isNaN(n) ? null : n; };
+    const rows = [];
+    texts.filter(Boolean).forEach(t => {
+        const lines = t.trim().split(/\r?\n/);
+        for (let i = 1; i < lines.length; i++) {
+            const c = lines[i].split(',');
+            if (c.length < 8 || !c[0]) continue;
+            rows.push({ date: c[0].slice(0, 10), ts: c[0].slice(0, 16).replace('T', ' '),
+                        p: [f(c[1]), f(c[2]), f(c[3])], v: [f(c[4]), f(c[5]), f(c[6])], t: f(c[7]) });
+        }
+    });
+    return (afrrData[dir] = rows);
+}
+
+async function renderAfrr() {
+    const dir = afrrDir();
+    const rows = await loadAfrr(dir);
+    if (dir !== afrrDir()) return;   // direction changed while loading
+    const year = document.getElementById('afrrYear').value;
+    const freq = afrrFreq();
+    const sel = afrrSelected();
+    const total = isTotal();
+
+    const acc = new Map();   // key -> {p:[{s,n}x3], v:[{s,n}x3], t:{s,n}}
+    const slot = () => ({ s: 0, n: 0 });
+    rows.forEach(r => {
+        if (r.date.slice(0, 4) !== year) return;
+        const k = periodKey(r, freq);
+        let a = acc.get(k);
+        if (!a) { a = { p: [slot(), slot(), slot()], v: [slot(), slot(), slot()], t: slot() }; acc.set(k, a); }
+        for (let j = 0; j < 3; j++) {
+            if (r.p[j] !== null) { a.p[j].s += r.p[j]; a.p[j].n++; }
+            if (r.v[j] !== null) { a.v[j].s += r.v[j]; a.v[j].n++; }
+        }
+        if (r.t !== null) { a.t.s += r.t; a.t.n++; }
+    });
+    const mean = (x, d) => x.n ? +(x.s / x.n).toFixed(d) : null;
+    const keys  = [...acc.keys()].sort();
+    const price = [0, 1, 2].map(j => keys.map(k => mean(acc.get(k).p[j], 2)));
+    const vol   = [0, 1, 2].map(j => keys.map(k => mean(acc.get(k).v[j], 1)));
+    const tot   = keys.map(k => mean(acc.get(k).t, 1));
+    lastAfrrSeries = { keys, price, vol, tot, freq, year, sel, dir, total };
+    document.getElementById('afrrNoData').style.display = keys.length ? 'none' : 'block';
+
+    // 15min / hourly open on the most recent month of the selected year; the slider widens the window
+    let zoomStart = 0;
+    if ((freq === '15min' || freq === 'hourly') && keys.length) {
+        const last = new Date(keys[keys.length - 1].slice(0, 10) + 'T00:00:00Z');
+        last.setUTCMonth(last.getUTCMonth() - 1);
+        const cut = last.toISOString().slice(0, 10);
+        zoomStart = Math.max(0, keys.findIndex(k => k >= cut));
+    }
+    if (!afrrChart) { afrrChart = echarts.init(document.getElementById('afrrChart')); window.addEventListener('resize', () => afrrChart.resize()); }
+    const series = [];
+    sel.forEach(j => series.push({
+        name: PRODUCTS[j] + ' Volume', type: 'bar', yAxisIndex: 0, data: vol[j],
+        stack: total ? 'vol' : undefined,
+        itemStyle: { color: VOL_GREYS[j] }, barMaxWidth: 14, z: 1
+    }));
+    sel.forEach(j => series.push({
+        name: PRODUCTS[j] + ' WAP', type: 'line', yAxisIndex: 1, data: price[j],
+        symbol: 'circle', symbolSize: 4, showSymbol: keys.length < 60, connectNulls: false,
+        lineStyle: { width: 1.5, color: PRICE_COLORS[j] }, itemStyle: { color: PRICE_COLORS[j] }, z: 3
+    }));
+    if (total) series.push({ name: 'Total Volume', type: 'line', yAxisIndex: 0, data: tot, showSymbol: false,
+        lineStyle: { width: 0 }, itemStyle: { color: '#495057' }, z: 0, tooltip: {} });
+    afrrChart.setOption({
+        animation: false,
+        grid: { left: 64, right: 64, top: 46, bottom: 72 },
+        legend: { top: 4, data: series.filter(s => s.name !== 'Total Volume').map(s => s.name) },
+        tooltip: { trigger: 'axis', axisPointer: { type: 'cross' },
+            valueFormatter: v => v === null || v === undefined ? '-' : v },
+        xAxis: { type: 'category', data: keys, boundaryGap: true, axisLabel: { color: '#6c757d' } },
+        yAxis: [
+            { type: 'value', name: 'Volume (MW)', nameTextStyle: { color: '#6c757d' }, axisLabel: { color: '#6c757d' }, splitLine: { lineStyle: { color: '#eef0f2' } } },
+            { type: 'value', name: 'Price (EUR/MW/h)', nameTextStyle: { color: '#6c757d' }, axisLabel: { color: '#6c757d' }, splitLine: { show: false } }
+        ],
+        dataZoom: [{ type: 'inside', startValue: zoomStart }, { type: 'slider', height: 20, bottom: 12, startValue: zoomStart }],
+        series
+    }, true);
+}
+
+function exportAfrrCSV() {
+    const d = lastAfrrSeries;
+    if (!d || !d.keys.length) { alert('No data loaded yet.'); return; }
+    const head = [{ '15min': 'Time', hourly: 'Hour', daily: 'Date', weekly: 'Week start', monthly: 'Month' }[d.freq]];
+    d.sel.forEach(j => head.push(`${PRODUCTS[j]} WAP (EUR/MW/h)`, `${PRODUCTS[j]} Volume (MW)`));
+    if (d.total) head.push('Total Volume (MW)');
+    const rows = [head];
+    d.keys.forEach((k, i) => {
+        const r = [k];
+        d.sel.forEach(j => r.push(d.price[j][i] ?? '', d.vol[j][i] ?? ''));
+        if (d.total) r.push(d.tot[i] ?? '');
+        rows.push(r);
+    });
+    downloadCSV(`afrr_capacity_${d.dir}_HU_${d.year}_${d.freq}_${d.total ? 'total' : PRODUCTS[d.sel[0]].toLowerCase()}.csv`, toCSV(rows));
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+    const rerender = () => renderAfrr().catch(e => { console.error('aFRR load failed:', e.message); document.getElementById('afrrNoData').style.display = 'block'; });
+    document.getElementById('afrrYear').addEventListener('change', rerender);
+    ['afrrDir', 'afrrFreq', 'afrrSel'].forEach(g => document.querySelectorAll('#' + g + ' button').forEach(b => b.addEventListener('click', () => {
+        document.querySelectorAll('#' + g + ' button').forEach(x => x.classList.remove('active'));
+        b.classList.add('active');
+        rerender();
+    })));
+    loadAfrr('up').then(rows => {
+        if (rows.length) document.getElementById('afrrYear').value = rows[rows.length - 1].date.slice(0, 4);
+        rerender();
+    }).catch(e => { console.error('aFRR load failed:', e.message); document.getElementById('afrrNoData').style.display = 'block'; });
+});
+</script>
+</body>
+</html>

@@ -10,7 +10,7 @@
 //   3. /logout 退出登录。
 
 const PAGES = new Set([
-  "capacity", "capture-price", "generation-overview", "generation-type", "imbalance",
+  "capacity", "capture-price", "generation-overview", "generation-type", "imbalance", "balancing_afrr_capacity",
   "load", "price-intraday", "price-overview", "price-spread", "project",
 ]);
 const COOKIE = "dash_token";
@@ -126,7 +126,7 @@ export default {
     // 页面文件放在 html/ 里，但对外网址保持 /price-overview、/load.html 这样（不带 /html/）：
     // 在服务器内部把请求映射到 html/ 下的文件，浏览器地址栏不变。
     let assetReq = request;
-    const page = url.pathname.match(/^\/(?:html\/)?([a-z-]+?)(?:\.html)?$/);
+    const page = url.pathname.match(/^\/(?:html\/)?([a-z_-]+?)(?:\.html)?$/);
     if (url.pathname === "/nav.js") {
       assetReq = new Request(new URL("/html/nav.js", url), request);
     } else if (page && PAGES.has(page[1])) {

@@ -11,7 +11,7 @@ def test_codes():
 
 def test_output_layout_and_merge(tmp_path, monkeypatch):
     head = ("DateTime,ACCEPTED PRICE MIN (DAILY),WEIGHTED AVERAGE PRICE UP (HOURLY),WEIGHTED AVERAGE PRICE UP (DAILY),"
-            "WEIGHTED AVERAGE PRICE UP (MONTHLY),
+            "WEIGHTED AVERAGE PRICE UP (MONTHLY),"
             "VOLUME UP (HOURLY),VOLUME UP (DAILY),VOLUME UP (MONTHLY),TOTAL VOLUME (UP)\n"
             ",EUR/MW/h,EUR/MW/h,EUR/MW/h,EUR/MW/h,MW,MW,MW,MW\n")
 

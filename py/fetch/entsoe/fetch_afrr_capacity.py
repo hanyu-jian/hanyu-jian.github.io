@@ -4,7 +4,7 @@ ENTSOE API 数据更新脚本 — 罗马尼亚 aFRR 容量（Contracted reserves
 - 请求：documentType=A81, businessType=B95, Type_MarketAgreement.Type=A01, processType=A51（aFRR），
   controlArea_Domain=10YRO-TEL------P；按 offset 每 100 个 TimeSeries 翻页，单次请求不超过 1 年
 - 方向：flowDirection.direction A01 = up，A02 = down，分别写
-    data/entsoe/afrr/<up|down>/15min/RO_<年>.csv（按布加勒斯特当地时间的年份分文件）
+    data/entsoe/afrr/<up|down>/hourly/RO_<年>.csv（按布加勒斯特当地时间的年份分文件）
 - 列名和匈牙利 data/enappsys/afrr/capacity/<up|down>/15min/HU_<年>.csv 里的 DAILY 两列一致：
     datetime（带偏移的 ISO 当地时间，秋季回拨无歧义）、
     WEIGHTED AVERAGE PRICE <UP|DOWN> (DAILY) (EUR/MW/h)、VOLUME <UP|DOWN> (DAILY) (MW)
@@ -12,7 +12,8 @@ ENTSOE API 数据更新脚本 — 罗马尼亚 aFRR 容量（Contracted reserves
     EUR = RON × MNB_RON / MNB_EUR；用交付日当天或之前最近一个有牌价的日期（周末 / 节假日沿用前一个工作日）。
     XML 里币种本来就是 EUR 的 TimeSeries 不转换。
 - 同一方向同一时刻有多个 TimeSeries 时：容量相加，价格按容量加权平均
-- 1 小时的点展开成 4 个 15min；Point 省略的位置沿用前一个值（ENTSOE 的压缩规则）
+- 原始是 1 小时就保持 1 小时，不展开；若出现 30 / 15min 的点则按整点汇总（容量取平均，价格按容量加权）。
+  Point 省略的位置沿用前一个值（ENTSOE 的压缩规则）
 - 模式：
     --days-back 3            取 [今天-3 天, 明天]（默认，每日更新用，覆盖事后修正）
     --start/--end YYYY-MM-DD 补数：按交付日，起止都含
@@ -97,7 +98,7 @@ DELTA = {"PT15M": 15, "PT30M": 30, "PT60M": 60}
 
 
 def parse_xml(xml_bytes):
-    """返回 (n_timeseries, rows)；rows 每项是一个 15min 点：UTC 起点、方向、容量、价格、币种。"""
+    """返回 (n_timeseries, rows)；rows 每项是一个原始分辨率的点：UTC 起点、方向、容量、价格、币种。"""
     root = ET.fromstring(xml_bytes)
     if "Acknowledgement_MarketDocument" in root.tag:
         print(f"      [API] {root.findtext('.//{*}Reason/{*}text', default='unknown')}")
@@ -130,9 +131,8 @@ def parse_xml(xml_bytes):
                 last = points.get(pos, last)
                 if last is None:
                     continue
-                for k in range(res // 15):   # 1h / 30min 的点展开成 15min
-                    rows.append({"start": start + timedelta(minutes=res * (pos - 1) + 15 * k),
-                                 "direction": direction, "qty": last[0], "price": last[1], "currency": currency})
+                rows.append({"start": start + timedelta(minutes=res * (pos - 1)),
+                             "direction": direction, "qty": last[0], "price": last[1], "currency": currency})
     return n_ts, rows
 
 
@@ -160,15 +160,15 @@ def fetch_rows(start, end):
     return rows
 
 
-# ── 整理成 15min、折算欧元 ──────────────────────────────────
+# ── 整理成小时、折算欧元 ──────────────────────────────────
 
 def build_frames(rows, ron_per_eur):
-    """rows → {direction: DataFrame[datetime, price col, volume col]}，15min、当地时间。"""
+    """rows → {direction: DataFrame[datetime, price col, volume col]}，整点、当地时间。"""
     if not rows:
         return {}
     df = pd.DataFrame(rows)
     local = pd.DatetimeIndex(df["start"]).tz_localize("UTC").tz_convert(LOCAL_TZ)
-    df[TIME_COL] = [t.isoformat() for t in local]
+    df[TIME_COL] = [t.floor("h").isoformat() for t in local]   # 1h 原样；更细的点归到所在整点
     # RON → EUR：交付日（当地）当天或之前最近一个 MNB 牌价
     factor = ron_per_eur.reindex(pd.DatetimeIndex(local.tz_localize(None).normalize()), method="ffill").to_numpy()
     df["price_eur"] = df["price"].where(df["currency"] == "EUR", df["price"] * factor)
@@ -177,13 +177,20 @@ def build_frames(rows, ron_per_eur):
     unknown = set(df["currency"]) - {"RON", "EUR"}
     if unknown:
         sys.exit(f"未知币种 {unknown}，不会按 RON 折算")
+    df["slot"] = [t.isoformat() for t in local]
     df["pq"] = df["price_eur"] * df["qty"]
     out = {}
     for direction, part in df.groupby("direction"):
-        g = part.groupby(TIME_COL, sort=False)
-        vol = g["qty"].sum(min_count=1)
-        wavg = g["pq"].sum(min_count=1) / vol.where(vol > 0)
-        wavg = wavg.fillna(g["price_eur"].mean())   # 容量为 0 时退化成简单平均
+        # 同一时刻多个 TimeSeries：容量相加，价格按容量加权
+        g = part.groupby([TIME_COL, "slot"], sort=False)
+        slot = pd.DataFrame({"vol": g["qty"].sum(min_count=1), "pq": g["pq"].sum(min_count=1),
+                             "p": g["price_eur"].mean()}).reset_index()
+        slot["price"] = (slot["pq"] / slot["vol"].where(slot["vol"] > 0)).fillna(slot["p"])  # 容量为 0 时退化成简单平均
+        # 同一整点多个时刻（仅当原始比 1h 细）：容量取平均，价格按容量加权
+        slot["pq"] = slot["price"] * slot["vol"]
+        h = slot.groupby(TIME_COL, sort=False)
+        vol = h["vol"].mean()
+        wavg = (h["pq"].sum(min_count=1) / h["vol"].sum().where(h["vol"].sum() > 0)).fillna(h["price"].mean())
         frame = pd.DataFrame({price_col(direction): wavg.round(PRICE_DECIMALS), volume_col(direction): vol})
         out[direction] = frame.reset_index()
     return out
@@ -206,7 +213,7 @@ def main(argv=None):
     ap.add_argument("--end", help="YYYY-MM-DD（交付日，含），缺省为明天")
     ap.add_argument("--direction", choices=["up", "down"], help="缺省 up 和 down 都抓")
     ap.add_argument("--out-root", type=Path, default=OUT_ROOT_DEFAULT,
-                    help="输出到 <out-root>/<up|down>/15min/RO_<年>.csv")
+                    help="输出到 <out-root>/<up|down>/hourly/RO_<年>.csv")
     ap.add_argument("--mnb", type=Path, default=MNB_PATH_DEFAULT)
     a = ap.parse_args(argv)
 
@@ -226,7 +233,7 @@ def main(argv=None):
         new = frames[direction]
         t = pd.to_datetime(new[TIME_COL], utc=True)
         new = new[(t >= lo.tz_convert("UTC")) & (t < hi.tz_convert("UTC"))]   # 只留请求的交付日
-        out_dir = a.out_root / direction / "15min"
+        out_dir = a.out_root / direction / "hourly"
         out_dir.mkdir(parents=True, exist_ok=True)
         for year, part in new.groupby(new[TIME_COL].str[:4]):
             path = out_dir / f"RO_{year}.csv"

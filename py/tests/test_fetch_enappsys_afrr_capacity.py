@@ -36,13 +36,15 @@ def test_output_layout_and_merge(tmp_path, monkeypatch):
         assert len(text) == 3
 
 
-def test_fill_daily_volume():
+def test_fill_missing():
     import pandas as pd
-    df = pd.DataFrame({"datetime": list("abcd"), "p1": 0, "p2": 0, "p3": 0, "v1": 0,
-                       "vd": [None, 5.0, None, None], "vm": 0, "t": 0})
-    out = f.fill_daily_volume(df)
-    assert out["vd"].iloc[:2].tolist() == [0.0, 5.0]
-    assert out["vd"].iloc[2:].isna().all()  # 最后一个有值之后（未来）不补
+    nan = float("nan")
+    df = pd.DataFrame({"datetime": list("abcd"), "p1": [nan, 1.5, nan, nan], "p2": nan, "p3": nan, "vh": nan,
+                       "vd": [nan, 5.0, nan, nan], "vm": [nan, nan, 7.0, nan], "t": 0})
+    out = f.fill_missing(df)
+    assert out.iloc[0, 1:7].tolist() == ["-"] * 6
+    assert out["p1"].tolist()[:3] == ["-", 1.5, "-"] and out["vm"].tolist()[:3] == ["-", "-", 7.0]
+    assert out.iloc[3, 1:7].isna().all()  # 最后一个有值之后（未来）不填
 
 
 if __name__ == "__main__":

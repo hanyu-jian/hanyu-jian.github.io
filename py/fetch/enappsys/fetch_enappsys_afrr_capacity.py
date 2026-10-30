@@ -8,7 +8,7 @@ EnAppSys 下载脚本 — 匈牙利 aFRR 容量（capacity）up / down，15min
     down  hu/elec/ancillary/afrr/summary/down
 - 接口返回 14 列，只保留 7 列（列名原样、带单位，up / down 各自的名字）：
     WEIGHTED AVERAGE PRICE (HOURLY / DAILY / MONTHLY)、VOLUME (HOURLY / DAILY / MONTHLY)、TOTAL VOLUME
-  按名字匹配，对应不上就报错并打出全部列名；Daily 容量的空值补 0（只补到最后一个有值的时间点）；按时间合并进
+  按名字匹配，对应不上就报错并打出全部列名；价格 / 容量 6 列的空值写成 "-"（只写到最后一个有值的时间点，之后的未来时段保持为空）；按时间合并进
     data/enappsys/afrr/capacity/<up|down>/15min/HU_<年>.csv（按当地时间的年份分文件）
 - 时间列 datetime 的格式与 IDA 相同（带偏移的 ISO 时间，秋季回拨无歧义）
 - 模式：
@@ -46,16 +46,21 @@ def pick_columns(df):
         if len(hit) != 1:
             sys.exit(f"cannot map a single '{name} {period}' column from {list(df.columns)}")
         cols.append(hit[0])
-    return fill_daily_volume(df[[TIME_COL] + cols])
+    return df[[TIME_COL] + cols]
 
 
-def fill_daily_volume(df):
-    """Daily 容量（第 5 个数据列）空值补 0（该小时没有 daily 成交）；只补到最后一个有值的时间点，之后的未来时段保持为空。"""
-    col = df.columns[5]
-    last = df[col].last_valid_index()
+def fill_missing(df):
+    """6 个价格 / 容量列（WAP 与 Volume 的 Hourly / Daily / Monthly）的空值写成 "-"（该时段没有成交 / 没有数据，前端不再显示空灰格）；
+    只补到最后一个有值的时间点，之后的未来时段保持为空。TOTAL VOLUME 本来就有值。"""
+    cols = list(df.columns[1:7])
+    has = df[cols].notna().any(axis=1)
+    last = has[has].index.max() if has.any() else None
+    out = df.copy()
+    out[cols] = out[cols].astype(object)
     if last is not None:
-        df.loc[:last, col] = df.loc[:last, col].fillna(0)
-    return df
+        head = out.loc[:last, cols]
+        out.loc[:last, cols] = head.where(head.notna(), "-")
+    return out
 
 
 def main(argv=None):
@@ -88,9 +93,9 @@ def main(argv=None):
         out_dir.mkdir(parents=True, exist_ok=True)
         for year, part in new.groupby(new[TIME_COL].str[:4]):
             path = out_dir / f"HU_{year}.csv"
-            old = pd.read_csv(path, dtype={TIME_COL: str}) if path.exists() else None
+            old = pd.read_csv(path, dtype={TIME_COL: str}, na_values=["-"]) if path.exists() else None
             out = merge(old, part)
-            out.to_csv(path, index=False)
+            fill_missing(out).to_csv(path, index=False)
             print(f"{path}: +{len(part)} rows [{part[TIME_COL].iloc[0]} .. {part[TIME_COL].iloc[-1]}], "
                   f"file now {len(out)} rows")
 

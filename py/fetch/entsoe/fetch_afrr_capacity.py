@@ -4,13 +4,15 @@ ENTSOE API 数据更新脚本 — 罗马尼亚 aFRR 容量（Contracted reserves
 - 请求：documentType=A81, businessType=B95, Type_MarketAgreement.Type=A01, processType=A51（aFRR），
   controlArea_Domain=10YRO-TEL------P；按 offset 每 100 个 TimeSeries 翻页，单次请求不超过 1 年
 - 方向：flowDirection.direction A01 = up，A02 = down，分别写
-    data/entsoe/afrr/<up|down>/hourly/RO_<年>.csv（按布加勒斯特当地时间的年份分文件）
+    data/entsoe/afrr/<up|down>/hourly/RO_<年>.csv（按 CET/CEST 的年份分文件）
 - 列名和匈牙利 data/enappsys/afrr/capacity/<up|down>/15min/HU_<年>.csv 里的 DAILY 两列一致：
-    datetime（带偏移的 ISO 当地时间，秋季回拨无歧义）、
+    Date（CET/CEST 墙钟，小时起点，格式 "YYYY/M/D H:00"，和 data/entsoe/imbalance_price.csv 等其他 ENTSOE 小时表一致）、
     WEIGHTED AVERAGE PRICE <UP|DOWN> (DAILY) (EUR/MW/h)、VOLUME <UP|DOWN> (DAILY) (MW)
 - 价格：ENTSOE 给的是 RON，按 MNB 汇率（data/fx/MNB.csv，HUF/EUR 和 HUF/RON）折成 EUR：
     EUR = RON × MNB_RON / MNB_EUR；用交付日当天或之前最近一个有牌价的日期（周末 / 节假日沿用前一个工作日）。
     XML 里币种本来就是 EUR 的 TimeSeries 不转换。
+- 时间处理和其他 fetch_entsoe 脚本一致：请求边界、日期、年份文件都按 Europe/Brussels；Date 是墙钟小时，
+  每个当地小时一行：秋季回拨日 02:00 取两遍的平均，夏令时开始日 02:00 不存在，不写这一行
 - 同一方向同一时刻有多个 TimeSeries 时：容量相加，价格按容量加权平均
 - 原始是 1 小时就保持 1 小时，不展开；若出现 30 / 15min 的点则按整点汇总（容量取平均，价格按容量加权）。
   Point 省略的位置沿用前一个值（ENTSOE 的压缩规则）
@@ -35,13 +37,13 @@ import requests
 
 API_URL = "https://web-api.tp.entsoe.eu/api"
 RO_EIC = "10YRO-TEL------P"
-LOCAL_TZ = "Europe/Bucharest"
+LOCAL_TZ = "Europe/Brussels"   # 与其他 fetch_entsoe 脚本的 ENTSOE_DISPLAY_TZ 相同
 DIRECTIONS = {"A01": "up", "A02": "down"}
 PAGE_SIZE = 100
 CHUNK_DAYS = 365
 REQUEST_DELAY = 1.5
 TIMEOUT = 90
-TIME_COL = "datetime"
+TIME_COL = "Date"
 OUT_ROOT_DEFAULT = Path("data/entsoe/afrr")
 MNB_PATH_DEFAULT = Path("data/fx/MNB.csv")
 ENTSOE_FMT = "%Y%m%d%H%M"
@@ -163,12 +165,13 @@ def fetch_rows(start, end):
 # ── 整理成小时、折算欧元 ──────────────────────────────────
 
 def build_frames(rows, ron_per_eur):
-    """rows → {direction: DataFrame[datetime, price col, volume col]}，整点、当地时间。"""
+    """rows → {direction: DataFrame[Date, price col, volume col]}，整点、CET/CEST 墙钟。"""
     if not rows:
         return {}
     df = pd.DataFrame(rows)
     local = pd.DatetimeIndex(df["start"]).tz_localize("UTC").tz_convert(LOCAL_TZ)
-    df[TIME_COL] = [t.floor("h").isoformat() for t in local]   # 1h 原样；更细的点归到所在整点
+    # 当地墙钟小时 "YYYY/M/D H:00"；1h 原样，更细的点归到所在整点，回拨日 02:00 的两遍落在同一行后取平均
+    df[TIME_COL] = [f"{t.year}/{t.month}/{t.day} {t.hour}:00" for t in local]
     # RON → EUR：交付日（当地）当天或之前最近一个 MNB 牌价
     factor = ron_per_eur.reindex(pd.DatetimeIndex(local.tz_localize(None).normalize()), method="ffill").to_numpy()
     df["price_eur"] = df["price"].where(df["currency"] == "EUR", df["price"] * factor)
@@ -202,7 +205,7 @@ def merge(old, new):
     else:
         out = pd.concat([old.reindex(columns=new.columns), new])
     out = out[~out[TIME_COL].duplicated(keep="last")]
-    key = pd.to_datetime(out[TIME_COL], utc=True)
+    key = pd.to_datetime(out[TIME_COL], format="%Y/%m/%d %H:%M")
     return out.assign(_k=key).sort_values("_k").drop(columns="_k").reset_index(drop=True)
 
 
@@ -224,18 +227,18 @@ def main(argv=None):
     if not frames:
         sys.exit("no data rows returned")
 
-    lo = pd.Timestamp(start).tz_localize(LOCAL_TZ)
-    hi = pd.Timestamp(end + timedelta(days=1)).tz_localize(LOCAL_TZ)
+    lo = pd.Timestamp(start)
+    hi = pd.Timestamp(end + timedelta(days=1))
     for direction in ([a.direction] if a.direction else sorted(frames)):
         if direction not in frames:
             print(f"[{direction}] no data")
             continue
         new = frames[direction]
-        t = pd.to_datetime(new[TIME_COL], utc=True)
-        new = new[(t >= lo.tz_convert("UTC")) & (t < hi.tz_convert("UTC"))]   # 只留请求的交付日
+        t = pd.to_datetime(new[TIME_COL], format="%Y/%m/%d %H:%M")
+        new = new[(t >= lo) & (t < hi)]   # 只留请求的交付日
         out_dir = a.out_root / direction / "hourly"
         out_dir.mkdir(parents=True, exist_ok=True)
-        for year, part in new.groupby(new[TIME_COL].str[:4]):
+        for year, part in new.groupby(new[TIME_COL].str.split("/").str[0]):
             path = out_dir / f"RO_{year}.csv"
             old = pd.read_csv(path, dtype={TIME_COL: str}) if path.exists() else None
             out = merge(old, part)

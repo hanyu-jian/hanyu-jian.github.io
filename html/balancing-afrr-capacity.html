@@ -127,7 +127,10 @@
     <div class="controls">
         <div class="control-group">
             <label>🌍 Country</label>
-            <div class="country-static">HU</div>
+            <select class="ida-select" id="afrrCountry">
+                <option value="HU" selected>HU</option>
+                <option value="RO">RO</option>
+            </select>
         </div>
     </div>
 
@@ -171,7 +174,8 @@
                 </div>
                 <div class="no-data" id="afrrNoData" style="display:none"><p>No aFRR capacity data for this selection.</p></div>
                 <div id="afrrChart" style="width:100%; height:460px;"></div>
-                <div class="chart-note">Product selects the capacity product: Total = hourly + daily + monthly products (stacked volume, one price line per product); otherwise that product's volume and weighted average price. Period value = simple mean of the 15-min points that have a value (volume in MW is average power). Empty where there is no data.</div>
+                <div class="chart-note" id="afrrRoNote" style="display:none">RO: ENTSO-E daily aFRR capacity auction (only the Daily product), hourly resolution. Time = CET/CEST (start of the hour), same as the other ENTSO-E pages; the Romanian delivery day therefore starts at 23:00 of the previous day. Prices are converted from RON to EUR at the MNB rate of the delivery day. On the clock-change day the repeated 02:00 hour is averaged in the 15min/hourly views.</div>
+                <div class="chart-note" id="afrrHuNote">Product selects the capacity product: Total = hourly + daily + monthly products (stacked volume, one price line per product); otherwise that product's volume and weighted average price. Period value = simple mean of the 15-min points that have a value (volume in MW is average power). Empty where there is no data.</div>
             </div>
         </div>
 
@@ -207,8 +211,8 @@
     </div>
 
     <div class="info">
-        Data source: <a href="https://app.enappsys.com/" target="_blank">EnAppSys</a>
-        &nbsp;|&nbsp; aFRR capacity (HU) &nbsp;|&nbsp; Volume: MW &nbsp;|&nbsp; Price: €/MW/h &nbsp;|&nbsp; Author: Hanyu Jian
+        <span id="afrrSource">Data source: <a href="https://app.enappsys.com/" target="_blank">EnAppSys</a>
+        &nbsp;|&nbsp; aFRR capacity (HU)</span> &nbsp;|&nbsp; Volume: MW &nbsp;|&nbsp; Price: €/MW/h &nbsp;|&nbsp; Author: Hanyu Jian
     </div>
 </div>
 
@@ -218,7 +222,7 @@
 const PRODUCTS    = ['Hourly', 'Daily', 'Monthly'];
 const PRICE_COLORS = ['#457b9d', '#8e6bbf', '#2a9d8f'];
 const VOL_GREYS    = ['#ced4da', '#adb5bd', '#868e96'];
-const afrrData = {};      // direction -> [{date, ts, p:[3], v:[3], t}]
+const afrrData = {};      // 'HU:up' -> [{date, ts, p:[3], v:[3], t}]
 let afrrChart = null;
 let lastAfrrSeries = null;
 
@@ -238,6 +242,7 @@ function csvEscape(v) {
 }
 function toCSV(rows) { return rows.map(r => r.map(csvEscape).join(',')).join('\r\n'); }
 
+function afrrCountry() { return document.getElementById('afrrCountry').value; }
 function afrrDir()  { return document.querySelector('#afrrDir button.active').dataset.dir; }
 function afrrFreq() { return document.querySelector('#afrrFreq button.active').dataset.freq; }
 function afrrSelected() {
@@ -260,7 +265,9 @@ function periodKey(r, freq) {
 
 // columns: datetime, WAP hourly/daily/monthly, Volume hourly/daily/monthly, Total volume
 async function loadAfrr(dir) {
-    if (afrrData[dir]) return afrrData[dir];
+    const country = afrrCountry(), key = country + ':' + dir;
+    if (afrrData[key]) return afrrData[key];
+    if (country === 'RO') return (afrrData[key] = await loadAfrrRO(dir));
     const years = Array.from({ length: new Date().getFullYear() - 2023 }, (_, i) => 2024 + i);
     const texts = await Promise.all(years.map(y =>
         fetch(`/data/enappsys/afrr/capacity/${dir}/15min/HU_${y}.csv`).then(r => r.ok ? r.text() : null).catch(() => null)));
@@ -278,13 +285,54 @@ async function loadAfrr(dir) {
                         dp: [dash(c[1]), dash(c[2]), dash(c[3])], dv: [dash(c[4]), dash(c[5]), dash(c[6])] });
         }
     });
-    return (afrrData[dir] = rows);
+    return (afrrData[key] = rows);
+}
+
+// RO (ENTSO-E): Date "YYYY/M/D H:00" (CET/CEST hour start), daily-product price (EUR/MW/h) and volume (MW), one row per hour.
+// Mapped onto the HU row shape: only the Daily product (index 1) is filled.
+async function loadAfrrRO(dir) {
+    const years = Array.from({ length: new Date().getFullYear() - 2023 }, (_, i) => 2024 + i);
+    const texts = await Promise.all(years.map(y =>
+        fetch(`/data/entsoe/afrr/${dir}/hourly/RO_${y}.csv`).then(r => r.ok ? r.text() : null).catch(() => null)));
+    const f = x => { const n = parseFloat(x); return isNaN(n) ? null : n; };
+    const pad = n => String(n).padStart(2, '0');
+    const rows = [];
+    texts.filter(Boolean).forEach(t => {
+        const lines = t.trim().split(/\r?\n/);
+        for (let i = 1; i < lines.length; i++) {
+            const c = lines[i].split(',');
+            const m = c.length >= 3 && c[0].match(/^(\d+)\/(\d+)\/(\d+) (\d+):(\d+)$/);
+            if (!m) continue;
+            const date = `${m[1]}-${pad(m[2])}-${pad(m[3])}`, v = f(c[2]);
+            rows.push({ date, ts: `${date} ${pad(m[4])}:${m[5]}`, p: [null, f(c[1]), null], v: [null, v, null], t: v,
+                        dp: [false, false, false], dv: [false, false, false] });
+        }
+    });
+    return rows;
+}
+
+function applyCountryUI() {
+    const ro = afrrCountry() === 'RO';
+    const show = (sel, on) => document.querySelectorAll(sel).forEach(b => b.style.display = on ? '' : 'none');
+    const click = sel => { const b = document.querySelector(sel); if (b && !b.classList.contains('active')) b.click(); };
+    show('#afrrFreq button[data-freq="15min"]', !ro);
+    show('#afrrSel button[data-sel="total"], #afrrSel button[data-sel="0"], #afrrSel button[data-sel="2"]', !ro);
+    show('#hmProd button[data-prod="0"], #hmProd button[data-prod="2"]', !ro);
+    document.getElementById('afrrRoNote').style.display = ro ? '' : 'none';
+    document.getElementById('afrrHuNote').style.display = ro ? 'none' : '';
+    document.getElementById('afrrSource').innerHTML = ro
+        ? 'Data source: <a href="https://transparency.entsoe.eu/" target="_blank">ENTSO-E Transparency Platform</a> &nbsp;|&nbsp; aFRR capacity (RO), daily product, RON converted at MNB rate'
+        : 'Data source: <a href="https://app.enappsys.com/" target="_blank">EnAppSys</a> &nbsp;|&nbsp; aFRR capacity (HU)';
+    // RO only has the Daily product at hourly resolution; HU goes back to the page defaults
+    click(ro ? '#afrrFreq button[data-freq="hourly"]' : '#afrrFreq button[data-freq="15min"]');
+    click(ro ? '#afrrSel button[data-sel="1"]' : '#afrrSel button[data-sel="total"]');
+    click('#hmProd button[data-prod="1"]');
 }
 
 async function renderAfrr() {
-    const dir = afrrDir();
+    const dir = afrrDir(), country = afrrCountry();
     const rows = await loadAfrr(dir);
-    if (dir !== afrrDir()) return;   // direction changed while loading
+    if (dir !== afrrDir() || country !== afrrCountry()) return;   // direction / country changed while loading
     const year = document.getElementById('afrrYear').value;
     const freq = afrrFreq();
     const sel = afrrSelected();
@@ -308,7 +356,7 @@ async function renderAfrr() {
     const price = [0, 1, 2].map(j => keys.map(k => mean(acc.get(k).p[j], 2)));
     const vol   = [0, 1, 2].map(j => keys.map(k => mean(acc.get(k).v[j], 1)));
     const tot   = keys.map(k => mean(acc.get(k).t, 1));
-    lastAfrrSeries = { keys, price, vol, tot, freq, year, sel, dir, total };
+    lastAfrrSeries = { keys, price, vol, tot, freq, year, sel, dir, total, country };
     document.getElementById('afrrNoData').style.display = keys.length ? 'none' : 'block';
 
     // 15min / hourly open on the most recent month of the selected year; the slider widens the window
@@ -362,7 +410,7 @@ function exportAfrrCSV() {
         if (d.total) r.push(d.tot[i] ?? '');
         rows.push(r);
     });
-    downloadCSV(`afrr_capacity_${d.dir}_HU_${d.year}_${d.freq}_${d.total ? 'total' : PRODUCTS[d.sel[0]].toLowerCase()}.csv`, toCSV(rows));
+    downloadCSV(`afrr_capacity_${d.dir}_${d.country}_${d.year}_${d.freq}_${d.total ? 'total' : PRODUCTS[d.sel[0]].toLowerCase()}.csv`, toCSV(rows));
 }
 
 window.addEventListener('DOMContentLoaded', () => {
@@ -373,10 +421,16 @@ window.addEventListener('DOMContentLoaded', () => {
         b.classList.add('active');
         rerender();
     })));
-    loadAfrr('up').then(rows => {
+    const initYear = () => loadAfrr(afrrDir()).then(rows => {
         if (rows.length) document.getElementById('afrrYear').value = rows[rows.length - 1].date.slice(0, 4);
         rerender();
     }).catch(e => { console.error('aFRR load failed:', e.message); document.getElementById('afrrNoData').style.display = 'block'; });
+    initYear();
+    document.getElementById('afrrCountry').addEventListener('change', () => {
+        applyCountryUI();
+        initYear();
+        renderHeatmaps().catch(e => { console.error(e.message); document.getElementById('hmSpinner').classList.remove('show'); document.getElementById('hmNoData').style.display = 'block'; });
+    });
 });
 
 /* ================= Heatmap: hour of day x month, price (top) / volume (bottom) ================= */
@@ -474,16 +528,16 @@ function renderHmRow(host, title, data, unit, digits) {
 }
 
 async function renderHeatmaps() {
-    const dir = document.querySelector('#hmDir button.active').dataset.dir;
+    const dir = document.querySelector('#hmDir button.active').dataset.dir, country = afrrCountry();
     const spinner = document.getElementById('hmSpinner'), host = document.getElementById('hmContent');
     spinner.classList.add('show'); host.innerHTML = '';
     document.getElementById('hmNoData').style.display = 'none';
     const rows = await loadAfrr(dir);
-    if (dir !== document.querySelector('#hmDir button.active').dataset.dir) return;   // direction changed while loading
+    if (dir !== document.querySelector('#hmDir button.active').dataset.dir || country !== afrrCountry()) return;   // direction / country changed while loading
     spinner.classList.remove('show');
     if (!rows.length) { hmCache = null; document.getElementById('hmNoData').style.display = 'block'; return; }
     const hm = buildHeatmap(rows);
-    hmCache = { dir, ...hm };
+    hmCache = { dir, country, ...hm };
     const prod = +document.querySelector('#hmProd button.active').dataset.prod;
     renderHmRow(host, `Weighted average price – ${PRODUCTS[prod]}`, hm.price[prod], '€/MW/h', 1);
     const gap = document.createElement('div'); gap.style.height = '22px'; host.appendChild(gap);
@@ -502,7 +556,7 @@ function exportHeatmapCSV() {
             }
         });
     });
-    downloadCSV(`afrr_capacity_heatmap_${hmCache.dir}_${PRODUCTS[prod].toLowerCase()}_HU.csv`, toCSV(out));
+    downloadCSV(`afrr_capacity_heatmap_${hmCache.dir}_${PRODUCTS[prod].toLowerCase()}_${hmCache.country}.csv`, toCSV(out));
 }
 
 window.addEventListener('DOMContentLoaded', () => {

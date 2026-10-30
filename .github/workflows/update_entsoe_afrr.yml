@@ -1,0 +1,60 @@
+name: Daily ENTSOE RO aFRR Capacity Update
+on:
+  schedule:
+    - cron: "20 8 * * *"
+  workflow_dispatch:
+    inputs:
+      start_date:
+        description: "Backfill start delivery date, for example 2026-01-01. Empty = daily update (last 3 days)."
+        type: string
+        default: ""
+      end_date:
+        description: "Backfill end delivery date (inclusive), for example 2026-09-30. Empty = tomorrow."
+        type: string
+        default: ""
+
+# 与其他数据 workflow 共用同一个提交队列，避免同时 push 冲突
+concurrency:
+  group: data-commit
+  cancel-in-progress: false
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: pip install pandas requests
+
+      - name: Fetch RO aFRR capacity (daily, up/down)
+        env:
+          ENTSOE_TOKEN: ${{ secrets.ENTSOE_TOKEN }}
+          START_DATE: ${{ inputs.start_date }}
+          END_DATE: ${{ inputs.end_date }}
+        run: |
+          args=()
+          if [ -n "$START_DATE" ]; then
+            args+=(--start "$START_DATE")
+          fi
+          if [ -n "$END_DATE" ]; then
+            args+=(--end "$END_DATE")
+          fi
+          python py/fetch/entsoe/fetch_afrr_capacity.py "${args[@]}"
+
+      - name: Commit and push updated data
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/entsoe/afrr
+          git diff --cached --quiet || \
+            git commit -m "chore: update ENTSOE RO aFRR capacity $(date -u +'%Y-%m-%d')"
+          git pull --rebase origin "${GITHUB_REF_NAME}"
+          git push

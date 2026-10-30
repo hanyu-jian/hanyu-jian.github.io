@@ -271,8 +271,11 @@ async function loadAfrr(dir) {
         for (let i = 1; i < lines.length; i++) {
             const c = lines[i].split(',');
             if (c.length < 8 || !c[0]) continue;
+            // "-" in the CSV = recorded but nothing traded: null for the series math, flagged in d (price x3, volume x3) for the heatmap
+            const dash = x => x.trim() === '-';
             rows.push({ date: c[0].slice(0, 10), ts: c[0].slice(0, 16).replace('T', ' '),
-                        p: [f(c[1]), f(c[2]), f(c[3])], v: [f(c[4]), f(c[5]), f(c[6])], t: f(c[7]) });
+                        p: [f(c[1]), f(c[2]), f(c[3])], v: [f(c[4]), f(c[5]), f(c[6])], t: f(c[7]),
+                        dp: [dash(c[1]), dash(c[2]), dash(c[3])], dv: [dash(c[4]), dash(c[5]), dash(c[6])] });
         }
     });
     return (afrrData[dir] = rows);
@@ -382,7 +385,7 @@ const HM_YEARS = [2024, 2025, 2026];
 let hmCache = null;   // {dir, price:[3]{yr:[24][12]}, vol:[3]{yr:[24][12]}}
 
 function buildHeatmap(rows) {
-    const mk = () => Array.from({ length: 24 }, () => Array.from({ length: 12 }, () => ({ pv: [0, 0, 0], v: [0, 0, 0], vs: [0, 0, 0], vn: [0, 0, 0] })));
+    const mk = () => Array.from({ length: 24 }, () => Array.from({ length: 12 }, () => ({ pv: [0, 0, 0], v: [0, 0, 0], vs: [0, 0, 0], vn: [0, 0, 0], dp: [0, 0, 0], dv: [0, 0, 0] })));
     const acc = {}; HM_YEARS.forEach(y => acc[y] = mk());
     rows.forEach(r => {
         const y = +r.date.slice(0, 4);
@@ -390,12 +393,13 @@ function buildHeatmap(rows) {
         const c = acc[y][+r.ts.slice(11, 13)][+r.date.slice(5, 7) - 1];
         for (let j = 0; j < 3; j++) if (r.p[j] !== null && r.v[j] !== null && r.v[j] > 0) { c.pv[j] += r.p[j] * r.v[j]; c.v[j] += r.v[j]; }
         for (let j = 0; j < 3; j++) if (r.v[j] !== null) { c.vs[j] += r.v[j]; c.vn[j]++; }
+        for (let j = 0; j < 3; j++) { if (r.dp[j]) c.dp[j]++; if (r.dv[j]) c.dv[j]++; }
     });
     const price = [0, 1, 2].map(() => ({})), vol = [0, 1, 2].map(() => ({}));
     HM_YEARS.forEach(y => {
         for (let j = 0; j < 3; j++) {
-            price[j][y] = acc[y].map(row => row.map(c => c.v[j] > 0 ? c.pv[j] / c.v[j] : null));
-            vol[j][y]   = acc[y].map(row => row.map(c => c.vn[j] > 0 ? c.vs[j] / c.vn[j] : null));
+            price[j][y] = acc[y].map(row => row.map(c => c.v[j] > 0 ? c.pv[j] / c.v[j] : (c.dp[j] + c.dv[j] > 0 ? NaN : null)));   // NaN = "-" (nothing traded), null = no data
+            vol[j][y]   = acc[y].map(row => row.map(c => c.vn[j] > 0 ? c.vs[j] / c.vn[j] : (c.dv[j] > 0 ? NaN : null)));
         }
     });
     return { price, vol };
@@ -438,9 +442,10 @@ function renderHmRow(host, title, data, unit, digits) {
             for (let mo = 0; mo < 12; mo++) {
                 const cell = document.createElement('div'); cell.className = 'hm-cell';
                 const v = avg[h][mo];
-                cell.style.background = v !== null ? priceColor(v, ymn, ymx, ymid) : '#e9ecef';
-                cell.textContent = v !== null ? v.toFixed(digits) : '';
-                cell.dataset.tip = `${yr} · ${MONTHS[mo]} · H${String(h + 1).padStart(2, '0')} · ${v !== null ? v.toFixed(2) + ' ' + unit : 'no data'}`;
+                const dash = v !== null && Number.isNaN(v);   // "-": recorded but nothing traded -> lowest colour, not the grey no-data cell
+                cell.style.background = dash ? priceColor(ymn, ymn, ymx, ymid) : v !== null ? priceColor(v, ymn, ymx, ymid) : '#e9ecef';
+                cell.textContent = dash ? '-' : v !== null ? v.toFixed(digits) : '';
+                cell.dataset.tip = `${yr} · ${MONTHS[mo]} · H${String(h + 1).padStart(2, '0')} · ${dash ? '-' : v !== null ? v.toFixed(2) + ' ' + unit : 'no data'}`;
                 cells.appendChild(cell);
             }
             cells.addEventListener('mousemove', e => {
@@ -493,7 +498,7 @@ function exportHeatmapCSV() {
         HM_YEARS.forEach(y => {
             for (let h = 0; h < 24; h++) {
                 out.push([hmCache.dir, name, y, `H${String(h + 1).padStart(2, '0')}`,
-                    ...MONTHS.map((_, mo) => data[y][h][mo] === null ? '' : data[y][h][mo].toFixed(2))]);
+                    ...MONTHS.map((_, mo) => data[y][h][mo] === null ? '' : Number.isNaN(data[y][h][mo]) ? '-' : data[y][h][mo].toFixed(2))]);
             }
         });
     });

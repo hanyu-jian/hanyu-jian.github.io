@@ -11,10 +11,14 @@ ENTSOE API 数据更新脚本 — 罗马尼亚 aFRR 容量（Contracted reserves
 - 价格：ENTSOE 给的是 RON，按 MNB 汇率（data/fx/MNB.csv，HUF/EUR 和 HUF/RON）折成 EUR：
     EUR = RON × MNB_RON / MNB_EUR；用交付日当天或之前最近一个有牌价的日期（周末 / 节假日沿用前一个工作日）。
     XML 里币种本来就是 EUR 的 TimeSeries 不转换。
-- 时间处理和其他 fetch_entsoe 脚本一致：请求边界、日期、年份文件都按 Europe/Brussels；Date 是墙钟小时，
-  每个当地小时一行：秋季回拨日 02:00 取两遍的平均，夏令时开始日 02:00 不存在，不写这一行
+- 时间：Date 的标签和其他 fetch_entsoe 脚本一致，是 Europe/Brussels（CET/CEST）墙钟，年份文件也按这个标签；
+  和 ENTSOE 网页（CET/CEST）上的 ISP 起点逐行对得上。
+  交付日（--start/--end、请求窗口、MNB 牌价日期）按罗马尼亚当地（Europe/Bucharest）：罗马尼亚 10/1 这一天
+  从 Brussels 的 9/30 23:00 开始，所以文件第一行是前一天 23:00。
+- 不合并、不去重：原始数据是什么就写什么。秋季回拨日 02:00 出现两遍（先 CEST 后 CET），两行都保留，
+  夏令时开始日 02:00 本来就没有，不补。已有文件按「Date + 第几次出现」对齐覆盖。
 - 同一方向同一时刻有多个 TimeSeries 时：容量相加，价格按容量加权平均
-- 原始是 1 小时就保持 1 小时，不展开；若出现 30 / 15min 的点则按整点汇总（容量取平均，价格按容量加权）。
+- 原始是 1 小时就保持 1 小时，不展开；若出现 30 / 15min 的点则按真实整点汇总（容量取平均，价格按容量加权）。
   Point 省略的位置沿用前一个值（ENTSOE 的压缩规则）
 - 模式：
     --days-back 3            取 [今天-3 天, 明天]（默认，每日更新用，覆盖事后修正）
@@ -37,7 +41,8 @@ import requests
 
 API_URL = "https://web-api.tp.entsoe.eu/api"
 RO_EIC = "10YRO-TEL------P"
-LOCAL_TZ = "Europe/Brussels"   # 与其他 fetch_entsoe 脚本的 ENTSOE_DISPLAY_TZ 相同
+LOCAL_TZ = "Europe/Brussels"      # Date 标签，与其他 fetch_entsoe 脚本的 ENTSOE_DISPLAY_TZ 相同
+DELIVERY_TZ = "Europe/Bucharest"  # 交付日 / 请求窗口 / MNB 牌价日期
 DIRECTIONS = {"A01": "up", "A02": "down"}
 PAGE_SIZE = 100
 CHUNK_DAYS = 365
@@ -72,7 +77,7 @@ def load_ron_per_eur(path):
 # ── 请求 ────────────────────────────────────────────────────
 
 def local_midnight_utc(d):
-    return pd.Timestamp(d).tz_localize(LOCAL_TZ).tz_convert("UTC").strftime(ENTSOE_FMT)
+    return pd.Timestamp(d).tz_localize(DELIVERY_TZ).tz_convert("UTC").strftime(ENTSOE_FMT)
 
 
 def fetch_bytes(params, label):
@@ -165,48 +170,54 @@ def fetch_rows(start, end):
 # ── 整理成小时、折算欧元 ──────────────────────────────────
 
 def build_frames(rows, ron_per_eur):
-    """rows → {direction: DataFrame[Date, price col, volume col]}，整点、CET/CEST 墙钟。"""
+    """rows → {direction: DataFrame[Date, price col, volume col, _utc]}，按真实整点（UTC）一行、Date 是 CET/CEST 墙钟。
+    回拨日 02:00 的两遍是两个不同的 UTC 整点，各占一行，不合并。"""
     if not rows:
         return {}
     df = pd.DataFrame(rows)
-    local = pd.DatetimeIndex(df["start"]).tz_localize("UTC").tz_convert(LOCAL_TZ)
-    # 当地墙钟小时 "YYYY/M/D H:00"；1h 原样，更细的点归到所在整点，回拨日 02:00 的两遍落在同一行后取平均
-    df[TIME_COL] = [f"{t.year}/{t.month}/{t.day} {t.hour}:00" for t in local]
-    # RON → EUR：交付日（当地）当天或之前最近一个 MNB 牌价
-    factor = ron_per_eur.reindex(pd.DatetimeIndex(local.tz_localize(None).normalize()), method="ffill").to_numpy()
+    utc = pd.DatetimeIndex(df["start"]).tz_localize("UTC")
+    hour = utc.floor("h")                        # 1h 原样；更细的点归到所在的真实整点
+    label = hour.tz_convert(LOCAL_TZ)
+    df["_utc"] = hour.tz_localize(None)
+    df[TIME_COL] = [f"{t.year}/{t.month}/{t.day} {t.hour}:00" for t in label]
+    # RON → EUR：罗马尼亚交付日当天或之前最近一个 MNB 牌价
+    deliv = utc.tz_convert(DELIVERY_TZ).tz_localize(None).normalize()
+    factor = ron_per_eur.reindex(pd.DatetimeIndex(deliv), method="ffill").to_numpy()
     df["price_eur"] = df["price"].where(df["currency"] == "EUR", df["price"] * factor)
     if df.loc[df["currency"] == "RON", "price"].notna().any() and pd.isna(factor[(df["currency"] == "RON").to_numpy()]).any():
         sys.exit("MNB.csv 缺少部分交付日的 RON / EUR 牌价")
     unknown = set(df["currency"]) - {"RON", "EUR"}
     if unknown:
         sys.exit(f"未知币种 {unknown}，不会按 RON 折算")
-    df["slot"] = [t.isoformat() for t in local]
+    df["slot"] = df["start"]
     df["pq"] = df["price_eur"] * df["qty"]
     out = {}
     for direction, part in df.groupby("direction"):
         # 同一时刻多个 TimeSeries：容量相加，价格按容量加权
-        g = part.groupby([TIME_COL, "slot"], sort=False)
+        g = part.groupby(["_utc", TIME_COL, "slot"], sort=False)
         slot = pd.DataFrame({"vol": g["qty"].sum(min_count=1), "pq": g["pq"].sum(min_count=1),
                              "p": g["price_eur"].mean()}).reset_index()
         slot["price"] = (slot["pq"] / slot["vol"].where(slot["vol"] > 0)).fillna(slot["p"])  # 容量为 0 时退化成简单平均
         # 同一整点多个时刻（仅当原始比 1h 细）：容量取平均，价格按容量加权
         slot["pq"] = slot["price"] * slot["vol"]
-        h = slot.groupby(TIME_COL, sort=False)
+        h = slot.groupby(["_utc", TIME_COL], sort=True)
         vol = h["vol"].mean()
         wavg = (h["pq"].sum(min_count=1) / h["vol"].sum().where(h["vol"].sum() > 0)).fillna(h["price"].mean())
         frame = pd.DataFrame({price_col(direction): wavg.round(PRICE_DECIMALS), volume_col(direction): vol})
-        out[direction] = frame.reset_index()
+        out[direction] = frame.reset_index().loc[:, [TIME_COL, price_col(direction), volume_col(direction), "_utc"]]
     return out
 
 
 def merge(old, new):
-    if old is None or old.empty:
-        out = new
-    else:
-        out = pd.concat([old.reindex(columns=new.columns), new])
-    out = out[~out[TIME_COL].duplicated(keep="last")]
-    key = pd.to_datetime(out[TIME_COL], format="%Y/%m/%d %H:%M")
-    return out.assign(_k=key).sort_values("_k").drop(columns="_k").reset_index(drop=True)
+    """按 (Date, 第几次出现) 对齐：回拨日重复的 02:00 两行各自独立；新数据覆盖旧数据，不做平均。"""
+    parts = []
+    for f in (old, new):
+        if f is not None and not f.empty:
+            parts.append(f.reindex(columns=new.columns).assign(_occ=lambda x: x.groupby(TIME_COL).cumcount()))
+    out = pd.concat(parts)
+    out = out[~out.duplicated([TIME_COL, "_occ"], keep="last")]
+    out = out.assign(_t=pd.to_datetime(out[TIME_COL], format="%Y/%m/%d %H:%M"))
+    return out.sort_values(["_t", "_occ"]).drop(columns=["_t", "_occ"]).reset_index(drop=True)
 
 
 def main(argv=None):
@@ -227,15 +238,14 @@ def main(argv=None):
     if not frames:
         sys.exit("no data rows returned")
 
-    lo = pd.Timestamp(start)
-    hi = pd.Timestamp(end + timedelta(days=1))
+    lo = pd.Timestamp(start).tz_localize(DELIVERY_TZ).tz_convert("UTC").tz_localize(None)       # 罗马尼亚交付日
+    hi = pd.Timestamp(end + timedelta(days=1)).tz_localize(DELIVERY_TZ).tz_convert("UTC").tz_localize(None)
     for direction in ([a.direction] if a.direction else sorted(frames)):
         if direction not in frames:
             print(f"[{direction}] no data")
             continue
         new = frames[direction]
-        t = pd.to_datetime(new[TIME_COL], format="%Y/%m/%d %H:%M")
-        new = new[(t >= lo) & (t < hi)]   # 只留请求的交付日
+        new = new[(new["_utc"] >= lo) & (new["_utc"] < hi)].drop(columns="_utc")   # 只留请求的交付日
         out_dir = a.out_root / direction / "hourly"
         out_dir.mkdir(parents=True, exist_ok=True)
         for year, part in new.groupby(new[TIME_COL].str.split("/").str[0]):

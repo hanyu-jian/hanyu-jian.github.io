@@ -33,7 +33,7 @@ data/
   enappsys/  Montel / EnAppSys 数据（按年份拆分，避免单文件过大）
     IDA/HU_<年>.csv   HUPX 日内拍卖 IDA1/2/3 价格、成交量，15 分钟
     ID3/HU_<年>.csv   ID3 指数，列 Date, ID3, Vol（制表符分隔，日/月/年）；每天由 py/fetch/enappsys/fetch_enappsys_id3.py 接着往下更新（`update_enappsys.yml` 手动运行时可勾选 `ida_only` / `id3_only` / `afrr_capacity_only` 只更新其中一个）
-    afrr/capacity/<up|down>/15min/HU_<年>.csv   匈牙利 aFRR 容量，7 列：WAP(hourly/daily/monthly)、Volume(hourly/daily/monthly)、Total volume（Daily、Monthly 容量空值补 0）；由 py/fetch/enappsys/fetch_enappsys_afrr_capacity.py 更新
+    afrr/capacity/<up|down>/15min/HU_<年>.csv   匈牙利 aFRR 容量，7 列：WAP(hourly/daily/monthly)、Volume(hourly/daily/monthly)、Total volume（Hourly、Daily、Monthly 容量空值补 0）；由 py/fetch/enappsys/fetch_enappsys_afrr_capacity.py 更新
   fx/MNB.csv  匈牙利央行汇率（HUF per EUR / RON / PLN，工作日）
   mavir/imbalance/HU_<年>.csv  MAVIR System direction（及 10 月起的 preliminary 全部列），15 分钟；每天由 `update_mavir_imbalance.yml` 更新
   （HU 整合表不放在本仓库：`py/build/build_hu_combined.py` 生成，`build_combined.yml` 在上面几个数据 workflow 跑完后重建并推送到只含这一个文件的私有仓库 `hanyu-jian/hu-market-data`。同事用只授权该仓库的只读 token 通过 GitHub contents API 取：

@@ -8,7 +8,7 @@ EnAppSys 下载脚本 — 匈牙利 aFRR 容量（capacity）up / down，15min
     down  hu/elec/ancillary/afrr/summary/down
 - 接口返回 14 列，只保留 7 列（列名原样、带单位，up / down 各自的名字）：
     WEIGHTED AVERAGE PRICE (HOURLY / DAILY / MONTHLY)、VOLUME (HOURLY / DAILY / MONTHLY)、TOTAL VOLUME
-  按名字匹配，对应不上就报错并打出全部列名；Daily / Monthly 容量的空值补 0（只补到各列最后一个有值的时间点）；按时间合并进
+  按名字匹配，对应不上就报错并打出全部列名；三个容量列（Hourly/Daily/Monthly）的空值补 0（只补到任一容量列最后一个有值的时间点）；按时间合并进
     data/enappsys/afrr/capacity/<up|down>/15min/HU_<年>.csv（按当地时间的年份分文件）
 - 时间列 datetime 的格式与 IDA 相同（带偏移的 ISO 时间，秋季回拨无歧义）
 - 模式：
@@ -46,15 +46,16 @@ def pick_columns(df):
         if len(hit) != 1:
             sys.exit(f"cannot map a single '{name} {period}' column from {list(df.columns)}")
         cols.append(hit[0])
-    return fill_daily_volume(df[[TIME_COL] + cols])
+    return fill_volume(df[[TIME_COL] + cols])
 
 
-def fill_daily_volume(df):
-    """Daily / Monthly 容量（第 5、6 个数据列）空值补 0（该小时没有成交）；只补到各列最后一个有值的时间点，之后的未来时段保持为空。"""
-    for col in df.columns[5:7]:
-        last = df[col].last_valid_index()
-        if last is not None:
-            df.loc[:last, col] = df.loc[:last, col].fillna(0)
+def fill_volume(df):
+    """三个容量列（Hourly / Daily / Monthly，第 4、5、6 个数据列）空值补 0（该小时没有成交）；
+    只补到任一容量列最后一个有值的时间点，之后的未来时段保持为空。"""
+    cols = list(df.columns[4:7])
+    last = max((df[c].last_valid_index() for c in cols if df[c].last_valid_index() is not None), default=None)
+    if last is not None:
+        df.loc[:last, cols] = df.loc[:last, cols].fillna(0)
     return df
 
 

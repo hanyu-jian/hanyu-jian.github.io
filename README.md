@@ -10,6 +10,7 @@
 - [Generation 发电](#generation-overviewhtml)：[generation-overview](#generation-overviewhtml) · [generation-type](#generation-typehtml)
 - [Installed Capacity 装机](#capacityhtml)
 - [Project 项目](#projecthtml)
+- [Hungary Operations 运营数据（独立权限）](#hungary-operations-运营数据独立权限)
 
 ---
 
@@ -278,3 +279,31 @@ raw_data/<年>/  ENTSO-E 15 分钟原始数据（A44 日前价、A65 负荷、A8
 - 图：柱 = 容量（MW，左轴），线 = 加权平均价 WAP（€/MW/h，右轴）。Product = Total 时，柱为 hourly / daily / monthly 三个产品的堆叠（顶部即 Total volume），并画三条 WAP 线；选单个产品时只画该产品的容量和 WAP。
 - 周期值 = 该周期内 15 分钟点的简单平均（价格和容量各自只对有值的点求均值）。
 - Export CSV 导出当前图表所见的序列。
+
+
+---
+
+## Hungary Operations 运营数据（独立权限）
+
+入口：`project.html` 里 TOKAJ 卡片（点卡片或「🔒 运营数据 →」）→ `/ops/hungary`（文件 `ops/hungary-operations.html`）。
+
+**权限**：和看板完全分开。`gate/worker.js` 里 `/ops` 开头的一切（含大小写 / 重复斜杠 / 编码变体 / `hungary-operations` 文件名）只认
+`OPS_TOKENS`（Secret，`名字:token` 逗号分隔），登录页 `/ops/login`，Cookie `ops_token` 只在 `/ops` 路径下发送，`/ops/logout` 退出。
+普通 `DASHBOARD_TOKENS` 进不去 `/ops`，运营 token 也进不去普通页面；`OPS_TOKENS` 没配置时 `/ops` 返回 404，不影响其它页面。
+
+**数据**：页面请求 `/ops/api/production?site=&start=&end=&resolution=15min|hourly`，gate 只放行这四个参数，
+用 Secret `VCOM_API_KEY` 通过 Service binding `VCOM_API`（`wrangler.jsonc` 里指向 `vcom-api` Worker；
+没有绑定时用变量 `VCOM_API_URL`）调私有 vcom 仓库的 `/production` 接口（见 vcom 仓库 `api/worker.js`），
+数据不会进入本仓库、也不会出现在公开静态文件里。
+
+**部署清单**
+1. 先部署 vcom 仓库的 `api/`（`npx wrangler deploy`），确认 `API_KEYS` 里有一个给看板用的 key。
+2. 本 Worker 的 Secret 增加 `OPS_TOKENS`、`VCOM_API_KEY`（上一步的 key）。
+3. 部署本仓库（`wrangler.jsonc` 已声明 `VCOM_API` 绑定；vcom-api 的 Worker 名不是 `vcom-api` 的话要改这里）。
+
+**页面内容**：五个场站（及合计）的「实际发电量 vs 预测发电量」15 分钟 / 小时曲线 + 偏差柱，可选 6 个预测班次（DA / IDA1 / IDA2 / IDA3 / ID3），
+区间汇总表（实际 MWh、预测 MWh、偏差、绝对误差）。
+- 「实际」目前 = VCOM 理论发电量（`theoretical_kwh`，含 AC 限值、不含电网限电），不是电表实测。
+- 预测 = 乙方 power 预测（2026-09-24 之前为公式补算，见 vcom README）。
+- 之后做捕获率 / 捕获价格 / 限电率：在 `/production` 里加 `metered_kwh` 列，价格用本仓库 `data/entsoe`、`data/enappsys`；
+  限电率 = (理论 − 实测) / 理论。

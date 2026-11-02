@@ -112,8 +112,9 @@ tr.total td { font-weight: 700; background: #fafbfc; }
       <div class="scroll"><table id="sumTable"></table></div>
       <p class="note">
         <b>Theoretical production</b> is calculated from VCOM POA irradiance (includes the AC limit, excludes grid curtailment); it is not the meter reading.
-        Statistics only use intervals where theoretical production and the respective forecast are both available.
-        &ldquo;Abs. error&rdquo; = &Sigma;|forecast &minus; theoretical| / &Sigma;theoretical.
+        Statistics only use intervals where theoretical production and the respective forecast are both available.<br>
+        <b>Dev. %</b> = (&Sigma;forecast &minus; &Sigma;theoretical) / &Sigma;theoretical &mdash; net bias; over- and under-forecasts cancel out (negative = forecast too low overall).<br>
+        <b>Abs. error %</b> = &Sigma;|forecast &minus; theoretical| / &Sigma;theoretical &mdash; every interval&rsquo;s error counts in full, so errors do not cancel out.
       </p>
     </div>
   </div>
@@ -243,10 +244,10 @@ function summary(version) {
   rows.push({ name: "Total", cls: "total", da: stats(tt.t, tt.act, tt.da), rev: stats(tt.t, tt.act, tt.rev) });
   const pc = v => `<td class="${v >= 0 ? "pos" : "neg"}">${nf(v, 1)}%</td>`;
   $("sumTable").innerHTML = `<tr><th>Site</th><th>Theoretical MWh</th><th>Forecast DA MWh</th><th>DA dev. %</th><th>DA abs. error %</th>
-      <th>Forecast selected MWh</th><th>Selected dev. %</th><th>Selected abs. error %</th><th>Intervals</th></tr>` +
+      <th>Forecast selected MWh</th><th>Selected dev. %</th><th>Selected abs. error %</th></tr>` +
     rows.map(r => `<tr class="${r.cls || ""}"><td>${r.name}</td><td>${nf(r.rev.a, 1)}</td>
       <td>${nf(r.da.f, 1)}</td>${pc(r.da.devPct)}<td>${nf(r.da.mae, 1)}%</td>
-      <td>${nf(r.rev.f, 1)}</td>${pc(r.rev.devPct)}<td>${nf(r.rev.mae, 1)}%</td><td>${nf(r.rev.n)}</td></tr>`).join("");
+      <td>${nf(r.rev.f, 1)}</td>${pc(r.rev.devPct)}<td>${nf(r.rev.mae, 1)}%</td></tr>`).join("");
 }
 init();
 </script>

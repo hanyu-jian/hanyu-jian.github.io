@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex">
+<title>Hungary Operations</title>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background:#f8f9fa;color:#2c3e50}
+.top{background:#2c3e50;color:#fff;padding:16px 30px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.top h1{font-size:22px;font-weight:500}
+.top a{color:rgba(255,255,255,.75);text-decoration:none;font-size:13px;border:1px solid rgba(255,255,255,.35);padding:4px 11px;border-radius:5px}
+.top a:hover{color:#fff;background:rgba(255,255,255,.15)}
+.top .sp{flex:1}
+.wrap{max-width:1400px;margin:0 auto;padding:20px 30px 40px}
+.panel{background:#fff;border:1px solid #e6e9ed;border-radius:10px;padding:16px 18px;margin-bottom:16px}
+.controls{display:flex;flex-wrap:wrap;gap:14px 20px;align-items:flex-end}
+.ctl label{display:block;font-size:11px;font-weight:600;color:#6c757d;margin-bottom:4px;letter-spacing:.3px}
+.ctl select,.ctl input{padding:7px 10px;border:1px solid #d5dae0;border-radius:6px;font-size:13px;color:#2c3e50;background:#fff}
+.btn{padding:8px 18px;background:#2c3e50;color:#fff;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer}
+.btn:hover{background:#1a252f}
+.quick button{padding:6px 10px;margin-right:4px;border:1px solid #d5dae0;background:#fff;border-radius:6px;font-size:12px;cursor:pointer}
+.quick button:hover{background:#eef1f4}
+.sites{display:flex;flex-wrap:wrap;gap:6px}
+.sites button{padding:7px 14px;border:1px solid #d5dae0;background:#fff;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;color:#4a5560}
+.sites button.on{background:#2c3e50;color:#fff;border-color:#2c3e50}
+#chart,#chart2{width:100%}
+#chart{height:440px}#chart2{height:240px}
+h2{font-size:14px;font-weight:600;margin-bottom:10px}
+.note{font-size:12px;color:#6c757d;line-height:1.6}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th,td{padding:8px 10px;text-align:right;border-bottom:1px solid #eef0f3;white-space:nowrap}
+th:first-child,td:first-child{text-align:left}
+th{background:#f3f5f7;font-size:12px;color:#4a5560}
+tr.total td{font-weight:700;background:#fafbfc}
+.pos{color:#c0392b}.neg{color:#27ae60}
+.status{font-size:13px;color:#6c757d;margin-top:8px;min-height:18px}
+.err{color:#c0392b}
+.scroll{overflow-x:auto}
+</style>
+</head>
+<body>
+<div class="top">
+  <h1>Hungary Operations · TOKAJ 运营数据</h1>
+  <a href="/project.html">← Projects</a>
+  <span class="sp"></span>
+  <a href="/ops/logout">退出运营登录</a>
+</div>
+<div class="wrap">
+  <div class="panel">
+    <div class="controls">
+      <div class="ctl"><label>开始日期</label><input type="date" id="start"></div>
+      <div class="ctl"><label>结束日期</label><input type="date" id="end"></div>
+      <div class="ctl quick"><label>快捷</label>
+        <button data-d="1">昨天</button><button data-d="7">近 7 天</button><button data-d="30">近 30 天</button><button data-d="90">近 90 天</button>
+      </div>
+      <div class="ctl"><label>粒度</label>
+        <select id="res"><option value="15min">15 分钟</option><option value="hourly">小时</option></select></div>
+      <div class="ctl"><label>对比的预测班次</label><select id="fc"></select></div>
+      <button class="btn" id="go">查询</button>
+    </div>
+    <div class="status" id="status"></div>
+  </div>
+
+  <div class="panel">
+    <div class="sites" id="sites"></div>
+  </div>
+
+  <div class="panel">
+    <h2 id="chartTitle">实际发电量 vs 预测发电量</h2>
+    <div id="chart"></div>
+    <div id="chart2"></div>
+    <p class="note">曲线单位 kWh / 区间（15 分钟或小时），时间是布达佩斯当地时间、区间起点。下方偏差 = 预测 − 实际，正 = 预测偏高。</p>
+  </div>
+
+  <div class="panel">
+    <h2>各场站汇总（所选区间，仅统计「实际」与「预测」同时有值的时段）</h2>
+    <div class="scroll"><table id="sumTable"></table></div>
+    <p class="note" style="margin-top:10px">
+      <b>关于「实际发电量」：</b>目前使用的是 VCOM 辐照度算出的<b>理论发电量</b>（含 AC 限值，不含电网限电）。
+      以后接入电表实测值后，在 <code>theoretical_kwh</code> 之外增加 <code>metered_kwh</code>，
+      光伏捕获率 = Σ(实际×价格)/Σ实际 ÷ 基准电价、捕获价格、限电率 = (理论 − 实测)/理论 都可以在这个页面的数据上直接算。
+    </p>
+  </div>
+</div>
+
+<script>
+const SITES = ["Putnok", "Serenyfalva", "Sajokaza", "Szuhakálló 1", "Szuhakálló 2"];
+const COLORS = ["#2c7fb8", "#e67e22", "#27ae60", "#8e44ad", "#c0392b"];
+const FC = [  // value = 接口返回的列名
+  ["da", "DA（D-1 09:30）"], ["ida1", "IDA1（D-1 14:30）"], ["ida2", "IDA2（D-1 21:30）"],
+  ["ida3", "IDA3（D 09:30，12:00 起）"], ["id3_16_20", "ID3 16-20h（D 14:30）"], ["id3_11_15", "ID3 11-15h（D 09:30）"],
+];
+const $ = id => document.getElementById(id);
+let selected = "ALL";
+let store = {};          // site -> {columns, rows}
+let chart, chart2;
+
+const pad = n => String(n).padStart(2, "0");
+const fmtDate = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+function setRange(days) {
+  const e = new Date(); e.setDate(e.getDate() - 1);
+  const s = new Date(e); s.setDate(s.getDate() - (days - 1));
+  $("start").value = fmtDate(s); $("end").value = fmtDate(e);
+}
+
+function init() {
+  $("fc").innerHTML = FC.map(([v, l]) => `<option value="${v}">${l}</option>`).join("");
+  $("sites").innerHTML = ["ALL", ...SITES].map(s => `<button data-s="${s}">${s === "ALL" ? "全部场站（合计）" : s}</button>`).join("");
+  $("sites").onclick = e => { const b = e.target.closest("button"); if (!b) return; selected = b.dataset.s; paint(); };
+  document.querySelectorAll(".quick button").forEach(b => b.onclick = () => { setRange(+b.dataset.d); load(); });
+  $("go").onclick = load;
+  $("fc").onchange = paint;
+  $("res").onchange = () => { if ($("res").value === "15min") capRange(100); load(); };
+  chart = echarts.init($("chart")); chart2 = echarts.init($("chart2")); echarts.connect([chart, chart2]);
+  window.addEventListener("resize", () => { chart.resize(); chart2.resize(); });
+  setRange(7); load();
+}
+function capRange(maxDays) {
+  const e = new Date($("end").value), s = new Date($("start").value);
+  if ((e - s) / 86400000 + 1 > maxDays) { s.setTime(e.getTime() - (maxDays - 1) * 86400000); $("start").value = fmtDate(s); }
+}
+
+async function load() {
+  const res = $("res").value;
+  if (res === "15min") capRange(100);
+  const q = `start=${$("start").value}&end=${$("end").value}&resolution=${res}`;
+  $("status").className = "status"; $("status").textContent = "加载中…";
+  try {
+    const out = await Promise.all(SITES.map(async s => {
+      const r = await fetch(`/ops/api/production?site=${encodeURIComponent(s)}&${q}`, { credentials: "same-origin" });
+      if (r.status === 401) { location.href = "/ops/login?next=" + encodeURIComponent(location.pathname); throw new Error("登录已过期"); }
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(`${s}: ${j.error || r.status}`);
+      return [s, j];
+    }));
+    store = Object.fromEntries(out);
+    $("status").textContent = `已加载 ${SITES.length} 个场站，每站 ${store[SITES[0]].rows.length} 行`;
+    paint();
+  } catch (e) {
+    $("status").className = "status err"; $("status").textContent = "加载失败：" + e.message;
+  }
+}
+
+// 把每个场站整理成 {t:[], act:[], fc:[]}（fc 取当前选的班次）
+function series(site, fcKey) {
+  const d = store[site]; if (!d) return { t: [], act: [], fc: [] };
+  const ia = d.columns.indexOf("theoretical_kwh"), ifc = d.columns.indexOf(fcKey);
+  return { t: d.rows.map(r => r[0]), act: d.rows.map(r => r[ia]), fc: d.rows.map(r => r[ifc]) };
+}
+function total(fcKey) {   // 五站按时间戳相加；任一站缺值就当缺（合计要可比）
+  const m = new Map();
+  SITES.forEach(s => { const x = series(s, fcKey); x.t.forEach((t, i) => {
+    const o = m.get(t) || { a: 0, f: 0, na: 0, nf: 0 }; if (x.act[i] != null) { o.a += x.act[i]; o.na++; } if (x.fc[i] != null) { o.f += x.fc[i]; o.nf++; } m.set(t, o); }); });
+  const t = [...m.keys()].sort();
+  return { t, act: t.map(k => m.get(k).na === SITES.length ? m.get(k).a : null), fc: t.map(k => m.get(k).nf === SITES.length ? m.get(k).f : null) };
+}
+
+const nf = (v, d = 0) => v == null || isNaN(v) ? "–" : v.toLocaleString("en-US", { maximumFractionDigits: d, minimumFractionDigits: d });
+
+function paint() {
+  const fcKey = $("fc").value, fcLabel = FC.find(f => f[0] === fcKey)[1];
+  document.querySelectorAll("#sites button").forEach(b => b.classList.toggle("on", b.dataset.s === selected));
+  if (!Object.keys(store).length) return;
+  const x = selected === "ALL" ? total(fcKey) : series(selected, fcKey);
+  $("chartTitle").textContent = `${selected === "ALL" ? "全部场站合计" : selected} · 实际发电量 vs 预测发电量（${fcLabel}）`;
+  const dev = x.t.map((_, i) => x.act[i] != null && x.fc[i] != null ? x.fc[i] - x.act[i] : null);
+  const common = { animation: false, grid: { left: 70, right: 24, top: 36, bottom: 64 }, tooltip: { trigger: "axis" },
+    dataZoom: [{ type: "inside" }, { type: "slider", height: 18, bottom: 6 }], xAxis: { type: "category", data: x.t, axisLabel: { formatter: v => v.slice(5, 16) } } };
+  chart.setOption({ ...common, legend: { top: 4 }, yAxis: { type: "value", name: "kWh", nameLocation: "end" },
+    series: [
+      { name: "实际（VCOM 理论发电量）", type: "line", data: x.act, showSymbol: false, lineStyle: { width: 1.6, color: "#2c7fb8" }, itemStyle: { color: "#2c7fb8" }, areaStyle: { color: "rgba(44,127,184,.12)" } },
+      { name: "预测 · " + fcLabel, type: "line", data: x.fc, showSymbol: false, lineStyle: { width: 1.6, color: "#e67e22" }, itemStyle: { color: "#e67e22" } },
+    ] }, true);
+  chart2.setOption({ ...common, dataZoom: [{ type: "inside" }], grid: { left: 70, right: 24, top: 34, bottom: 30 }, yAxis: { type: "value", name: "预测−实际 kWh", nameLocation: "end" },
+    series: [{ name: "偏差", type: "bar", data: dev.map(v => v == null ? null : { value: v, itemStyle: { color: v >= 0 ? "#e08b84" : "#7fc79a" } }) }] }, true);
+  summary(fcKey);
+}
+
+function summary(fcKey) {
+  const rows = [];
+  const calc = (name, t, act, fc) => {
+    let a = 0, f = 0, ae = 0, n = 0, cap = 0;
+    t.forEach((_, i) => { if (act[i] != null && fc[i] != null) { a += act[i]; f += fc[i]; ae += Math.abs(fc[i] - act[i]); n++; } });
+    return { name, a: a / 1000, f: f / 1000, dev: f - a, devPct: a ? (f - a) / a * 100 : null, mae: a ? ae / a * 100 : null, n };
+  };
+  SITES.forEach(s => { const x = series(s, fcKey); rows.push(calc(s, x.t, x.act, x.fc)); });
+  const tt = total(fcKey); const tot = calc("合计", tt.t, tt.act, tt.fc); tot.cls = "total";
+  rows.push(tot);
+  $("sumTable").innerHTML = `<tr><th>场站</th><th>实际 MWh</th><th>预测 MWh</th><th>偏差 MWh</th><th>偏差 %</th><th>绝对误差 % (Σ|e|/Σ实际)</th><th>可比时段数</th></tr>` +
+    rows.map(r => `<tr class="${r.cls || ""}"><td>${r.name}</td><td>${nf(r.a, 1)}</td><td>${nf(r.f, 1)}</td>
+      <td class="${r.dev >= 0 ? "pos" : "neg"}">${nf(r.dev / 1000, 1)}</td><td class="${r.devPct >= 0 ? "pos" : "neg"}">${nf(r.devPct, 1)}%</td><td>${nf(r.mae, 1)}%</td><td>${nf(r.n)}</td></tr>`).join("");
+}
+init();
+</script>
+</body>
+</html>

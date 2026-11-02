@@ -288,7 +288,7 @@ raw_data/<年>/  ENTSO-E 15 分钟原始数据（A44 日前价、A65 负荷、A8
 入口：`project.html` 里点 TOKAJ 卡片 → `/ops/overview`（文件 `ops/ops-overview.html`）。页面全英文，样式和主看板一致：共用 `html/nav.js` 的头部（运营会话通过 `/ops/nav.js` 取到同一份），`/ops` 页面的一级导航是单独的 TOKAJ 标签（`nav.js` 里的 `OPS_NAV_ITEMS`），二级导航是 Overview / Capture Price；点左上角标题 “European Electricity Dashboard” 回到看板。
 
 **新增运营页面**：① 建 `ops/ops-<name>.html`（页首加 `<script src="/ops/nav.js"></script>`，并写好二级导航 `.sub-nav`）；② 把 `<name>` 加进 `gate/worker.js` 的 `OPS_PAGE_NAMES`；
-③ 在每个运营页的 `.sub-nav` 里加一项（目前有 Overview 和 Capture Price；后者是占位页）。对外地址是 `/ops/<name>`。
+③ 在每个运营页的 `.sub-nav` 里加一项（目前有 Overview 和 Capture Price）。对外地址是 `/ops/<name>`。
 
 **权限**：和看板完全分开。`gate/worker.js` 里 `/ops` 开头的一切（含大小写 / 重复斜杠 / 编码变体）只认
 `OPS_TOKENS`（Secret，`名字:token` 逗号分隔），登录页 `/ops/login`，Cookie `ops_token` 只在 `/ops` 路径下发送，`/ops/logout` 退出。
@@ -297,6 +297,8 @@ raw_data/<年>/  ENTSO-E 15 分钟原始数据（A44 日前价、A65 负荷、A8
 **数据**：页面请求 `/ops/api/production?site=&start=&end=&resolution=15min|hourly`，gate Worker 在服务端用 Secret `GITHUB_TOKEN`
 （fine-grained、只授权 `vcom` 仓库、Contents 只读）直接读私有 vcom 仓库的
 `data/theoretical production` 和 `data/production forecast`，按时间对齐后返回 JSON（列：`theoretical_kwh, da, ida1, ida2, ida3, id3_16_20, id3_11_15`）。
+另有两个接口给 Capture Price 页用（都只认运营 Cookie）：`/ops/api/theoretical?site=&year=` 原样转发 vcom 仓库整年的 15 分钟理论发电量 CSV（不解析，省 Worker CPU，边缘自动压缩）；
+`/ops/api/price` 转发本仓库 `data/entsoe/15min/price.csv`（运营 Cookie 只在 `/ops` 路径下发送，页面直接取 `/data/…` 会被拦）。
 token 只在服务端，不会发给浏览器；数据不会进入本仓库，也不在公开静态文件里。
 
 **部署清单**（Cloudflare → `energy-dashboard` → Settings → Variables and secrets，类型选 Secret）
@@ -311,3 +313,10 @@ token 只在服务端，不会发给浏览器；数据不会进入本仓库，�
   叠加顺序在 `ops-overview.html` 的 `CHAIN`，与 `py/analysis/tokaj_imbalance_price_calculation.py` 的 S/T/U/Y/Z 逻辑一致。
 - 汇总表只统计「理论发电量」和对应预测同时有值的时段；Abs. error = Σ|预测 − 理论| / Σ理论。
 - 以后做捕获率 / 捕获价格 / 限电率：在 `/production` 里加 `metered_kwh`，价格用本仓库 `data/entsoe`、`data/enappsys`，限电率 = (理论 − 实测) / 理论。
+
+**Capture Price 页面口径**（`ops-capture-price.html`，目前只有一张图）
+- 图 = `html/capture-price.html` 里 “Solar Capture Price – HU” 那张 Deep Dive 图的复刻（Daily / Weekly / Monthly / Quarterly / Yearly；Daily 选年份，其余画全部年份；Price / Ratio 切换；Export CSV），没有风电。
+- 顶部 All sites / 五个场站按钮。All sites = 五站理论发电量逐 15 分钟相加（某站该时段无值按 0）。
+- 发电量用 vcom 的 15 分钟理论发电量（kWh），电价和基荷价用 `entsoe/15min/price.csv` 的 `HU` 列，按时间戳（布达佩斯当地时间、区间起点）对齐；公式与 capture-price 页完全一致：
+  `Capture Price pre = Σ(g·p)/Σg`，`post` 把价格 ≤ 0 的时段发电量记 0，`Ratio = Capture Price / Baseload`，非正价时长 = 价格 ≤ 0 的点数 × 0.25 h，基荷价 = 价格简单平均。
+- 只统计所选场站（All sites 为五站并集）有理论发电量数据的时间窗口内的价格点，这样基荷价和捕获价口径一致（场站投运前的价格不计入）。

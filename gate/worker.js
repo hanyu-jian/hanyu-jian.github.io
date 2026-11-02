@@ -222,6 +222,22 @@ async function handleProduction(url, env) {
 
 
 
+// ── /theoretical：整年的 15 分钟理论发电量 CSV（原样转发，不解析，省 CPU）──────────────
+// Capture Price 页面需要 2024 年至今的全部 15 分钟数据，/production 单次最多 100 天，所以另开这个接口。
+// 返回 vcom 仓库里 data/theoretical production/<年>/15min/<场站>.csv 的原文（列：Date, POA, MWh, kWh），边缘会自动压缩。
+async function handleTheoretical(url, env) {
+  const site = url.searchParams.get("site");
+  const year = url.searchParams.get("year") || "";
+  if (!SITES.includes(site)) return json({ error: `site must be one of ${SITES.join(" / ")}` }, 400);
+  if (!/^\d{4}$/.test(year) || Number(year) < FIRST_YEAR || Number(year) > FIRST_YEAR + 20)
+    return json({ error: `year must be ${FIRST_YEAR} or later` }, 400);
+  const text = await loadFile(env, `data/theoretical production/${year}/15min/${encodeURIComponent(site)}.csv`);
+  if (text === null) return json({ error: "No data for this site / year" }, 404);
+  return new Response(text, {
+    headers: { "content-type": "text/csv; charset=utf-8", "Cache-Control": "private, no-store", "X-Robots-Tag": "noindex" },
+  });
+}
+
 // ── 运营数据（/ops/…）：独立的 token 和 Cookie，Cookie 只在 /ops 路径下发送 ──────────────
 const OPS_LOGIN = { action: "/ops/login", title: "Operations Access", sub: "Enter your operations access token" };
 
@@ -271,6 +287,26 @@ async function handleOps(request, env, url, path) {
     } catch (e) {
       return json({ error: String(e.message || e) }, 502);
     }
+  }
+
+  if (path === "/ops/api/theoretical") {
+    if (request.method !== "GET") return new Response("Method not allowed", { status: 405 });
+    if (!env.GITHUB_TOKEN) return json({ error: "GITHUB_TOKEN is not configured" }, 500);
+    try {
+      return await handleTheoretical(url, env);
+    } catch (e) {
+      return json({ error: String(e.message || e) }, 502);
+    }
+  }
+
+  // 日前价（15 分钟，各国一张宽表）：运营 Cookie 只在 /ops 下发送，页面拿不到 /data/ 下的文件，所以在这里转发
+  if (path === "/ops/api/price") {
+    if (request.method !== "GET") return new Response("Method not allowed", { status: 405 });
+    const res = await env.ASSETS.fetch(new Request(new URL("/data/entsoe/15min/price.csv", url)));
+    if (!res.ok) return json({ error: "Price data unavailable" }, 502);
+    return new Response(res.body, {
+      headers: { "content-type": "text/csv; charset=utf-8", "Cache-Control": "private, no-store", "X-Robots-Tag": "noindex" },
+    });
   }
 
   const clean = path.replace(/\/+$/, "");

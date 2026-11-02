@@ -11,8 +11,8 @@
 //
 // 运营数据（/ops/…，匈牙利五个场站的发电量）使用「完全独立」的另一套 token：
 //   OPS_TOKENS = alice:optoken1,bob:optoken2   同样是 Secret；和 DASHBOARD_TOKENS 互不通用
-//   VCOM_API_KEY = 私有 vcom-api Worker 的 X-API-Key（API_KEYS 里的某一项），Secret
-//   VCOM_API（Service binding，wrangler.jsonc 里已声明，指向 vcom-api）；没有绑定时退回用 VCOM_API_URL 变量
+//   GITHUB_TOKEN = 只读（Contents: Read-only）、只授权 vcom 仓库的 fine-grained token，Secret；用来读私有 vcom 仓库的发电量 CSV
+//   GITHUB_REPO  = 可选变量，默认 hanyu-jian/vcom
 // 运营 token 只能打开 /ops/ 下的页面和接口；普通看板 token 打不开 /ops/，反过来运营 token 也打不开普通页面。
 // OPS_TOKENS 没配置时 /ops/ 一律拒绝，不影响其它页面。
 
@@ -23,7 +23,6 @@ const PAGES = new Set([
 const COOKIE = "dash_token";
 const OPS_COOKIE = "ops_token";
 const OPS_PAGES = { "/ops/hungary": "/ops/hungary-operations" }; // 对外地址 → ops/ 目录里的文件
-const OPS_API_PARAMS = ["site", "start", "end", "resolution"];
 const MAX_AGE = 60 * 60 * 24 * 30;
 
 const esc = (s) =>
@@ -97,6 +96,130 @@ button:hover{background:#1e2b38}.err{color:#e74c3c;font-size:.9rem;margin-top:14
   });
 }
 
+// ── 读取私有 vcom 仓库的发电量 CSV（用 Secret GITHUB_TOKEN，只读 Contents）──────────────
+// 需要：Secret GITHUB_TOKEN（fine-grained，只授权 vcom 仓库，Contents: Read-only）；变量 GITHUB_REPO 可选，默认 hanyu-jian/vcom
+const SITES = ["Putnok", "Serenyfalva", "Sajokaza", "Szuhakálló 1", "Szuhakálló 2"];
+const FIRST_YEAR = 2024;
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const json = (obj, status = 200) =>
+  new Response(JSON.stringify(obj), {
+    status,
+    headers: { "content-type": "application/json; charset=utf-8", "Cache-Control": "private, no-store", "X-Robots-Tag": "noindex" },
+  });
+
+const nextDay = (d) => new Date(Date.parse(d + "T00:00:00Z") + 86400000).toISOString().slice(0, 10);
+const daysBetween = (a, b) => (Date.parse(b) - Date.parse(a)) / 86400000;
+
+// 第一个时间戳 >= key 的行的起始位置。CSV 按时间升序，直接对文本做二分，不用把整个文件解析成数组
+// （免费版 Worker 每次请求只有约 10ms CPU，解析几万行会超）。
+function lowerBound(text, key, lo) {
+  let hi = text.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    let ls = text.lastIndexOf("\n", mid - 1) + 1;
+    if (ls < lo) ls = lo;
+    if (text.substr(ls, 19) < key) {
+      const nl = text.indexOf("\n", ls);
+      lo = nl === -1 ? hi : nl + 1;
+    } else {
+      hi = ls;
+    }
+  }
+  return lo;
+}
+
+async function loadFile(env, path) {
+  const res = await fetch(`https://api.github.com/repos/${env.GITHUB_REPO || "hanyu-jian/vcom"}/contents/${path}`, {
+    headers: {
+      Authorization: `Bearer ${env.GITHUB_TOKEN}`,
+      Accept: "application/vnd.github.raw+json",
+      "User-Agent": "energy-dashboard",
+      "X-GitHub-Api-Version": "2022-11-28",
+    },
+    cf: { cacheEverything: true, cacheTtl: 600 }, // 数据一天才更新一次，边缘缓存 10 分钟
+  });
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(`GitHub ${res.status}`);
+  let text = await res.text();
+  if (text.charCodeAt(0) === 0xfeff) text = text.slice(1);
+  return text;
+}
+
+// ── /production：理论发电量 + 预测发电量 ─────────────────────────────────────
+// 两个目录的 15min / hourly 都是布达佩斯当地时间、区间起点标签，可以直接按时间戳对齐。
+const PROD_RESOLUTIONS = ["15min", "hourly"];
+const PROD_MAX_DAYS = { "15min": 100, hourly: 400 }; // 免费版 Worker CPU 很紧，15min 一次别查太久
+const PROD_COLUMNS = ["theoretical_kwh", "da", "ida1", "ida2", "ida3", "id3_16_20", "id3_11_15"];
+
+// 取出 [startKey, endKey) 的行，返回 Map<时间戳, 数值数组>；valueCols 是要取的列下标
+function sliceRows(text, startKey, endKey, valueCols, into, slot, width) {
+  const nl = text.indexOf("\n");
+  const dataStart = nl + 1;
+  const a = lowerBound(text, startKey, dataStart);
+  const b = lowerBound(text, endKey, dataStart);
+  if (b <= a) return;
+  for (const line of text.slice(a, b).split("\n")) {
+    if (!line) continue;
+    const f = line.replace(/\r/g, "").split(",");
+    let row = into.get(f[0]);
+    if (!row) {
+      row = new Array(width).fill(null);
+      into.set(f[0], row);
+    }
+    valueCols.forEach((c, k) => {
+      const v = f[c];
+      row[slot + k] = v === undefined || v === "" ? null : Number(v);
+    });
+  }
+}
+
+async function handleProduction(url, env) {
+  const q = url.searchParams;
+  const site = q.get("site");
+  const start = q.get("start");
+  const end = q.get("end") || start;
+  const resolution = q.get("resolution") || "15min";
+
+  if (!SITES.includes(site)) return json({ error: `site 必须是 ${SITES.join(" / ")}` }, 400);
+  if (!PROD_RESOLUTIONS.includes(resolution)) return json({ error: "resolution 必须是 15min 或 hourly" }, 400);
+  if (!DATE_RE.test(start || "") || !DATE_RE.test(end) || Number.isNaN(Date.parse(start)) || Number.isNaN(Date.parse(end)))
+    return json({ error: "start / end 格式应为 YYYY-MM-DD" }, 400);
+  if (end < start) return json({ error: "end 不能早于 start" }, 400);
+  if (daysBetween(start, end) + 1 > PROD_MAX_DAYS[resolution])
+    return json({ error: `${resolution} 一次最多查询 ${PROD_MAX_DAYS[resolution]} 天` }, 400);
+
+  const startKey = `${start} 00:00:00`;
+  const endKey = `${nextDay(end)} 00:00:00`;
+  const y0 = Math.max(FIRST_YEAR, Number(start.slice(0, 4)));
+  const y1 = Number(end.slice(0, 4));
+  const name = encodeURIComponent(site);
+
+  const merged = new Map();
+  let any = false;
+  for (let y = y0; y <= y1; y++) {
+    const [theo, fc] = await Promise.all([
+      loadFile(env, `data/theoretical production/${y}/${resolution}/${name}.csv`),
+      loadFile(env, `data/production forecast/${y}/${resolution}/${name}.csv`),
+    ]);
+    // theoretical 列：Date, POA, MWh, kWh → 取第 3 列；forecast 列：Date, I..N → 取第 1~6 列
+    if (theo) { any = true; sliceRows(theo, startKey, endKey, [3], merged, 0, PROD_COLUMNS.length); }
+    if (fc) { any = true; sliceRows(fc, startKey, endKey, [1, 2, 3, 4, 5, 6], merged, 1, PROD_COLUMNS.length); }
+  }
+  if (!any) return json({ error: "没有这个场站/时间段的数据" }, 404);
+
+  const rows = [...merged.entries()].sort((a, b) => (a[0] < b[0] ? -1 : 1)).map(([t, v]) => [t, ...v]);
+  return json({
+    site,
+    resolution,
+    unit: "kWh per interval",
+    timezone: "Europe/Budapest (local time, interval start)",
+    columns: ["Date", ...PROD_COLUMNS],
+    rows,
+  });
+}
+
+
+
 // ── 运营数据（/ops/…）：独立的 token 和 Cookie，Cookie 只在 /ops 路径下发送 ──────────────
 const OPS_LOGIN = { action: "/ops/login", title: "Operations Access", sub: "Enter your operations access token" };
 
@@ -137,32 +260,15 @@ async function handleOps(request, env, url, path) {
     return new Response("Unauthorized", { status: 401, headers: { "Cache-Control": "no-store" } });
   }
 
-  // 数据接口：只放行白名单参数，用服务端保存的 key 去调私有的 vcom-api
+  // 数据接口：直接用服务端的 GITHUB_TOKEN 读私有 vcom 仓库，token 不会发给浏览器
   if (path === "/ops/api/production") {
     if (request.method !== "GET") return new Response("Method not allowed", { status: 405 });
-    if (!env.VCOM_API_KEY || !(env.VCOM_API || env.VCOM_API_URL)) {
-      return new Response(JSON.stringify({ error: "VCOM_API / VCOM_API_KEY 还没有配置" }), {
-        status: 500, headers: { "content-type": "application/json", "Cache-Control": "no-store" },
-      });
-    }
-    const q = new URLSearchParams();
-    for (const k of OPS_API_PARAMS) if (url.searchParams.has(k)) q.set(k, url.searchParams.get(k));
-    const init = { headers: { "X-API-Key": env.VCOM_API_KEY } };
-    let up;
+    if (!env.GITHUB_TOKEN) return json({ error: "GITHUB_TOKEN 还没有配置" }, 500);
     try {
-      up = env.VCOM_API
-        ? await env.VCOM_API.fetch(`https://vcom-api/production?${q}`, init)
-        : await fetch(`${env.VCOM_API_URL.replace(/\/+$/, "")}/production?${q}`, init);
+      return await handleProduction(url, env);
     } catch (e) {
-      return new Response(JSON.stringify({ error: "无法连接 vcom-api: " + String(e.message || e) }), {
-        status: 502, headers: { "content-type": "application/json", "Cache-Control": "no-store" },
-      });
+      return json({ error: String(e.message || e) }, 502);
     }
-    const out = new Response(up.body, { status: up.status });
-    out.headers.set("content-type", "application/json; charset=utf-8");
-    out.headers.set("Cache-Control", "private, no-store");
-    out.headers.set("X-Robots-Tag", "noindex");
-    return out;
   }
 
   const file = OPS_PAGES[path.replace(/\/+$/, "")];

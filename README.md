@@ -291,15 +291,16 @@ raw_data/<年>/  ENTSO-E 15 分钟原始数据（A44 日前价、A65 负荷、A8
 `OPS_TOKENS`（Secret，`名字:token` 逗号分隔），登录页 `/ops/login`，Cookie `ops_token` 只在 `/ops` 路径下发送，`/ops/logout` 退出。
 普通 `DASHBOARD_TOKENS` 进不去 `/ops`，运营 token 也进不去普通页面；`OPS_TOKENS` 没配置时 `/ops` 返回 404，不影响其它页面。
 
-**数据**：页面请求 `/ops/api/production?site=&start=&end=&resolution=15min|hourly`，gate 只放行这四个参数，
-用 Secret `VCOM_API_KEY` 通过 Service binding `VCOM_API`（`wrangler.jsonc` 里指向 `vcom-api` Worker；
-没有绑定时用变量 `VCOM_API_URL`）调私有 vcom 仓库的 `/production` 接口（见 vcom 仓库 `api/worker.js`），
-数据不会进入本仓库、也不会出现在公开静态文件里。
+**数据**：页面请求 `/ops/api/production?site=&start=&end=&resolution=15min|hourly`，gate Worker 在服务端用 Secret `GITHUB_TOKEN`
+（fine-grained、只授权 `vcom` 仓库、Contents 只读）直接读私有 vcom 仓库的
+`data/theoretical production` 和 `data/production forecast`，按时间对齐后返回 JSON。
+token 只在服务端，不会发给浏览器；数据不会进入本仓库，也不在公开静态文件里。
 
-**部署清单**
-1. 先部署 vcom 仓库的 `api/`（`npx wrangler deploy`），确认 `API_KEYS` 里有一个给看板用的 key。
-2. 本 Worker 的 Secret 增加 `OPS_TOKENS`、`VCOM_API_KEY`（上一步的 key）。
-3. 部署本仓库（`wrangler.jsonc` 已声明 `VCOM_API` 绑定；vcom-api 的 Worker 名不是 `vcom-api` 的话要改这里）。
+**部署清单**（Cloudflare → `energy-dashboard` → Settings → Variables and Secrets，类型选 Secret）
+1. `OPS_TOKENS`：运营口令，`名字:token`，多个用逗号隔开。
+2. `GITHUB_TOKEN`：上面说的只读 token。
+3. （可选）变量 `GITHUB_REPO`，默认 `hanyu-jian/vcom`。
+4. 保存后重新部署（合并到 main 会自动部署）。
 
 **页面内容**：五个场站（及合计）的「实际发电量 vs 预测发电量」15 分钟 / 小时曲线 + 偏差柱，可选 6 个预测班次（DA / IDA1 / IDA2 / IDA3 / ID3），
 区间汇总表（实际 MWh、预测 MWh、偏差、绝对误差）。

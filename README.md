@@ -285,10 +285,10 @@ raw_data/<年>/  ENTSO-E 15 分钟原始数据（A44 日前价、A65 负荷、A8
 
 ## Hungary Operations 运营数据（独立权限）
 
-入口：`project.html` 里点 TOKAJ 卡片 → `/ops/overview`（文件 `ops/ops-overview.html`）。页面全英文，顶部是公共头部 + 二级导航（`ops/ops-nav.js`）。
+入口：`project.html` 里点 TOKAJ 卡片 → `/ops/overview`（文件 `ops/ops-overview.html`）。页面全英文，样式和主看板一致：共用 `html/nav.js` 的头部（运营会话通过 `/ops/nav.js` 取到同一份），`/ops` 页面归在 Projects 标签下；点左上角标题 / Projects 标签 / 二级导航的 Portfolio Overview 都能回到看板。
 
-**新增运营页面**：① 建 `ops/ops-<name>.html`（页首加 `<script src="/ops/ops-nav.js"></script>`）；② 把 `<name>` 加进 `gate/worker.js` 的 `OPS_PAGE_NAMES`；
-③ 在 `ops/ops-nav.js` 的 `OPS_NAV` 里加一项（例如 Capture Price 已留好注释）。对外地址是 `/ops/<name>`。
+**新增运营页面**：① 建 `ops/ops-<name>.html`（页首加 `<script src="/ops/nav.js"></script>`，并写好二级导航 `.sub-nav`）；② 把 `<name>` 加进 `gate/worker.js` 的 `OPS_PAGE_NAMES`；
+③ 在每个运营页的 `.sub-nav` 里加一项（`ops-overview.html` 里已留好 Ops Capture Price 的注释行）。对外地址是 `/ops/<name>`。
 
 **权限**：和看板完全分开。`gate/worker.js` 里 `/ops` 开头的一切（含大小写 / 重复斜杠 / 编码变体）只认
 `OPS_TOKENS`（Secret，`名字:token` 逗号分隔），登录页 `/ops/login`，Cookie `ops_token` 只在 `/ops` 路径下发送，`/ops/logout` 退出。

@@ -117,7 +117,11 @@
   const pageName = p => (String(p).split(/[?#]/)[0].replace(/\/+$/, '').split('/').pop() || '').replace(/\.html$/, '');
   const currentPage = pageName(window.location.pathname);
 
+  // /ops/… 页面属于 Projects 这个一级标签
+  const inOps = /^\/ops(\/|$)/i.test(window.location.pathname);
+
   function isActive(item) {
+    if (inOps) return item.href === 'project.html';
     return (item.match || [item.href]).some(h => pageName(h) === currentPage);
   }
 
@@ -137,13 +141,13 @@
   function buildNavHTML(titleText) {
     const links = NAV_ITEMS.map(item => {
       const active = isActive(item) ? ' active' : '';
-      return `<a href="${item.href}" class="main-nav-link${active}">${item.label}</a>`;
+      return `<a href="/${item.href}" class="main-nav-link${active}">${item.label}</a>`;
     }).join('\n          ');
 
     return `
       <div class="nav-header" id="navHeader">
         <div class="nav-header-top">
-          <h1>${titleText}</h1>
+          <h1><a href="/project.html" title="Back to Dashboard" style="color:inherit;text-decoration:none;">${titleText}</a></h1>
           <button class="nav-disclaimer-btn" id="navDisclaimerBtn">
             &#9432; Disclaimer
           </button>

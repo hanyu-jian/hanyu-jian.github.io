@@ -285,26 +285,29 @@ raw_data/<年>/  ENTSO-E 15 分钟原始数据（A44 日前价、A65 负荷、A8
 
 ## Hungary Operations 运营数据（独立权限）
 
-入口：`project.html` 里 TOKAJ 卡片（点卡片或「🔒 运营数据 →」）→ `/ops/hungary`（文件 `ops/hungary-operations.html`）。
+入口：`project.html` 里点 TOKAJ 卡片 → `/ops/overview`（文件 `ops/ops-overview.html`）。页面全英文，顶部是公共头部 + 二级导航（`ops/ops-nav.js`）。
 
-**权限**：和看板完全分开。`gate/worker.js` 里 `/ops` 开头的一切（含大小写 / 重复斜杠 / 编码变体 / `hungary-operations` 文件名）只认
+**新增运营页面**：① 建 `ops/ops-<name>.html`（页首加 `<script src="/ops/ops-nav.js"></script>`）；② 把 `<name>` 加进 `gate/worker.js` 的 `OPS_PAGE_NAMES`；
+③ 在 `ops/ops-nav.js` 的 `OPS_NAV` 里加一项（例如 Capture Price 已留好注释）。对外地址是 `/ops/<name>`。
+
+**权限**：和看板完全分开。`gate/worker.js` 里 `/ops` 开头的一切（含大小写 / 重复斜杠 / 编码变体）只认
 `OPS_TOKENS`（Secret，`名字:token` 逗号分隔），登录页 `/ops/login`，Cookie `ops_token` 只在 `/ops` 路径下发送，`/ops/logout` 退出。
 普通 `DASHBOARD_TOKENS` 进不去 `/ops`，运营 token 也进不去普通页面；`OPS_TOKENS` 没配置时 `/ops` 返回 404，不影响其它页面。
 
 **数据**：页面请求 `/ops/api/production?site=&start=&end=&resolution=15min|hourly`，gate Worker 在服务端用 Secret `GITHUB_TOKEN`
 （fine-grained、只授权 `vcom` 仓库、Contents 只读）直接读私有 vcom 仓库的
-`data/theoretical production` 和 `data/production forecast`，按时间对齐后返回 JSON。
+`data/theoretical production` 和 `data/production forecast`，按时间对齐后返回 JSON（列：`theoretical_kwh, da, ida1, ida2, ida3, id3_16_20, id3_11_15`）。
 token 只在服务端，不会发给浏览器；数据不会进入本仓库，也不在公开静态文件里。
 
-**部署清单**（Cloudflare → `energy-dashboard` → Settings → Variables and Secrets，类型选 Secret）
+**部署清单**（Cloudflare → `energy-dashboard` → Settings → Variables and secrets，类型选 Secret）
 1. `OPS_TOKENS`：运营口令，`名字:token`，多个用逗号隔开。
-2. `GITHUB_TOKEN`：上面说的只读 token。
+2. `GITHUB_TOKEN`：只读 token。
 3. （可选）变量 `GITHUB_REPO`，默认 `hanyu-jian/vcom`。
-4. 保存后重新部署（合并到 main 会自动部署）。
 
-**页面内容**：五个场站（及合计）的「实际发电量 vs 预测发电量」15 分钟 / 小时曲线 + 偏差柱，可选 6 个预测班次（DA / IDA1 / IDA2 / IDA3 / ID3），
-区间汇总表（实际 MWh、预测 MWh、偏差、绝对误差）。
-- 「实际」目前 = VCOM 理论发电量（`theoretical_kwh`，含 AC 限值、不含电网限电），不是电表实测。
-- 预测 = 乙方 power 预测（2026-09-24 之前为公式补算，见 vcom README）。
-- 之后做捕获率 / 捕获价格 / 限电率：在 `/production` 里加 `metered_kwh` 列，价格用本仓库 `data/entsoe`、`data/enappsys`；
-  限电率 = (理论 − 实测) / 理论。
+**Overview 页面口径**
+- 蓝线 Theoretical production = VCOM POA 算出的理论发电量（含 AC 限值、不含电网限电），不是电表实测。
+- Production forecast：DA 是基准预测，IDA1 → IDA2 → IDA3 → ID3(11-15h) → ID3(16-20h) 是对它的逐次修正；
+  某个时段某次修正没有值，就沿用上一版。橙线 = DA 叠加到所选版本为止的所有修正（默认 Latest），灰色虚线 = DA。
+  叠加顺序在 `ops-overview.html` 的 `CHAIN`，与 `py/analysis/tokaj_imbalance_price_calculation.py` 的 S/T/U/Y/Z 逻辑一致。
+- 汇总表只统计「理论发电量」和对应预测同时有值的时段；Abs. error = Σ|预测 − 理论| / Σ理论。
+- 以后做捕获率 / 捕获价格 / 限电率：在 `/production` 里加 `metered_kwh`，价格用本仓库 `data/entsoe`、`data/enappsys`，限电率 = (理论 − 实测) / 理论。

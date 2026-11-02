@@ -22,7 +22,9 @@ const PAGES = new Set([
 ]);
 const COOKIE = "dash_token";
 const OPS_COOKIE = "ops_token";
-const OPS_PAGES = { "/ops/hungary": "/ops/hungary-operations" }; // 对外地址 → ops/ 目录里的文件
+// 运营页面：对外地址 /ops/<name> → 文件 ops/ops-<name>.html。新增页面（如 capture-price）时把名字加进来即可。
+const OPS_PAGE_NAMES = new Set(["overview"]);
+const OPS_HOME = "/ops/overview";
 const MAX_AGE = 60 * 60 * 24 * 30;
 
 const esc = (s) =>
@@ -180,13 +182,13 @@ async function handleProduction(url, env) {
   const end = q.get("end") || start;
   const resolution = q.get("resolution") || "15min";
 
-  if (!SITES.includes(site)) return json({ error: `site 必须是 ${SITES.join(" / ")}` }, 400);
-  if (!PROD_RESOLUTIONS.includes(resolution)) return json({ error: "resolution 必须是 15min 或 hourly" }, 400);
+  if (!SITES.includes(site)) return json({ error: `site must be one of ${SITES.join(" / ")}` }, 400);
+  if (!PROD_RESOLUTIONS.includes(resolution)) return json({ error: "resolution must be 15min or hourly" }, 400);
   if (!DATE_RE.test(start || "") || !DATE_RE.test(end) || Number.isNaN(Date.parse(start)) || Number.isNaN(Date.parse(end)))
-    return json({ error: "start / end 格式应为 YYYY-MM-DD" }, 400);
-  if (end < start) return json({ error: "end 不能早于 start" }, 400);
+    return json({ error: "start / end must be YYYY-MM-DD" }, 400);
+  if (end < start) return json({ error: "end must not be before start" }, 400);
   if (daysBetween(start, end) + 1 > PROD_MAX_DAYS[resolution])
-    return json({ error: `${resolution} 一次最多查询 ${PROD_MAX_DAYS[resolution]} 天` }, 400);
+    return json({ error: `${resolution} allows at most ${PROD_MAX_DAYS[resolution]} days per request` }, 400);
 
   const startKey = `${start} 00:00:00`;
   const endKey = `${nextDay(end)} 00:00:00`;
@@ -205,7 +207,7 @@ async function handleProduction(url, env) {
     if (theo) { any = true; sliceRows(theo, startKey, endKey, [3], merged, 0, PROD_COLUMNS.length); }
     if (fc) { any = true; sliceRows(fc, startKey, endKey, [1, 2, 3, 4, 5, 6], merged, 1, PROD_COLUMNS.length); }
   }
-  if (!any) return json({ error: "没有这个场站/时间段的数据" }, 404);
+  if (!any) return json({ error: "No data for this site / period" }, 404);
 
   const rows = [...merged.entries()].sort((a, b) => (a[0] < b[0] ? -1 : 1)).map(([t, v]) => [t, ...v]);
   return json({
@@ -233,17 +235,17 @@ async function handleOps(request, env, url, path) {
       const form = await request.formData();
       const token = String(form.get("token") || "").trim();
       const next = safeNext(form.get("next"));
-      const to = next.startsWith("/ops") ? next : "/ops/hungary";
+      const to = next.startsWith("/ops") ? next : OPS_HOME;
       return whoIs(token, env, env.OPS_TOKENS)
         ? redirect(to, setCookie(token, OPS_COOKIE, "/ops"))
         : loginPage("Invalid token. Please try again.", to, 401, OPS_LOGIN);
     }
     const next = safeNext(url.searchParams.get("next"));
-    const to = next.startsWith("/ops") ? next : "/ops/hungary";
+    const to = next.startsWith("/ops") ? next : OPS_HOME;
     return whoIs(readCookie(request, OPS_COOKIE), env, env.OPS_TOKENS) ? redirect(to) : loginPage("", to, 200, OPS_LOGIN);
   }
 
-  // 链接直达：/ops/hungary?token=xxx
+  // 链接直达：/ops/overview?token=xxx
   const linkToken = url.searchParams.get("token");
   if (linkToken !== null) {
     url.searchParams.delete("token");
@@ -263,7 +265,7 @@ async function handleOps(request, env, url, path) {
   // 数据接口：直接用服务端的 GITHUB_TOKEN 读私有 vcom 仓库，token 不会发给浏览器
   if (path === "/ops/api/production") {
     if (request.method !== "GET") return new Response("Method not allowed", { status: 405 });
-    if (!env.GITHUB_TOKEN) return json({ error: "GITHUB_TOKEN 还没有配置" }, 500);
+    if (!env.GITHUB_TOKEN) return json({ error: "GITHUB_TOKEN is not configured" }, 500);
     try {
       return await handleProduction(url, env);
     } catch (e) {
@@ -271,9 +273,17 @@ async function handleOps(request, env, url, path) {
     }
   }
 
-  const file = OPS_PAGES[path.replace(/\/+$/, "")];
+  const clean = path.replace(/\/+$/, "");
+  if (clean === "/ops" || clean === "/ops/hungary") return redirect(OPS_HOME + url.search); // 旧地址
+  const m = clean.match(/^\/ops\/([a-z-]+)$/);
+  let file = null;
+  if (clean === "/ops/ops-nav.js") file = "/ops/ops-nav.js";
+  else if (m && OPS_PAGE_NAMES.has(m[1])) file = "/ops/ops-" + m[1];
   if (!file) return new Response("Not found", { status: 404, headers: { "Cache-Control": "no-store" } });
-  const res = await env.ASSETS.fetch(new Request(new URL(file, url), request));
+  let res = await env.ASSETS.fetch(new Request(new URL(file, url), request));
+  if (res.status >= 300 && res.status < 400 && res.headers.get("Location")) {
+    res = await env.ASSETS.fetch(new Request(new URL(res.headers.get("Location"), url), request));
+  }
   const out = new Response(res.body, res);
   out.headers.set("Cache-Control", "private, no-store");
   out.headers.set("X-Robots-Tag", "noindex");
@@ -288,7 +298,7 @@ export default {
     let norm = url.pathname;
     try { norm = decodeURIComponent(norm); } catch {}
     norm = norm.replace(/\/+/g, "/").toLowerCase();
-    if (norm === "/ops" || norm.startsWith("/ops/") || norm.includes("hungary-operations")) {
+    if (norm === "/ops" || norm.startsWith("/ops/")) {
       return handleOps(request, env, url, norm === "/ops" ? "/ops/" : norm);
     }
 

@@ -2,15 +2,16 @@
 """
 ENTSOE API 数据更新脚本 — aFRR 容量（Contracted reserves，A81 / B95），只取日度（A01）
 - 国家（--country，缺省 RO）：
-    RO  Transelectrica（10YRO-TEL------P），交付日按 Europe/Bucharest，价格是 RON，按 MNB 折成 EUR
+    RO  Transelectrica（10YRO-TEL------P），1h 数据，写 hourly；交付日按 Europe/Bucharest，价格是 RON，按 MNB 折成 EUR
     DE  4 个 TSO：50Hertz、Amprion、TenneT GER、TransnetBW 各自请求，再按时间合并——
-        容量相加、价格按容量加权平均；交付日按 Europe/Berlin；价格本来就是 EUR
+        容量相加、价格按容量加权平均；15min 数据，写 15min；交付日按 Europe/Berlin；价格本来就是 EUR
+        （价格数值就是 ENTSOE 给的 EUR/MW/ISP，不再乘系数）
 - 请求：documentType=A81, businessType=B95, Type_MarketAgreement.Type=A01, processType=A51（aFRR），
   controlArea_Domain=各 TSO 的 EIC；按 offset 每 100 个 TimeSeries 翻页，单次请求不超过 1 年
 - 方向：flowDirection.direction A01 = up，A02 = down，分别写
-    data/entsoe/afrr/<up|down>/hourly/<国家>_<年>.csv（按 CET/CEST 的年份分文件）
+    data/entsoe/afrr/<up|down>/<hourly|15min>/<国家>_<年>.csv（按 CET/CEST 的年份分文件）
 - 列名和匈牙利 data/enappsys/afrr/capacity/<up|down>/15min/HU_<年>.csv 里的 DAILY 两列一致：
-    Date（CET/CEST 墙钟，小时起点，格式 "YYYY/M/D H:00"，和 data/entsoe/imbalance_price.csv 等其他 ENTSOE 小时表一致）、
+    Date（CET/CEST 墙钟，时间段起点，格式 "YYYY/M/D H:MM"，和 data/entsoe/imbalance_price.csv 等其他 ENTSOE 小时表一致）、
     WEIGHTED AVERAGE PRICE <UP|DOWN> (DAILY) (EUR/MW/h)、VOLUME <UP|DOWN> (DAILY) (MW)
 - 价格：XML 里币种是 RON 的（罗马尼亚）按 MNB 汇率（data/fx/MNB.csv，HUF/EUR 和 HUF/RON）折成 EUR：
     EUR = RON × MNB_RON / MNB_EUR；用交付日当天或之前最近一个有牌价的日期（周末 / 节假日沿用前一个工作日）。
@@ -19,10 +20,10 @@ ENTSOE API 数据更新脚本 — aFRR 容量（Contracted reserves，A81 / B95�
   和 ENTSOE 网页（CET/CEST）上的 ISP 起点逐行对得上。
   交付日（--start/--end、请求窗口、MNB 牌价日期）按该国当地时区：例如罗马尼亚 10/1 这一天
   从 Brussels 的 9/30 23:00 开始，所以文件第一行是前一天 23:00；德国和 Brussels 同一时区，无偏移。
-- 不合并、不去重：原始数据是什么就写什么。秋季回拨日 02:00 出现两遍（先 CEST 后 CET），两行都保留，
+- 不合并、不去重：原始数据是什么就写什么。秋季回拨日 02:00~02:59 出现两遍（先 CEST 后 CET），两遍都保留且按真实先后排，
   夏令时开始日 02:00 本来就没有，不补。已有文件按「Date + 第几次出现」对齐覆盖。
 - 同一方向同一时刻有多个 TimeSeries 时：容量相加，价格按容量加权平均
-- 原始是 1 小时就保持 1 小时，不展开；若出现 30 / 15min 的点则按真实整点汇总（容量取平均，价格按容量加权）；
+- 保持原始分辨率，不展开：RO 是 1 小时、DE 是 15min；比该国分辨率更细的点按所在时间段汇总（容量取平均，价格按容量加权）；
   若出现跨多个小时的点（如 4h 块、整天），按小时拆成多行，每行容量和价格与该点相同。
   Point 省略的位置沿用前一个值（ENTSOE 的压缩规则）
 - 模式：
@@ -48,9 +49,10 @@ import requests
 API_URL = "https://web-api.tp.entsoe.eu/api"
 LOCAL_TZ = "Europe/Brussels"      # Date 标签，与其他 fetch_entsoe 脚本的 ENTSOE_DISPLAY_TZ 相同
 COUNTRIES = {
-    # areas: controlArea_Domain EIC；delivery_tz: 交付日 / 请求窗口 / MNB 牌价日期所用的当地时区
-    "RO": {"delivery_tz": "Europe/Bucharest", "areas": {"Transelectrica": "10YRO-TEL------P"}},
-    "DE": {"delivery_tz": "Europe/Berlin", "areas": {
+    # areas: controlArea_Domain EIC；delivery_tz: 交付日 / 请求窗口 / MNB 牌价日期所用的当地时区；step / folder: 输出分辨率（分钟）和目录
+    "RO": {"delivery_tz": "Europe/Bucharest", "step": 60, "folder": "hourly",
+           "areas": {"Transelectrica": "10YRO-TEL------P"}},
+    "DE": {"delivery_tz": "Europe/Berlin", "step": 15, "folder": "15min", "areas": {
         "50Hertz": "10YDE-VE-------2", "Amprion": "10YDE-RWENET---I",
         "TenneT GER": "10YDE-EON------1", "TransnetBW": "10YDE-ENBW-----N"}},
 }
@@ -198,17 +200,17 @@ def fetch_area_rows(start, end, area, eic, tz):
 
 # ── 整理成小时、折算欧元 ──────────────────────────────────
 
-def build_frames(rows, ron_per_eur, delivery_tz):
-    """rows → {direction: DataFrame[Date, price col, volume col, _utc]}，按真实整点（UTC）一行、Date 是 CET/CEST 墙钟。
-    回拨日 02:00 的两遍是两个不同的 UTC 整点，各占一行，不合并。"""
+def build_frames(rows, ron_per_eur, delivery_tz, step=60):
+    """rows → {direction: DataFrame[Date, price col, volume col, _utc]}，每个真实时间段（UTC，step 分钟）一行、Date 是 CET/CEST 墙钟。
+    回拨日 02:00~02:59 的两遍是不同的 UTC 时间段，各占一行，不合并。"""
     if not rows:
         return {}
     df = pd.DataFrame(rows)
     utc = pd.DatetimeIndex(df["start"]).tz_localize("UTC")
-    hour = utc.floor("h")                        # 1h 原样；更细的点归到所在的真实整点
+    hour = utc.floor(f"{step}min")               # 原始分辨率原样；更细的点归到所在的时间段
     label = hour.tz_convert(LOCAL_TZ)
     df["_utc"] = hour.tz_localize(None)
-    df[TIME_COL] = [f"{t.year}/{t.month}/{t.day} {t.hour}:00" for t in label]
+    df[TIME_COL] = [f"{t.year}/{t.month}/{t.day} {t.hour}:{t.minute:02d}" for t in label]
     # RON → EUR：交付日（该国当地）当天或之前最近一个 MNB 牌价
     deliv = utc.tz_convert(delivery_tz).tz_localize(None).normalize()
     factor = ron_per_eur.reindex(pd.DatetimeIndex(deliv), method="ffill").to_numpy()
@@ -227,7 +229,7 @@ def build_frames(rows, ron_per_eur, delivery_tz):
         slot = pd.DataFrame({"vol": g["qty"].sum(min_count=1), "pq": g["pq"].sum(min_count=1),
                              "p": g["price_eur"].mean()}).reset_index()
         slot["price"] = (slot["pq"] / slot["vol"].where(slot["vol"] > 0)).fillna(slot["p"])  # 容量为 0 时退化成简单平均
-        # 同一整点多个时刻（仅当原始比 1h 细）：容量取平均，价格按容量加权
+        # 同一时间段多个时刻（仅当原始比输出分辨率细）：容量取平均，价格按容量加权
         slot["pq"] = slot["price"] * slot["vol"]
         h = slot.groupby(["_utc", TIME_COL], sort=True)
         vol = h["vol"].mean()
@@ -238,15 +240,17 @@ def build_frames(rows, ron_per_eur, delivery_tz):
 
 
 def merge(old, new):
-    """按 (Date, 第几次出现) 对齐：回拨日重复的 02:00 两行各自独立；新数据覆盖旧数据，不做平均。"""
+    """按 (Date, 第几次出现) 对齐：回拨日重复的 02:xx 各自独立；新数据覆盖旧数据，不做平均。"""
     parts = []
     for f in (old, new):
         if f is not None and not f.empty:
             parts.append(f.reindex(columns=new.columns).assign(_occ=lambda x: x.groupby(TIME_COL).cumcount()))
     out = pd.concat(parts)
     out = out[~out.duplicated([TIME_COL, "_occ"], keep="last")]
-    out = out.assign(_t=pd.to_datetime(out[TIME_COL], format="%Y/%m/%d %H:%M"))
-    return out.sort_values(["_t", "_occ"]).drop(columns=["_t", "_occ"]).reset_index(drop=True)
+    # 按真实时间先后排：回拨日重复的 02:xx，第一遍（CEST）整块在前，第二遍（CET）整块在后
+    local = pd.DatetimeIndex(pd.to_datetime(out[TIME_COL], format="%Y/%m/%d %H:%M"))
+    utc = local.tz_localize(LOCAL_TZ, ambiguous=(out["_occ"] == 0).to_numpy()).tz_convert("UTC")
+    return out.assign(_k=utc.asi8).sort_values("_k", kind="stable").drop(columns=["_k", "_occ"]).reset_index(drop=True)
 
 
 def main(argv=None):
@@ -257,7 +261,7 @@ def main(argv=None):
     ap.add_argument("--end", help="YYYY-MM-DD（交付日，含），缺省为明天")
     ap.add_argument("--direction", choices=["up", "down"], help="缺省 up 和 down 都抓")
     ap.add_argument("--out-root", type=Path, default=OUT_ROOT_DEFAULT,
-                    help="输出到 <out-root>/<up|down>/hourly/<国家>_<年>.csv")
+                    help="输出到 <out-root>/<up|down>/<hourly|15min>/<国家>_<年>.csv")
     ap.add_argument("--mnb", type=Path, default=MNB_PATH_DEFAULT)
     a = ap.parse_args(argv)
 
@@ -265,7 +269,7 @@ def main(argv=None):
     end = datetime.strptime(a.end, "%Y-%m-%d").date() if a.end else date.today() + timedelta(days=1)
     cfg, tz = COUNTRIES[a.country], COUNTRIES[a.country]["delivery_tz"]
     print(f"{a.country} aFRR capacity (A81/B95/A01/A51)  {start} .. {end}  areas: {list(cfg['areas'])}")
-    frames = build_frames(fetch_rows(start, end, cfg), load_ron_per_eur(a.mnb), tz)
+    frames = build_frames(fetch_rows(start, end, cfg), load_ron_per_eur(a.mnb), tz, cfg["step"])
     if not frames:
         sys.exit("no data rows returned")
 
@@ -277,7 +281,7 @@ def main(argv=None):
             continue
         new = frames[direction]
         new = new[(new["_utc"] >= lo) & (new["_utc"] < hi)].drop(columns="_utc")   # 只留请求的交付日
-        out_dir = a.out_root / direction / "hourly"
+        out_dir = a.out_root / direction / cfg["folder"]
         out_dir.mkdir(parents=True, exist_ok=True)
         for year, part in new.groupby(new[TIME_COL].str.split("/").str[0]):
             path = out_dir / f"{a.country}_{year}.csv"

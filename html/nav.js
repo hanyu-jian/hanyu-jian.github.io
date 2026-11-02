@@ -117,11 +117,15 @@
   const pageName = p => (String(p).split(/[?#]/)[0].replace(/\/+$/, '').split('/').pop() || '').replace(/\.html$/, '');
   const currentPage = pageName(window.location.pathname);
 
-  // /ops/… 页面属于 Projects 这个一级标签
+  // /ops/… 运营页面：一级导航换成 TOKAJ（和主看板的标签分开）；以后有别的运营项目在这里加
   const inOps = /^\/ops(\/|$)/i.test(window.location.pathname);
+  const OPS_NAV_ITEMS = [
+    { label: 'TOKAJ', href: '/ops/overview' },
+  ];
+  const navItems = inOps ? OPS_NAV_ITEMS : NAV_ITEMS;
 
   function isActive(item) {
-    if (inOps) return item.href === 'project.html';
+    if (inOps) return true;   // 目前运营区只有 TOKAJ 一项，永远高亮
     return (item.match || [item.href]).some(h => pageName(h) === currentPage);
   }
 
@@ -139,9 +143,9 @@
 
   /* ── 5. Build nav HTML ─────────────────────────────────────────────── */
   function buildNavHTML(titleText) {
-    const links = NAV_ITEMS.map(item => {
+    const links = navItems.map(item => {
       const active = isActive(item) ? ' active' : '';
-      return `<a href="/${item.href}" class="main-nav-link${active}">${item.label}</a>`;
+      return `<a href="${item.href.startsWith('/') ? item.href : '/' + item.href}" class="main-nav-link${active}">${item.label}</a>`;
     }).join('\n          ');
 
     return `

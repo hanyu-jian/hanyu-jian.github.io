@@ -62,9 +62,8 @@ tr.total td { font-weight: 700; background: #fafbfc; }
 <div class="container">
 
   <div class="sub-nav">
-    <a class="sub-nav-link" href="/project.html">Portfolio Overview</a>
-    <a class="sub-nav-link active" href="/ops/overview">Ops Overview</a>
-    <!-- <a class="sub-nav-link" href="/ops/capture-price">Ops Capture Price</a> -->
+    <a class="sub-nav-link active" href="/ops/overview">Overview</a>
+    <a class="sub-nav-link" href="/ops/capture-price">Capture Price</a>
   </div>
 
   <div class="controls">
@@ -101,7 +100,7 @@ tr.total td { font-weight: 700; background: #fafbfc; }
       <p class="note">
         Deviation = production forecast &minus; theoretical production (positive = forecast too high).<br>
         <b>Production forecast:</b> DA is the base forecast. IDA1, IDA2, IDA3 and ID3 are successive revisions of it; where a revision has no value for an interval,
-        the previous version carries forward. The orange line is DA with every revision up to the selected one applied (default: latest).
+        the previous version carries forward. The orange line is DA with every revision up to the chosen version applied (default: Latest).
       </p>
     </div>
 
@@ -112,8 +111,9 @@ tr.total td { font-weight: 700; background: #fafbfc; }
       <div class="scroll"><table id="sumTable"></table></div>
       <p class="note">
         <b>Theoretical production</b> is calculated from VCOM POA irradiance (includes the AC limit, excludes grid curtailment); it is not the meter reading.
-        Statistics only use intervals where theoretical production and the respective forecast are both available.
-        &ldquo;Abs. error&rdquo; = &Sigma;|forecast &minus; theoretical| / &Sigma;theoretical.
+        Statistics only use intervals where theoretical production and the respective forecast are both available.<br>
+        <b>Dev. %</b> = (&Sigma;forecast &minus; &Sigma;theoretical) / &Sigma;theoretical &mdash; net bias; over- and under-forecasts cancel out (negative = forecast too low overall).<br>
+        <b>Abs. error %</b> = &Sigma;|forecast &minus; theoretical| / &Sigma;theoretical &mdash; every interval&rsquo;s error counts in full, so errors do not cancel out.
       </p>
     </div>
   </div>
@@ -123,14 +123,15 @@ tr.total td { font-weight: 700; background: #fafbfc; }
 const SITES = ["Putnok", "Serenyfalva", "Sajokaza", "Szuhakálló 1", "Szuhakálló 2"];
 // Publication order of the forecast runs; later runs revise earlier ones.
 const CHAIN = ["da", "ida1", "ida2", "ida3", "id3_11_15", "id3_16_20"];
-const VERSIONS = [  // [key, label, last column of CHAIN that is applied]
-  ["latest", "Latest (default)", "id3_16_20"],
-  ["da", "DA only (D-1 09:30)", "da"],
-  ["ida1", "DA + IDA1 (D-1 14:30)", "ida1"],
-  ["ida2", "DA + up to IDA2 (D-1 21:30)", "ida2"],
-  ["ida3", "DA + up to IDA3 (D 09:30, from 12:00)", "ida3"],
-  ["id3_11_15", "DA + up to ID3 11-15h (D 09:30)", "id3_11_15"],
+const VERSIONS = [  // [key, dropdown label, last column of CHAIN that is applied, short name for chart/table]
+  ["latest", "Latest (default)", "id3_16_20", "Latest"],
+  ["da", "DA only (D-1 09:30)", "da", "DA"],
+  ["ida1", "DA + IDA1 (D-1 14:30)", "ida1", "IDA1"],
+  ["ida2", "DA + up to IDA2 (D-1 21:30)", "ida2", "IDA2"],
+  ["ida3", "DA + up to IDA3 (D 09:30, from 12:00)", "ida3", "IDA3"],
+  ["id3_11_15", "DA + up to ID3 11-15h (D 09:30)", "id3_11_15", "ID3"],
 ];
+const shortName = v => VERSIONS.find(x => x[0] === v)[3];
 const $ = id => document.getElementById(id);
 let selected = "ALL", store = {}, chart, chart2;
 
@@ -221,13 +222,13 @@ function paint() {
     line("Theoretical production", x.act, "#2c7fb8", { areaStyle: { color: "rgba(44,127,184,.12)" } }),
     line("Production forecast (DA)", x.da, "#95a5a6", { lineStyle: { width: 1.4, color: "#95a5a6", type: "dashed" } }),
   ];
-  if (version !== "da") seriesList.push(line("Production forecast (" + vLabel.replace(" (default)", "") + ")", x.rev, "#e67e22"));
+  if (version !== "da") seriesList.push(line("Production forecast (" + shortName(version) + ")", x.rev, "#e67e22"));
   chart.setOption({ ...common, grid: { left: 70, right: 24, top: 40, bottom: 64 }, legend: { top: 4 },
     dataZoom: [{ type: "inside" }, { type: "slider", height: 18, bottom: 6 }],
     yAxis: { type: "value", name: "kWh", nameLocation: "end" }, series: seriesList }, true);
   chart2.setOption({ ...common, grid: { left: 70, right: 24, top: 34, bottom: 30 }, dataZoom: [{ type: "inside" }],
     yAxis: { type: "value", name: "Deviation, kWh", nameLocation: "end" },
-    series: [{ name: "Deviation (" + (version === "da" ? "DA" : "latest selected") + ")", type: "bar",
+    series: [{ name: "Deviation (" + shortName(version) + ")", type: "bar",
       data: dev.map(v => v == null ? null : { value: v, itemStyle: { color: v >= 0 ? "#e08b84" : "#7fc79a" } }) }] }, true);
   summary(version);
 }
@@ -243,10 +244,10 @@ function summary(version) {
   rows.push({ name: "Total", cls: "total", da: stats(tt.t, tt.act, tt.da), rev: stats(tt.t, tt.act, tt.rev) });
   const pc = v => `<td class="${v >= 0 ? "pos" : "neg"}">${nf(v, 1)}%</td>`;
   $("sumTable").innerHTML = `<tr><th>Site</th><th>Theoretical MWh</th><th>Forecast DA MWh</th><th>DA dev. %</th><th>DA abs. error %</th>
-      <th>Forecast selected MWh</th><th>Selected dev. %</th><th>Selected abs. error %</th><th>Intervals</th></tr>` +
+      <th>Forecast ${shortName(version)} MWh</th><th>${shortName(version)} dev. %</th><th>${shortName(version)} abs. error %</th></tr>` +
     rows.map(r => `<tr class="${r.cls || ""}"><td>${r.name}</td><td>${nf(r.rev.a, 1)}</td>
       <td>${nf(r.da.f, 1)}</td>${pc(r.da.devPct)}<td>${nf(r.da.mae, 1)}%</td>
-      <td>${nf(r.rev.f, 1)}</td>${pc(r.rev.devPct)}<td>${nf(r.rev.mae, 1)}%</td><td>${nf(r.rev.n)}</td></tr>`).join("");
+      <td>${nf(r.rev.f, 1)}</td>${pc(r.rev.devPct)}<td>${nf(r.rev.mae, 1)}%</td></tr>`).join("");
 }
 init();
 </script>

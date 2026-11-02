@@ -23,7 +23,7 @@ const PAGES = new Set([
 const COOKIE = "dash_token";
 const OPS_COOKIE = "ops_token";
 // 运营页面：对外地址 /ops/<name> → 文件 ops/ops-<name>.html。新增页面（如 capture-price）时把名字加进来即可。
-const OPS_PAGE_NAMES = new Set(["overview"]);
+const OPS_PAGE_NAMES = new Set(["overview", "capture-price"]);
 const OPS_HOME = "/ops/overview";
 const MAX_AGE = 60 * 60 * 24 * 30;
 

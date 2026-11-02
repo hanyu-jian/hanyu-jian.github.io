@@ -277,7 +277,7 @@ async function handleOps(request, env, url, path) {
   if (clean === "/ops" || clean === "/ops/hungary") return redirect(OPS_HOME + url.search); // 旧地址
   const m = clean.match(/^\/ops\/([a-z-]+)$/);
   let file = null;
-  if (clean === "/ops/ops-nav.js") file = "/ops/ops-nav.js";
+  if (clean === "/ops/nav.js") file = "/html/nav.js"; // 和主看板共用同一个导航脚本
   else if (m && OPS_PAGE_NAMES.has(m[1])) file = "/ops/ops-" + m[1];
   if (!file) return new Response("Not found", { status: 404, headers: { "Cache-Control": "no-store" } });
   let res = await env.ASSETS.fetch(new Request(new URL(file, url), request));

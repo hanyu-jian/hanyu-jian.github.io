@@ -132,10 +132,11 @@ tr.total td { font-weight: 700; background: #fafbfc; }
     <div class="chart-card">
       <div class="chart-card-header">
         <div>
-          <h3>Summary by site</h3>
-          <div class="subtitle" id="sumSubtitle">Solar · all years</div>
+          <h3>Summary table</h3>
+          <div class="subtitle" id="sumSubtitle">Solar</div>
         </div>
         <div class="chart-card-controls">
+          <div class="btn-group-inline" id="sumSite"></div>
           <label>Year</label>
           <select class="ctrl-select" id="sumYear"></select>
           <label>Month range</label>
@@ -144,8 +145,8 @@ tr.total td { font-weight: 700; background: #fafbfc; }
           <select class="ctrl-select" id="sumTo" style="min-width:70px;"></select>
           <label>Threshold</label>
           <div class="btn-group-inline" id="sumThresh">
-            <button class="active" data-t="negative">Price &lt; 0</button>
-            <button data-t="nonpositive">Price &le; 0</button>
+            <button data-t="negative">Price &lt; 0</button>
+            <button class="active" data-t="nonpositive">Price &le; 0</button>
           </div>
           <button class="export-btn" id="sumExport">Export CSV</button>
         </div>
@@ -155,7 +156,7 @@ tr.total td { font-weight: 700; background: #fafbfc; }
         <b>Theoretical production</b> = VCOM POA based, includes the AC limit, excludes grid curtailment. <b>Economic curtailment</b> = theoretical production in intervals whose DA price is below 0
         (or &le; 0, see Threshold), i.e. production assumed to be switched off. <b>Curtailment rate</b> = economic curtailment / theoretical production.<br>
         <b>Capture price (post)</b> = &Sigma;(g<sub>post</sub>&middot;p) / &Sigma;g<sub>post</sub> with g<sub>post</sub> = 0 in curtailed intervals; <b>Capture ratio (post)</b> = capture price (post) / baseload.
-        Baseload = simple average of all 15-min HU DA prices in the selected period. Total = sum of the five sites.
+        Baseload = simple average of all 15-min HU DA prices in the selected period. Total = sum of the five sites. The last row is the month range selected above.
         Capture ratio colours: &ge; 85% green, &lt; 60% red.
       </p>
     </div>
@@ -343,15 +344,15 @@ function paint() {
 
 /* ── Summary table ────────────────────────────────────────── */
 const MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-const sum = { year: 'all', from: 1, to: 12, thresh: 'negative' };
+const sum = { site: 'Total', year: String(THIS_YEAR), from: 1, to: 12, thresh: 'nonpositive' };
 let lastSum = [];
-function sumAggregate(hours) {
-  const negOnly = sum.thresh === 'negative', from = sum.from, to = sum.to;
+function sumAggregate(hours, inRange) {
+  const negOnly = sum.thresh === 'negative';
   let sumPr = 0, cnt = 0, g = 0, gPost = 0, rev = 0;
   for (const h of hours) {
-    if (sum.year !== 'all' && !h.date.startsWith(sum.year)) continue;
+    if (!h.date.startsWith(sum.year)) continue;
     const m = +h.date.slice(5, 7);
-    if (from <= to ? (m < from || m > to) : (m < from && m > to)) continue;
+    if (!inRange(m)) continue;
     sumPr += h.pr; cnt++;
     const cut = negOnly ? h.pr < 0 : h.pr <= 0, gp = cut ? 0 : h.gen;
     g += h.gen; gPost += gp; rev += gp * h.pr;
@@ -363,27 +364,30 @@ function sumAggregate(hours) {
 const nf = (v, d = 0) => v == null || isNaN(v) ? '<span style="color:#bbb">–</span>' : v.toLocaleString('en-US', { maximumFractionDigits: d, minimumFractionDigits: d });
 function paintSummary() {
   if (!price) return;
-  const rows = [...SITES, 'Total'].map(n => ({ name: n, ...sumAggregate(computeHours(n === 'Total' ? 'ALL' : n)) }));
+  document.querySelectorAll("#sumSite button").forEach(b => b.classList.toggle("active", b.dataset.s === sum.site));
+  const hours = computeHours(sum.site === 'Total' ? 'ALL' : sum.site), { from, to } = sum;
+  const rows = MON.map((m, i) => ({ name: m, ...sumAggregate(hours, x => x === i + 1) }));
+  rows.push({ name: sum.year, cls: 'total', ...sumAggregate(hours, () => true) });
+  rows.push({ name: `${MON[from - 1]}–${MON[to - 1]}`, cls: 'total', ...sumAggregate(hours, from <= to ? x => x >= from && x <= to : x => x >= from || x <= to) });
   lastSum = rows;
-  const range = sum.from === 1 && sum.to === 12 ? 'full year' : `${MON[sum.from - 1]}–${MON[sum.to - 1]}`;
-  $('sumSubtitle').textContent = `Solar · ${sum.year === 'all' ? 'all years' : sum.year} · ${range} · curtailed when price ${sum.thresh === 'negative' ? '< 0' : '≤ 0'}`;
+  $('sumSubtitle').textContent = `${sum.site === 'Total' ? 'Total (all sites)' : sum.site} · ${sum.year} · curtailed when price ${sum.thresh === 'negative' ? '< 0' : '≤ 0'}`;
   const cls = v => v == null ? '' : v >= 85 ? 'tbl-high' : v < 60 ? 'tbl-low' : '';
-  $('sumTable').innerHTML = `<tr><th>Site</th><th>Theoretical production (MWh)</th><th>Economic curtailment (MWh)</th><th>Curtailment rate</th>
+  $('sumTable').innerHTML = `<tr><th>Period</th><th>Theoretical production (MWh)</th><th>Economic curtailment (MWh)</th><th>Curtailment rate</th>
       <th>Baseload (€/MWh)</th><th>Capture price, post (€/MWh)</th><th>Capture ratio, post</th></tr>` +
-    rows.map(r => `<tr class="${r.name === 'Total' ? 'total' : ''}"><td>${r.name}</td><td>${nf(r.gen, 1)}</td><td>${nf(r.curt, 1)}</td>
+    rows.map(r => `<tr class="${r.cls || ''}"><td>${r.name}</td><td>${nf(r.gen, 1)}</td><td>${nf(r.curt, 1)}</td>
       <td>${r.curtPct == null ? nf(null) : nf(r.curtPct, 1) + '%'}</td><td>${nf(r.baseload, 1)}</td><td>${nf(r.cap, 1)}</td>
       <td class="${cls(r.ratio)}">${r.ratio == null ? nf(null) : nf(r.ratio, 1) + '%'}</td></tr>`).join('');
 }
 function exportSummary() {
   if (!lastSum.length) return;
   const f = (v, d) => v == null ? '' : v.toFixed(d);
-  const rows = [['Site', 'Theoretical production (MWh)', 'Economic curtailment (MWh)', 'Curtailment rate (%)', 'Baseload (EUR/MWh)',
+  const rows = [['Period', 'Theoretical production (MWh)', 'Economic curtailment (MWh)', 'Curtailment rate (%)', 'Baseload (EUR/MWh)',
     'Solar Capture Price Post-Curtailment (EUR/MWh)', 'Solar Capture Ratio Post-Curtailment (%)']];
   lastSum.forEach(r => rows.push([r.name, f(r.gen, 1), f(r.curt, 1), f(r.curtPct, 1), f(r.baseload, 2), f(r.cap, 2), f(r.ratio, 1)]));
   const blob = new Blob(['\uFEFF' + rows.map(x => x.map(csvEscape).join(',')).join('\r\n')], { type: 'text/csv;charset=utf-8;' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
-  a.download = `ops_capture_summary_${sum.year}_${MON[sum.from - 1]}-${MON[sum.to - 1]}_${sum.thresh}.csv`;
+  a.download = `ops_capture_summary_${sum.site === 'Total' ? 'total' : sum.site}_${sum.year}_${sum.thresh}.csv`;
   document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(a.href);
 }
 
@@ -414,7 +418,9 @@ async function init() {
   $("yearSelect").innerHTML = ys;
   $("yearSelect").onchange = e => { state.year = e.target.value; paint(); };
   $("exportBtn").onclick = exportCSV;
-  $("sumYear").innerHTML = '<option value="all">All years</option>' + ys.replace(' selected', '');
+  $("sumYear").innerHTML = ys;
+  $("sumSite").innerHTML = [...SITES, "Total"].map(n => `<button data-s="${n}">${n}</button>`).join("");
+  $("sumSite").onclick = e => { const b = e.target.closest("button"); if (!b) return; sum.site = b.dataset.s; paintSummary(); };
   $("sumFrom").innerHTML = MON.map((m, i) => `<option value="${i + 1}">${m}</option>`).join('');
   $("sumTo").innerHTML = MON.map((m, i) => `<option value="${i + 1}"${i === 11 ? ' selected' : ''}>${m}</option>`).join('');
   $("sumYear").onchange = e => { sum.year = e.target.value; paintSummary(); };

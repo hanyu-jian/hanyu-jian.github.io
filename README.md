@@ -320,6 +320,6 @@ token 只在服务端，不会发给浏览器；数据不会进入本仓库，�
 - 发电量用 vcom 的 15 分钟理论发电量（kWh），电价和基荷价用 `entsoe/15min/price.csv` 的 `HU` 列，按时间戳（布达佩斯当地时间、区间起点）对齐；公式与 capture-price 页完全一致：
   `Capture Price pre = Σ(g·p)/Σg`，`post` 把价格 ≤ 0 的时段发电量记 0，`Ratio = Capture Price / Baseload`，非正价时长 = 价格 ≤ 0 的点数 × 0.25 h，基荷价 = 价格简单平均。
 - 基荷价用所选周期内全部 15 分钟价格点（含场站投运前，例如 2024 年用整年）；捕获价只用有发电量的时段（缺发电量按 0，权重为 0）。
-- 下方 Summary by site：五个场站 + Total，选年份（All years / 单年）、月份区间（起 > 止时按「月 ≥ 起 或 月 ≤ 止」）、阈值（Price < 0 默认 / Price ≤ 0，与 capture-price 页汇总表一致）。
-  列：理论发电量 MWh、经济性限电量 MWh（价格触发阈值的时段的理论发电量）、限电率 = 限电量 / 理论发电量、基荷价、Capture Price（post）、Capture Ratio（post）= Capture Price / 基荷价（≥ 85% 绿，< 60% 红）。Total 为五站相加。
-  注意图里的 post 固定按 Price ≤ 0 限电，表里阈值可切换。
+- 下方 Summary table：按钮选 五个场站 / Total（默认 Total，Total 为五站相加），选年份（默认当年，没有 All years）、月份区间（起 > 止时按「月 ≥ 起 或 月 ≤ 止」）、阈值（Price ≤ 0 默认 / Price < 0，默认值与上面图里的 post 口径一致）。
+  行：1–12 月、全年、所选月份区间；列：理论发电量 MWh、经济性限电量 MWh（价格触发阈值的时段的理论发电量）、限电率 = 限电量 / 理论发电量、基荷价、Capture Price（post）、Capture Ratio（post）= Capture Price / 基荷价（≥ 85% 绿，< 60% 红）。
+  图里的 post 固定按 Price ≤ 0 限电，表里阈值可切换。

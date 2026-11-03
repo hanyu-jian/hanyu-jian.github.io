@@ -119,14 +119,6 @@ tr.total td { font-weight: 700; background: #fafbfc; }
         <div><div class="card-section-title">Quarterly</div><div id="chartQuarterly" style="width:100%;height:300px;"></div></div>
         <div><div class="card-section-title">Yearly</div><div id="chartYearly" style="width:100%;height:300px;"></div></div>
       </div>
-      <p class="note">
-        <b>Generation</b> is the theoretical production (VCOM POA based, includes the AC limit, excludes grid curtailment) per 15 min; <b>price</b> is the HU day-ahead price per 15 min.
-        All sites = sum of the five sites (a site without a value in an interval counts as 0).<br>
-        <b>Baseload</b> = simple average of the 15-min prices. <b>Capture price (pre)</b> = &Sigma;(g&middot;p) / &Sigma;g. <b>Capture price (post)</b> treats every interval with price &le; 0 as curtailed
-        (generation = 0): &Sigma;(g<sub>post</sub>&middot;p) / &Sigma;g<sub>post</sub>. <b>Capture ratio</b> = capture price / baseload. <b>Non-positive hours</b> = 0.25 h per interval with price &le; 0.<br>
-        Baseload always uses every price point of the period (including periods before a site went live); capture price only uses intervals with generation.
-        Weekly / Monthly / Quarterly / Yearly show all years; Daily shows the selected year.
-      </p>
     </div>
 
     <div class="chart-card">
@@ -135,9 +127,8 @@ tr.total td { font-weight: 700; background: #fafbfc; }
           <h3>Summary table</h3>
           <div class="subtitle" id="sumSubtitle">Solar</div>
         </div>
-        <button class="export-btn" id="sumExport">Export CSV</button>
       </div>
-      <div class="chart-card-controls" style="margin-bottom:14px;">
+      <div class="chart-card-controls" style="margin-bottom:14px;flex-wrap:nowrap;overflow-x:auto;">
         <div class="btn-group-inline" id="sumSite"></div>
         <label>Year</label>
         <select class="ctrl-select" id="sumYear"></select>
@@ -150,15 +141,9 @@ tr.total td { font-weight: 700; background: #fafbfc; }
           <button data-t="negative">Price &lt; 0</button>
           <button class="active" data-t="nonpositive">Price &le; 0</button>
         </div>
+        <button class="export-btn" id="sumExport">Export CSV</button>
       </div>
       <div class="scroll"><table id="sumTable"></table></div>
-      <p class="note">
-        <b>Theoretical production</b> = VCOM POA based, includes the AC limit, excludes grid curtailment. <b>Economic curtailment</b> = theoretical production in intervals whose DA price is below 0
-        (or &le; 0, see Threshold), i.e. production assumed to be switched off. <b>Curtailment rate</b> = economic curtailment / theoretical production.<br>
-        <b>Capture price (post)</b> = &Sigma;(g<sub>post</sub>&middot;p) / &Sigma;g<sub>post</sub> with g<sub>post</sub> = 0 in curtailed intervals; <b>Capture ratio (post)</b> = capture price (post) / baseload.
-        Baseload = simple average of all 15-min HU DA prices in the selected period. Total = sum of the five sites. The last row is the month range selected above.
-        Capture ratio colours: &ge; 85% green, &lt; 60% red.
-      </p>
     </div>
   </div>
 </div>

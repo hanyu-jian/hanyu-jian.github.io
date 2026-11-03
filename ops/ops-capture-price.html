@@ -34,7 +34,7 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background:
 .status { padding: 10px 30px 0; font-size: 13px; color: #888; min-height: 28px; }
 .status.err { color: #e74c3c; }
 
-.chart-grid { display: grid; grid-template-columns: 1fr; gap: 24px; padding: 24px 30px 30px; }
+.chart-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px; padding: 24px 30px 30px; }
 .chart-card { background: #fff; border-radius: 8px; border: 1px solid #e6e9ed; padding: 16px; }
 .chart-card-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 14px; }
 .chart-card-header h3 { font-size: 18px; font-weight: 500; color: #2c3e50; border-left: 4px solid #2c3e50; padding-left: 12px; margin: 0; line-height: 1.3; }
@@ -119,46 +119,31 @@ tr.total td { font-weight: 700; background: #fafbfc; }
         <div><div class="card-section-title">Quarterly</div><div id="chartQuarterly" style="width:100%;height:300px;"></div></div>
         <div><div class="card-section-title">Yearly</div><div id="chartYearly" style="width:100%;height:300px;"></div></div>
       </div>
-      <p class="note">
-        <b>Generation</b> is the theoretical production (VCOM POA based, includes the AC limit, excludes grid curtailment) per 15 min; <b>price</b> is the HU day-ahead price per 15 min.
-        All sites = sum of the five sites (a site without a value in an interval counts as 0).<br>
-        <b>Baseload</b> = simple average of the 15-min prices. <b>Capture price (pre)</b> = &Sigma;(g&middot;p) / &Sigma;g. <b>Capture price (post)</b> treats every interval with price &le; 0 as curtailed
-        (generation = 0): &Sigma;(g<sub>post</sub>&middot;p) / &Sigma;g<sub>post</sub>. <b>Capture ratio</b> = capture price / baseload. <b>Non-positive hours</b> = 0.25 h per interval with price &le; 0.<br>
-        Baseload always uses every price point of the period (including periods before a site went live); capture price only uses intervals with generation.
-        Weekly / Monthly / Quarterly / Yearly show all years; Daily shows the selected year.
-      </p>
     </div>
 
     <div class="chart-card">
-      <div class="chart-card-header">
+      <div class="chart-card-header" style="margin-bottom:10px;align-items:center;">
         <div>
           <h3>Summary table</h3>
           <div class="subtitle" id="sumSubtitle">Solar</div>
         </div>
-        <div class="chart-card-controls">
-          <div class="btn-group-inline" id="sumSite"></div>
-          <label>Year</label>
-          <select class="ctrl-select" id="sumYear"></select>
-          <label>Month range</label>
-          <select class="ctrl-select" id="sumFrom" style="min-width:70px;"></select>
-          <span style="font-size:13px;color:#6c757d;">to</span>
-          <select class="ctrl-select" id="sumTo" style="min-width:70px;"></select>
-          <label>Threshold</label>
-          <div class="btn-group-inline" id="sumThresh">
-            <button data-t="negative">Price &lt; 0</button>
-            <button class="active" data-t="nonpositive">Price &le; 0</button>
-          </div>
-          <button class="export-btn" id="sumExport">Export CSV</button>
+      </div>
+      <div class="chart-card-controls" style="margin-bottom:14px;flex-wrap:nowrap;overflow-x:auto;">
+        <div class="btn-group-inline" id="sumSite"></div>
+        <label>Year</label>
+        <select class="ctrl-select" id="sumYear"></select>
+        <label>Month range</label>
+        <select class="ctrl-select" id="sumFrom" style="min-width:70px;"></select>
+        <span style="font-size:13px;color:#6c757d;">to</span>
+        <select class="ctrl-select" id="sumTo" style="min-width:70px;"></select>
+        <label>Threshold</label>
+        <div class="btn-group-inline" id="sumThresh">
+          <button data-t="negative">Price &lt; 0</button>
+          <button class="active" data-t="nonpositive">Price &le; 0</button>
         </div>
+        <button class="export-btn" id="sumExport" style="margin-left:auto;flex-shrink:0;">Export CSV</button>
       </div>
       <div class="scroll"><table id="sumTable"></table></div>
-      <p class="note">
-        <b>Theoretical production</b> = VCOM POA based, includes the AC limit, excludes grid curtailment. <b>Economic curtailment</b> = theoretical production in intervals whose DA price is below 0
-        (or &le; 0, see Threshold), i.e. production assumed to be switched off. <b>Curtailment rate</b> = economic curtailment / theoretical production.<br>
-        <b>Capture price (post)</b> = &Sigma;(g<sub>post</sub>&middot;p) / &Sigma;g<sub>post</sub> with g<sub>post</sub> = 0 in curtailed intervals; <b>Capture ratio (post)</b> = capture price (post) / baseload.
-        Baseload = simple average of all 15-min HU DA prices in the selected period. Total = sum of the five sites. The last row is the month range selected above.
-        Capture ratio colours: &ge; 85% green, &lt; 60% red.
-      </p>
     </div>
   </div>
 </div>

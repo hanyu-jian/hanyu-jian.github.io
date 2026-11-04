@@ -311,6 +311,10 @@ token 只在服务端，不会发给浏览器；数据不会进入本仓库，�
 - Production forecast：DA 是基准预测，IDA1 → IDA2 → IDA3 → ID3(11-15h) → ID3(16-20h) 是对它的逐次修正；
   某个时段某次修正没有值，就沿用上一版。橙线 = DA 叠加到所选版本为止的所有修正（默认 Latest），灰色虚线 = DA。
   叠加顺序在 `ops-overview.html` 的 `CHAIN`，与 `py/analysis/tokaj_imbalance_price_calculation.py` 的 S/T/U/Y/Z 逻辑一致。
+- Imbalance vs forecast adjustment time（汇总表上方的图）：横轴是报量时间轴（布达佩斯时间，D = 交割日），5 个时点和 HUPX 报量预测调整时间轴一致：
+  DA D-1 09:30 → IDA1 D-1 14:30 → IDA2 D-1 21:30 → IDA3 + ID3(11-15h) D 09:30 → ID3(16-20h) D 14:30。每个点 = 该时点之后生效的预测版本（沿用上一版）和理论发电量的偏差，
+  按当前所选场站和日期范围统计。底下的滑块是「截止时间」：只应用发布时间 ≤ 截止时间的版本，橙色点 = 当前生效版本，读数显示该版本的误差和相对 DA 的变化。
+  指标可选 Abs. error % / Net dev. % / MWh；「Delivery hours」可只看某个修正覆盖的时段（IDA3 只改 12–24 点，ID3 只改 11:00–11:45 / 16:00–19:45），全天口径下后面几次修正对总量影响很小。
 - 汇总表只统计「理论发电量」和对应预测同时有值的时段；Abs. error = Σ|预测 − 理论| / Σ理论。
 - 以后做捕获率 / 捕获价格 / 限电率：在 `/production` 里加 `metered_kwh`，价格用本仓库 `data/entsoe`、`data/enappsys`，限电率 = (理论 − 实测) / 理论。
 

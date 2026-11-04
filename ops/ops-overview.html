@@ -39,7 +39,13 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background:
 .chart-card-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 14px; }
 .chart-card-header h3 { font-size: 18px; font-weight: 500; color: #2c3e50; border-left: 4px solid #2c3e50; padding-left: 12px; margin: 0; line-height: 1.3; }
 .chart-card-header .subtitle { font-size: 12px; color: #888; margin-top: 4px; padding-left: 16px; }
-#chart { height: 440px; } #chart2 { height: 240px; }
+#chart { height: 440px; } #chart2 { height: 240px; } #chart3 { height: 300px; }
+.adj-bar { display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-end; }
+.adj-slider { margin: 4px 24px 0 70px; }
+.adj-slider input[type=range] { width: 100%; height: 28px; cursor: ew-resize; accent-color: #e67e22; }
+.adj-ticks { position: relative; height: 18px; font-size: 11px; color: #888; }
+.adj-ticks span { position: absolute; transform: translateX(-50%); white-space: nowrap; }
+.adj-read { margin: 6px 0 0 70px; font-size: 14px; color: #2c3e50; line-height: 1.7; }
 .note { font-size: 12px; color: #888; line-height: 1.6; margin-top: 10px; }
 .scroll { overflow-x: auto; }
 table { border-collapse: collapse; width: 100%; font-size: 13px; }
@@ -106,6 +112,42 @@ tr.total td { font-weight: 700; background: #fafbfc; }
 
     <div class="chart-card">
       <div class="chart-card-header">
+        <div>
+          <h3>Imbalance vs forecast adjustment time</h3>
+          <div class="subtitle">Drag the slider to set the cut-off time &middot; Budapest local time &middot; D = delivery day</div>
+        </div>
+        <div class="adj-bar">
+          <div class="control-group"><label>Metric</label>
+            <div class="btn-group-inline" id="adjMetric">
+              <button data-m="mae" class="active">Abs. error %</button><button data-m="dev">Net dev. %</button>
+              <button data-m="maeMwh">Abs. error MWh</button><button data-m="devMwh">Net dev. MWh</button>
+            </div></div>
+          <div class="control-group"><label>Delivery hours</label>
+            <select id="adjWin">
+              <option value="0-24">All day (00&ndash;24)</option>
+              <option value="12-24">12&ndash;24 (IDA3 window)</option>
+              <option value="11-12">11:00&ndash;11:45 (ID3 window)</option>
+              <option value="16-20">16:00&ndash;19:45 (ID3 window)</option>
+            </select></div>
+        </div>
+      </div>
+      <div id="chart3"></div>
+      <div class="adj-slider">
+        <input type="range" id="adjCut" min="-16" max="16" step="0.5" value="16">
+        <div class="adj-ticks" id="adjTicks"></div>
+      </div>
+      <div class="adj-read" id="adjRead"></div>
+      <p class="note">
+        Each point is the forecast as it stands after that submission (DA, then every revision published up to that time, carried forward), compared with theoretical production
+        over the selected period. Timeline: DA D-1 09:30 &middot; IDA1 D-1 14:30 &middot; IDA2 D-1 21:30 &middot; IDA3 and ID3 11&ndash;15h D 09:30 &middot; ID3 16&ndash;20h D 14:30.
+        The slider sets the cut-off: only submissions published at or before it are applied.<br>
+        IDA3 revises only 12:00&ndash;24:00 and the ID3 runs only a few hours, so on the full-day view later revisions move the total only a little;
+        pick a delivery-hours window to compare like with like. Same site selection and period as the chart above; only intervals where theoretical and forecast both exist are used.
+      </p>
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-card-header">
         <div><h3>Summary by site</h3><div class="subtitle">Selected period</div></div>
       </div>
       <div class="scroll"><table id="sumTable"></table></div>
@@ -133,7 +175,7 @@ const VERSIONS = [  // [key, dropdown label, last column of CHAIN that is applie
 ];
 const shortName = v => VERSIONS.find(x => x[0] === v)[3];
 const $ = id => document.getElementById(id);
-let selected = "ALL", store = {}, chart, chart2;
+let selected = "ALL", store = {}, chart, chart2, chart3, adj = null, adjMetric = "mae";
 
 const pad = n => String(n).padStart(2, "0");
 const fmtDate = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
@@ -156,7 +198,13 @@ function init() {
   $("fc").onchange = paint;
   $("res").onchange = load;
   chart = echarts.init($("chart")); chart2 = echarts.init($("chart2")); echarts.connect([chart, chart2]);
-  window.addEventListener("resize", () => { chart.resize(); chart2.resize(); });
+  chart3 = echarts.init($("chart3"));
+  window.addEventListener("resize", () => { chart.resize(); chart2.resize(); chart3.resize(); });
+  $("adjTicks").innerHTML = [-16, -12, -8, -4, 0, 4, 8, 12, 16].map(v => `<span style="left:${(v + 16) / 32 * 100}%">${hhmm(v)}</span>`).join("");
+  $("adjCut").oninput = drawAdj;
+  $("adjWin").onchange = () => { computeAdj(); drawAdj(); };
+  $("adjMetric").onclick = e => { const b = e.target.closest("button"); if (!b) return; adjMetric = b.dataset.m;
+    document.querySelectorAll("#adjMetric button").forEach(x => x.classList.toggle("active", x === b)); drawAdj(); };
   setRange(7); load();
 }
 
@@ -230,7 +278,59 @@ function paint() {
     yAxis: { type: "value", name: "Deviation, kWh", nameLocation: "end" },
     series: [{ name: "Deviation (" + shortName(version) + ")", type: "bar",
       data: dev.map(v => v == null ? null : { value: v, itemStyle: { color: v >= 0 ? "#e08b84" : "#7fc79a" } }) }] }, true);
+  computeAdj(); drawAdj();
   summary(version);
+}
+
+// ---- Imbalance vs forecast adjustment time ----
+// Submission timeline (hours relative to 00:00 of delivery day D; negative = D-1) and the forecast version standing after each.
+const STOPS = [
+  [-14.5, "DA", "da"],
+  [-9.5, "IDA1", "ida1"],
+  [-2.5, "IDA2", "ida2"],
+  [9.5, "IDA3 + ID3 (11-15h)", "id3_11_15"],
+  [14.5, "ID3 (16-20h)", "latest"],
+];
+const hhmm = v => { const h = ((v % 24) + 24) % 24; return `${v < 0 ? "D-1" : "D"} ${pad(Math.floor(h))}:${pad(Math.round((h % 1) * 60))}`; };
+const METRICS = { mae: ["Abs. error", "%"], dev: ["Net deviation", "%"], maeMwh: ["Abs. error", " MWh"], devMwh: ["Net deviation", " MWh"] };
+
+function windowStats(x, win) {
+  const [from, to] = win.split("-").map(Number);
+  let a = 0, f = 0, ae = 0, n = 0;
+  x.t.forEach((t, i) => {
+    const h = +t.slice(11, 13) + (+t.slice(14, 16)) / 60;
+    if (h < from || h >= to || x.act[i] == null || x.rev[i] == null) return;
+    a += x.act[i]; f += x.rev[i]; ae += Math.abs(x.rev[i] - x.act[i]); n++;
+  });
+  return { mae: a ? ae / a * 100 : null, dev: a ? (f - a) / a * 100 : null, maeMwh: ae / 1000, devMwh: (f - a) / 1000, a: a / 1000, n };
+}
+function computeAdj() {
+  if (!Object.keys(store).length) { adj = null; return; }
+  const win = $("adjWin").value;
+  adj = STOPS.map(([h, name, v]) => ({ h, name, ...windowStats(selected === "ALL" ? total(v) : series(selected, v), win) }));
+}
+function drawAdj() {
+  if (!adj) return;
+  const cut = +$("adjCut").value, [label, unit] = METRICS[adjMetric], dec = unit === "%" ? 1 : 2;
+  let applied = -1; adj.forEach((s, i) => { if (s.h <= cut) applied = i; });
+  const pts = adj.map((s, i) => ({ value: [s.h, s[adjMetric]], name: s.name,
+    itemStyle: i <= applied ? { color: i === applied ? "#e67e22" : "#2c7fb8" } : { color: "#fff", borderColor: "#8a949e", borderWidth: 2 },
+    symbolSize: i === applied ? 16 : 11 }));
+  chart3.setOption({ animation: false,
+    tooltip: { trigger: "item", formatter: p => `${hhmm(p.value[0])} · ${p.name}<br>${label}: <b>${nf(p.value[1], dec)}${unit}</b>` },
+    grid: { left: 70, right: 24, top: 36, bottom: 30 },
+    xAxis: { type: "value", min: -16, max: 16, interval: 4, axisLabel: { formatter: hhmm }, splitLine: { lineStyle: { color: "#f0f2f5" } } },
+    yAxis: { type: "value", name: label + unit, nameLocation: "end", scale: adjMetric.startsWith("dev"), axisLine: { onZero: false } },
+    series: [{ type: "line", data: pts, lineStyle: { width: 2, color: "#2c7fb8" },
+      label: { show: true, position: "top", fontSize: 11, color: "#4a5560", formatter: p => p.name + "\n" + nf(p.value[1], dec) },
+      markLine: { silent: true, symbol: "none", animation: false, lineStyle: { color: "#e67e22", width: 2, type: "solid" }, label: { formatter: hhmm(cut), color: "#e67e22" }, data: [{ xAxis: cut }] },
+      markArea: { silent: true, itemStyle: { color: "rgba(150,160,170,.10)" }, data: [[{ xAxis: cut }, { xAxis: 16 }]] } }] }, true);
+  const cur = applied >= 0 ? adj[applied] : null;
+  if (!cur) { $("adjRead").innerHTML = `Cut-off <b>${hhmm(cut)}</b> &mdash; no forecast has been submitted yet.`; return; }
+  const d = cur[adjMetric] - adj[0][adjMetric];
+  $("adjRead").innerHTML = `Cut-off <b>${hhmm(cut)}</b> &rarr; forecast = <b>${cur.name}</b> &middot; ${label} <b>${nf(cur[adjMetric], dec)}${unit}</b>` +
+    (applied > 0 ? ` &middot; vs DA <b class="${d <= 0 ? "neg" : "pos"}">${d > 0 ? "+" : ""}${nf(d, dec)}${unit === "%" ? " pp" : unit}</b>` : "") +
+    ` &middot; <span style="color:#888">${cur.n.toLocaleString("en-US")} intervals, theoretical ${nf(cur.a, 1)} MWh</span>`;
 }
 
 function stats(t, act, fc) {

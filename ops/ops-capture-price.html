@@ -145,6 +145,12 @@ tr.total td { font-weight: 700; background: #fafbfc; }
         </div>
         <button class="export-btn" id="sumExport" style="margin-left:auto;flex-shrink:0;">Export CSV</button>
       </div>
+      <div class="chart-card-controls" style="justify-content:space-between;margin-bottom:6px;">
+        <div class="card-section-title" style="margin:0;">Monthly comparison by year</div>
+        <div class="btn-group-inline" id="sumMetric"></div>
+      </div>
+      <div id="sumChart" style="width:100%;height:340px;"></div>
+      <hr class="card-divider">
       <div class="scroll"><table id="sumTable"></table></div>
     </div>
   </div>
@@ -157,7 +163,7 @@ const COLORS = { baseload: '#d0d4d8', solar: '#f39c12', post_s: '#e67e22', bar: 
 const INTERVAL_H = 0.25;
 const $ = id => document.getElementById(id);
 const state = { site: "ALL", year: String(THIS_YEAR), mode: "price" };
-let charts = {}, price = null, gen = {}, hoursCache = {}, last = {};
+let sumChart, charts = {}, price = null, gen = {}, hoursCache = {}, last = {};
 
 /* ── Loading ─────────────────────────────────────────────── */
 async function getText(url) {
@@ -331,7 +337,7 @@ function paint() {
 
 /* ── Summary table ────────────────────────────────────────── */
 const MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-const sum = { site: 'Total', from: 1, to: 12, thresh: 'nonpositive' };
+const sum = { metric: 'cap', site: 'Total', from: 1, to: 12, thresh: 'nonpositive' };
 const YEARS = []; for (let y = FIRST_YEAR; y <= THIS_YEAR; y++) YEARS.push(String(y));
 const SECTIONS = [  // key, header, number format, csv decimals
   ['gen', 'Theoretical production (MWh)', v => nf(v, 1), 1],
@@ -366,12 +372,31 @@ function paintSummary() {
   const rows = defs.map(([label, cls, fn]) => ({ label, cls, byYear: YEARS.map(y => sumAggregate(hours, y, fn)) }));
   lastSum = rows;
   $('sumSubtitle').textContent = `${sum.site === 'Total' ? 'Total (all sites)' : sum.site} · curtailed when price ${sum.thresh === 'negative' ? '< 0' : '≤ 0'}`;
+  paintSumChart(rows);
   const ratioCls = v => v == null ? '' : v >= 85 ? 'val-high' : v < 60 ? 'val-low' : '';
   const sc = (si, yi) => si && !yi ? ' sec-start' : '';
   $('sumTable').innerHTML = '<tr><th rowspan="2">Period</th>' + SECTIONS.map(([, h], si) => `<th class="sec${sc(si, 0)}" colspan="${YEARS.length}">${h}</th>`).join('') + '</tr>' +
     '<tr>' + SECTIONS.map((_, si) => YEARS.map((y, yi) => `<th class="${sc(si, yi).trim()}">${y}</th>`).join('')).join('') + '</tr>' +
     rows.map(r => `<tr class="${r.cls}"><td>${r.label}</td>` + SECTIONS.map(([k, , fmt], si) => r.byYear.map((d, yi) =>
       `<td class="${[sc(si, yi).trim(), k === 'ratio' ? ratioCls(d[k]) : ''].filter(Boolean).join(' ')}">${fmt(d[k])}</td>`).join('')).join('') + '</tr>').join('');
+}
+const YEAR_COLORS = ['#95a5a6', '#2980b9', '#e67e22', '#27ae60', '#8e44ad'];
+function paintSumChart(rows) {
+  document.querySelectorAll("#sumMetric button").forEach(b => b.classList.toggle("active", b.dataset.k === sum.metric));
+  const [k, title, , dec] = SECTIONS.find(x => x[0] === sum.metric);
+  const isBar = k === 'gen' || k === 'curt', unit = /\(([^)]*)\)/.exec(title)?.[1] || (k === 'curtPct' ? '%' : '');
+  const axisUnit = k === 'curtPct' || k === 'ratio' ? '%' : unit;
+  const tail = k === 'curtPct' || k === 'ratio' ? '%' : '';
+  sumChart.setOption({
+    animation: false, color: YEAR_COLORS,
+    tooltip: { trigger: 'axis', valueFormatter: v => v == null ? '–' : v.toLocaleString('en-US', { minimumFractionDigits: dec, maximumFractionDigits: dec }) + ' ' + axisUnit },
+    legend: { top: 2, right: 8, textStyle: { color: '#2c3e50', fontSize: 12 } },
+    grid: { left: 64, right: 20, top: 36, bottom: 30 },
+    xAxis: { type: 'category', data: MON, ...axisStyle },
+    yAxis: { type: 'value', name: axisUnit, nameTextStyle: { color: '#6c757d', fontSize: 11 }, ...axisStyle },
+    series: YEARS.map((y, yi) => ({ name: y, type: isBar ? 'bar' : 'line', barMaxWidth: 22, symbolSize: 6, showSymbol: !isBar,
+      lineStyle: { width: 2 }, data: rows.slice(0, 12).map(r => r.byYear[yi][k]) }))
+  }, true);
 }
 function exportSummary() {
   if (!lastSum) return;
@@ -422,7 +447,10 @@ async function init() {
     document.querySelectorAll("#sumThresh button").forEach(x => x.classList.toggle("active", x === b)); paintSummary(); };
   $("sumExport").onclick = exportSummary;
   CHARTS.forEach(([freq, id]) => { charts[freq] = echarts.init($(id)); });
-  window.addEventListener("resize", () => Object.values(charts).forEach(c => c.resize()));
+  sumChart = echarts.init($("sumChart"));
+  $("sumMetric").innerHTML = SECTIONS.map(([k, h]) => `<button data-k="${k}">${h.replace(/ \(.*\)$/, '').replace(', post', '')}</button>`).join("");
+  $("sumMetric").onclick = e => { const b = e.target.closest("button"); if (!b) return; sum.metric = b.dataset.k; paintSummary(); };
+  window.addEventListener("resize", () => { Object.values(charts).forEach(c => c.resize()); sumChart.resize(); });
   try {
     await load();
     $("status").textContent = "";

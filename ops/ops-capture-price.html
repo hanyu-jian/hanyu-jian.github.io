@@ -61,9 +61,9 @@ tr.total td { font-weight: 700; background: #fafbfc; }
 .export-btn:hover { background: #f0f4f8; border-color: #5a8fc2; }
 .val-high { color: #1a7a3c; font-weight: 600; } .val-low { color: #c0392b; font-weight: 600; }
 .scroll { overflow-x: auto; }
-#sumTable th:nth-child(2), #sumTable td:nth-child(2) { text-align: left; }
-#sumTable td.yr { font-weight: 700; color: #2c3e50; }
-#sumTable tr.grp td { border-top: 2px solid #dee2e6; }
+#sumTable th.sec { text-align: center; }
+#sumTable tr:nth-child(2) th { text-align: right; }
+#sumTable th.sec-start, #sumTable td.sec-start { border-left: 1px solid #dfe3e8; }
 .pair { display: flex; gap: 16px; align-items: flex-start; }
 .pair > div { flex: 1; min-width: 0; }
 @media (max-width: 700px) { .pair { flex-direction: column; } .pair > div { width: 100%; } }
@@ -363,19 +363,21 @@ function paintSummary() {
   const hours = computeHours(sum.site === 'Total' ? 'ALL' : sum.site), { from, to } = sum;
   const rangeFn = from <= to ? x => x >= from && x <= to : x => x >= from || x <= to;
   const defs = [...MON.map((m, i) => [m, '', x => x === i + 1]), ['Yearly', 'total', () => true], [`${MON[from - 1]}–${MON[to - 1]}`, 'total', rangeFn]];
-  const rows = [];
-  YEARS.forEach(y => defs.forEach(([label, cls, fn], k) => rows.push({ year: y, first: k === 0, label, cls, ...sumAggregate(hours, y, fn) })));
+  const rows = defs.map(([label, cls, fn]) => ({ label, cls, byYear: YEARS.map(y => sumAggregate(hours, y, fn)) }));
   lastSum = rows;
   $('sumSubtitle').textContent = `${sum.site === 'Total' ? 'Total (all sites)' : sum.site} · curtailed when price ${sum.thresh === 'negative' ? '< 0' : '≤ 0'}`;
   const ratioCls = v => v == null ? '' : v >= 85 ? 'val-high' : v < 60 ? 'val-low' : '';
-  $('sumTable').innerHTML = '<tr><th>Year</th><th>Period</th>' + SECTIONS.map(([, h]) => `<th>${h}</th>`).join('') + '</tr>' +
-    rows.map(r => `<tr class="${[r.cls, r.first ? 'grp' : ''].filter(Boolean).join(' ')}"><td class="yr">${r.first ? r.year : ''}</td><td>${r.label}</td>` +
-      SECTIONS.map(([k, , fmt]) => `<td class="${k === 'ratio' ? ratioCls(r[k]) : ''}">${fmt(r[k])}</td>`).join('') + '</tr>').join('');
+  const sc = (si, yi) => si && !yi ? ' sec-start' : '';
+  $('sumTable').innerHTML = '<tr><th rowspan="2">Period</th>' + SECTIONS.map(([, h], si) => `<th class="sec${sc(si, 0)}" colspan="${YEARS.length}">${h}</th>`).join('') + '</tr>' +
+    '<tr>' + SECTIONS.map((_, si) => YEARS.map((y, yi) => `<th class="${sc(si, yi).trim()}">${y}</th>`).join('')).join('') + '</tr>' +
+    rows.map(r => `<tr class="${r.cls}"><td>${r.label}</td>` + SECTIONS.map(([k, , fmt], si) => r.byYear.map((d, yi) =>
+      `<td class="${[sc(si, yi).trim(), k === 'ratio' ? ratioCls(d[k]) : ''].filter(Boolean).join(' ')}">${fmt(d[k])}</td>`).join('')).join('') + '</tr>').join('');
 }
 function exportSummary() {
   if (!lastSum) return;
-  const rows = [['Year', 'Period', ...SECTIONS.map(([, h]) => h.replace('€', 'EUR'))]];
-  lastSum.forEach(r => rows.push([r.year, r.label, ...SECTIONS.map(([k, , , dec]) => r[k] == null ? '' : r[k].toFixed(dec))]));
+  const rows = [['Period']];
+  SECTIONS.forEach(([, h]) => YEARS.forEach(y => rows[0].push(`${h.replace('€', 'EUR')} ${y}`)));
+  lastSum.forEach(r => rows.push([r.label, ...SECTIONS.flatMap(([k, , , dec]) => r.byYear.map(d => d[k] == null ? '' : d[k].toFixed(dec)))]));
   const blob = new Blob(['\uFEFF' + rows.map(x => x.map(csvEscape).join(',')).join('\r\n')], { type: 'text/csv;charset=utf-8;' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);

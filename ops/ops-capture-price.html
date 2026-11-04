@@ -384,7 +384,7 @@ const YEAR_COLORS = ['#95a5a6', '#2980b9', '#e67e22', '#27ae60', '#8e44ad'];
 const CHART_METRICS = [  // key, label, [series: SECTIONS key, label, type, axis]
   ['gen', 'Theoretical production', [['gen', 'Production', 'bar', 0]], 'MWh', null],
   ['curt', 'Curtailment', [['curt', 'Volume', 'bar', 0], ['curtPct', 'Rate', 'line', 1]], 'MWh', '%'],
-  ['cap', 'Capture (post)', [['cap', 'Price', 'line', 0], ['ratio', 'Ratio', 'line', 1]], '€/MWh', '%'],
+  ['cap', 'Capture (post)', [['cap', 'Price', 'bar', 0], ['ratio', 'Ratio', 'line', 1]], '€/MWh', '%'],
 ];
 function paintSumChart(rows) {
   document.querySelectorAll("#sumMetric button").forEach(b => b.classList.toggle("active", b.dataset.k === sum.metric));
@@ -396,7 +396,7 @@ function paintSumChart(rows) {
   const series = [];
   YEARS.forEach((y, yi) => defs.forEach(([k, label, type, axis]) => series.push({
     name: multi ? `${y} ${label}` : y, type, yAxisIndex: axis, color: YEAR_COLORS[yi], barMaxWidth: 18, symbolSize: 6, showSymbol: type === 'line',
-    lineStyle: { width: 2, type: type === 'line' && axis === 1 && k === 'ratio' ? 'dashed' : 'solid' },
+    lineStyle: { width: 2, type: 'solid' },
     itemStyle: { color: YEAR_COLORS[yi], opacity: type === 'bar' && multi ? 0.55 : 1 },
     data: rows.slice(0, 12).map(r => r.byYear[yi][k]), _k: k })));
   const axisName = (u) => ({ type: 'value', name: u, nameTextStyle: { color: '#6c757d', fontSize: 11 }, ...axisStyle });

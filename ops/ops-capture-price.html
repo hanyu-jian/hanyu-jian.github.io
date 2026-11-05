@@ -59,11 +59,15 @@ tr.total td { font-weight: 700; background: #fafbfc; }
 .export-btn { display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; font-size: 12px; font-weight: 600; color: #2c3e50; background: #fff;
   border: 1px solid #ced4da; border-radius: 6px; cursor: pointer; white-space: nowrap; font-family: inherit; transition: background .15s, border-color .15s; }
 .export-btn:hover { background: #f0f4f8; border-color: #5a8fc2; }
+.panels { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 28px 32px; }
+.panel h4 { font-size: 14px; font-weight: 600; color: #2c3e50; margin-bottom: 8px; }
+.ptable { font-size: 13px; }
+.ptable th, .ptable td { padding: 5px 10px; }
+.ptable td:first-child, .ptable th:first-child { text-align: left; color: #6c757d; width: 64px; }
+.ptable tr.total td { color: #2c3e50; }
+@media (max-width: 900px) { .panels { grid-template-columns: minmax(0, 1fr); } }
 .val-high { color: #1a7a3c; font-weight: 600; } .val-low { color: #c0392b; font-weight: 600; }
 .scroll { overflow-x: auto; }
-#sumTable th.sec { text-align: center; }
-#sumTable tr:nth-child(2) th { text-align: right; }
-#sumTable th.sec-start, #sumTable td.sec-start { border-left: 1px solid #dfe3e8; }
 .pair { display: flex; gap: 16px; align-items: flex-start; }
 .pair > div { flex: 1; min-width: 0; }
 @media (max-width: 700px) { .pair { flex-direction: column; } .pair > div { width: 100%; } }
@@ -128,16 +132,12 @@ tr.total td { font-weight: 700; background: #fafbfc; }
     <div class="chart-card">
       <div class="chart-card-header" style="margin-bottom:10px;align-items:center;">
         <div>
-          <h3>Summary table</h3>
+          <h3>Summary</h3>
           <div class="subtitle" id="sumSubtitle">Solar</div>
         </div>
       </div>
-      <div class="chart-card-controls" style="margin-bottom:14px;flex-wrap:nowrap;overflow-x:auto;">
+      <div class="chart-card-controls" style="margin-bottom:18px;flex-wrap:nowrap;overflow-x:auto;">
         <div class="btn-group-inline" id="sumSite"></div>
-        <label>Month range</label>
-        <select class="ctrl-select" id="sumFrom" style="min-width:70px;"></select>
-        <span style="font-size:13px;color:#6c757d;">to</span>
-        <select class="ctrl-select" id="sumTo" style="min-width:70px;"></select>
         <label>Threshold</label>
         <div class="btn-group-inline" id="sumThresh">
           <button data-t="negative">Price &lt; 0</button>
@@ -145,13 +145,7 @@ tr.total td { font-weight: 700; background: #fafbfc; }
         </div>
         <button class="export-btn" id="sumExport" style="margin-left:auto;flex-shrink:0;">Export CSV</button>
       </div>
-      <div class="chart-card-controls" style="justify-content:space-between;margin-bottom:6px;">
-        <div class="card-section-title" style="margin:0;">Monthly comparison by year</div>
-        <div class="btn-group-inline" id="sumMetric"></div>
-      </div>
-      <div id="sumChart" style="width:100%;height:340px;"></div>
-      <hr class="card-divider">
-      <div class="scroll"><table id="sumTable"></table></div>
+      <div class="panels" id="panels"></div>
     </div>
   </div>
 </div>
@@ -163,7 +157,7 @@ const COLORS = { baseload: '#d0d4d8', solar: '#f39c12', post_s: '#e67e22', bar: 
 const INTERVAL_H = 0.25;
 const $ = id => document.getElementById(id);
 const state = { site: "ALL", year: String(THIS_YEAR), mode: "price" };
-let sumChart, charts = {}, price = null, gen = {}, hoursCache = {}, last = {};
+let charts = {}, price = null, gen = {}, hoursCache = {}, last = {};
 
 /* ── Loading ─────────────────────────────────────────────── */
 async function getText(url) {
@@ -335,87 +329,69 @@ function paint() {
   });
 }
 
-/* ── Summary table ────────────────────────────────────────── */
+/* ── Summary: tables with matching charts, two per row ────── */
 const MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-const sum = { metric: 'cap', site: 'Total', from: 1, to: 12, thresh: 'nonpositive' };
+const sum = { site: 'Total', thresh: 'nonpositive' };
 const YEARS = []; for (let y = FIRST_YEAR; y <= THIS_YEAR; y++) YEARS.push(String(y));
-const SECTIONS = [  // key, header, number format, csv decimals
-  ['gen', 'Theoretical production (MWh)', v => nf(v, 1), 1],
-  ['curt', 'Economic curtailment (MWh)', v => nf(v, 1), 1],
-  ['curtPct', 'Curtailment rate', v => nf(v, 1) + (v == null ? '' : '%'), 1],
-  ['baseload', 'Baseload (€/MWh)', v => nf(v, 1), 2],
-  ['cap', 'Capture price, post (€/MWh)', v => nf(v, 1), 2],
-  ['ratio', 'Capture ratio, post', v => nf(v, 1) + (v == null ? '' : '%'), 1],
+const YEAR_COLORS = ['#95a5a6', '#2980b9', '#e67e22', '#27ae60', '#8e44ad'];
+const PANELS = [  // key, title, chart type, decimals, unit, hide zero as dash, last-row label
+  ['curt', 'Economic Curtailment Volume (MWh)', 'bar', 0, 'MWh', true, 'Total'],
+  ['curtPct', 'Economic Curtailment Ratio (%)', 'line', 1, '%', false, 'Year'],
+  ['cap', 'Solar Capture Price – post-curtailment (€/MWh)', 'bar', 1, '€/MWh', false, 'Year'],
+  ['ratio', 'Solar Capture Ratio – post-curtailment (%)', 'line', 1, '%', false, 'Year'],
+  ['gen', 'Theoretical Production (MWh)', 'bar', 0, 'MWh', true, 'Total'],
 ];
-let lastSum = null;
-function sumAggregate(hours, year, inRange) {
+let lastSum = null, panelCharts = {};
+const nf = (v, d = 0) => v == null || isNaN(v) ? '<span style="color:#bbb">–</span>' : v.toLocaleString('en-US', { maximumFractionDigits: d, minimumFractionDigits: d });
+function sumAggregate(hours, year, month) {   // month 1-12, or 0 for the whole year
   const negOnly = sum.thresh === 'negative';
   let sumPr = 0, cnt = 0, g = 0, gPost = 0, rev = 0;
   for (const h of hours) {
     if (!h.date.startsWith(year)) continue;
-    if (!inRange(+h.date.slice(5, 7))) continue;
+    if (month && +h.date.slice(5, 7) !== month) continue;
     sumPr += h.pr; cnt++;
     const cut = negOnly ? h.pr < 0 : h.pr <= 0, gp = cut ? 0 : h.gen;
     g += h.gen; gPost += gp; rev += gp * h.pr;
   }
   const baseload = cnt ? sumPr / cnt : null, cap = gPost > 0 ? rev / gPost : null;
-  return { gen: cnt && g > 0 ? g : null, curt: cnt && g > 0 ? g - gPost : null, curtPct: g > 0 ? (g - gPost) / g * 100 : null, baseload, cap,
+  return { gen: cnt && g > 0 ? g : null, curt: cnt && g > 0 ? g - gPost : null, curtPct: g > 0 ? (g - gPost) / g * 100 : null, cap,
     ratio: baseload && cap !== null ? cap / baseload * 100 : null };
 }
-const nf = (v, d = 0) => v == null || isNaN(v) ? '<span style="color:#bbb">–</span>' : v.toLocaleString('en-US', { maximumFractionDigits: d, minimumFractionDigits: d });
+function buildPanels() {
+  $("panels").innerHTML = PANELS.map(([k, title]) => `<div class="panel"><h4>${title}</h4>
+    <div class="scroll"><table class="ptable" id="pt_${k}"></table></div><div id="pc_${k}" style="width:100%;height:260px;margin-top:10px;"></div></div>`).join("");
+  PANELS.forEach(([k]) => { panelCharts[k] = echarts.init($("pc_" + k)); });
+}
 function paintSummary() {
   if (!price) return;
   document.querySelectorAll("#sumSite button").forEach(b => b.classList.toggle("active", b.dataset.s === sum.site));
-  const hours = computeHours(sum.site === 'Total' ? 'ALL' : sum.site), { from, to } = sum;
-  const rangeFn = from <= to ? x => x >= from && x <= to : x => x >= from || x <= to;
-  const defs = [...MON.map((m, i) => [m, '', x => x === i + 1]), ['Yearly', 'total', () => true], [`${MON[from - 1]}–${MON[to - 1]}`, 'total', rangeFn]];
-  const rows = defs.map(([label, cls, fn]) => ({ label, cls, byYear: YEARS.map(y => sumAggregate(hours, y, fn)) }));
-  lastSum = rows;
+  const hours = computeHours(sum.site === 'Total' ? 'ALL' : sum.site);
+  // data[m][yi]: m = 0..11 months, 12 = whole year
+  const data = Array.from({ length: 13 }, (_, m) => YEARS.map(y => sumAggregate(hours, y, m === 12 ? 0 : m + 1)));
+  lastSum = data;
   $('sumSubtitle').textContent = `${sum.site === 'Total' ? 'Total (all sites)' : sum.site} · curtailed when price ${sum.thresh === 'negative' ? '< 0' : '≤ 0'}`;
-  paintSumChart(rows);
-  const ratioCls = v => v == null ? '' : v >= 85 ? 'val-high' : v < 60 ? 'val-low' : '';
-  const sc = (si, yi) => si && !yi ? ' sec-start' : '';
-  $('sumTable').innerHTML = '<tr><th rowspan="2">Period</th>' + SECTIONS.map(([, h], si) => `<th class="sec${sc(si, 0)}" colspan="${YEARS.length}">${h}</th>`).join('') + '</tr>' +
-    '<tr>' + SECTIONS.map((_, si) => YEARS.map((y, yi) => `<th class="${sc(si, yi).trim()}">${y}</th>`).join('')).join('') + '</tr>' +
-    rows.map(r => `<tr class="${r.cls}"><td>${r.label}</td>` + SECTIONS.map(([k, , fmt], si) => r.byYear.map((d, yi) =>
-      `<td class="${[sc(si, yi).trim(), k === 'ratio' ? ratioCls(d[k]) : ''].filter(Boolean).join(' ')}">${fmt(d[k])}</td>`).join('')).join('') + '</tr>').join('');
-}
-const YEAR_COLORS = ['#95a5a6', '#2980b9', '#e67e22', '#27ae60', '#8e44ad'];
-const CHART_METRICS = [  // key, label, [series: SECTIONS key, label, type, axis]
-  ['gen', 'Theoretical production', [['gen', 'Production', 'bar', 0]], 'MWh', null],
-  ['curt', 'Curtailment', [['curt', 'Volume', 'bar', 0], ['curtPct', 'Rate', 'line', 1]], 'MWh', '%'],
-  ['cap', 'Capture (post)', [['cap', 'Price', 'bar', 0], ['ratio', 'Ratio', 'line', 1]], '€/MWh', '%'],
-];
-function paintSumChart(rows) {
-  document.querySelectorAll("#sumMetric button").forEach(b => b.classList.toggle("active", b.dataset.k === sum.metric));
-  const [, , defs, leftUnit, rightUnit] = CHART_METRICS.find(x => x[0] === sum.metric);
-  const dec = Object.fromEntries(SECTIONS.map(x => [x[0], x[3]]));
-  const unitOf = k => k === 'curtPct' || k === 'ratio' ? '%' : k === 'cap' ? '€/MWh' : 'MWh';
-  const fmt = (k, v) => v == null ? '–' : v.toLocaleString('en-US', { minimumFractionDigits: dec[k], maximumFractionDigits: dec[k] }) + ' ' + unitOf(k);
-  const multi = defs.length > 1;
-  const series = [];
-  YEARS.forEach((y, yi) => defs.forEach(([k, label, type, axis]) => series.push({
-    name: multi ? `${y} ${label}` : y, type, yAxisIndex: axis, color: YEAR_COLORS[yi], barMaxWidth: 18, symbolSize: 6, showSymbol: type === 'line',
-    lineStyle: { width: 2, type: 'solid' },
-    itemStyle: { color: YEAR_COLORS[yi], opacity: type === 'bar' && multi ? 0.55 : 1 },
-    data: rows.slice(0, 12).map(r => r.byYear[yi][k]), _k: k })));
-  const axisName = (u) => ({ type: 'value', name: u, nameTextStyle: { color: '#6c757d', fontSize: 11 }, ...axisStyle });
-  sumChart.setOption({
-    animation: false,
-    tooltip: { trigger: 'axis', formatter: ps => `<div style="font-weight:600;margin-bottom:4px">${ps[0].axisValue}</div>` + ps.filter(p => p.value != null).map(p =>
-      `<div style="display:flex;gap:8px;font-size:12px"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${p.color};margin-top:3px"></span><span style="flex:1">${p.seriesName}</span><b>${fmt(series[p.seriesIndex]._k, p.value)}</b></div>`).join('') },
-    legend: { top: 2, left: 'center', type: 'scroll', textStyle: { color: '#2c3e50', fontSize: 12 } },
-    grid: { left: 70, right: rightUnit ? 60 : 20, top: 40, bottom: 30 },
-    xAxis: { type: 'category', data: MON, ...axisStyle },
-    yAxis: rightUnit ? [axisName(leftUnit), { ...axisName(rightUnit), position: 'right', splitLine: { show: false } }] : [axisName(leftUnit)],
-    series
-  }, true);
+  PANELS.forEach(([k, title, type, dec, unit, dashZero, lastLabel]) => {
+    const cell = v => v == null || (dashZero && v < 0.5 && dec === 0) ? nf(null) : nf(v, dec);
+    $("pt_" + k).innerHTML = '<tr><th></th>' + YEARS.map(y => `<th>${y}</th>`).join('') + '</tr>' +
+      data.map((row, m) => `<tr class="${m === 12 ? 'total' : ''}"><td>${m === 12 ? lastLabel : m + 1}</td>${row.map(d => `<td>${cell(d[k])}</td>`).join('')}</tr>`).join('');
+    const fmt = v => v == null ? '–' : v.toLocaleString('en-US', { minimumFractionDigits: dec, maximumFractionDigits: dec }) + ' ' + unit;
+    panelCharts[k].setOption({
+      animation: false, tooltip: { trigger: 'axis', valueFormatter: fmt },
+      legend: { top: 0, right: 8, textStyle: { color: '#2c3e50', fontSize: 12 } },
+      grid: { left: 56, right: 16, top: 30, bottom: 26 },
+      xAxis: { type: 'category', data: MON, ...axisStyle },
+      yAxis: { type: 'value', name: unit, nameTextStyle: { color: '#6c757d', fontSize: 11 }, ...axisStyle },
+      series: YEARS.map((y, yi) => ({ name: y, type, color: YEAR_COLORS[yi], barMaxWidth: 16, symbolSize: 6, lineStyle: { width: 2 },
+        data: data.slice(0, 12).map(r => r[yi][k]) }))
+    }, true);
+  });
 }
 function exportSummary() {
   if (!lastSum) return;
-  const rows = [['Period']];
-  SECTIONS.forEach(([, h]) => YEARS.forEach(y => rows[0].push(`${h.replace('€', 'EUR')} ${y}`)));
-  lastSum.forEach(r => rows.push([r.label, ...SECTIONS.flatMap(([k, , , dec]) => r.byYear.map(d => d[k] == null ? '' : d[k].toFixed(dec)))]));
+  const head = ['Period'];
+  PANELS.forEach(([, title]) => YEARS.forEach(y => head.push(`${title.replace('€', 'EUR').replace('–', '-')} ${y}`)));
+  const rows = [head];
+  lastSum.forEach((row, m) => rows.push([m === 12 ? 'Year' : m + 1, ...PANELS.flatMap(([k, , , dec]) => row.map(d => d[k] == null ? '' : d[k].toFixed(dec)))]));
   const blob = new Blob(['\uFEFF' + rows.map(x => x.map(csvEscape).join(',')).join('\r\n')], { type: 'text/csv;charset=utf-8;' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
@@ -452,18 +428,12 @@ async function init() {
   $("exportBtn").onclick = exportCSV;
   $("sumSite").innerHTML = [...SITES, "Total"].map(n => `<button data-s="${n}">${n}</button>`).join("");
   $("sumSite").onclick = e => { const b = e.target.closest("button"); if (!b) return; sum.site = b.dataset.s; paintSummary(); };
-  $("sumFrom").innerHTML = MON.map((m, i) => `<option value="${i + 1}">${m}</option>`).join('');
-  $("sumTo").innerHTML = MON.map((m, i) => `<option value="${i + 1}"${i === 11 ? ' selected' : ''}>${m}</option>`).join('');
-  $("sumFrom").onchange = e => { sum.from = +e.target.value; paintSummary(); };
-  $("sumTo").onchange = e => { sum.to = +e.target.value; paintSummary(); };
   $("sumThresh").onclick = e => { const b = e.target.closest("button"); if (!b) return; sum.thresh = b.dataset.t;
     document.querySelectorAll("#sumThresh button").forEach(x => x.classList.toggle("active", x === b)); paintSummary(); };
   $("sumExport").onclick = exportSummary;
   CHARTS.forEach(([freq, id]) => { charts[freq] = echarts.init($(id)); });
-  sumChart = echarts.init($("sumChart"));
-  $("sumMetric").innerHTML = CHART_METRICS.map(([k, label]) => `<button data-k="${k}">${label}</button>`).join("");
-  $("sumMetric").onclick = e => { const b = e.target.closest("button"); if (!b) return; sum.metric = b.dataset.k; paintSummary(); };
-  window.addEventListener("resize", () => { Object.values(charts).forEach(c => c.resize()); sumChart.resize(); });
+  buildPanels();
+  window.addEventListener("resize", () => { Object.values(charts).forEach(c => c.resize()); Object.values(panelCharts).forEach(c => c.resize()); });
   try {
     await load();
     $("status").textContent = "";

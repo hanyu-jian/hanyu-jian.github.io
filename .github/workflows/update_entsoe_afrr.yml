@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
     inputs:
       country:
-        description: "Country: RO, DE, or empty = both."
+        description: "Countries (space separated): RO DE BG GR. Empty = all."
         type: string
         default: ""
       start_date:
@@ -52,7 +52,7 @@ jobs:
           if [ -n "$END_DATE" ]; then
             args+=(--end "$END_DATE")
           fi
-          for c in ${COUNTRY:-RO DE}; do
+          for c in ${COUNTRY:-RO DE BG GR}; do
             python py/fetch/entsoe/fetch_afrr_capacity.py --country "$c" "${args[@]}"
           done
 

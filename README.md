@@ -320,8 +320,8 @@ token 只在服务端，不会发给浏览器；数据不会进入本仓库，�
 - 发电量用 vcom 的 15 分钟理论发电量（kWh），电价和基荷价用 `entsoe/15min/price.csv` 的 `HU` 列，按时间戳（布达佩斯当地时间、区间起点）对齐；公式与 capture-price 页完全一致：
   `Capture Price pre = Σ(g·p)/Σg`，`post` 把价格 ≤ 0 的时段发电量记 0，`Ratio = Capture Price / Baseload`，非正价时长 = 价格 ≤ 0 的点数 × 0.25 h，基荷价 = 价格简单平均。
 - 基荷价用所选周期内全部 15 分钟价格点（含场站投运前，例如 2024 年用整年）；捕获价只用有发电量的时段（缺发电量按 0，权重为 0）。
-- 下方 Summary table：按钮选 五个场站 / Total（默认 Total，Total 为五站相加），月份区间（起 > 止时按「月 ≥ 起 或 月 ≤ 止」）、阈值（Price ≤ 0 默认 / Price < 0）。
-  行 = 1–12 月、Yearly、所选月份区间；列 = 指标，每个指标下面并排 2024 / 2025 / 2026（没有年份选择）。
-  指标：理论发电量 MWh、经济性限电量 MWh（价格触发阈值的时段的理论发电量）、限电率 = 限电量 / 理论发电量、基荷价、Capture Price（post）、Capture Ratio（post）= Capture Price / 基荷价（≥ 85% 绿，< 60% 红）。
-  表上方有一张按月份对比不同年份的图（Jan–Dec，每年一条线 / 一组柱），按钮切换：Theoretical production（柱，MWh）、Curtailment（限电量柱 MWh 左轴 + 限电率线 % 右轴）、Capture (post)（捕获价柱 €/MWh 左轴 + 捕获率线 % 右轴），随场站、阈值、表格同步。
+- 下方 Summary：按钮选 五个场站 / Total（默认 Total，Total 为五站相加）和阈值（Price ≤ 0 默认 / Price < 0）。下面是两列排布的 5 个「上表下图」面板：
+  Economic Curtailment Volume（MWh，经济性限电量 = 价格触发阈值的时段的理论发电量）/ Economic Curtailment Ratio（% = 限电量 / 理论发电量）、
+  Solar Capture Price post（€/MWh）/ Solar Capture Ratio post（% = Capture Price / 基荷价）、Theoretical Production（MWh）。
+  每个表行 = 1–12 月 + 全年（量用 Total，价格 / 比率用 Year），列 = 2024 / 2025 / 2026；图 = 横轴 Jan–Dec，每年一组柱 / 一条线。Export CSV 导出全部面板。
   图里的 post 固定按 Price ≤ 0 限电，表里阈值可切换。

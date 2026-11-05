@@ -1,26 +1,24 @@
-// Cloudflare Worker：静态网站前面的「token 门卫」。
-// 没有有效 token 的请求一律不放行；token 对了就设置 Cookie，之后正常浏览。
+// Cloudflare Worker：静态网站前面的「门卫」。
+// 普通看板由 Cloudflare Access（公司邮箱验证码）把关，Worker 本身没有登录页。
+// 前提：Worker 的 workers.dev 地址（Production 和 Preview）必须关闭，只通过绑定了 Access 的自定义域名访问；
+// 否则任何人可以绕过 Access 直接打开网站。
 //
-// 配置（Cloudflare → 这个 Worker → Settings → Variables and Secrets，类型选 Secret）：
-//   DASHBOARD_TOKENS = alice:token1,bob:token2     名字:token，逗号分隔；名字只用来区分是谁
-//
-// 同事使用方式：
-//   1. 打开网址，在登录页粘贴 token；或者你直接发这样的链接：https://你的网址/?token=token1
-//   2. 浏览器记住 30 天（HttpOnly Cookie）。想停用某人，从 DASHBOARD_TOKENS 里删掉他那一项即可。
-//   3. /logout 退出登录。
+// 可选的额外保险（普通变量，Worker → Settings → Variables and Secrets）：
+//   ACCESS_TEAM_DOMAIN = 团队域名，形如 xxx.cloudflareaccess.com
+//   ACCESS_AUD         = Access 应用的 Application Audience (AUD) Tag
+// 两个都配置后，Worker 会校验 Access 签发的 JWT（签名、有效期、iss、aud），绕过 Access 的请求一律 401；不配置则不校验。
 //
 // 运营数据（/ops/…，匈牙利五个场站的发电量）使用「完全独立」的另一套 token：
-//   OPS_TOKENS = alice:optoken1,bob:optoken2   同样是 Secret；和 DASHBOARD_TOKENS 互不通用
+//   OPS_TOKENS = alice:optoken1,bob:optoken2   Secret；名字:token，逗号分隔。进 /ops/ 要先通过 Access 邮箱登录，再输入运营 token
 //   GITHUB_TOKEN = 只读（Contents: Read-only）、只授权 vcom 仓库的 fine-grained token，Secret；用来读私有 vcom 仓库的发电量 CSV
 //   GITHUB_REPO  = 可选变量，默认 hanyu-jian/vcom
-// 运营 token 只能打开 /ops/ 下的页面和接口；普通看板 token 打不开 /ops/，反过来运营 token 也打不开普通页面。
+// 运营 token 只能打开 /ops/ 下的页面和接口；通过 Access 登录的同事默认打不开 /ops/，必须另有运营 token。
 // OPS_TOKENS 没配置时 /ops/ 一律拒绝，不影响其它页面。
 
 const PAGES = new Set([
   "capacity", "capture-price", "generation-overview", "generation-type", "imbalance", "balancing-afrr-capacity",
   "load", "price-intraday", "price-overview", "price-spread", "project",
 ]);
-const COOKIE = "dash_token";
 const OPS_COOKIE = "ops_token";
 // 运营页面：对外地址 /ops/<name> → 文件 ops/ops-<name>.html。新增页面（如 capture-price）时把名字加进来即可。
 const OPS_PAGE_NAMES = new Set(["overview", "capture-price"]);
@@ -38,7 +36,7 @@ function eq(a, b) {
   return d === 0;
 }
 
-function whoIs(token, env, list = env.DASHBOARD_TOKENS) {
+function whoIs(token, env, list) {
   if (!token) return null;
   let found = null;
   for (const pair of (list || "").split(",")) {
@@ -56,9 +54,9 @@ function readCookie(request, name) {
   return null;
 }
 
-const setCookie = (token, name = COOKIE, path = "/") =>
+const setCookie = (token, name, path = "/") =>
   `${name}=${encodeURIComponent(token)}; Path=${path}; HttpOnly; Secure; SameSite=Lax; Max-Age=${MAX_AGE}`;
-const clearCookie = (name = COOKIE, path = "/") => `${name}=; Path=${path}; HttpOnly; Secure; SameSite=Lax; Max-Age=0`;
+const clearCookie = (name, path = "/") => `${name}=; Path=${path}; HttpOnly; Secure; SameSite=Lax; Max-Age=0`;
 
 // 只允许站内相对路径，防止被利用做跳转到别的网站
 const safeNext = (n) => (typeof n === "string" && n.startsWith("/") && !n.startsWith("//") ? n : "/");
@@ -326,52 +324,71 @@ async function handleOps(request, env, url, path) {
   return out;
 }
 
+// ── Cloudflare Access：校验请求头 Cf-Access-Jwt-Assertion（RS256）──────────────────
+// 正常情况下请求已经被 Access 拦在前面；这里再验一次签名、有效期、iss 和 aud，
+// 这样即使有人绕过 Access 直接打到 Worker（例如 workers.dev 预览地址），也进不来。
+const teamHost = (env) => String(env.ACCESS_TEAM_DOMAIN || "").replace(/^https?:\/\//, "").replace(/\/+$/, "");
+let certCache = { at: 0, keys: [] };
+
+const b64urlToBytes = (s) => {
+  s = s.replace(/-/g, "+").replace(/_/g, "/");
+  return Uint8Array.from(atob(s + "=".repeat((4 - (s.length % 4)) % 4)), (c) => c.charCodeAt(0));
+};
+const b64urlJson = (s) => JSON.parse(new TextDecoder().decode(b64urlToBytes(s)));
+
+async function accessKeys(env, force = false) {
+  const age = Date.now() - certCache.at;
+  if (certCache.keys.length && age < 3600e3 && !(force && age > 60e3)) return certCache.keys;
+  const res = await fetch(`https://${teamHost(env)}/cdn-cgi/access/certs`, { cf: { cacheEverything: true, cacheTtl: 3600 } });
+  if (!res.ok) throw new Error(`Access certs ${res.status}`);
+  certCache = { at: Date.now(), keys: (await res.json()).keys || [] };
+  return certCache.keys;
+}
+
+// 通过返回邮箱（或 sub），否则返回 null
+async function accessUser(request, env) {
+  const jwt = request.headers.get("Cf-Access-Jwt-Assertion");
+  const parts = jwt ? jwt.split(".") : [];
+  if (parts.length !== 3) return null;
+  try {
+    const header = b64urlJson(parts[0]);
+    const claims = b64urlJson(parts[1]);
+    if (header.alg !== "RS256") return null;
+    let jwk = (await accessKeys(env)).find((k) => k.kid === header.kid);
+    if (!jwk) jwk = (await accessKeys(env, true)).find((k) => k.kid === header.kid); // 密钥轮换后刷新一次
+    if (!jwk) return null;
+    const key = await crypto.subtle.importKey("jwk", jwk, { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" }, false, ["verify"]);
+    const ok = await crypto.subtle.verify(
+      "RSASSA-PKCS1-v1_5", key, b64urlToBytes(parts[2]), new TextEncoder().encode(`${parts[0]}.${parts[1]}`)
+    );
+    if (!ok) return null;
+    const now = Date.now() / 1000;
+    const aud = Array.isArray(claims.aud) ? claims.aud : [claims.aud];
+    if (claims.iss !== `https://${teamHost(env)}` || !aud.includes(env.ACCESS_AUD)) return null;
+    if (!claims.exp || claims.exp < now || (claims.nbf && claims.nbf > now + 60)) return null;
+    return claims.email || claims.sub || "access-user";
+  } catch {
+    return null;
+  }
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
 
-    // /ops 下的一切（含大小写、重复斜杠、编码变体）只走运营这套 token；普通 token 不能碰
+    if (teamHost(env) && env.ACCESS_AUD && !(await accessUser(request, env))) {
+      return new Response("Unauthorized: please sign in through Cloudflare Access.", {
+        status: 401,
+        headers: { "Cache-Control": "no-store" },
+      });
+    }
+
+    // /ops 下的一切（含大小写、重复斜杠、编码变体）只走运营这套 token；仅通过 Access 登录而没有运营 token 的人进不去
     let norm = url.pathname;
     try { norm = decodeURIComponent(norm); } catch {}
     norm = norm.replace(/\/+/g, "/").toLowerCase();
     if (norm === "/ops" || norm.startsWith("/ops/")) {
       return handleOps(request, env, url, norm === "/ops" ? "/ops/" : norm);
-    }
-
-    if (!env.DASHBOARD_TOKENS) {
-      return new Response("DASHBOARD_TOKENS 还没有配置，出于安全考虑网站暂时不对外开放。", { status: 500 });
-    }
-
-    if (url.pathname === "/logout") return redirect("/login", clearCookie());
-
-    if (url.pathname === "/login") {
-      if (request.method === "POST") {
-        const form = await request.formData();
-        const token = String(form.get("token") || "").trim();
-        const next = safeNext(form.get("next"));
-        return whoIs(token, env)
-          ? redirect(next, setCookie(token))
-          : loginPage("Invalid token. Please try again.", next, 401);
-      }
-      const next = safeNext(url.searchParams.get("next"));
-      return whoIs(readCookie(request, COOKIE), env) ? redirect(next) : loginPage("", next);
-    }
-
-    // 链接直达：https://网址/任意页面?token=xxx  → 设置 Cookie 后跳到去掉 token 的同一页面
-    const linkToken = url.searchParams.get("token");
-    if (linkToken !== null) {
-      url.searchParams.delete("token");
-      const clean = url.pathname + (url.search || "");
-      return whoIs(linkToken, env)
-        ? redirect(clean, setCookie(linkToken))
-        : loginPage("Invalid token. Please try again.", clean, 401);
-    }
-
-    if (!whoIs(readCookie(request, COOKIE), env)) {
-      if ((request.headers.get("Accept") || "").includes("text/html")) {
-        return redirect("/login?next=" + encodeURIComponent(url.pathname + url.search));
-      }
-      return new Response("Unauthorized", { status: 401, headers: { "Cache-Control": "no-store" } });
     }
 
     // 页面文件放在 html/ 里，但对外网址保持 /price-overview、/load.html 这样（不带 /html/）：

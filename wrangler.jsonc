@@ -2,6 +2,9 @@
   "name": "energy-dashboard",
   "main": "gate/worker.js",
   "compatibility_date": "2025-01-01",
+  "d1_databases": [
+    { "binding": "DB", "database_name": "sep", "database_id": "657566eb-3a7b-496f-8d22-2050146ce8c9" }
+  ],
   "assets": {
     "directory": "./",
     "binding": "ASSETS",

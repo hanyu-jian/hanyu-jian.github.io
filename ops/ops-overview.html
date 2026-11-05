@@ -104,6 +104,8 @@ tr.total td { font-weight: 700; background: #fafbfc; }
       <div id="chart2"></div>
       <p class="note">
         Deviation = production forecast &minus; theoretical production (positive = forecast too high).<br>
+        <b>Metered (meter reading)</b> comes from the D1 database (click its legend entry to show it); it includes grid curtailment, unlike theoretical production.
+        In the All sites view an interval counts only if all five sites have a reading.<br>
         <b>Production forecast:</b> DA is the base forecast. IDA1, IDA2, IDA3 and ID3 are successive revisions of it; where a revision has no value for an interval,
         the previous version carries forward. The orange line is DA with every revision up to the chosen version applied (default: Latest).
       </p>
@@ -159,7 +161,7 @@ const VERSIONS = [  // [key, dropdown label, last column of CHAIN that is applie
 ];
 const shortName = v => VERSIONS.find(x => x[0] === v)[3];
 const $ = id => document.getElementById(id);
-let selected = "ALL", store = {}, chart, chart2, chart3, adj = null;
+let selected = "ALL", store = {}, meterStore = {}, meterErr = "", chart, chart2, chart3, adj = null, adjInit = false;
 
 const pad = n => String(n).padStart(2, "0");
 const fmtDate = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
@@ -203,16 +205,31 @@ async function load() {
       return [s, j];
     }));
     store = Object.fromEntries(out);
-    $("status").textContent = `Loaded ${SITES.length} sites, ${store[SITES[0]].rows.length} rows each`;
+    await loadMeter(q);
+    $("status").textContent = `Loaded ${SITES.length} sites, ${store[SITES[0]].rows.length} rows each` + (meterErr ? ` · metered data unavailable (${meterErr})` : "");
     paint();
   } catch (e) {
     $("status").className = "status err"; $("status").textContent = "Failed to load: " + e.message;
   }
 }
 
+// Meter readings come from the D1 database; if they cannot be loaded the rest of the page still works.
+async function loadMeter(q) {
+  meterStore = {}; meterErr = "";
+  try {
+    await Promise.all(SITES.map(async s => {
+      const r = await fetch(`/ops/api/meter?site=${encodeURIComponent(s)}&${q}`, { credentials: "same-origin" });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j.error || r.status);
+      meterStore[s] = new Map(j.rows);
+    }));
+  } catch (e) { meterStore = {}; meterErr = String(e.message || e); }
+}
+const meterAt = (site, t) => { const m = meterStore[site]; return m && m.has(t) ? m.get(t) : null; };
+
 // Per site: time axis, actual, DA, and the revised forecast (DA + revisions up to the selected version, carried forward).
 function series(site, version) {
-  const d = store[site]; if (!d) return { t: [], act: [], da: [], rev: [] };
+  const d = store[site]; if (!d) return { t: [], act: [], da: [], rev: [], met: [] };
   const idx = k => d.columns.indexOf(k);
   const last = CHAIN.indexOf(VERSIONS.find(v => v[0] === version)[2]);
   const cols = CHAIN.slice(0, last + 1).map(idx).reverse();   // newest run first
@@ -222,18 +239,20 @@ function series(site, version) {
     act: d.rows.map(r => r[ia]),
     da: d.rows.map(r => r[ida]),
     rev: d.rows.map(r => { for (const c of cols) if (r[c] != null) return r[c]; return null; }),
+    met: d.rows.map(r => meterAt(site, r[0])),
   };
 }
 function total(version) {   // sum of the five sites per timestamp; an interval counts only if all five sites have a value
   const m = new Map();
   SITES.forEach(s => { const x = series(s, version); x.t.forEach((t, i) => {
-    const o = m.get(t) || { a: 0, d: 0, r: 0, na: 0, nd: 0, nr: 0 };
+    const o = m.get(t) || { a: 0, d: 0, r: 0, e: 0, na: 0, nd: 0, nr: 0, ne: 0 };
+    if (x.met[i] != null) { o.e += x.met[i]; o.ne++; }
     if (x.act[i] != null) { o.a += x.act[i]; o.na++; }
     if (x.da[i] != null) { o.d += x.da[i]; o.nd++; }
     if (x.rev[i] != null) { o.r += x.rev[i]; o.nr++; }
     m.set(t, o); }); });
   const t = [...m.keys()].sort(), n = SITES.length;
-  return { t, act: t.map(k => m.get(k).na === n ? m.get(k).a : null), da: t.map(k => m.get(k).nd === n ? m.get(k).d : null), rev: t.map(k => m.get(k).nr === n ? m.get(k).r : null) };
+  return { t, act: t.map(k => m.get(k).na === n ? m.get(k).a : null), da: t.map(k => m.get(k).nd === n ? m.get(k).d : null), rev: t.map(k => m.get(k).nr === n ? m.get(k).r : null), met: t.map(k => m.get(k).ne === n ? m.get(k).e : null) };
 }
 
 const nf = (v, d = 0) => v == null || isNaN(v) ? "–" : v.toLocaleString("en-US", { maximumFractionDigits: d, minimumFractionDigits: d });
@@ -252,7 +271,8 @@ function paint() {
     line("Production forecast (DA)", x.da, "#95a5a6", { lineStyle: { width: 1.4, color: "#95a5a6", type: "dashed" } }),
   ];
   if (version !== "da") seriesList.push(line("Production forecast (" + shortName(version) + ")", x.rev, "#e67e22"));
-  chart.setOption({ ...common, grid: { left: 70, right: 24, top: 40, bottom: 64 }, legend: { top: 4 },
+  if (x.met.some(v => v != null)) seriesList.push(line("Metered (meter reading)", x.met, "#27ae60"));
+  chart.setOption({ ...common, grid: { left: 70, right: 24, top: 40, bottom: 64 }, legend: { top: 4, selected: { "Metered (meter reading)": false } },
     dataZoom: [{ type: "inside" }, { type: "slider", height: 18, bottom: 6 }],
     yAxis: { type: "value", name: "kWh", nameLocation: "end" }, series: seriesList }, true);
   chart2.setOption({ ...common, grid: { left: 70, right: 24, top: 34, bottom: 30 }, dataZoom: [{ type: "inside" }],
@@ -286,12 +306,14 @@ function drawAdj() {
   const base = adj[0].x, cur = applied >= 0 ? adj[applied] : null;
   const line = (name, data, color, extra = {}) => ({ name, type: "line", data, showSymbol: false, lineStyle: { width: 1.6, color }, itemStyle: { color }, ...extra });
   const sl = [line("Theoretical production", base.act, "#2c7fb8", { areaStyle: { color: "rgba(44,127,184,.12)" } })];
+  if (base.met.some(v => v != null)) sl.push(line("Metered (meter reading)", base.met, "#27ae60"));
   if (cur) sl.push(line(`Forecast at ${hhmm(cut)} (${cur.name})`, cur.x.rev, "#e67e22", { lineStyle: { width: 2, color: "#e67e22" } }));
-  chart3.setOption({ animation: false, tooltip: { trigger: "axis" }, legend: { top: 4 },
+  chart3.setOption({ animation: false, tooltip: { trigger: "axis" }, legend: adjInit ? { top: 4 } : { top: 4, selected: { "Metered (meter reading)": false } },
     grid: { left: 70, right: 24, top: 40, bottom: 64 },
     dataZoom: [{ type: "inside" }, { type: "slider", height: 18, bottom: 6 }],
     xAxis: { type: "category", data: base.t, axisLabel: { formatter: v => v.slice(5, 16) } },
     yAxis: { type: "value", name: "kWh", nameLocation: "end" }, series: sl }, { replaceMerge: ["series"] });
+  adjInit = true;
   if (!cur) { $("adjRead").innerHTML = `Cut-off <b>${hhmm(cut)}</b> &mdash; no forecast has been submitted yet.`; return; }
   let a = 0, f = 0, ae = 0;
   base.t.forEach((_, i) => { const x = base.act[i], y = cur.x.rev[i]; if (x != null && y != null) { a += x; f += y; ae += Math.abs(y - x); } });

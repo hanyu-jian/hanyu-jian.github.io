@@ -223,6 +223,40 @@ async function handleProduction(url, env) {
 
 
 // ── /theoretical：整年的 15 分钟理论发电量 CSV（原样转发，不解析，省 CPU）──────────────
+// ── /meter：表计读数（D1 数据库 sep 的 meter 表）──────────────────────────────
+// 和 /production 一样是布达佩斯当地时间、区间起点标签。hourly 由 4 个 15min 现算，不足 4 个的小时不返回。
+async function handleMeter(url, env) {
+  const q = url.searchParams;
+  const site = q.get("site");
+  const start = q.get("start");
+  const end = q.get("end") || start;
+  const resolution = q.get("resolution") || "15min";
+  if (!SITES.includes(site)) return json({ error: `site must be one of ${SITES.join(" / ")}` }, 400);
+  if (!PROD_RESOLUTIONS.includes(resolution)) return json({ error: "resolution must be 15min or hourly" }, 400);
+  if (!DATE_RE.test(start || "") || !DATE_RE.test(end) || Number.isNaN(Date.parse(start)) || Number.isNaN(Date.parse(end)))
+    return json({ error: "start / end must be YYYY-MM-DD" }, 400);
+  if (end < start) return json({ error: "end must not be before start" }, 400);
+  if (daysBetween(start, end) + 1 > PROD_MAX_DAYS[resolution])
+    return json({ error: `${resolution} allows at most ${PROD_MAX_DAYS[resolution]} days per request` }, 400);
+
+  const from = `${start} 00:00:00`;
+  const to = `${nextDay(end)} 00:00:00`;
+  const stmt = resolution === "15min"
+    ? env.DB.prepare("SELECT ts, kwh FROM meter WHERE site = ?1 AND ts >= ?2 AND ts < ?3 ORDER BY ts").bind(site, from, to)
+    : env.DB.prepare(
+        "SELECT substr(ts, 1, 13) || ':00:00' AS ts, SUM(kwh) AS kwh FROM meter WHERE site = ?1 AND ts >= ?2 AND ts < ?3 " +
+        "GROUP BY substr(ts, 1, 13) HAVING COUNT(*) = 4 ORDER BY ts").bind(site, from, to);
+  const { results } = await stmt.all();
+  return json({
+    site,
+    resolution,
+    unit: "kWh per interval",
+    timezone: "Europe/Budapest (local time, interval start)",
+    columns: ["Date", "metered_kwh"],
+    rows: results.map((r) => [r.ts, r.kwh]),
+  });
+}
+
 // Capture Price 页面需要 2024 年至今的全部 15 分钟数据，/production 单次最多 100 天，所以另开这个接口。
 // 返回 vcom 仓库里 data/theoretical production/<年>/15min/<场站>.csv 的原文（列：Date, POA, MWh, kWh），边缘会自动压缩。
 async function handleTheoretical(url, env) {
@@ -284,6 +318,16 @@ async function handleOps(request, env, url, path) {
     if (!env.GITHUB_TOKEN) return json({ error: "GITHUB_TOKEN is not configured" }, 500);
     try {
       return await handleProduction(url, env);
+    } catch (e) {
+      return json({ error: String(e.message || e) }, 502);
+    }
+  }
+
+  if (path === "/ops/api/meter") {
+    if (request.method !== "GET") return new Response("Method not allowed", { status: 405 });
+    if (!env.DB) return json({ error: "D1 binding DB is not configured" }, 500);
+    try {
+      return await handleMeter(url, env);
     } catch (e) {
       return json({ error: String(e.message || e) }, 502);
     }

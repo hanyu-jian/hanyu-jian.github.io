@@ -301,6 +301,12 @@ raw_data/<年>/  ENTSO-E 15 分钟原始数据（A44 日前价、A65 负荷、A8
 `/ops/api/price` 转发本仓库 `data/entsoe/15min/price.csv`（运营 Cookie 只在 `/ops` 路径下发送，页面直接取 `/data/…` 会被拦）。
 token 只在服务端，不会发给浏览器；数据不会进入本仓库，也不在公开静态文件里。
 
+**表计读数（D1 数据库 `sep`）**：表计 15 分钟数据不走 GitHub，放在 Cloudflare D1 的 `meter` 表（`site, ts, kwh`，`ts` 是布达佩斯当地时间、区间起点，和 CSV 一致；缺测不写入）。
+Worker 通过 `wrangler.jsonc` 里的 D1 绑定 `DB` 读取，接口 `/ops/api/meter?site=&start=&end=&resolution=15min|hourly`（hourly 由 4 个 15min 现算，不足 4 个的小时不返回），
+Overview 两张图的图例里有 “Metered (meter reading)”，默认关闭，点一下显示。D1 读不到时页面只提示，其它功能不受影响。
+- 建表：`npx wrangler d1 execute sep --remote --file=d1/schema.sql`（`d1/schema.sql` 只有表结构，**数据是私有的，不要提交到本仓库**）。
+- 导入：在私有仓库 vcom 里运行 `python py/export_d1_meter.py` 生成 `d1_export/*.sql`（已 gitignore），再逐个 `npx wrangler d1 execute sep --remote --file=...`；之后只补新数据用 `--since YYYY-MM-DD`，同一时间点重复导入会覆盖。
+
 **部署清单**（Cloudflare → `energy-dashboard` → Settings → Variables and secrets，类型选 Secret）
 1. `OPS_TOKENS`：运营口令，`名字:token`，多个用逗号隔开。
 2. `GITHUB_TOKEN`：只读 token。

@@ -23,12 +23,12 @@
      If match is omitted, href itself is used for matching.
   ─────────────────────────────────────────────────────────────────────── */
   const NAV_ITEMS = [
-    { label: 'Projects',           href: 'project.html' },
-    { label: 'Price',              href: 'price-overview.html', match: ['price-overview.html','capture-price.html', 'price-spread.html','price-intraday.html'] },
-    { label: 'Load',               href: 'load.html' },
-    { label: 'Generation',         href: 'generation-overview.html', match: ['generation-overview.html', 'generation-type.html'] },
-    { label: 'Installed Capacity', href: 'capacity.html' },
-    { label: 'Balancing',          href: 'imbalance.html', match: ['imbalance.html', 'balancing-afrr-capacity.html'] }
+    { label: 'Projects',           href: 'project' },
+    { label: 'Price',              href: 'price-overview', match: ['price-overview','capture-price', 'price-spread','price-intraday'] },
+    { label: 'Load',               href: 'load' },
+    { label: 'Generation',         href: 'generation-overview', match: ['generation-overview', 'generation-type'] },
+    { label: 'Installed Capacity', href: 'capacity' },
+    { label: 'Balancing',          href: 'imbalance', match: ['imbalance', 'balancing-afrr-capacity'] }
   ];
 
   /* ── 2. Disclaimer text ─────────────────────────────────────────────── */
@@ -151,7 +151,7 @@
     return `
       <div class="nav-header" id="navHeader">
         <div class="nav-header-top">
-          <h1><a href="/project.html" title="Back to Dashboard" style="color:inherit;text-decoration:none;">${titleText}</a></h1>
+          <h1><a href="/project" title="Back to Dashboard" style="color:inherit;text-decoration:none;">${titleText}</a></h1>
           <button class="nav-disclaimer-btn" id="navDisclaimerBtn">
             &#9432; Disclaimer
           </button>

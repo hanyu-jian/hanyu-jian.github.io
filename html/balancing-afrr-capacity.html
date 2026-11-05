@@ -313,7 +313,7 @@ async function loadAfrrEntsoe(country, dir) {
     const years = Array.from({ length: new Date().getFullYear() - 2023 }, (_, i) => 2024 + i);
     const jobs = [];
     ENTSOE[country].folders.forEach(fd => years.forEach(y => jobs.push(
-        fetch(`/data/entsoe/afrr/${dir}/${fd}/${country}_${y}.csv`).then(r => r.ok ? r.text() : null).catch(() => null))));
+        fetch(`/data/entsoe/afrr/${country}/${dir}/${fd}/${country}_${y}.csv`).then(r => r.ok ? r.text() : null).catch(() => null))));
     const texts = await Promise.all(jobs);
     const f = x => { const n = parseFloat(x); return isNaN(n) ? null : n; };
     const pad = n => String(n).padStart(2, '0');

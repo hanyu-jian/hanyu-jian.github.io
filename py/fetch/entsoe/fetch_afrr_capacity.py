@@ -12,7 +12,7 @@ ENTSOE API 数据更新脚本 — aFRR 容量（Contracted reserves，A81 / B95�
 - 请求：documentType=A81, businessType=B95, Type_MarketAgreement.Type=A01, processType=A51（aFRR），
   controlArea_Domain=各 TSO 的 EIC；按 offset 每 100 个 TimeSeries 翻页，单次请求不超过 1 年
 - 方向：flowDirection.direction A01 = up，A02 = down，分别写
-    data/entsoe/afrr/<up|down>/<hourly|15min>/<国家>_<年>.csv（按 CET/CEST 的年份分文件）
+    data/entsoe/afrr/<国家>/<up|down>/<hourly|15min>/<国家>_<年>.csv（按 CET/CEST 的年份分文件）
 - 列名和匈牙利 data/enappsys/afrr/capacity/<up|down>/15min/HU_<年>.csv 里的 DAILY 两列一致：
     Date（CET/CEST 墙钟，时间段起点，格式 "YYYY/M/D H:MM"，和 data/entsoe/imbalance_price.csv 等其他 ENTSOE 小时表一致）、
     WEIGHTED AVERAGE PRICE <UP|DOWN> (DAILY) (EUR/MW/h)、VOLUME <UP|DOWN> (DAILY) (MW)
@@ -270,7 +270,7 @@ def main(argv=None):
     ap.add_argument("--end", help="YYYY-MM-DD（交付日，含），缺省为明天")
     ap.add_argument("--direction", choices=["up", "down"], help="缺省 up 和 down 都抓")
     ap.add_argument("--out-root", type=Path, default=OUT_ROOT_DEFAULT,
-                    help="输出到 <out-root>/<up|down>/<hourly|15min>/<国家>_<年>.csv")
+                    help="输出到 <out-root>/<国家>/<up|down>/<hourly|15min>/<国家>_<年>.csv")
     ap.add_argument("--mnb", type=Path, default=MNB_PATH_DEFAULT)
     a = ap.parse_args(argv)
 
@@ -296,7 +296,7 @@ def main(argv=None):
             continue
         new = frames[direction]
         new = new[(new["_utc"] >= lo) & (new["_utc"] < hi)].drop(columns="_utc")   # 只留请求的交付日
-        out_dir = a.out_root / direction / folder
+        out_dir = a.out_root / a.country / direction / folder
         out_dir.mkdir(parents=True, exist_ok=True)
         for year, part in new.groupby(new[TIME_COL].str.split("/").str[0]):
             path = out_dir / f"{a.country}_{year}.csv"

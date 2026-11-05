@@ -1,11 +1,12 @@
 // Cloudflare Worker：静态网站前面的「门卫」。
-// 普通看板由 Cloudflare Access（公司邮箱验证码）把关，这里只校验 Access 签发的 JWT（签名、有效期、iss、aud），不再有 token 登录页。
-// 没有有效 Access JWT 的请求（例如绕过 Access、直接访问 workers.dev 预览地址）一律拒绝。
+// 普通看板由 Cloudflare Access（公司邮箱验证码）把关，Worker 本身没有登录页。
+// 前提：Worker 的 workers.dev 地址（Production 和 Preview）必须关闭，只通过绑定了 Access 的自定义域名访问；
+// 否则任何人可以绕过 Access 直接打开网站。
 //
-// 配置（Cloudflare → 这个 Worker → Settings → Variables and Secrets，普通变量即可）：
-//   ACCESS_TEAM_DOMAIN = 团队域名，形如 xxx.cloudflareaccess.com（Zero Trust → Settings → Custom pages）
-//   ACCESS_AUD         = Access 应用的 Application Audience (AUD) Tag（Access controls → Applications → 该应用 → Overview）
-// 两个都配置好之前，出于安全考虑整个网站（含 /ops/）不对外开放（返回 500）。
+// 可选的额外保险（普通变量，Worker → Settings → Variables and Secrets）：
+//   ACCESS_TEAM_DOMAIN = 团队域名，形如 xxx.cloudflareaccess.com
+//   ACCESS_AUD         = Access 应用的 Application Audience (AUD) Tag
+// 两个都配置后，Worker 会校验 Access 签发的 JWT（签名、有效期、iss、aud），绕过 Access 的请求一律 401；不配置则不校验。
 //
 // 运营数据（/ops/…，匈牙利五个场站的发电量）使用「完全独立」的另一套 token：
 //   OPS_TOKENS = alice:optoken1,bob:optoken2   Secret；名字:token，逗号分隔。进 /ops/ 要先通过 Access 邮箱登录，再输入运营 token
@@ -375,13 +376,7 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
 
-    if (!teamHost(env) || !env.ACCESS_AUD) {
-      return new Response("ACCESS_TEAM_DOMAIN / ACCESS_AUD 还没有配置，出于安全考虑网站暂时不对外开放。", {
-        status: 500,
-        headers: { "Cache-Control": "no-store" },
-      });
-    }
-    if (!(await accessUser(request, env))) {
+    if (teamHost(env) && env.ACCESS_AUD && !(await accessUser(request, env))) {
       return new Response("Unauthorized: please sign in through Cloudflare Access.", {
         status: 401,
         headers: { "Cache-Control": "no-store" },

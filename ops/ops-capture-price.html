@@ -146,6 +146,10 @@ tr.total td { font-weight: 700; background: #fafbfc; }
         <button class="export-btn" id="sumExport" style="margin-left:auto;flex-shrink:0;">Export CSV</button>
       </div>
       <div class="panels" id="panels"></div>
+      <p class="note">
+        <b>Metered Production</b> is the meter reading (includes grid curtailment); <b>Theoretical Production</b> is calculated from VCOM POA irradiance. For Total, a 15-minute interval counts only if all five sites
+        have a reading (blank readings are skipped, not counted as zero), so months after Szuhak&aacute;ll&oacute; 1 / 2 meter data ends (2026-09-30) show &ndash; for Total.
+      </p>
     </div>
   </div>
 </div>
@@ -157,7 +161,7 @@ const COLORS = { baseload: '#d0d4d8', solar: '#f39c12', post_s: '#e67e22', bar: 
 const INTERVAL_H = 0.25;
 const $ = id => document.getElementById(id);
 const state = { site: "ALL", year: String(THIS_YEAR), mode: "price" };
-let charts = {}, price = null, gen = {}, hoursCache = {}, last = {};
+let charts = {}, price = null, gen = {}, met = {}, metErr = "", hoursCache = {}, last = {};
 
 /* ── Loading ─────────────────────────────────────────────── */
 async function getText(url) {
@@ -198,6 +202,10 @@ async function load() {
   const jobs = [getText("/ops/api/price").then(t => { price = parsePrice(t); })];
   SITES.forEach(s => { gen[s] = { m: new Map() };
     years.forEach(y => jobs.push(getText(`/ops/api/theoretical?site=${encodeURIComponent(s)}&year=${y}`).then(t => { if (t) parseGen(t, gen[s]); }))); });
+  // Metered production (vcom data/meter): if it cannot be loaded the rest of the page still works.
+  SITES.forEach(s => { met[s] = { m: new Map() };
+    years.forEach(y => jobs.push(getText(`/ops/api/metered?site=${encodeURIComponent(s)}&year=${y}`).then(t => { if (t) parseGen(t, met[s]); })
+      .catch(e => { metErr = e.message; }))); });
   await Promise.all(jobs);
 }
 
@@ -340,6 +348,7 @@ const PANELS = [  // key, title, chart type, decimals, unit, hide zero as dash, 
   ['cap', 'Solar Capture Price – post-curtailment (€/MWh)', 'bar', 1, '€/MWh', false, 'Year'],
   ['ratio', 'Solar Capture Ratio – post-curtailment (%)', 'line', 1, '%', false, 'Year'],
   ['gen', 'Theoretical Production (MWh)', 'bar', 0, 'MWh', true, 'Total'],
+  ['meter', 'Metered Production (MWh)', 'bar', 0, 'MWh', true, 'Total'],
 ];
 let lastSum = null, panelCharts = {};
 const nf = (v, d = 0) => v == null || isNaN(v) ? '<span style="color:#bbb">–</span>' : v.toLocaleString('en-US', { maximumFractionDigits: d, minimumFractionDigits: d });
@@ -357,6 +366,24 @@ function sumAggregate(hours, year, month) {   // month 1-12, or 0 for the whole 
   return { gen: cnt && g > 0 ? g : null, curt: cnt && g > 0 ? g - gPost : null, curtPct: g > 0 ? (g - gPost) / g * 100 : null, cap,
     ratio: baseload && cap !== null ? cap / baseload * 100 : null };
 }
+// Metered production per price interval (MWh); null unless every selected site has a reading (blank readings are skipped, not zero).
+function meterRecords(sel) {
+  const maps = (sel === "ALL" ? SITES : [sel]).map(s => met[s].m), out = [];
+  for (const k of price.keys) {
+    let g = 0, ok = true;
+    for (const m of maps) { const v = m.get(k); if (v === undefined) { ok = false; break; } g += v; }
+    out.push({ date: k.slice(0, 10), g: ok ? g / 1000 : null });
+  }
+  return out;
+}
+function meterSum(recs, year, month) {
+  let g = 0, n = 0;
+  for (const r of recs) {
+    if (!r.date.startsWith(year) || (month && +r.date.slice(5, 7) !== month) || r.g === null) continue;
+    g += r.g; n++;
+  }
+  return n && g > 0 ? g : null;
+}
 function buildPanels() {
   $("panels").innerHTML = PANELS.map(([k, title]) => `<div class="panel"><h4>${title}</h4>
     <div class="scroll"><table class="ptable" id="pt_${k}"></table></div><div id="pc_${k}" style="width:100%;height:260px;margin-top:10px;"></div></div>`).join("");
@@ -367,7 +394,8 @@ function paintSummary() {
   document.querySelectorAll("#sumSite button").forEach(b => b.classList.toggle("active", b.dataset.s === sum.site));
   const hours = computeHours(sum.site === 'Total' ? 'ALL' : sum.site);
   // data[m][yi]: m = 0..11 months, 12 = whole year
-  const data = Array.from({ length: 13 }, (_, m) => YEARS.map(y => sumAggregate(hours, y, m === 12 ? 0 : m + 1)));
+  const mrec = meterRecords(sum.site === 'Total' ? 'ALL' : sum.site);
+  const data = Array.from({ length: 13 }, (_, m) => YEARS.map(y => ({ ...sumAggregate(hours, y, m === 12 ? 0 : m + 1), meter: meterSum(mrec, y, m === 12 ? 0 : m + 1) })));
   lastSum = data;
   $('sumSubtitle').textContent = `${sum.site === 'Total' ? 'Total (all sites)' : sum.site} · curtailed when price ${sum.thresh === 'negative' ? '< 0' : '≤ 0'}`;
   PANELS.forEach(([k, title, type, dec, unit, dashZero, lastLabel]) => {
@@ -436,7 +464,7 @@ async function init() {
   window.addEventListener("resize", () => { Object.values(charts).forEach(c => c.resize()); Object.values(panelCharts).forEach(c => c.resize()); });
   try {
     await load();
-    $("status").textContent = "";
+    $("status").textContent = metErr ? `Metered production unavailable (${metErr}); the Metered panel is empty.` : "";
     paint(); paintSummary();
   } catch (e) {
     $("status").className = "status err"; $("status").textContent = "Failed to load: " + e.message;

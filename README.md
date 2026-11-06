@@ -301,6 +301,11 @@ raw_data/<年>/  ENTSO-E 15 分钟原始数据（A44 日前价、A65 负荷、A8
 `/ops/api/price` 转发本仓库 `data/entsoe/15min/price.csv`（运营 Cookie 只在 `/ops` 路径下发送，页面直接取 `/data/…` 会被拦）。
 token 只在服务端，不会发给浏览器；数据不会进入本仓库，也不在公开静态文件里。
 
+**表计读数**：和理论发电量一样，Worker 用 `GITHUB_TOKEN` 读私有 vcom 仓库的 `data/meter/tokaj/<年>/15min|hourly/<场站>.csv`（Tokaj 五站），没有用到数据库。
+- `/ops/api/meter?site=&start=&end=&resolution=15min|hourly`：按日期范围返回 JSON（列 `Date, metered_kwh`，布达佩斯当地时间、区间起点；空值不返回），Overview 页用。
+- `/ops/api/metered?site=&year=`：原样转发整年的 15min CSV，Capture Price 页用。
+- Overview 两张图的图例里有 “Metered (meter reading)”，默认关闭，点一下显示；读不到表计数据时页面只在状态栏提示，其它功能不受影响。
+
 **部署清单**（Cloudflare → `energy-dashboard` → Settings → Variables and secrets，类型选 Secret）
 1. `OPS_TOKENS`：运营口令，`名字:token`，多个用逗号隔开。
 2. `GITHUB_TOKEN`：只读 token。
@@ -311,10 +316,15 @@ token 只在服务端，不会发给浏览器；数据不会进入本仓库，�
 - Production forecast：DA 是基准预测，IDA1 → IDA2 → IDA3 → ID3(11-15h) → ID3(16-20h) 是对它的逐次修正；
   某个时段某次修正没有值，就沿用上一版。橙线 = DA 叠加到所选版本为止的所有修正（默认 Latest），灰色虚线 = DA。
   叠加顺序在 `ops-overview.html` 的 `CHAIN`，与 `py/analysis/tokaj_imbalance_price_calculation.py` 的 S/T/U/Y/Z 逻辑一致。
+- Forecast vs theoretical production by adjustment time（汇总表上方的图）：蓝线是理论发电量（固定不变），橙线是「截止时间」那一刻生效的预测 = DA 叠加所有发布时间 ≤ 截止时间的修正（沿用上一版）。
+  滑块在报量时间轴上拖：DA D-1 09:30 → IDA1 D-1 14:30 → IDA2 D-1 21:30 → IDA3 + ID3(11-15h) D 09:30 → ID3(16-20h) D 14:30（布达佩斯时间，D = 交割日），越往右预测越接近理论。
+  图下方读数给出当前生效版本、预测和理论总量（MWh）、净偏差和逐点偏差绝对值之和（MWh）。场站和日期范围跟上面的图一致；IDA3 只改 12–24 点，ID3 只改 11:00–11:45 / 16:00–19:45。
 - 汇总表只统计「理论发电量」和对应预测同时有值的时段；Abs. error = Σ|预测 − 理论| / Σ理论。
 - 以后做捕获率 / 捕获价格 / 限电率：在 `/production` 里加 `metered_kwh`，价格用本仓库 `data/entsoe`、`data/enappsys`，限电率 = (理论 − 实测) / 理论。
 
 **Capture Price 页面口径**（`ops-capture-price.html`，目前只有一张图）
+- Summary 里 “Theoretical Production (MWh)” 右边有一块 “Metered Production (MWh)”：表格（月 × 年）和柱状图的样式一样，数据是表计读数（`/ops/api/metered`，含电网限电）。
+  Total 时五个场站在某个 15 分钟必须**全部**有读数才计入（空值不当 0），所以 Szuhakálló 1/2 的表计数据结束（目前 2026-09-30）之后，Total 的实测发电量显示为 –；单个场站不受影响。上方的捕获价格图和其它面板仍只用理论发电量，Export CSV 里多一组 Metered 列。
 - 图 = `html/capture-price.html` 里 “Solar Capture Price – HU” 那张 Deep Dive 图的复刻（Daily / Weekly / Monthly / Quarterly / Yearly；Daily 选年份，其余画全部年份；Price / Ratio 切换；Export CSV），没有风电。
 - 顶部 All sites / 五个场站按钮。All sites = 五站理论发电量逐 15 分钟相加（某站该时段无值按 0）。
 - 发电量用 vcom 的 15 分钟理论发电量（kWh），电价和基荷价用 `entsoe/15min/price.csv` 的 `HU` 列，按时间戳（布达佩斯当地时间、区间起点）对齐；公式与 capture-price 页完全一致：

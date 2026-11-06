@@ -147,7 +147,7 @@ tr.total td { font-weight: 700; background: #fafbfc; }
       </div>
       <div class="panels" id="panels"></div>
       <p class="note">
-        <b>Metered Production</b> is the meter reading (includes grid curtailment); <b>Theoretical Production</b> is calculated from VCOM POA irradiance. The two charts use the same y-axis range; the dashed lines in the Metered chart (&Delta; year) are theoretical &minus; metered in MWh over the same intervals. For Total, a 15-minute interval counts only if all five sites
+        <b>Metered Production</b> is the meter reading (includes grid curtailment); <b>Theoretical Production</b> is calculated from VCOM POA irradiance. The two charts use the same y-axis range so they can be compared side by side. For Total, a 15-minute interval counts only if all five sites
         have a reading (blank readings are skipped, not counted as zero), so months after Szuhak&aacute;ll&oacute; 1 / 2 meter data ends (2026-09-30) show &ndash; for Total.
       </p>
     </div>
@@ -376,14 +376,14 @@ function meterRecords(sel) {
   }
   return out;
 }
-// Whole-period metered MWh, plus theoretical MWh over exactly the same intervals (so the difference compares like with like).
-function meterSum(recs, hours, year, month) {
-  let g = 0, th = 0, n = 0;
-  recs.forEach((r, i) => {
-    if (!r.date.startsWith(year) || (month && +r.date.slice(5, 7) !== month) || r.g === null) return;
-    g += r.g; th += hours[i].gen; n++;
-  });
-  return n && g > 0 ? { meter: g, diff: th - g } : { meter: null, diff: null };
+// Whole-period metered MWh (null when there is no reading).
+function meterSum(recs, year, month) {
+  let g = 0, n = 0;
+  for (const r of recs) {
+    if (!r.date.startsWith(year) || (month && +r.date.slice(5, 7) !== month) || r.g === null) continue;
+    g += r.g; n++;
+  }
+  return n && g > 0 ? g : null;
 }
 function buildPanels() {
   $("panels").innerHTML = PANELS.map(([k, title]) => `<div class="panel"><h4>${title}</h4>
@@ -396,7 +396,7 @@ function paintSummary() {
   const hours = computeHours(sum.site === 'Total' ? 'ALL' : sum.site);
   // data[m][yi]: m = 0..11 months, 12 = whole year
   const mrec = meterRecords(sum.site === 'Total' ? 'ALL' : sum.site);
-  const data = Array.from({ length: 13 }, (_, m) => YEARS.map(y => ({ ...sumAggregate(hours, y, m === 12 ? 0 : m + 1), ...meterSum(mrec, hours, y, m === 12 ? 0 : m + 1) })));
+  const data = Array.from({ length: 13 }, (_, m) => YEARS.map(y => ({ ...sumAggregate(hours, y, m === 12 ? 0 : m + 1), meter: meterSum(mrec, y, m === 12 ? 0 : m + 1) })));
   // Theoretical and metered panels share one y-axis range so the two charts can be compared side by side.
   const prodMax = Math.max(0, ...data.slice(0, 12).flatMap(r => r.flatMap(d => [d.gen || 0, d.meter || 0])));
   const step = prodMax > 20000 ? 10000 : prodMax > 5000 ? 5000 : 1000, yMax = Math.max(step, Math.ceil(prodMax / step) * step);
@@ -413,11 +413,8 @@ function paintSummary() {
       grid: { left: 56, right: 16, top: 30, bottom: 26 },
       xAxis: { type: 'category', data: MON, ...axisStyle },
       yAxis: { type: 'value', name: unit, nameTextStyle: { color: '#6c757d', fontSize: 11 }, ...(k === 'gen' || k === 'meter' ? { min: 0, max: yMax } : {}), ...axisStyle },
-      series: [...YEARS.map((y, yi) => ({ name: y, type, color: YEAR_COLORS[yi], barMaxWidth: 16, symbolSize: 6, lineStyle: { width: 2 },
-        data: data.slice(0, 12).map(r => r[yi][k]) })),
-        // Metered panel: dashed line = theoretical − metered (MWh) on the same intervals, one per year in the year's colour
-        ...(k === 'meter' ? YEARS.map((y, yi) => ({ name: `Δ ${y}`, type: 'line', color: YEAR_COLORS[yi], symbolSize: 5, connectNulls: false,
-          lineStyle: { width: 2, type: 'dashed' }, data: data.slice(0, 12).map(r => r[yi].diff) })) : [])]
+      series: YEARS.map((y, yi) => ({ name: y, type, color: YEAR_COLORS[yi], barMaxWidth: 16, symbolSize: 6, lineStyle: { width: 2 },
+        data: data.slice(0, 12).map(r => r[yi][k]) }))
     }, true);
   });
 }

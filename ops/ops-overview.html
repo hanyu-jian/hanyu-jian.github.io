@@ -104,7 +104,7 @@ tr.total td { font-weight: 700; background: #fafbfc; }
       <div id="chart2"></div>
       <p class="note">
         Deviation = production forecast &minus; theoretical production (positive = forecast too high).<br>
-        <b>Metered (meter reading)</b> comes from the D1 database (click its legend entry to show it); it includes grid curtailment, unlike theoretical production.
+        <b>Metered (meter reading)</b> comes from the meter data in the vcom repository (click its legend entry to show it); it includes grid curtailment, unlike theoretical production.
         In the All sites view an interval counts only if all five sites have a reading.<br>
         <b>Production forecast:</b> DA is the base forecast. IDA1, IDA2, IDA3 and ID3 are successive revisions of it; where a revision has no value for an interval,
         the previous version carries forward. The orange line is DA with every revision up to the chosen version applied (default: Latest).
@@ -213,7 +213,7 @@ async function load() {
   }
 }
 
-// Meter readings come from the D1 database; if they cannot be loaded the rest of the page still works.
+// Meter readings (vcom data/meter); if they cannot be loaded the rest of the page still works.
 async function loadMeter(q) {
   meterStore = {}; meterErr = "";
   try {

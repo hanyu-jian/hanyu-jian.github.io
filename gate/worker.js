@@ -223,8 +223,8 @@ async function handleProduction(url, env) {
 
 
 // ── /theoretical：整年的 15 分钟理论发电量 CSV（原样转发，不解析，省 CPU）──────────────
-// ── /meter：表计读数（D1 数据库 sep 的 meter 表）──────────────────────────────
-// 和 /production 一样是布达佩斯当地时间、区间起点标签。hourly 由 4 个 15min 现算，不足 4 个的小时不返回。
+// ── /meter：表计读数（vcom 仓库 data/meter/tokaj/<年>/15min|hourly/<场站>.csv）────────────
+// 和 /production 一样是布达佩斯当地时间、区间起点标签，Overview 页用它叠一条「实测」线。
 async function handleMeter(url, env) {
   const q = url.searchParams;
   const site = q.get("site");
@@ -239,21 +239,41 @@ async function handleMeter(url, env) {
   if (daysBetween(start, end) + 1 > PROD_MAX_DAYS[resolution])
     return json({ error: `${resolution} allows at most ${PROD_MAX_DAYS[resolution]} days per request` }, 400);
 
-  const from = `${start} 00:00:00`;
-  const to = `${nextDay(end)} 00:00:00`;
-  const stmt = resolution === "15min"
-    ? env.DB.prepare("SELECT ts, kwh FROM meter WHERE site = ?1 AND ts >= ?2 AND ts < ?3 ORDER BY ts").bind(site, from, to)
-    : env.DB.prepare(
-        "SELECT substr(ts, 1, 13) || ':00:00' AS ts, SUM(kwh) AS kwh FROM meter WHERE site = ?1 AND ts >= ?2 AND ts < ?3 " +
-        "GROUP BY substr(ts, 1, 13) HAVING COUNT(*) = 4 ORDER BY ts").bind(site, from, to);
-  const { results } = await stmt.all();
+  const startKey = `${start} 00:00:00`;
+  const endKey = `${nextDay(end)} 00:00:00`;
+  const y0 = Math.max(FIRST_YEAR, Number(start.slice(0, 4)));
+  const y1 = Number(end.slice(0, 4));
+  const name = encodeURIComponent(site);
+  const merged = new Map();
+  let any = false;
+  for (let y = y0; y <= y1; y++) {
+    const text = await loadFile(env, `data/meter/tokaj/${y}/${resolution}/${name}.csv`);
+    // 列：Date, Meter [MWh], Meter [kWh] → 取第 3 列
+    if (text) { any = true; sliceRows(text, startKey, endKey, [2], merged, 0, 1); }
+  }
+  if (!any) return json({ error: "No meter data for this site / period" }, 404);
+  const rows = [...merged.entries()].filter(([, v]) => v[0] != null).sort((a, b) => (a[0] < b[0] ? -1 : 1)).map(([t, v]) => [t, v[0]]);
   return json({
     site,
     resolution,
     unit: "kWh per interval",
     timezone: "Europe/Budapest (local time, interval start)",
     columns: ["Date", "metered_kwh"],
-    rows: results.map((r) => [r.ts, r.kwh]),
+    rows,
+  });
+}
+
+// Capture Price 页面用：vcom 仓库整年的 15 分钟表计 CSV 原文（列：Date, Meter [MWh], Meter [kWh]），和 /theoretical 一样不解析、直接转发。
+async function handleMetered(url, env) {
+  const site = url.searchParams.get("site");
+  const year = url.searchParams.get("year") || "";
+  if (!SITES.includes(site)) return json({ error: `site must be one of ${SITES.join(" / ")}` }, 400);
+  if (!/^\d{4}$/.test(year) || Number(year) < FIRST_YEAR || Number(year) > FIRST_YEAR + 20)
+    return json({ error: `year must be ${FIRST_YEAR} or later` }, 400);
+  const text = await loadFile(env, `data/meter/tokaj/${year}/15min/${encodeURIComponent(site)}.csv`);
+  if (text === null) return json({ error: "No meter data for this site / year" }, 404);
+  return new Response(text, {
+    headers: { "content-type": "text/csv; charset=utf-8", "Cache-Control": "private, no-store", "X-Robots-Tag": "noindex" },
   });
 }
 
@@ -323,11 +343,11 @@ async function handleOps(request, env, url, path) {
     }
   }
 
-  if (path === "/ops/api/meter") {
+  if (path === "/ops/api/meter" || path === "/ops/api/metered") {
     if (request.method !== "GET") return new Response("Method not allowed", { status: 405 });
-    if (!env.DB) return json({ error: "D1 binding DB is not configured" }, 500);
+    if (!env.GITHUB_TOKEN) return json({ error: "GITHUB_TOKEN is not configured" }, 500);
     try {
-      return await handleMeter(url, env);
+      return await (path === "/ops/api/meter" ? handleMeter(url, env) : handleMetered(url, env));
     } catch (e) {
       return json({ error: String(e.message || e) }, 502);
     }

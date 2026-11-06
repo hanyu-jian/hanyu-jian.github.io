@@ -301,11 +301,10 @@ raw_data/<年>/  ENTSO-E 15 分钟原始数据（A44 日前价、A65 负荷、A8
 `/ops/api/price` 转发本仓库 `data/entsoe/15min/price.csv`（运营 Cookie 只在 `/ops` 路径下发送，页面直接取 `/data/…` 会被拦）。
 token 只在服务端，不会发给浏览器；数据不会进入本仓库，也不在公开静态文件里。
 
-**表计读数（D1 数据库 `sep`）**：表计 15 分钟数据不走 GitHub，放在 Cloudflare D1 的 `meter` 表（`site, ts, kwh`，`ts` 是布达佩斯当地时间、区间起点，和 CSV 一致；缺测不写入）。
-Worker 通过 `wrangler.jsonc` 里的 D1 绑定 `DB` 读取，接口 `/ops/api/meter?site=&start=&end=&resolution=15min|hourly`（hourly 由 4 个 15min 现算，不足 4 个的小时不返回），
-Overview 两张图的图例里有 “Metered (meter reading)”，默认关闭，点一下显示。D1 读不到时页面只提示，其它功能不受影响。
-- 建表：`npx wrangler d1 execute sep --remote --file=d1/schema.sql`（`d1/schema.sql` 只有表结构，**数据是私有的，不要提交到本仓库**）。
-- 导入：在私有仓库 vcom 里运行 `python py/export_d1_meter.py` 生成 `d1_export/*.sql`（已 gitignore），再逐个 `npx wrangler d1 execute sep --remote --file=...`；之后只补新数据用 `--since YYYY-MM-DD`，同一时间点重复导入会覆盖。
+**表计读数**：和理论发电量一样，Worker 用 `GITHUB_TOKEN` 读私有 vcom 仓库的 `data/meter/tokaj/<年>/15min|hourly/<场站>.csv`（Tokaj 五站），没有用到数据库。
+- `/ops/api/meter?site=&start=&end=&resolution=15min|hourly`：按日期范围返回 JSON（列 `Date, metered_kwh`，布达佩斯当地时间、区间起点；空值不返回），Overview 页用。
+- `/ops/api/metered?site=&year=`：原样转发整年的 15min CSV，Capture Price 页用。
+- Overview 两张图的图例里有 “Metered (meter reading)”，默认关闭，点一下显示；读不到表计数据时页面只在状态栏提示，其它功能不受影响。
 
 **部署清单**（Cloudflare → `energy-dashboard` → Settings → Variables and secrets，类型选 Secret）
 1. `OPS_TOKENS`：运营口令，`名字:token`，多个用逗号隔开。
@@ -324,6 +323,8 @@ Overview 两张图的图例里有 “Metered (meter reading)”，默认关闭�
 - 以后做捕获率 / 捕获价格 / 限电率：在 `/production` 里加 `metered_kwh`，价格用本仓库 `data/entsoe`、`data/enappsys`，限电率 = (理论 − 实测) / 理论。
 
 **Capture Price 页面口径**（`ops-capture-price.html`，目前只有一张图）
+- 每个周期（Daily / Weekly / Monthly / Quarterly / Yearly）左右各一张图：左 = 理论发电量版，右 = 表计实测版，价格、公式、场站 / 年份 / Price-Ratio 选择完全一样。
+  实测版里，所选场站（All sites = 五站）在某个 15 分钟必须**全部**有读数才计入发电量（空值不当 0），所以 Szuhakálló 1/2 的表计数据结束（目前 2026-09-30）之后，All sites 实测版没有捕获价格。汇总表和 Export CSV 目前只用理论发电量。
 - 图 = `html/capture-price.html` 里 “Solar Capture Price – HU” 那张 Deep Dive 图的复刻（Daily / Weekly / Monthly / Quarterly / Yearly；Daily 选年份，其余画全部年份；Price / Ratio 切换；Export CSV），没有风电。
 - 顶部 All sites / 五个场站按钮。All sites = 五站理论发电量逐 15 分钟相加（某站该时段无值按 0）。
 - 发电量用 vcom 的 15 分钟理论发电量（kWh），电价和基荷价用 `entsoe/15min/price.csv` 的 `HU` 列，按时间戳（布达佩斯当地时间、区间起点）对齐；公式与 capture-price 页完全一致：

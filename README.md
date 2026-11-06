@@ -323,8 +323,8 @@ token 只在服务端，不会发给浏览器；数据不会进入本仓库，�
 - 以后做捕获率 / 捕获价格 / 限电率：在 `/production` 里加 `metered_kwh`，价格用本仓库 `data/entsoe`、`data/enappsys`，限电率 = (理论 − 实测) / 理论。
 
 **Capture Price 页面口径**（`ops-capture-price.html`，目前只有一张图）
-- 每个周期（Daily / Weekly / Monthly / Quarterly / Yearly）左右各一张图：左 = 理论发电量版，右 = 表计实测版，价格、公式、场站 / 年份 / Price-Ratio 选择完全一样。
-  实测版里，所选场站（All sites = 五站）在某个 15 分钟必须**全部**有读数才计入发电量（空值不当 0），所以 Szuhakálló 1/2 的表计数据结束（目前 2026-09-30）之后，All sites 实测版没有捕获价格。汇总表和 Export CSV 目前只用理论发电量。
+- Summary 里 “Theoretical Production (MWh)” 右边有一块 “Metered Production (MWh)”：表格（月 × 年）和柱状图的样式一样，数据是表计读数（`/ops/api/metered`，含电网限电）。
+  Total 时五个场站在某个 15 分钟必须**全部**有读数才计入（空值不当 0），所以 Szuhakálló 1/2 的表计数据结束（目前 2026-09-30）之后，Total 的实测发电量显示为 –；单个场站不受影响。上方的捕获价格图和其它面板仍只用理论发电量，Export CSV 里多一组 Metered 列。
 - 图 = `html/capture-price.html` 里 “Solar Capture Price – HU” 那张 Deep Dive 图的复刻（Daily / Weekly / Monthly / Quarterly / Yearly；Daily 选年份，其余画全部年份；Price / Ratio 切换；Export CSV），没有风电。
 - 顶部 All sites / 五个场站按钮。All sites = 五站理论发电量逐 15 分钟相加（某站该时段无值按 0）。
 - 发电量用 vcom 的 15 分钟理论发电量（kWh），电价和基荷价用 `entsoe/15min/price.csv` 的 `HU` 列，按时间戳（布达佩斯当地时间、区间起点）对齐；公式与 capture-price 页完全一致：

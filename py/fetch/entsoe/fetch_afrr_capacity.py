@@ -6,10 +6,13 @@ ENTSOE API 数据更新脚本 — aFRR 容量（Contracted reserves，A81 / B95�
     DE  4 个 TSO：50Hertz、Amprion、TenneT GER、TransnetBW 各自请求，再按时间合并——
         容量相加、价格按容量加权平均；15min 数据，写 15min；交付日按 Europe/Berlin；价格本来就是 EUR
         （价格数值就是 ENTSOE 给的 EUR/MW/ISP，不再乘系数）
+    BG  ESO（10YCA-BULGARIA-R），交付日按 Europe/Sofia；币种 EUR，2026 年之前的 BGN 按固定汇率 1 EUR = 1.95583 BGN 折成 EUR
+    GR  IPTO（10YGR-HTSO-----Y），交付日按 Europe/Athens；币种 EUR
+    BG / GR 的原始分辨率事先不确定：数据里最细的点是 1h 就写 hourly，更细（30 / 15min）就写 15min
 - 请求：documentType=A81, businessType=B95, Type_MarketAgreement.Type=A01, processType=A51（aFRR），
   controlArea_Domain=各 TSO 的 EIC；按 offset 每 100 个 TimeSeries 翻页，单次请求不超过 1 年
 - 方向：flowDirection.direction A01 = up，A02 = down，分别写
-    data/entsoe/afrr/<up|down>/<hourly|15min>/<国家>_<年>.csv（按 CET/CEST 的年份分文件）
+    data/entsoe/afrr/<国家>/<up|down>/<hourly|15min>/<国家>_<年>.csv（按 CET/CEST 的年份分文件）
 - 列名和匈牙利 data/enappsys/afrr/capacity/<up|down>/15min/HU_<年>.csv 里的 DAILY 两列一致：
     Date（CET/CEST 墙钟，时间段起点，格式 "YYYY/M/D H:MM"，和 data/entsoe/imbalance_price.csv 等其他 ENTSOE 小时表一致）、
     WEIGHTED AVERAGE PRICE <UP|DOWN> (DAILY) (EUR/MW/h)、VOLUME <UP|DOWN> (DAILY) (MW)
@@ -49,13 +52,17 @@ import requests
 API_URL = "https://web-api.tp.entsoe.eu/api"
 LOCAL_TZ = "Europe/Brussels"      # Date 标签，与其他 fetch_entsoe 脚本的 ENTSOE_DISPLAY_TZ 相同
 COUNTRIES = {
-    # areas: controlArea_Domain EIC；delivery_tz: 交付日 / 请求窗口 / MNB 牌价日期所用的当地时区；step / folder: 输出分辨率（分钟）和目录
+    # areas: controlArea_Domain EIC；delivery_tz: 交付日 / 请求窗口 / MNB 牌价日期所用的当地时区；
+    # step / folder: 输出分辨率（分钟）和目录，None = 按下载到的数据里最细的点自动判断
     "RO": {"delivery_tz": "Europe/Bucharest", "step": 60, "folder": "hourly",
            "areas": {"Transelectrica": "10YRO-TEL------P"}},
     "DE": {"delivery_tz": "Europe/Berlin", "step": 15, "folder": "15min", "areas": {
         "50Hertz": "10YDE-VE-------2", "Amprion": "10YDE-RWENET---I",
         "TenneT GER": "10YDE-EON------1", "TransnetBW": "10YDE-ENBW-----N"}},
+    "BG": {"delivery_tz": "Europe/Sofia", "step": None, "folder": None, "areas": {"ESO": "10YCA-BULGARIA-R"}},
+    "GR": {"delivery_tz": "Europe/Athens", "step": None, "folder": None, "areas": {"IPTO": "10YGR-HTSO-----Y"}},
 }
+BGN_PER_EUR = 1.95583   # 保加利亚 2026-01-01 加入欧元区之前的货币局制固定汇率
 DIRECTIONS = {"A01": "up", "A02": "down"}
 PAGE_SIZE = 100
 CHUNK_DAYS = 365
@@ -163,7 +170,8 @@ def parse_xml(xml_bytes):
                 # 不超过 1 小时的点原样一行；更长的点（4h 块、整天）按小时拆开
                 hours = [t0] if res <= 60 else [t0 + timedelta(hours=k) for k in range(int((t1 - t0) / timedelta(hours=1)))]
                 for t in hours:
-                    rows.append({"start": t, "direction": direction, "qty": last[0], "price": last[1], "currency": currency})
+                    rows.append({"start": t, "direction": direction, "qty": last[0], "price": last[1], "currency": currency,
+                                 "res": min(res, 60)})
     return n_ts, rows
 
 
@@ -214,12 +222,13 @@ def build_frames(rows, ron_per_eur, delivery_tz, step=60):
     # RON → EUR：交付日（该国当地）当天或之前最近一个 MNB 牌价
     deliv = utc.tz_convert(delivery_tz).tz_localize(None).normalize()
     factor = ron_per_eur.reindex(pd.DatetimeIndex(deliv), method="ffill").to_numpy()
-    df["price_eur"] = df["price"].where(df["currency"] == "EUR", df["price"] * factor)
+    peg = df["currency"].map({"EUR": 1.0, "BGN": 1 / BGN_PER_EUR})           # EUR 不变，BGN 按固定汇率
+    df["price_eur"] = df["price"] * peg.where(peg.notna(), pd.Series(factor, index=df.index))   # 其余（RON）按 MNB
     if df.loc[df["currency"] == "RON", "price"].notna().any() and pd.isna(factor[(df["currency"] == "RON").to_numpy()]).any():
         sys.exit("MNB.csv 缺少部分交付日的 RON / EUR 牌价")
-    unknown = set(df["currency"]) - {"RON", "EUR"}
+    unknown = set(df["currency"]) - {"RON", "EUR", "BGN"}
     if unknown:
-        sys.exit(f"未知币种 {unknown}，不会按 RON 折算")
+        sys.exit(f"未知币种 {unknown}，不会折算")
     df["slot"] = df["start"]
     df["pq"] = df["price_eur"] * df["qty"]
     out = {}
@@ -261,7 +270,7 @@ def main(argv=None):
     ap.add_argument("--end", help="YYYY-MM-DD（交付日，含），缺省为明天")
     ap.add_argument("--direction", choices=["up", "down"], help="缺省 up 和 down 都抓")
     ap.add_argument("--out-root", type=Path, default=OUT_ROOT_DEFAULT,
-                    help="输出到 <out-root>/<up|down>/<hourly|15min>/<国家>_<年>.csv")
+                    help="输出到 <out-root>/<国家>/<up|down>/<hourly|15min>/<国家>_<年>.csv")
     ap.add_argument("--mnb", type=Path, default=MNB_PATH_DEFAULT)
     a = ap.parse_args(argv)
 
@@ -269,7 +278,13 @@ def main(argv=None):
     end = datetime.strptime(a.end, "%Y-%m-%d").date() if a.end else date.today() + timedelta(days=1)
     cfg, tz = COUNTRIES[a.country], COUNTRIES[a.country]["delivery_tz"]
     print(f"{a.country} aFRR capacity (A81/B95/A01/A51)  {start} .. {end}  areas: {list(cfg['areas'])}")
-    frames = build_frames(fetch_rows(start, end, cfg), load_ron_per_eur(a.mnb), tz, cfg["step"])
+    rows = fetch_rows(start, end, cfg)
+    if not rows:
+        sys.exit("no data rows returned")
+    step = cfg["step"] or (60 if min(r["res"] for r in rows) >= 60 else 15)   # 自动判断：最细的点是 1h 就按小时，否则 15min
+    folder = cfg["folder"] or ("hourly" if step == 60 else "15min")
+    print(f"output resolution: {step} min -> {folder}")
+    frames = build_frames(rows, load_ron_per_eur(a.mnb), tz, step)
     if not frames:
         sys.exit("no data rows returned")
 
@@ -281,7 +296,7 @@ def main(argv=None):
             continue
         new = frames[direction]
         new = new[(new["_utc"] >= lo) & (new["_utc"] < hi)].drop(columns="_utc")   # 只留请求的交付日
-        out_dir = a.out_root / direction / cfg["folder"]
+        out_dir = a.out_root / a.country / direction / folder
         out_dir.mkdir(parents=True, exist_ok=True)
         for year, part in new.groupby(new[TIME_COL].str.split("/").str[0]):
             path = out_dir / f"{a.country}_{year}.csv"

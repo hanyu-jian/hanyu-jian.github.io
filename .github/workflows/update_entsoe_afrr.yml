@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
     inputs:
       country:
-        description: "Country: RO, DE, or empty = both."
+        description: "Countries (space separated): RO DE BG GR. Empty = all."
         type: string
         default: ""
       start_date:
@@ -38,6 +38,25 @@ jobs:
       - name: Install dependencies
         run: pip install pandas requests
 
+      # 旧目录 data/entsoe/afrr/<up|down>/<hourly|15min>/<国家>_<年>.csv → 新目录 data/entsoe/afrr/<国家>/<up|down>/<hourly|15min>/
+      # 搬完之后这一步什么都不做，可以以后再删掉
+      - name: Migrate legacy aFRR layout
+        run: |
+          shopt -s nullglob
+          for f in data/entsoe/afrr/up/*/*.csv data/entsoe/afrr/down/*/*.csv; do
+            dir=$(basename "$(dirname "$(dirname "$f")")")
+            res=$(basename "$(dirname "$f")")
+            cc=$(basename "$f" | cut -d_ -f1)
+            dest="data/entsoe/afrr/$cc/$dir/$res"
+            mkdir -p "$dest"
+            if [ -e "$dest/$(basename "$f")" ]; then
+              echo "skip (already exists): $f"
+            else
+              git mv "$f" "$dest/"
+              echo "moved: $f -> $dest/"
+            fi
+          done
+
       - name: Fetch aFRR capacity (daily, up/down)
         env:
           ENTSOE_TOKEN: ${{ secrets.ENTSOE_TOKEN }}
@@ -52,7 +71,7 @@ jobs:
           if [ -n "$END_DATE" ]; then
             args+=(--end "$END_DATE")
           fi
-          for c in ${COUNTRY:-RO DE}; do
+          for c in ${COUNTRY:-RO DE BG GR}; do
             python py/fetch/entsoe/fetch_afrr_capacity.py --country "$c" "${args[@]}"
           done
 

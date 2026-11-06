@@ -120,8 +120,8 @@
 <body>
 <div class="container">
     <div class="sub-nav">
-        <a class="sub-nav-link" href="imbalance.html">Imbalance Prices</a>
-        <a class="sub-nav-link active" href="balancing-afrr-capacity.html">aFRR Capacity</a>
+        <a class="sub-nav-link" href="imbalance">Imbalance Prices</a>
+        <a class="sub-nav-link active" href="balancing-afrr-capacity">aFRR Capacity</a>
     </div>
 
     <div class="controls">
@@ -131,6 +131,8 @@
                 <option value="HU" selected>HU</option>
                 <option value="RO">RO</option>
                 <option value="DE">DE</option>
+                <option value="BG">BG</option>
+                <option value="GR">GR</option>
             </select>
         </div>
     </div>
@@ -175,8 +177,7 @@
                 </div>
                 <div class="no-data" id="afrrNoData" style="display:none"><p>No aFRR capacity data for this selection.</p></div>
                 <div id="afrrChart" style="width:100%; height:460px;"></div>
-                <div class="chart-note" id="afrrRoNote" style="display:none">RO: ENTSO-E daily aFRR capacity auction (only the Daily product), hourly resolution. Time = CET/CEST (start of the hour), same as the other ENTSO-E pages; the Romanian delivery day therefore starts at 23:00 of the previous day. Prices are converted from RON to EUR at the MNB rate of the delivery day. On the clock-change day the repeated 02:00 hour is averaged in the 15min/hourly views.</div>
-                <div class="chart-note" id="afrrDeNote" style="display:none">DE: ENTSO-E daily aFRR capacity auction (only the Daily product), sum of the 4 TSOs (50Hertz, Amprion, TenneT GER, TransnetBW): volumes added, price volume-weighted. 15-min resolution. Time = CET/CEST (start of the 15 min), same as the other ENTSO-E pages. Price is the ENTSO-E value (EUR/MW/ISP), not rescaled. Hourly and longer views = average of the 15-min points; on the clock-change day the repeated 02:00 hour is averaged.</div>
+                <div class="chart-note" id="afrrEntsoeNote" style="display:none"></div>
                 <div class="chart-note" id="afrrHuNote">Product selects the capacity product: Total = hourly + daily + monthly products (stacked volume, one price line per product); otherwise that product's volume and weighted average price. Period value = simple mean of the 15-min points that have a value (volume in MW is average power). Empty where there is no data.</div>
             </div>
         </div>
@@ -269,7 +270,7 @@ function periodKey(r, freq) {
 async function loadAfrr(dir) {
     const country = afrrCountry(), key = country + ':' + dir;
     if (afrrData[key]) return afrrData[key];
-    if (country !== 'HU') return (afrrData[key] = await loadAfrrEntsoe(country, dir));
+    if (ENTSOE[country]) return (afrrData[key] = await loadAfrrEntsoe(country, dir));
     const years = Array.from({ length: new Date().getFullYear() - 2023 }, (_, i) => 2024 + i);
     const texts = await Promise.all(years.map(y =>
         fetch(`/data/enappsys/afrr/capacity/${dir}/15min/HU_${y}.csv`).then(r => r.ok ? r.text() : null).catch(() => null)));
@@ -290,13 +291,30 @@ async function loadAfrr(dir) {
     return (afrrData[key] = rows);
 }
 
-// ENTSO-E (RO hourly, DE 15min): Date "YYYY/M/D H:MM" (CET/CEST period start), daily-product price (EUR) and volume (MW).
-// Mapped onto the HU row shape: only the Daily product (index 1) is filled.
-const ENTSOE_FOLDER = { RO: 'hourly', DE: '15min' };
+// ENTSO-E countries: Date "YYYY/M/D H:MM" (CET/CEST period start), daily-product price (EUR) and volume (MW).
+// Mapped onto the HU row shape: only the Daily product (index 1) is filled. BG / GR publish at an a-priori unknown
+// resolution (the fetch script writes hourly/ or 15min/ by what it finds), so every folder listed is tried and merged.
+const ENTSOE_NOTE_TAIL = 'Time = CET/CEST (start of the period), same as the other ENTSO-E pages. On the clock-change day the repeated 02:00 hour is averaged in the views of hourly and longer.';
+const ENTSOE = {
+    RO: { folders: ['hourly'], freq: 'hourly', hourlyOnly: true,
+          src: 'aFRR capacity (RO), daily product, RON converted at MNB rate',
+          note: 'RO: ENTSO-E daily aFRR capacity auction (only the Daily product), hourly resolution. ' + 'Time = CET/CEST (start of the hour), same as the other ENTSO-E pages; the Romanian delivery day therefore starts at 23:00 of the previous day. Prices are converted from RON to EUR at the MNB rate of the delivery day. On the clock-change day the repeated 02:00 hour is averaged in the 15min/hourly views.' },
+    DE: { folders: ['15min'], freq: '15min',
+          src: 'aFRR capacity (DE), daily product, 4 TSOs summed',
+          note: 'DE: ENTSO-E daily aFRR capacity auction (only the Daily product), sum of the 4 TSOs (50Hertz, Amprion, TenneT GER, TransnetBW): volumes added, price volume-weighted. 15-min resolution. Time = CET/CEST (start of the 15 min), same as the other ENTSO-E pages. Price is the ENTSO-E value (EUR/MW/ISP), not rescaled. Hourly and longer views = average of the 15-min points; on the clock-change day the repeated 02:00 hour is averaged.' },
+    BG: { folders: ['15min', 'hourly'], freq: 'hourly',
+          src: 'aFRR capacity (BG), daily product, EUR (BGN before 2026 at the fixed 1.95583 rate)',
+          note: 'BG: ENTSO-E daily aFRR capacity auction (only the Daily product), ESO. Resolution as published by ENTSO-E (hourly or 15-min). ' + ENTSOE_NOTE_TAIL + ' The Bulgarian delivery day starts at 23:00 of the previous day. Prices in EUR; BGN values before 2026 are converted at the fixed rate 1.95583 BGN/EUR.' },
+    GR: { folders: ['15min', 'hourly'], freq: 'hourly',
+          src: 'aFRR capacity (GR), daily product',
+          note: 'GR: ENTSO-E daily aFRR capacity auction (only the Daily product), IPTO. Resolution as published by ENTSO-E (hourly or 15-min). ' + ENTSOE_NOTE_TAIL + ' The Greek delivery day starts at 23:00 of the previous day. Prices in EUR.' },
+};
 async function loadAfrrEntsoe(country, dir) {
     const years = Array.from({ length: new Date().getFullYear() - 2023 }, (_, i) => 2024 + i);
-    const texts = await Promise.all(years.map(y =>
-        fetch(`/data/entsoe/afrr/${dir}/${ENTSOE_FOLDER[country]}/${country}_${y}.csv`).then(r => r.ok ? r.text() : null).catch(() => null)));
+    const jobs = [];
+    ENTSOE[country].folders.forEach(fd => years.forEach(y => jobs.push(
+        fetch(`/data/entsoe/afrr/${country}/${dir}/${fd}/${country}_${y}.csv`).then(r => r.ok ? r.text() : null).catch(() => null))));
+    const texts = await Promise.all(jobs);
     const f = x => { const n = parseFloat(x); return isNaN(n) ? null : n; };
     const pad = n => String(n).padStart(2, '0');
     const rows = [];
@@ -311,26 +329,26 @@ async function loadAfrrEntsoe(country, dir) {
                         dp: [false, false, false], dv: [false, false, false] });
         }
     });
+    if (ENTSOE[country].folders.length > 1) rows.sort((a, b) => a.ts < b.ts ? -1 : a.ts > b.ts ? 1 : 0);   // stable: keeps the two 02:xx passes in order
     return rows;
 }
 
 function applyCountryUI() {
-    const country = afrrCountry(), ro = country === 'RO', de = country === 'DE', entsoe = ro || de;
+    const country = afrrCountry(), cfg = ENTSOE[country], entsoe = !!cfg;
     const show = (sel, on) => document.querySelectorAll(sel).forEach(b => b.style.display = on ? '' : 'none');
     const click = sel => { const b = document.querySelector(sel); if (b && !b.classList.contains('active')) b.click(); };
-    show('#afrrFreq button[data-freq="15min"]', !ro);   // RO is hourly at best
+    show('#afrrFreq button[data-freq="15min"]', !(cfg && cfg.hourlyOnly));
     show('#afrrSel button[data-sel="total"], #afrrSel button[data-sel="0"], #afrrSel button[data-sel="2"]', !entsoe);
     show('#hmProd button[data-prod="0"], #hmProd button[data-prod="2"]', !entsoe);
-    document.getElementById('afrrRoNote').style.display = ro ? '' : 'none';
-    document.getElementById('afrrDeNote').style.display = de ? '' : 'none';
+    const note = document.getElementById('afrrEntsoeNote');
+    note.style.display = entsoe ? '' : 'none';
+    note.textContent = entsoe ? cfg.note : '';
     document.getElementById('afrrHuNote').style.display = entsoe ? 'none' : '';
-    const entsoeLink = '<a href="https://transparency.entsoe.eu/" target="_blank">ENTSO-E Transparency Platform</a>';
-    document.getElementById('afrrSource').innerHTML = ro
-        ? `Data source: ${entsoeLink} &nbsp;|&nbsp; aFRR capacity (RO), daily product, RON converted at MNB rate`
-        : de ? `Data source: ${entsoeLink} &nbsp;|&nbsp; aFRR capacity (DE), daily product, 4 TSOs summed`
+    document.getElementById('afrrSource').innerHTML = entsoe
+        ? `Data source: <a href="https://transparency.entsoe.eu/" target="_blank">ENTSO-E Transparency Platform</a> &nbsp;|&nbsp; ${cfg.src}`
         : 'Data source: <a href="https://app.enappsys.com/" target="_blank">EnAppSys</a> &nbsp;|&nbsp; aFRR capacity (HU)';
-    // ENTSO-E countries only have the Daily product (RO hourly, DE 15min); HU goes back to the page defaults
-    click(ro ? '#afrrFreq button[data-freq="hourly"]' : '#afrrFreq button[data-freq="15min"]');
+    // ENTSO-E countries only have the Daily product; HU goes back to the page defaults
+    click(`#afrrFreq button[data-freq="${entsoe ? cfg.freq : '15min'}"]`);
     click(entsoe ? '#afrrSel button[data-sel="1"]' : '#afrrSel button[data-sel="total"]');
     click('#hmProd button[data-prod="1"]');
 }

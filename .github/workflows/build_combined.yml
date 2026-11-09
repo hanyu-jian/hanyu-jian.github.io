@@ -1,11 +1,7 @@
 name: Build HU Combined Data
 on:
-  workflow_run:
-    workflows:
-      - "Daily Energy Data Update"
-      - "Daily EnAppSys (Montel) Update"
-      - "Daily MAVIR Imbalance Price Update"
-    types: [completed]
+  # 每天只跑一次（上游数据 workflow 的定时都在 UTC 06:00-09:20 之间）。
+  # 需要立刻重建时用 Run workflow 手动触发。
   schedule:
     - cron: "30 10 * * *"
   workflow_dispatch:

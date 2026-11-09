@@ -1,0 +1,66 @@
+name: Build HU Combined Data
+on:
+  workflow_run:
+    workflows:
+      - "Daily Energy Data Update"
+      - "Daily EnAppSys (Montel) Update"
+      - "Daily MAVIR Imbalance Price Update"
+    types: [completed]
+  schedule:
+    - cron: "30 10 * * *"
+  workflow_dispatch:
+
+# 只写 hu-market-data，不会提交到本仓库，所以不需要和其他数据 workflow 共用提交队列
+concurrency:
+  group: build-combined
+  cancel-in-progress: false
+
+env:
+  DATA_REPO: hanyu-jian/hu-market-data
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: pip install pandas
+
+      - name: Check DATA_REPO_TOKEN
+        env:
+          DATA_REPO_TOKEN: ${{ secrets.DATA_REPO_TOKEN }}
+        run: |
+          if [ -z "$DATA_REPO_TOKEN" ]; then
+            echo "::error::Secret DATA_REPO_TOKEN is not set (needs Contents read/write on $DATA_REPO)"
+            exit 1
+          fi
+
+      - name: Build combined HU tables
+        run: python py/build/build_hu_combined.py --out build/combined
+
+      - name: Check out data repo
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.DATA_REPO }}
+          token: ${{ secrets.DATA_REPO_TOKEN }}
+          path: data-repo
+
+      - name: Commit and push to data repo
+        working-directory: data-repo
+        run: |
+          cp ../build/combined/HU_*.csv .
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add HU_*.csv
+          git diff --cached --quiet || \
+            git commit -m "chore: update combined HU data $(date -u +'%Y-%m-%d %H:%M')"
+          git pull --rebase origin HEAD
+          git push

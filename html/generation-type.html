@@ -1,0 +1,741 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Generation by Type – European Electricity Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+    <script src="nav.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f2f5; padding: 20px; }
+        .container { max-width: 1600px; margin: 0 auto; background: #fff; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); overflow: hidden; }
+
+        .header { background: #2c3e50; color: #fff; padding: 20px 30px 0 30px; }
+        .header-top { padding-bottom: 16px; }
+        .header-top h1 { font-size: 24px; font-weight: 500; letter-spacing: 0.2px; }
+
+        .sub-nav { background: #f8f9fa; border-bottom: 2px solid #e6e9ed; padding: 0 30px; display: flex; }
+        .sub-nav-link { display: inline-block; padding: 14px 22px; font-size: 14px; font-weight: 600; color: #6c757d; text-decoration: none; border-bottom: 3px solid transparent; margin-bottom: -2px; }
+        .sub-nav-link:hover { color: #2c3e50; }
+        .sub-nav-link.active { color: #2c3e50; border-bottom-color: #2c3e50; }
+
+        .controls {
+            padding: 20px 30px; display: flex; flex-wrap: wrap; gap: 24px;
+            align-items: flex-end; background: #fff; border-bottom: 1px solid #e6e9ed;
+        }
+        .control-group { display: flex; flex-direction: column; gap: 6px; }
+        .control-group label { font-size: 13px; font-weight: 600; color: #2c3e50; white-space: nowrap; }
+        select {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            height: 36px; padding: 0 12px; border: 1px solid #ccc; border-radius: 6px;
+            font-size: 14px; min-width: 160px; cursor: pointer;
+        }
+
+        .content-grid {
+            display: grid;
+            grid-template-columns: 1fr 440px;
+            gap: 24px;
+            padding: 24px 30px;
+            align-items: start;
+        }
+
+        .chart-card { background: #fff; border-radius: 8px; border: 1px solid #e6e9ed; padding: 16px; }
+        .chart-card-header h3 { font-size: 18px; font-weight: 500; color: #2c3e50; border-left: 4px solid #2c3e50; padding-left: 12px; margin: 0; }
+        .subtitle { font-size: 12px; color: #888; margin-top: 4px; padding-left: 16px; }
+
+        /* ▼ ADDED: Export button styles */
+        .export-btn {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 7px 14px; font-size: 12px; font-weight: 600;
+            color: #2c3e50; background: #fff;
+            border: 1px solid #ced4da; border-radius: 6px;
+            cursor: pointer; white-space: nowrap;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            transition: background 0.15s, border-color 0.15s;
+        }
+        .export-btn:hover { background: #f0f4f8; border-color: #5a8fc2; }
+        .export-btn:active { background: #e6ecf2; }
+
+        #barChart { height: 400px; margin-top: 16px; }
+
+        #chartLegend {
+            width: 100%; margin-top: 8px; padding: 4px 6px;
+            display: flex; flex-wrap: wrap; gap: 8px 16px; justify-content: center;
+        }
+        .leg-item {
+            display: flex; align-items: center; gap: 7px;
+            font-size: 13px; color: #333; cursor: default;
+            padding: 2px 4px; border-radius: 3px;
+        }
+        .leg-swatch { flex-shrink: 0; width: 12px; height: 12px; border-radius: 50%; }
+
+        .table-card { background: #fff; border-radius: 8px; border: 1px solid #e6e9ed; padding: 16px; }
+        .table-card-header h3 { font-size: 18px; font-weight: 500; color: #2c3e50; border-left: 4px solid #2c3e50; padding-left: 12px; margin: 0 0 4px 0; }
+
+        .yoy-table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 13px; }
+        .yoy-table th {
+            background: #2c3e50; color: #fff; font-weight: 600;
+            padding: 9px 10px; text-align: center; font-size: 12px; white-space: nowrap;
+        }
+        .yoy-table th:first-child { text-align: left; }
+        .yoy-table td {
+            padding: 8px 10px; text-align: center; border-bottom: 1px solid #f0f2f5;
+            font-size: 13px; font-weight: 500;
+        }
+        .yoy-table td:first-child { text-align: left; font-weight: 600; color: #2c3e50; width: 52px; }
+        .yoy-table tr:hover td { background: #f8f9fb; }
+        .yoy-table tr:last-child td { border-bottom: none; }
+
+        /* Raw value rows styling */
+        .yoy-table tr.raw-row td { color: #555; font-weight: 400; font-size: 12px; background: #fafbfd; }
+        .yoy-table tr.raw-row td:first-child { color: #888; font-weight: 500; }
+        .yoy-table tr.divider td { border-top: 2px solid #e6e9ed; }
+
+        .cell-pos-strong { color: #155724; background: #d4edda; border-radius: 4px; display:inline-block; padding: 2px 7px; }
+        .cell-pos-mid    { color: #1a6e34; background: #e6f4ea; border-radius: 4px; display:inline-block; padding: 2px 7px; }
+        .cell-pos-weak   { color: #2e7d32; background: #f0faf2; border-radius: 4px; display:inline-block; padding: 2px 7px; }
+        .cell-neg-strong { color: #721c24; background: #f8d7da; border-radius: 4px; display:inline-block; padding: 2px 7px; }
+        .cell-neg-mid    { color: #9b2335; background: #fce8ea; border-radius: 4px; display:inline-block; padding: 2px 7px; }
+        .cell-neg-weak   { color: #b03a3a; background: #fdf4f4; border-radius: 4px; display:inline-block; padding: 2px 7px; }
+        .cell-na         { color: #bbb; font-style: italic; display:inline-block; padding: 2px 4px; }
+
+        .loading { text-align: center; padding: 40px 20px; color: #666; font-size: 15px; }
+        .no-data-msg { text-align: center; padding: 60px 20px; color: #999; font-size: 14px; }
+
+        @media (max-width: 1100px) { .content-grid { grid-template-columns: 1fr; } }
+        @media (max-width: 900px) {
+            .sub-nav { padding: 0 10px; overflow-x: auto; }
+            .controls { flex-direction: column; align-items: stretch; }
+            select { width: 100%; min-width: 0; }
+            .content-grid { padding: 16px; gap: 16px; }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+
+    <div class="sub-nav">
+        <a class="sub-nav-link" href="generation-overview">Generation Overview</a>
+        <a class="sub-nav-link active" href="generation-type">Generation by Type</a>
+    </div>
+
+    <div class="controls">
+        <div class="control-group">
+            <label>Country</label>
+            <select id="countrySelect">
+                <option value="HU" selected>HU</option>
+                <option value="AT">AT</option>
+                <option value="BG">BG</option>
+                <option value="DE">DE</option>
+                <option value="ES">ES</option>
+                <option value="FR">FR</option>
+                <option value="GR">GR</option>
+                <option value="HR">HR</option>
+                <option value="IT">IT</option>
+                <option value="PL">PL</option>
+                <option value="RO">RO</option>
+                <option value="RS">RS</option>
+                <option value="SK">SK</option>
+            </select>
+        </div>
+        <div class="control-group">
+            <label>Generation Type</label>
+            <select id="typeSelect">
+                <option value="Solar" selected>Solar</option>
+                <option value="Wind">Wind</option>
+                <option value="Hydro">Hydro</option>
+                <option value="Nuclear">Nuclear</option>
+                <option value="Fossil Gas">Fossil Gas</option>
+                <option value="Lignite">Fossil Brown Coal / Lignite</option>
+                <option value="Hard Coal">Fossil Hard Coal</option>
+                <option value="Fossil Oil">Fossil Oil</option>
+                <option value="Biomass">Biomass</option>
+                <option value="Geothermal">Geothermal</option>
+                <option value="Other Renewable">Other Renewable</option>
+                <option value="Waste">Waste</option>
+                <option value="Other">Other</option>
+            </select>
+        </div>
+    </div>
+
+    <div id="loadingMsg" class="loading">Loading generation data…</div>
+
+    <div class="content-grid" id="mainContent" style="display:none;">
+        <div class="chart-card">
+            <div class="chart-card-header" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;">
+                <div>
+                    <h3 id="chartTitle">Monthly Solar Production – HU</h3>
+                    <div class="subtitle" id="chartSubtitle">Average MW × hours in month = estimated MWh · 2024–2026</div>
+                </div>
+                <button class="export-btn" id="genExportBtn" onclick="exportGenerationCSV()"> Export CSV</button>
+            </div>
+            <div id="barChart"></div>
+            <div id="chartLegend"></div>
+            <div class="controls">
+                <div class="control-group">
+                    <label>Start Month</label>
+                    <select id="startMonth">
+                        <option value="1">Jan</option><option value="2">Feb</option><option value="3">Mar</option>
+                        <option value="4">Apr</option><option value="5">May</option><option value="6">Jun</option>
+                        <option value="7">Jul</option><option value="8">Aug</option><option value="9">Sep</option>
+                        <option value="10">Oct</option><option value="11">Nov</option><option value="12">Dec</option>
+                    </select>
+                </div>
+                <div class="control-group">
+                    <label>End Month</label>
+                    <select id="endMonth">
+                        <option value="1">Jan</option><option value="2">Feb</option><option value="3">Mar</option>
+                        <option value="4">Apr</option><option value="5">May</option><option value="6">Jun</option>
+                        <option value="7">Jul</option><option value="8">Aug</option><option value="9">Sep</option>
+                        <option value="10">Oct</option><option value="11">Nov</option><option value="12">Dec</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- ▼ ADDED: header + Export CSV button for the load/generation summary table -->
+            <div class="chart-card-header" style="display:flex; align-items:center; justify-content:space-between; margin-top:16px;">
+                <h3>Load vs Generation Summary</h3>
+                <button class="export-btn" id="summaryExportBtn" onclick="exportSummaryCSV()"> Export CSV</button>
+            </div>
+            <div id="summaryTable"></div>
+        </div>
+
+        <div class="table-card">
+            <div class="table-card-header">
+                <h3 id="tableTitle">Year-on-Year Change</h3>
+                <div class="subtitle">Monthly generation (GWh) and % change vs prior year</div>
+            </div>
+            <div id="tableContainer"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+const YEARS = [2024, 2025, 2026];
+// Base color per technology type (matches generation-overview typeToColor logic)
+function typeBaseColor(typeName) {
+    const t = (typeName || '').toLowerCase();
+    if (t.includes('hydro'))           return '#1a56a0';
+    if (t.includes('biomass'))         return '#1b5e20';
+    if (t.includes('lignite') || t.includes('brown coal')) return '#8B6914';
+    if (t.includes('hard coal'))       return '#444444';
+    if (t.includes('fossil oil'))      return '#795548';
+    if (t === 'fossil gas' || t.includes('fossil gas')) return '#f5821f';
+    if (t.includes('wind'))            return '#2e7d32';
+    if (t.includes('solar'))           return '#fcc428';
+    if (t.includes('nuclear'))         return '#e53935';
+    if (t.includes('geotherm'))        return '#3949ab';
+    if (t.includes('waste'))           return '#8d6e63';
+    if (t.includes('other renew') || t === 'other renewable') return '#9c7bb5';
+    if (t.includes('other'))           return '#9c7bb5';
+    return '#90a4ae';
+}
+
+function hexToHsl(hex) {
+    let r = parseInt(hex.slice(1,3),16)/255;
+    let g = parseInt(hex.slice(3,5),16)/255;
+    let b = parseInt(hex.slice(5,7),16)/255;
+    const max = Math.max(r,g,b), min = Math.min(r,g,b);
+    let h, s, l = (max+min)/2;
+    if (max === min) { h = s = 0; }
+    else {
+        const d = max - min;
+        s = l > 0.5 ? d/(2-max-min) : d/(max+min);
+        if (max === r) h = ((g-b)/d + (g<b?6:0))/6;
+        else if (max === g) h = ((b-r)/d + 2)/6;
+        else h = ((r-g)/d + 4)/6;
+    }
+    return [h*360, s*100, l*100];
+}
+function hslToHex(h, s, l) {
+    h /= 360; s /= 100; l /= 100;
+    let r, g, b;
+    if (s === 0) { r = g = b = l; }
+    else {
+        const hue2rgb = (p,q,t) => {
+            if (t<0) t+=1; if (t>1) t-=1;
+            if (t<1/6) return p+(q-p)*6*t;
+            if (t<1/2) return q;
+            if (t<2/3) return p+(q-p)*(2/3-t)*6;
+            return p;
+        };
+        const q = l<0.5 ? l*(1+s) : l+s-l*s, p = 2*l-q;
+        r = hue2rgb(p,q,h+1/3); g = hue2rgb(p,q,h); b = hue2rgb(p,q,h-1/3);
+    }
+    return '#' + [r,g,b].map(x => Math.round(x*255).toString(16).padStart(2,'0')).join('');
+}
+
+// 2024 = lightest, 2025 = mid, 2026 = darkest (base color)
+function yearColors(typeName) {
+    const base = typeBaseColor(typeName);
+    const [h, s, l] = hexToHsl(base);
+    return {
+        2024: hslToHex(h, Math.max(s-10,0), Math.min(l+30, 88)),
+        2025: hslToHex(h, Math.max(s-4, 0), Math.min(l+14, 82)),
+        2026: base
+    };
+}
+const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+// Maps UI option value → substrings to match against CSV category (case-insensitive)
+const TYPE_KEY_MAP = {
+    'Solar':          ['solar'],
+    'Wind':           ['wind'],
+    'Hydro':          ['hydro'],
+    'Nuclear':        ['nuclear'],
+    'Fossil Gas':     ['fossil gas'],
+    'Lignite':        ['lignite', 'brown coal'],
+    'Hard Coal':      ['hard coal'],
+    'Fossil Oil':     ['fossil oil'],
+    'Biomass':        ['biomass'],
+    'Geothermal':     ['geothermal'],
+    'Other Renewable':['other renewable'],
+    'Waste':          ['waste'],
+    'Other':          ['other']
+};
+
+// 'Other' should NOT match 'Other Renewable' — use exact-first logic
+function matchesType(category, typeName) {
+    const keys = TYPE_KEY_MAP[typeName] || [typeName.toLowerCase()];
+    const cl = category.toLowerCase().replace(/[-/]/g,' ').replace(/\s+/g,' ').trim();
+    if (typeName === 'Other') {
+        return cl === 'other';
+    }
+    if (typeName === 'Other Renewable') {
+        return cl.includes('other renewable');
+    }
+    return keys.some(k => cl.includes(k));
+}
+
+let countryData = {};
+let barChart = null;
+
+// ▼ ADDED: caches of currently rendered data, used for CSV export
+let lastMonthlyTotals   = null;
+let lastGenCountry      = null;
+let lastGenTypeName     = null;
+
+let lastSummaryRows       = null;
+let lastSummaryCountry    = null;
+let lastSummaryTypeName   = null;
+let lastSummaryStartMonth = null;
+let lastSummaryEndMonth   = null;
+
+function parseDate(s) {
+    if (!s) return null;
+    let m = s.match(/^(\d{4})[\/-](\d{1,2})[\/-](\d{1,2})\s+(\d{1,2}):(\d{2})/);
+    if (m) return { year: +m[1], month: +m[2], day: +m[3], hour: +m[4] };
+    m = s.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})\s+(\d{1,2}):(\d{2})/);
+    if (m) return { year: +m[3], month: +m[2], day: +m[1], hour: +m[4] };
+    return null;
+}
+
+function parseCSV(text) {
+    const lines = text.trim().split(/\r?\n/);
+    const out = [];
+    if (!lines.length) return out;
+    const first = lines[0].trim().toLowerCase();
+    const hasHeader = first.includes('date') && first.includes('category');
+    const startIdx = hasHeader ? 1 : 0;
+
+    for (let i = startIdx; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (!line) continue;
+        // Try tab first, then comma
+        let parts;
+        if (line.includes('\t')) {
+            parts = line.split('\t');
+        } else {
+            // careful split: date has commas if MM/DD/YYYY but our format uses /
+            // safe to split on comma since date field uses / not ,
+            parts = line.split(',');
+        }
+        if (parts.length >= 3) {
+            out.push({ date: parts[0].trim(), category: parts[1].trim(), value: parseFloat(parts[2]) });
+        }
+    }
+    return out;
+}
+
+async function loadCountry(country) {
+    if (countryData[country]) return true;
+    try {
+        const res = await fetch(`/data/entsoe/generation/${country}.csv`);
+        if (!res.ok) return false;
+        const text = await res.text();
+        countryData[country] = parseCSV(text);
+        return countryData[country].length > 0;
+    } catch (e) { return false; }
+}
+
+const DAYS_IN_MONTH = [0,31,28,31,30,31,30,31,31,30,31,30,31];
+
+function buildMonthlyTotals(country, typeName) {
+    const rows = countryData[country] || [];
+    const agg = {};
+    YEARS.forEach(y => { agg[y] = {}; for (let m = 1; m <= 12; m++) agg[y][m] = { sum: 0, cnt: 0 }; });
+
+    rows.forEach(r => {
+        if (!matchesType(r.category, typeName)) return;
+        const dt = parseDate(r.date);
+        if (!dt || !agg[dt.year]) return;
+        const v = parseFloat(r.value);
+        if (!isFinite(v) || v < 0) return;
+        agg[dt.year][dt.month].sum += v;
+        agg[dt.year][dt.month].cnt += 1;
+    });
+
+    const result = {};
+    YEARS.forEach(y => {
+        result[y] = {};
+        for (let m = 1; m <= 12; m++) {
+            const { sum, cnt } = agg[y][m];
+            if (cnt === 0) { result[y][m] = null; continue; }
+            result[y][m] =
+                +(sum / 1000).toFixed(2);
+        }
+    });
+    return result;
+}
+
+function renderChart(totals, country, typeName) {
+    // ▼ ADDED: cache for CSV export (also backs the Year-on-Year table, same dataset)
+    lastMonthlyTotals = totals;
+    lastGenCountry    = country;
+    lastGenTypeName   = typeName;
+
+    const colors = yearColors(typeName);
+    document.getElementById('chartTitle').textContent = `Monthly ${typeName} Production – ${country}`;
+    document.getElementById('chartSubtitle').textContent = 'Estimated monthly generation (GWh) · 2024–2026';
+
+    const hasAnyData = YEARS.some(y =>
+        Object.values(totals[y]).some(v => v !== null && v > 0)
+    );
+
+    if (!hasAnyData) {
+        barChart.clear();
+        barChart.setOption({
+            graphic: [{
+                type: 'text', left: 'center', top: 'middle',
+                style: { text: `No ${typeName} data for ${country}`, fill: '#999', font: '14px Segoe UI' }
+            }]
+        });
+        document.getElementById('chartLegend').innerHTML = '';
+        return;
+    }
+
+    const series = YEARS.map(y => ({
+        name: String(y),
+        type: 'bar',
+        barGap: '5%',
+        barCategoryGap: '28%',
+        data: Array.from({length:12}, (_,i) => {
+            const v = totals[y][i+1];
+            return (v !== null && v > 0) ? v : 0;
+        }),
+        itemStyle: { color: colors[y] }
+    }));
+
+    barChart.setOption({
+        tooltip: {
+            trigger: 'axis',
+            axisPointer: { type: 'shadow' },
+            formatter: params => {
+                const month = monthNames[params[0].dataIndex];
+                let s = `<b>${month}</b><br/>`;
+                params.forEach(p => {
+                    if (p.value > 0) s += `${p.marker}${p.seriesName}: <b>${p.value.toFixed(2)} GWh</b><br/>`;
+                });
+                return s;
+            }
+        },
+        legend: { show: false },
+        grid: { left: 64, right: 16, top: 14, bottom: 48 },
+        xAxis: {
+            type: 'category',
+            data: monthNames,
+            axisTick: { alignWithLabel: true }
+        },
+        yAxis: {
+            type: 'value',
+            name: 'GWh',
+            nameTextStyle: { color: '#666', fontSize: 12 },
+            axisLabel: { formatter: v => v >= 1000 ? (v/1000).toFixed(1)+'T' : v }
+        },
+        series
+    }, true);
+
+    const wrap = document.getElementById('chartLegend');
+    wrap.innerHTML = '';
+    YEARS.forEach(y => {
+        const item = document.createElement('div');
+        item.className = 'leg-item';
+        item.innerHTML = `<div class="leg-swatch" style="background:${colors[y]};"></div><span>${y}</span>`;
+        wrap.appendChild(item);
+    });
+}
+
+function cellClass(v) {
+    if (typeof v !== 'number') return 'cell-na';
+    if (v >= 40)  return 'cell-pos-strong';
+    if (v >= 15)  return 'cell-pos-mid';
+    if (v >= 0)   return 'cell-pos-weak';
+    if (v >= -20) return 'cell-neg-weak';
+    if (v >= -40) return 'cell-neg-mid';
+    return 'cell-neg-strong';
+}
+
+function fmtPct(v) {
+    if (v === null || v === undefined) return `<span class="cell-na">–</span>`;
+    if (typeof v === 'string') return `<span class="cell-na">${v}</span>`;
+    const cls = cellClass(v);
+    const sign = v > 0 ? '+' : '';
+    return `<span class="${cls}">${sign}${v.toFixed(0)}%</span>`;
+}
+
+function fmtGWh(v) {
+    if (v === null) return '<span style="color:#ccc">–</span>';
+    return `<span style="color:#555">${v.toFixed(1)}</span>`;
+}
+
+function renderTable(totals, typeName) {
+    // Pairs: [label, yearFrom, yearTo]
+    const pairs = [
+        ['2025 / 2024', 2024, 2025],
+        ['2026 / 2025', 2025, 2026],
+    ];
+
+    // Compute YoY
+    const yoy = {};
+    pairs.forEach(([label, ya, yb]) => {
+        yoy[label] = {};
+        for (let m = 1; m <= 12; m++) {
+            const a = totals[ya][m], b = totals[yb][m];
+            if (a === null || b === null) { yoy[label][m] = null; continue; }
+            if (a === 0) { yoy[label][m] = 'N/A'; continue; }
+            yoy[label][m] = +((b - a) / a * 100).toFixed(1);
+        }
+    });
+
+    // Table header
+    let html = `<table class="yoy-table">
+        <thead><tr>
+            <th>Month</th>
+            ${YEARS.map(y => `<th>${y}<br/><span style="font-weight:400;font-size:11px;opacity:0.75">GWh</span></th>`).join('')}
+            ${pairs.map(([lbl]) => `<th>${lbl}</th>`).join('')}
+        </tr></thead>
+        <tbody>`;
+
+    for (let m = 1; m <= 12; m++) {
+        html += `<tr>
+            <td>${monthNames[m-1]}</td>
+            ${YEARS.map(y => `<td>${fmtGWh(totals[y][m])}</td>`).join('')}
+            ${pairs.map(([lbl]) => `<td>${fmtPct(yoy[lbl][m])}</td>`).join('')}
+        </tr>`;
+    }
+
+    html += '</tbody></table>';
+
+    document.getElementById('tableContainer').innerHTML = html;
+    document.getElementById('tableTitle').textContent = `YoY Change – ${typeName}`;
+}
+
+
+let loadData = [];
+
+async function loadLoadData(){
+    if(loadData.length) return;
+    const res = await fetch('/data/entsoe/load.csv');
+    const txt = await res.text();
+    const lines = txt.trim().split(/\r?\n/);
+    const headers = lines[0].split(',');
+    for(let i=1;i<lines.length;i++){
+        const p=lines[i].split(',');
+        const dt=parseDate(p[0]);
+        if(!dt) continue;
+        const row={year:dt.year,month:dt.month};
+        headers.slice(1).forEach((h,j)=>row[h]=parseFloat(p[j+1])||0);
+        loadData.push(row);
+    }
+}
+
+function aggregateGeneration(monthly,startM,endM){
+ const r={};
+ YEARS.forEach(y=>{
+  let s=0;
+  for(let m=startM;m<=endM;m++) if(monthly[y][m]) s+=monthly[y][m];
+  r[y]=s/1000;
+ });
+ return r;
+}
+
+function buildLoadTotals(country,startM,endM){
+ const r={2024:0,2025:0,2026:0};
+ loadData.forEach(x=>{
+   if(x.month<startM||x.month>endM||!r.hasOwnProperty(x.year)) return;
+   r[x.year]+=x[country]||0;
+ });
+ Object.keys(r).forEach(y=>r[y]/=1000000);
+ return r;
+}
+
+function yoy(a,b){ return (!b||b===0)?null:(a-b)/b*100; }
+
+function renderSummary(country){
+ const sm=parseInt(document.getElementById('startMonth').value);
+ const em=parseInt(document.getElementById('endMonth').value);
+ const typeName=document.getElementById('typeSelect').value;
+ const gen=aggregateGeneration(buildMonthlyTotals(country,typeName),sm,em);
+ const load=buildLoadTotals(country,sm,em);
+ let html='<table class="yoy-table"><thead><tr><th>Year</th><th>Load(TWh)</th><th>Load YoY</th><th>'+typeName+'(TWh)</th><th>Gen YoY</th><th>Share</th></tr></thead><tbody>';
+ // ▼ ADDED: cache rows for CSV export
+ const summaryRows = [];
+ YEARS.forEach((y,i)=>{
+  const ly=i?yoy(load[y],load[YEARS[i-1]]):null;
+  const gy=i?yoy(gen[y],gen[YEARS[i-1]]):null;
+  const sh=load[y]>0?gen[y]/load[y]*100:null;
+  html+=`<tr><td>${y}</td><td>${load[y].toFixed(2)}</td><td>${fmtPct(ly)}</td><td>${gen[y].toFixed(2)}</td><td>${fmtPct(gy)}</td><td>${sh?sh.toFixed(1):'-'}%</td></tr>`;
+  summaryRows.push({ year: y, load: load[y], loadYoY: ly, gen: gen[y], genYoY: gy, share: sh });
+ });
+ html+='</tbody></table>';
+ document.getElementById('summaryTable').innerHTML=html;
+ // ▼ ADDED: cache for CSV export
+ lastSummaryRows       = summaryRows;
+ lastSummaryCountry    = country;
+ lastSummaryTypeName   = typeName;
+ lastSummaryStartMonth = sm;
+ lastSummaryEndMonth   = em;
+}
+
+/* ============================================================
+   ▼ ADDED: CSV Export functions
+   ============================================================ */
+
+// Generic CSV builder: rows is an array of arrays (each inner array = one row of cell values)
+function toCSV(rows) {
+    return rows.map(r => r.map(csvEscape).join(',')).join('\r\n');
+}
+function csvEscape(v) {
+    if (v === null || v === undefined) return '';
+    const s = String(v);
+    return /[",\r\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+}
+function downloadCSV(filename, csvString) {
+    // BOM so Excel opens UTF-8 correctly
+    const blob = new Blob(['﻿' + csvString], { type: 'text/csv;charset=utf-8;' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+
+// --- Export 1: Monthly generation chart + Year-on-Year table (same underlying dataset) ---
+function exportGenerationCSV() {
+    if (!lastMonthlyTotals) { alert('No data loaded yet.'); return; }
+
+    const pairs = [
+        ['2025/2024 YoY (%)', 2024, 2025],
+        ['2026/2025 YoY (%)', 2025, 2026],
+    ];
+
+    const header = ['Month', ...YEARS.map(y => `${y} (GWh)`), ...pairs.map(p => p[0])];
+    const rows = [header];
+
+    for (let m = 1; m <= 12; m++) {
+        const row = [monthNames[m - 1]];
+        YEARS.forEach(y => {
+            const v = lastMonthlyTotals[y][m];
+            row.push(v !== null && v !== undefined ? v.toFixed(2) : '');
+        });
+        pairs.forEach(([, ya, yb]) => {
+            const a = lastMonthlyTotals[ya][m], b = lastMonthlyTotals[yb][m];
+            if (a === null || b === null) { row.push(''); return; }
+            if (a === 0) { row.push('N/A'); return; }
+            row.push(((b - a) / a * 100).toFixed(1));
+        });
+        rows.push(row);
+    }
+
+    const safeType = (lastGenTypeName || 'type').replace(/[^a-z0-9]+/gi, '_');
+    downloadCSV(`generation_${lastGenCountry}_${safeType}.csv`, toCSV(rows));
+}
+
+// --- Export 2: Load vs Generation summary table (current Start/End month range) ---
+function exportSummaryCSV() {
+    if (!lastSummaryRows || !lastSummaryRows.length) { alert('No data loaded yet.'); return; }
+
+    const header = ['Year', 'Load (TWh)', 'Load YoY (%)', `${lastSummaryTypeName} (TWh)`, 'Generation YoY (%)', 'Share of Load (%)'];
+    const rows = [header];
+
+    lastSummaryRows.forEach(r => {
+        rows.push([
+            r.year,
+            r.load.toFixed(2),
+            (r.loadYoY !== null && r.loadYoY !== undefined) ? r.loadYoY.toFixed(1) : '',
+            r.gen.toFixed(2),
+            (r.genYoY !== null && r.genYoY !== undefined) ? r.genYoY.toFixed(1) : '',
+            (r.share !== null && r.share !== undefined) ? r.share.toFixed(1) : ''
+        ]);
+    });
+
+    const safeType = (lastSummaryTypeName || 'type').replace(/[^a-z0-9]+/gi, '_');
+    downloadCSV(`load_vs_generation_${lastSummaryCountry}_${safeType}_m${lastSummaryStartMonth}-${lastSummaryEndMonth}.csv`, toCSV(rows));
+}
+
+async function refresh() {
+    const country  = document.getElementById('countrySelect').value;
+    const typeName = document.getElementById('typeSelect').value;
+
+    document.getElementById('loadingMsg').style.display = 'block';
+    document.getElementById('mainContent').style.display = 'none';
+
+    await loadCountry(country);
+    await loadLoadData();
+
+    document.getElementById('loadingMsg').style.display = 'none';
+    // Show grid BEFORE touching the chart so the container has real dimensions
+    document.getElementById('mainContent').style.display = 'grid';
+
+    // Give the browser one frame to lay out the grid, then resize + render
+    requestAnimationFrame(() => {
+        if (barChart) barChart.resize();
+        const totals = buildMonthlyTotals(country, typeName);
+        renderChart(totals, country, typeName);
+        renderTable(totals, typeName);
+        renderSummary(country);
+    });
+}
+
+async function init() {
+    if (typeof echarts === 'undefined') {
+        document.getElementById('loadingMsg').textContent = 'ECharts failed to load.';
+        return;
+    }
+
+    // Init chart only after the container is visible — show it briefly first
+    document.getElementById('mainContent').style.display = 'grid';
+    document.getElementById('loadingMsg').style.display = 'block';
+
+    barChart = echarts.init(document.getElementById('barChart'));
+    window.addEventListener('resize', () => barChart && barChart.resize());
+
+    document.getElementById('mainContent').style.display = 'none';
+
+    document.getElementById('countrySelect').addEventListener('change', refresh);
+    document.getElementById('typeSelect').addEventListener('change', refresh);
+    document.getElementById('startMonth').addEventListener('change', refresh);
+    document.getElementById('endMonth').addEventListener('change', refresh);
+
+    await refresh();
+}
+
+init();
+</script>
+</body>
+</html>

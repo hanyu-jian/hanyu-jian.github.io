@@ -1,0 +1,1084 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Installed Capacity – European Electricity Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+    <script src="nav.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f0f2f5;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        .loading { text-align: center; padding: 60px; color: #666; font-size: 16px; }
+
+        .sub-nav {
+            background: #f8f9fa; border-bottom: 2px solid #e6e9ed;
+            padding: 0 30px; display: flex;
+        }
+        .sub-nav-link {
+            display: inline-block; padding: 14px 22px;
+            font-size: 14px; font-weight: 600; color: #6c757d;
+            text-decoration: none; border-bottom: 3px solid transparent;
+            margin-bottom: -2px; transition: color 0.2s, border-color 0.2s;
+        }
+        .sub-nav-link:hover { color: #2c3e50; }
+        .sub-nav-link.active { color: #2c3e50; border-bottom-color: #2c3e50; }
+
+        .content-area {
+            display: flex; gap: 0; min-height: 500px;
+        }
+
+        /* ── Map panel ── */
+        .map-panel {
+            width: 33.333%; flex-shrink: 0; 
+            border-right: 1px solid #e6e9ed;
+            display: flex; flex-direction: column;
+        }
+        .map-panel-header {
+            padding: 16px 20px 10px;
+            border-bottom: 1px solid #f0f2f5;
+            min-height: 57px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+        .map-year-ctrl {
+            display: flex; align-items: center; gap: 8px;
+            padding: 8px 20px 10px;
+            border-bottom: 1px solid #f0f2f5;
+            background: #fafbfc;
+        }
+        .map-year-ctrl label { font-size: 12px; font-weight: 600; color: #2c3e50; }
+        .map-year-ctrl select {
+            padding: 5px 9px; border: 1px solid #ccc;
+            border-radius: 5px; font-size: 13px; height: 30px;
+            font-family: inherit; cursor: pointer; background: white;
+        }
+        .map-year-ctrl select:focus { outline: none; border-color: #2c3e50; }
+        .map-wrap {
+            flex: 1; position: relative; overflow: hidden;
+            background: #d4e8f5; min-height: 380px;
+        }
+        #europeSvg { width: 100%; height: 100%; display: block; }
+
+        .country-detail {
+            border-top: 1px solid #e6e9ed;
+            padding: 12px 16px; max-height: 240px; overflow-y: auto;
+        }
+        .country-detail::-webkit-scrollbar { width: 4px; }
+        .country-detail::-webkit-scrollbar-thumb { background: #ccc; border-radius: 2px; }
+        .detail-header {
+            display: flex; justify-content: space-between;
+            align-items: baseline; margin-bottom: 4px;
+        }
+        .detail-country-name { font-size: 14px; font-weight: 700; color: #2c3e50; }
+        .detail-total { font-size: 12px; color: #e67e22; font-weight: 600; }
+        .detail-rows { display: flex; flex-direction: column; gap: 3px; margin-top: 6px; }
+        .detail-row {
+            display: flex; align-items: center; gap: 7px;
+            padding: 4px 7px; border-radius: 4px;
+            background: #f8f9fa; font-size: 11px;
+        }
+        .detail-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+        .detail-type { flex: 1; color: #555; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .detail-gw { font-weight: 600; color: #2c3e50; white-space: nowrap; }
+        .detail-hint {
+            display: flex; align-items: center; justify-content: center;
+            height: 70px; color: #bbb; font-size: 12px; gap: 5px;
+        }
+
+        /* ── Charts panel ── */
+        .charts-panel {
+            flex: 2; display: flex; flex-direction: column;
+            overflow: hidden; min-width: 0;
+        }
+
+        /* ── Chart card ── */
+        .chart-card {
+            margin: 0 30px;
+            background: #fff;
+            border-radius: 8px;
+            border: 1px solid #e6e9ed;
+            overflow: visible;
+        }
+        .chart-card-inner {
+            padding: 16px 20px 12px 20px;
+        }
+        .chart-card h3 {
+            font-size: 15px;
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 0;
+        }
+
+        /* ── Top bar inside chart card ── */
+        .chart-top-bar {
+            display: flex; align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap; gap: 10px;
+            margin-bottom: 12px;
+        }
+        .range-selector {
+            display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+        }
+        .range-selector label {
+            font-size: 12px; font-weight: 600; color: #2c3e50; white-space: nowrap;
+        }
+        .range-selector select {
+            padding: 6px 10px; border: 1px solid #ccc;
+            border-radius: 6px; font-size: 13px; height: 32px;
+            font-family: inherit; cursor: pointer; background: white;
+            min-width: 100px;
+        }
+        .range-selector select:focus { outline: none; border-color: #2c3e50; }
+        .range-sep { font-size: 13px; color: #888; font-weight: 600; }
+
+        /* ▼ ADDED: Export button styles */
+        .export-btn {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 7px 14px; font-size: 12px; font-weight: 600;
+            color: #2c3e50; background: #fff;
+            border: 1px solid #ced4da; border-radius: 6px;
+            cursor: pointer; white-space: nowrap;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            transition: background 0.15s, border-color 0.15s;
+        }
+        .export-btn:hover { background: #f0f4f8; border-color: #5a8fc2; }
+        .export-btn:active { background: #e6ecf2; }
+
+        #barChart { width: 100%; min-height: 500px; }
+
+        /* ── Forecast Table ── */
+        .forecast-table-wrap {
+            margin: 16px 30px 0 30px;
+            border: 1px solid #e6e9ed;
+            border-radius: 8px;
+            overflow: hidden;
+            background: #fff;
+        }
+        .forecast-table-header {
+            padding: 11px 16px 10px;
+            border-bottom: 1px solid #e6e9ed;
+            display: flex;
+            align-items: baseline;
+            gap: 10px;
+            background: #fafbfc;
+        }
+        .forecast-table-header h4 {
+            font-size: 13px;
+            font-weight: 700;
+            color: #2c3e50;
+            white-space: nowrap;
+        }
+        .forecast-table-header span {
+            font-size: 11px;
+            color: #999;
+        }
+        .forecast-table-hint {
+            padding: 18px;
+            text-align: center;
+            color: #bbb;
+            font-size: 12px;
+        }
+        .forecast-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+        }
+        .forecast-table thead tr {
+            background: #f0f4f8;
+        }
+        .forecast-table th {
+            padding: 9px 16px;
+            text-align: center;
+            font-size: 11px;
+            font-weight: 700;
+            color: #2c3e50;
+            border-bottom: 2px solid #e0e6ed;
+            white-space: nowrap;
+            line-height: 1.5;
+        }
+        .forecast-table th:first-child { text-align: left; }
+        .forecast-table td {
+            padding: 10px 16px;
+            text-align: center;
+            color: #2c3e50;
+            border-bottom: 1px solid #f0f2f5;
+            font-size: 13px;
+        }
+        .forecast-table td:first-child {
+            text-align: left;
+            font-weight: 600;
+            font-size: 12px;
+        }
+        .forecast-table tr:last-child td { border-bottom: none; }
+        .forecast-table tbody tr:hover { background: #f8fbff; }
+
+        .type-dot-solar {
+            display: inline-block; width: 9px; height: 9px;
+            border-radius: 50%; background: #f9d923;
+            border: 1px solid #fcc428;
+            margin-right: 6px; vertical-align: middle;
+        }
+        .type-dot-wind {
+            display: inline-block; width: 9px; height: 9px;
+            border-radius: 50%; background: #81c784;
+            margin-right: 6px; vertical-align: middle;
+        }
+
+        .td-forecast {
+            background: #eef5ff;
+            color: #1a56a0 !important;
+            font-weight: 700 !important;
+        }
+        .td-forecast-pct {
+            background: #eef5ff;
+            color: #2e6db4 !important;
+            font-weight: 600 !important;
+        }
+        .th-forecast {
+            background: #ddeaf8 !important;
+            color: #1a3d6e !important;
+        }
+
+        .info {
+            padding: 10px 30px 16px; font-size: 12px; color: #6c757d;
+            text-align: center; border-top: 1px solid #e6e9ed;
+        }
+        .info a { color: #5a8fc2; text-decoration: none; }
+        .info a:hover { text-decoration: underline; }
+
+        .map-tooltip {
+            position: fixed; background: rgba(44,62,80,0.95);
+            color: #fff; padding: 7px 11px; border-radius: 5px;
+            font-size: 12px; pointer-events: none; z-index: 9999;
+            display: none; line-height: 1.6;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.3);
+        }
+
+        .section-wrap {
+            padding: 20px 0 24px 0;
+            display: flex; flex-direction: column; gap: 0;
+            flex: 1;
+        }
+
+        /* info icon */
+        .info-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #e0e6ed;
+            color: #2c3e50;
+            font-size: 11px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .info-icon:hover {
+            background: #2c3e50;
+            color: #fff;
+        }
+        .info-tooltip {
+            position: fixed;
+            max-width: 280px;
+            background: rgba(44,62,80,0.96);
+            color: #fff;
+            padding: 10px 12px;
+            border-radius: 6px;
+            font-size: 11px;
+            line-height: 1.5;
+            display: none;
+            z-index: 9999;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+        }
+
+        @media (max-width: 900px) {
+            .content-area { flex-direction: column; }
+            .map-panel { width: 100%; border-right: none; border-bottom: 1px solid #e6e9ed; }
+            .chart-card { margin: 0 14px; }
+            .forecast-table-wrap { margin: 16px 14px 0 14px; }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <!-- nav.js injects the header here automatically -->
+
+    <div class="sub-nav">
+        <a class="sub-nav-link active" href="capacity">Overview</a>
+    </div>
+
+    <div id="loadingMsg" class="loading">⏳ Loading capacity data...</div>
+
+    <div class="content-area" id="contentArea" style="display:none;">
+
+        <!-- ── Left: Map panel ── -->
+        <div class="map-panel">
+            <div class="map-panel-header">
+                <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
+                    <h3 style="font-size:15px;font-weight:600;color:#2c3e50; display:flex; align-items:center; gap:6px;">
+                        Installed Capacity by Country
+                        <span class="info-icon" id="infoBtn">i</span>
+                    </h3>
+                    <button class="export-btn" id="mapExportBtn" onclick="exportMapCSV()"> Export CSV</button>
+                </div>
+                <p style="font-size:11px;color:#888;margin-top:3px;">
+                    Click a country to explore
+                </p>
+            </div>
+            <div class="map-year-ctrl">
+                <label>🗺️ Map Year:</label>
+                <select id="mapYearSel"></select>
+            </div>
+            <div class="map-wrap">
+                <svg id="europeSvg" viewBox="0 0 420 430"
+                     preserveAspectRatio="xMidYMid meet"></svg>
+            </div>
+            <div class="country-detail" id="countryDetail">
+                <div class="detail-hint">🗺️ Click a country to see details</div>
+            </div>
+        </div>
+
+        <!-- ── Right: Charts panel ── -->
+        <div class="charts-panel">
+            <div class="section-wrap">
+
+                <!-- Bar chart card -->
+                <div class="chart-card">
+                    <div class="chart-card-inner">
+                        <div class="chart-top-bar">
+                            <div style="display:flex; align-items:center; gap:10px;">
+                                <h3 id="barTitle">Installed Capacity by Country</h3>
+                                <button class="export-btn" id="barExportBtn" onclick="exportCapacityMixCSV()"> Export CSV</button>
+                            </div>
+                            <div class="range-selector">
+                                <label>📅 Time Range:</label>
+                                <select id="startSel"></select>
+                                <span class="range-sep">-</span>
+                                <select id="endSel"></select>
+                            </div>
+                        </div>
+                        <div id="barSubLine" style="font-size:11px;color:#999;
+                             margin-bottom:10px;margin-top:-6px;">
+                            Click a country on the map to view details
+                        </div>
+                        <div id="barChart"></div>
+                    </div>
+                </div>
+
+                <!-- Forecast table -->
+                <div class="forecast-table-wrap">
+                    <div class="forecast-table-header">
+                        <h4>2030 NECP Forecast</h4>
+                        <span id="forecastSubtitle">Click a country on the map to view</span>
+                        <button class="export-btn" id="fcExportBtn" onclick="exportForecastCSV()" style="margin-left:auto;"> Export CSV</button>
+                    </div>
+                    <div id="forecastTableBody">
+                        <div class="forecast-table-hint">
+                            🗺️ Click a country to see solar &amp; wind capacity data
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <div class="info" id="footerInfo" style="display:none;">
+        Data source: <a href="https://www.entsoe.eu/" target="_blank">ENTSO-E Transparency Platform</a>
+        &nbsp;|&nbsp; Unit: GW &nbsp;|&nbsp; Author: Hanyu Jian
+    </div>
+</div>
+
+<div class="map-tooltip" id="mapTip"></div>
+<div class="info-tooltip" id="infoTooltip"></div>
+
+<script>
+// ═══════════════════════════════════════
+// Colour helpers
+// ═══════════════════════════════════════
+function typeToColor(t) {
+    if (!t) return '#90a4ae';
+    const tl = t.toLowerCase();
+    if (tl.includes('hydro pumped') || tl.includes('pumped storage')) return '#a8c4e0';
+    if (tl.includes('hydro')) return '#1a56a0';
+    if (tl.includes('battery') || tl.includes('energy storage')) return '#b0bec5';
+    if (tl.includes('biomass')) return '#1b5e20';
+    if (tl.includes('brown coal') || tl.includes('lignite')) return '#8B6914';
+    if (tl.includes('hard coal')) return '#444444';
+    if (tl.includes('coal-derived')) return '#d4b44a';
+    if (tl.includes('fossil oil') || tl.includes('oil shale')) return '#8B6914';
+    if (tl.includes('fossil gas') || tl.includes('gas')) return '#f5821f';
+    if (tl.includes('peat')) return '#5d4037';
+    if (tl.includes('wind off')) return '#2e7d32';
+    if (tl.includes('wind on') || tl.includes('wind')) return '#81c784';
+    if (tl.includes('solar')) return '#fcc428';
+    if (tl.includes('nuclear')) return '#e53935';
+    if (tl.includes('geotherm')) return '#3949ab';
+    if (tl.includes('marine')) return '#1565c0';
+    if (tl.includes('waste')) return '#8d6e63';
+    if (tl.includes('other renew')) return '#9c7bb5';
+    if (tl.includes('other')) return '#9c7bb5';
+    return '#90a4ae';
+}
+
+const infoText = `
+<b>Data Disclaimer</b><br/>
+Data sourced from ENTSO-E Transparency Platform.<br/><br/>
+For their control areas, TSOs calculate and provide 
+the total installed generation capacity (MW) 
+for all existing production units with a capacity 
+equal to or exceeding 1 MW, aggregated by production type.
+`;
+
+function initInfoTooltip() {
+    const btn = document.getElementById('infoBtn');
+    const tip = document.getElementById('infoTooltip');
+
+    btn.addEventListener('mouseenter', (e) => {
+        tip.innerHTML = infoText;
+        tip.style.display = 'block';
+        moveInfoTip(e);
+    });
+    btn.addEventListener('mouseleave', () => {
+        tip.style.display = 'none';
+    });
+    btn.addEventListener('mousemove', (e) => {
+        moveInfoTip(e);
+    });
+}
+
+function moveInfoTip(e) {
+    const tip = document.getElementById('infoTooltip');
+    tip.style.left = (e.clientX + 12) + 'px';
+    tip.style.top  = (e.clientY + 12) + 'px';
+}
+
+const TARGET = ['AT','BG','DE','ES','FR','GR','HR','HU','IT','PL','RO','RS','SK'];
+const COUNTRY_LABEL = {
+    AT:'Austria', BG:'Bulgaria', DE:'Germany', ES:'Spain', FR:'France',
+    GR:'Greece', HR:'Croatia', HU:'Hungary', IT:'Italy',
+    PL:'Poland', RO:'Romania', RS:'Serbia', SK:'Slovakia'
+};
+
+const FORECAST_2030 = {
+    AT: { solar: 13.0,  solarSharePct: 18.5, wind: 11.0,  windSharePct: 15.5 },
+    BG: { solar: 6.0,   solarSharePct: 14.2, wind: 4.0,   windSharePct: 9.5  },
+    DE: { solar: 215.0, solarSharePct: 28.3, wind: 160.0, windSharePct: 21.1 },
+    ES: { solar: 76.0,  solarSharePct: 22.4, wind: 62.0,  windSharePct: 18.3 },
+    FR: { solar: 44.0,  solarSharePct: 12.0, wind: 40.0,  windSharePct: 10.9 },
+    GR: { solar: 13.0,  solarSharePct: 19.7, wind: 9.0,   windSharePct: 13.6 },
+    HR: { solar: 2.5,   solarSharePct: 17.8, wind: 2.8,   windSharePct: 20.0 },
+    HU: { solar: 12.0,  solarSharePct: 30.2, wind: 1.0,   windSharePct: 2.5  },
+    IT: { solar: 80.0,  solarSharePct: 23.1, wind: 28.0,  windSharePct: 8.1  },
+    PL: { solar: 30.0,  solarSharePct: 16.5, wind: 20.0,  windSharePct: 11.0 },
+    RO: { solar: 7.0,   solarSharePct: 11.3, wind: 6.0,   windSharePct: 9.7  },
+    RS: { solar: 2.0,   solarSharePct: 10.5, wind: 2.5,   windSharePct: 13.2 },
+    SK: { solar: 2.0,   solarSharePct: 8.3,  wind: 0.5,   windSharePct: 2.1  },
+};
+
+const S = {
+    data: [], allPeriods: [], startPeriod: null, endPeriod: null,
+    mapYear: null, country: null, geoFeatures: [],
+};
+let barInst = null;
+
+// ▼ ADDED: caches of currently rendered visualization data, used for CSV export
+let lastMapData      = null; // { year, rows:[{cc,label,totalMW}] } — backs the choropleth map
+let lastBarData      = null; // { country, periods, types, seriesData:[{name,dataGW}], periodTotalsGW } — backs the stacked bar chart
+let lastForecastData = null; // { cc, label, period, ... } — backs the 2030 NECP forecast table
+
+async function loadCSV() {
+    return new Promise((res, rej) => {
+        Papa.parse('/data/entsoe/capacity.csv', {
+            download: true, header: true, skipEmptyLines: true,
+            complete: r => res(r.data),
+            error:    e => rej(e),
+        });
+    });
+}
+
+function parseData(raw) {
+    const cleaned = raw.filter(r => {
+        const cc  = (r['Country'] || '').trim();
+        const tp  = (r['Production Type'] || '').trim();
+        const val = (r['Installed Capacity (MW)'] || '').trim();
+        return TARGET.includes(cc) && tp && val !== 'n/e' && val !== '';
+    }).map(r => ({
+        year:    +r['Year'],
+        month:   r['Month'] ? (+r['Month'] || null) : null,
+        country: r['Country'].trim(),
+        type:    r['Production Type'].trim(),
+        mw:      parseFloat(r['Installed Capacity (MW)']),
+    }));
+    S.data = cleaned;
+
+    const seen = new Set();
+    cleaned.forEach(r => {
+        const key = r.month
+            ? `${r.year}/${String(r.month).padStart(2,'0')}`
+            : `${r.year}`;
+        seen.add(key);
+    });
+    S.allPeriods = [...seen].sort();
+    S.startPeriod = S.allPeriods[0];
+    S.endPeriod   = S.allPeriods[S.allPeriods.length - 1];
+
+    const years = [...new Set(cleaned.map(r => r.year))].sort();
+    S.mapYear = years[years.length - 1];
+}
+
+async function loadGeoJSON() {
+    const resp = await fetch('/europe.geojson');
+    const geo  = await resp.json();
+    S.geoFeatures = geo.features || [];
+}
+
+function periodToNum(p) {
+    if (p.includes('/')) {
+        const [y, m] = p.split('/');
+        return +y * 100 + +m;
+    }
+    return +p * 100;
+}
+
+function rowMatchesPeriod(r, periodStr) {
+    if (periodStr.includes('/')) {
+        const [y, m] = periodStr.split('/');
+        return r.year === +y && r.month === +m;
+    }
+    return r.year === +periodStr && !r.month;
+}
+
+function getPeriodsInRange() {
+    const s = periodToNum(S.startPeriod);
+    const e = periodToNum(S.endPeriod);
+    return S.allPeriods.filter(p => {
+        const n = periodToNum(p);
+        return n >= s && n <= e;
+    });
+}
+
+function getRowsForCountryPeriod(country, periodStr) {
+    return S.data.filter(r => r.country === country && rowMatchesPeriod(r, periodStr));
+}
+
+function getTotalForMapYear(country) {
+    return S.data
+        .filter(r => r.country === country && r.year === S.mapYear && !r.month)
+        .reduce((s, r) => s + r.mw, 0);
+}
+
+function getSolarWindLatest(cc) {
+    const periods = getPeriodsInRange();
+    let lastPeriod = null;
+    let rows = [];
+    for (let i = periods.length - 1; i >= 0; i--) {
+        rows = getRowsForCountryPeriod(cc, periods[i]);
+        if (rows.length > 0) { lastPeriod = periods[i]; break; }
+    }
+    if (!rows.length || !lastPeriod) return null;
+
+    const totalMW = rows.reduce((s, r) => s + r.mw, 0);
+    const solarMW = rows.filter(r => r.type.toLowerCase().includes('solar')).reduce((s, r) => s + r.mw, 0);
+    const windOnMW = rows.filter(r => { const tl = r.type.toLowerCase(); return tl.includes('wind') && tl.includes('on'); }).reduce((s, r) => s + r.mw, 0);
+    const windOffMW = rows.filter(r => { const tl = r.type.toLowerCase(); return tl.includes('wind') && tl.includes('off'); }).reduce((s, r) => s + r.mw, 0);
+    let windMW = windOnMW + windOffMW;
+    if (windMW === 0) {
+        windMW = rows.filter(r => r.type.toLowerCase().includes('wind')).reduce((s, r) => s + r.mw, 0);
+    }
+    return { solarMW, windMW, windOnMW, windOffMW, totalMW, period: lastPeriod };
+}
+
+function renderForecastTable(cc) {
+    const bodyEl     = document.getElementById('forecastTableBody');
+    const subtitleEl = document.getElementById('forecastSubtitle');
+    const info = getSolarWindLatest(cc);
+    const fc   = FORECAST_2030[cc] || null;
+    const label = COUNTRY_LABEL[cc] || cc;
+
+    if (!info) {
+        bodyEl.innerHTML = `<div class="forecast-table-hint">No data available for ${label}</div>`;
+        subtitleEl.textContent = label;
+        lastForecastData = null; // ▼ ADDED: nothing to export
+        return;
+    }
+
+    subtitleEl.textContent = `${label}  ·  Latest period: ${info.period}`;
+    const solarNowGW = info.solarMW / 1000;
+    const windNowGW  = info.windMW  / 1000;
+    const totalNowGW = info.totalMW / 1000;
+    const nowSolarSharePct = totalNowGW > 0 ? (solarNowGW / totalNowGW * 100) : null;
+    const nowWindSharePct  = totalNowGW > 0 ? (windNowGW  / totalNowGW * 100) : null;
+    const solar2030GW       = fc ? fc.solar         : null;
+    const solar2030SharePct = fc ? fc.solarSharePct  : null;
+    const wind2030GW        = fc ? fc.wind           : null;
+    const wind2030SharePct  = fc ? fc.windSharePct   : null;
+
+    let windSubLabel = '';
+    if (info.windOnMW > 0 && info.windOffMW > 0) {
+        windSubLabel = `<span style="font-size:10px;color:#888;font-weight:400;margin-left:4px;">(On ${(info.windOnMW/1000).toFixed(1)} + Off ${(info.windOffMW/1000).toFixed(1)} GW)</span>`;
+    } else if (info.windOnMW > 0) {
+        windSubLabel = `<span style="font-size:10px;color:#888;font-weight:400;margin-left:4px;">(Onshore)</span>`;
+    } else if (info.windOffMW > 0) {
+        windSubLabel = `<span style="font-size:10px;color:#888;font-weight:400;margin-left:4px;">(Offshore)</span>`;
+    }
+
+    const fmtGW = v => (v === null || v === undefined || isNaN(v)) ? `<span style="color:#bbb">—</span>` : `${v.toFixed(2)} GW`;
+    const fmtPct = v => (v === null || v === undefined || isNaN(v)) ? `<span style="color:#bbb">—</span>` : `${v.toFixed(1)}%`;
+
+    // ▼ ADDED: cache for CSV export
+    lastForecastData = {
+        cc, label, period: info.period,
+        solarNowGW, nowSolarSharePct, solar2030GW, solar2030SharePct,
+        windNowGW, nowWindSharePct, wind2030GW, wind2030SharePct,
+        totalNowGW,
+    };
+
+    bodyEl.innerHTML = `
+        <table class="forecast-table">
+            <thead>
+                <tr>
+                    <th style="min-width:120px; text-align:left;">Energy Type</th>
+                    <th>Installed Capacity<br><span style="font-size:10px;font-weight:400;color:#666;">(${info.period}, GW)</span></th>
+                    <th>Share of Total<br><span style="font-size:10px;font-weight:400;color:#666;">(${info.period}, %)</span></th>
+                    <th class="th-forecast">2030 Forecast<br><span style="font-size:10px;font-weight:500;color:#3a72b8;">(GW)</span></th>
+                    <th class="th-forecast">2030 Share of total<br><span style="font-size:10px;font-weight:500;color:#3a72b8;">(%)</span></th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><span class="type-dot-solar"></span>Solar PV</td>
+                    <td>${fmtGW(solarNowGW)}</td>
+                    <td>${fmtPct(nowSolarSharePct)}</td>
+                    <td class="td-forecast">${fmtGW(solar2030GW)}</td>
+                    <td class="td-forecast-pct">${fmtPct(solar2030SharePct)}</td>
+                </tr>
+                <tr>
+                    <td><span class="type-dot-wind"></span>Wind${windSubLabel}</td>
+                    <td>${fmtGW(windNowGW)}</td>
+                    <td>${fmtPct(nowWindSharePct)}</td>
+                    <td class="td-forecast">${fmtGW(wind2030GW)}</td>
+                    <td class="td-forecast-pct">${fmtPct(wind2030SharePct)}</td>
+                </tr>
+            </tbody>
+        </table>
+        <div style="padding:5px 16px 7px; font-size:10px; color:#bbb; text-align:right;">
+            Current total: ${fmtGW(totalNowGW)}
+        </div>`;
+}
+
+const VIEW_W = 420, VIEW_H = 380;
+const LON_MIN = -12, LON_MAX = 36;
+const LAT_MIN = 32,  LAT_MAX = 60;
+
+function lonlatToXY(lon, lat) {
+    const x = (lon - LON_MIN) / (LON_MAX - LON_MIN) * VIEW_W;
+    const y = (LAT_MAX - lat) / (LAT_MAX - LAT_MIN) * VIEW_H;
+    return [x, y];
+}
+
+function coordsToD(coords) {
+    const pts = coords.map(([lon, lat]) => lonlatToXY(lon, lat));
+    if (!pts.length) return '';
+    let d = `M ${pts[0][0].toFixed(1)},${pts[0][1].toFixed(1)}`;
+    for (let i = 1; i < pts.length; i++) {
+        d += ` L ${pts[i][0].toFixed(1)},${pts[i][1].toFixed(1)}`;
+    }
+    return d + ' Z';
+}
+
+function featureToPathD(feature) {
+    const geom = feature.geometry;
+    if (!geom) return '';
+    const parts = [];
+    const processRings = rings => rings.forEach(ring => {
+        const d = coordsToD(ring);
+        if (d) parts.push(d);
+    });
+    if (geom.type === 'Polygon') processRings(geom.coordinates);
+    else if (geom.type === 'MultiPolygon') geom.coordinates.forEach(poly => processRings(poly));
+    return parts.join(' ');
+}
+
+function getISO(feature) {
+    const p = feature.properties || {};
+    return (p.ISO_A2 || p.iso_a2 || p.ISO2 || p.iso2 || p.ADM0_A3 || '').toUpperCase();
+}
+
+function buildMap() {
+    const svg = document.getElementById('europeSvg');
+    let html = `<defs><filter id="shad" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="1" stdDeviation="1.2" flood-opacity="0.15"/></filter></defs><rect width="${VIEW_W}" height="${VIEW_H}" fill="#d4e8f5"/>`;
+
+    S.geoFeatures.forEach(f => {
+        const cc = getISO(f);
+        if (TARGET.includes(cc)) return;
+        const d = featureToPathD(f);
+        if (!d) return;
+        html += `<path d="${d}" fill="#c8dce8" stroke="#b0c8d8" stroke-width="0.6" stroke-linejoin="round"/>`;
+    });
+
+    // ▼ ADDED: cache for CSV export
+    const mapRows = [];
+
+    S.geoFeatures.forEach(f => {
+        const cc = getISO(f);
+        if (!TARGET.includes(cc)) return;
+        const d = featureToPathD(f);
+        if (!d) return;
+        const isSelected = S.country === cc;
+        const fill   = isSelected ? '#2c3e50' : '#7aafc8';
+        const stroke = isSelected ? '#1a252f' : '#5a90b0';
+        const sw     = isSelected ? 2 : 1.2;
+        const total  = getTotalForMapYear(cc);
+        const totalGW = (total / 1000).toFixed(1);
+        mapRows.push({ cc, label: COUNTRY_LABEL[cc] || cc, totalMW: total });
+        html += `<path d="${d}" fill="${fill}" stroke="${stroke}" stroke-width="${sw}" stroke-linejoin="round" filter="url(#shad)" style="cursor:pointer;transition:fill 0.15s;" onmouseenter="onMapHover(event,'${cc}')" onmouseleave="onMapLeave()" onclick="onMapClick('${cc}')"/>`;
+        const ctr = getFeatureCentroid(f);
+        if (ctr) {
+            const [cx, cy] = lonlatToXY(ctr[0], ctr[1]);
+            const tcol  = isSelected ? '#ffffff' : '#1a3a52';
+            const tcol2 = isSelected ? '#c0d4e8' : '#2a5a7a';
+            html += `<text x="${cx.toFixed(1)}" y="${(cy-1).toFixed(1)}" text-anchor="middle" font-size="8" font-weight="800" fill="${tcol}" style="pointer-events:none;font-family:'Segoe UI',sans-serif;">${cc}</text><text x="${cx.toFixed(1)}" y="${(cy+7).toFixed(1)}" text-anchor="middle" font-size="6.5" fill="${tcol2}" style="pointer-events:none;font-family:'Segoe UI',sans-serif;">${total > 0 ? totalGW + ' GW' : ''}</text>`;
+        }
+    });
+    svg.innerHTML = html;
+
+    // ▼ ADDED: cache for CSV export
+    lastMapData = { year: S.mapYear, rows: mapRows };
+}
+
+function getFeatureCentroid(feature) {
+    const geom = feature.geometry;
+    if (!geom) return null;
+    let best = null, bestLen = 0;
+    const checkRing = ring => { if (ring.length > bestLen) { bestLen = ring.length; best = ring; } };
+    if (geom.type === 'Polygon') geom.coordinates.forEach(checkRing);
+    else if (geom.type === 'MultiPolygon') geom.coordinates.forEach(poly => poly.forEach(checkRing));
+    if (!best) return null;
+    let sx = 0, sy = 0;
+    best.forEach(([lon, lat]) => { sx += lon; sy += lat; });
+    return [sx / best.length, sy / best.length];
+}
+
+function onMapHover(e, cc) {
+    const tip   = document.getElementById('mapTip');
+    const total = getTotalForMapYear(cc);
+    tip.innerHTML = `<b>${COUNTRY_LABEL[cc] || cc}</b><br/>Total (${S.mapYear}): ${(total/1000).toFixed(2)} GW`;
+    tip.style.display = 'block';
+    moveTip(e);
+}
+function onMapLeave() { document.getElementById('mapTip').style.display = 'none'; }
+document.addEventListener('mousemove', e => {
+    if (document.getElementById('mapTip').style.display === 'block') moveTip(e);
+});
+function moveTip(e) {
+    const tip = document.getElementById('mapTip');
+    tip.style.left = (e.clientX + 14) + 'px';
+    tip.style.top  = (e.clientY - 10) + 'px';
+}
+
+function onMapClick(cc) {
+    if (!TARGET.includes(cc)) return;
+    S.country = cc;
+    buildMap();
+    renderDetail(cc);
+    renderBar(cc);
+    renderForecastTable(cc);
+    document.getElementById('barTitle').textContent = `Installed Capacity — ${COUNTRY_LABEL[cc]} (${cc})`;
+    document.getElementById('barSubLine').textContent = `ENTSO-E · Unit: GW · ${S.startPeriod} → ${S.endPeriod}`;
+}
+
+function renderDetail(cc) {
+    const periods    = getPeriodsInRange();
+    const lastPeriod = periods[periods.length - 1];
+    const rows       = getRowsForCountryPeriod(cc, lastPeriod);
+    const total      = rows.reduce((s, r) => s + r.mw, 0);
+    const el         = document.getElementById('countryDetail');
+
+    if (!rows.length) {
+        el.innerHTML = `<div class="detail-hint">No data for this selection</div>`;
+        return;
+    }
+    const sorted   = [...rows].sort((a, b) => b.mw - a.mw);
+    const rowsHTML = sorted.map(r => {
+        const gw = (r.mw / 1000).toFixed(2);
+        return `<div class="detail-row"><div class="detail-dot" style="background:${typeToColor(r.type)}"></div><span class="detail-type" title="${r.type}">${r.type}</span><span class="detail-gw">${gw} GW</span></div>`;
+    }).join('');
+    const totalGW = (total / 1000).toFixed(2);
+    el.innerHTML = `<div class="detail-header"><span class="detail-country-name">${COUNTRY_LABEL[cc]} (${cc})</span><span class="detail-total">Total: ${totalGW} GW</span></div><div style="font-size:10px;color:#aaa;margin-bottom:4px;padding-left:2px;">As of ${lastPeriod}</div><div class="detail-rows">${rowsHTML}</div>`;
+}
+
+function renderBar(cc) {
+    const el = document.getElementById('barChart');
+    if (!barInst) {
+        barInst = echarts.init(el);
+        window.addEventListener('resize', () => barInst && barInst.resize());
+    }
+    const periods = getPeriodsInRange();
+    const typeSet = new Set();
+    periods.forEach(p => getRowsForCountryPeriod(cc, p).forEach(r => typeSet.add(r.type)));
+    const typeTotals = {};
+    typeSet.forEach(t => {
+        typeTotals[t] = periods.reduce((s, p) => {
+            const row = getRowsForCountryPeriod(cc, p).find(r => r.type === t);
+            return s + (row ? row.mw : 0);
+        }, 0);
+    });
+    const types = [...typeSet].sort((a, b) => typeTotals[b] - typeTotals[a]);
+    const periodTotalsGW = periods.map(p => getRowsForCountryPeriod(cc, p).reduce((s, r) => s + r.mw, 0) / 1000);
+    const maxTotal = Math.max(...periodTotalsGW, 0);
+    const yMax = Math.ceil(maxTotal * 1.18);
+
+    const series = types.map(type => ({
+        name: type, type: 'bar', stack: 'total', barMaxWidth: 55,
+        emphasis: { focus: 'series' },
+        itemStyle: { color: typeToColor(type), borderColor: typeToColor(type) === '#f9d923' ? '#ccb800' : undefined, borderWidth: typeToColor(type) === '#f9d923' ? 0.5 : 0 },
+        data: periods.map(p => { const row = getRowsForCountryPeriod(cc, p).find(r => r.type === type); return row ? +(row.mw / 1000).toFixed(3) : 0; }),
+    }));
+
+    // ▼ ADDED: cache for CSV export
+    lastBarData = {
+        country: cc,
+        periods: periods.slice(),
+        types: types.slice(),
+        seriesData: series.map(s => ({ name: s.name, dataGW: s.data.slice() })),
+        periodTotalsGW: periodTotalsGW.slice(),
+    };
+
+    const capSeries = {
+        name: '_cap', type: 'bar', stack: 'total', barMaxWidth: 55,
+        itemStyle: { color: 'transparent', borderWidth: 0 },
+        emphasis: { disabled: true }, silent: true, legendHoverLink: false,
+        label: {
+            show: true, position: 'top', distance: 4,
+            color: '#2c3e50', fontSize: 10, fontWeight: 700,
+            formatter: params => {
+                const option = barInst.getOption();
+                const selected = option.legend[0].selected || {};
+                let sum = 0;
+                option.series.forEach(series => {
+                    if (series.name === '_cap') return;
+                    if (selected[series.name] !== false) sum += (series.data[params.dataIndex] || 0);
+                });
+                return sum > 0 ? sum.toFixed(1) + ' GW' : '';
+            },
+        },
+        data: periodTotalsGW.map(t => +(Math.max(yMax - t, 0)).toFixed(3)),
+        tooltip: { show: false },
+    };
+
+    barInst.setOption({
+        backgroundColor: 'transparent', animation: true,
+        tooltip: {
+            trigger: 'axis', axisPointer: { type: 'shadow' },
+            backgroundColor: '#fff', borderColor: '#e0e0e0',
+            textStyle: { color: '#2c3e50', fontSize: 12 },
+            extraCssText: 'box-shadow:0 4px 12px rgba(0,0,0,0.15);border-radius:6px;',
+            formatter(params) {
+                const per   = params[0].axisValue;
+                const items = params.filter(p => p.seriesName !== '_cap' && p.value > 0).sort((a, b) => b.value - a.value);
+                const total = items.reduce((s, p) => s + p.value, 0);
+                let html = `<div style="font-weight:700;margin-bottom:6px;color:#2c3e50">${per} · ${COUNTRY_LABEL[cc]}</div>`;
+                items.forEach(p => {
+                    html += `<div style="display:flex;justify-content:space-between;gap:18px;margin:2px 0;font-size:11px;"><span><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${typeToColor(p.seriesName)};border:1px solid #ddd;margin-right:5px;vertical-align:middle;"></span>${p.seriesName}</span><span style="font-weight:600">${p.value.toFixed(2)} GW</span></div>`;
+                });
+                html += `<div style="margin-top:7px;padding-top:5px;border-top:1px solid #eee;font-weight:700;color:#2c3e50;font-size:12px;">Total: ${total.toFixed(2)} GW</div>`;
+                return html;
+            },
+        },
+        legend: {
+            type: 'plain', bottom: 0, left: 'center', width: '85%',
+            itemWidth: 12, itemHeight: 12,
+            textStyle: { color: '#444', fontSize: 11 },
+            data: types.map(t => ({ name: t, itemStyle: { color: typeToColor(t) } })),
+            selector: [{ type: 'all', title: 'Select All' }, { type: 'inverse', title: 'Clear All' }]
+        },
+        grid: { top: 36, left: 64, right: 20, bottom: 110 },
+        xAxis: {
+            type: 'category', data: periods,
+            axisLine: { lineStyle: { color: '#ccc' } }, axisTick: { lineStyle: { color: '#ccc' } },
+            axisLabel: { color: '#2c3e50', fontSize: 12, fontWeight: 600, rotate: periods.length > 8 ? 35 : 0, interval: 0 },
+        },
+        yAxis: {
+            type: 'value', name: 'GW', min: 0, max: yMax,
+            nameTextStyle: { color: '#999', fontSize: 11 }, axisLine: { show: false }, axisTick: { show: false },
+            axisLabel: { color: '#999', fontSize: 11, formatter: v => v.toFixed(0) },
+            splitLine: { lineStyle: { color: '#f0f2f5' } },
+        },
+        series: [...series, capSeries],
+    }, true);
+}
+
+function formatPeriodLabel(p) {
+    if (p.includes('/')) {
+        const [y, m] = p.split('/');
+        const mName  = new Date(2000, +m - 1).toLocaleString('en', { month: 'short' });
+        return `${mName} ${y}`;
+    }
+    return p;
+}
+
+function initControls() {
+    const startSel   = document.getElementById('startSel');
+    const endSel     = document.getElementById('endSel');
+    const mapYearSel = document.getElementById('mapYearSel');
+
+    S.allPeriods.forEach(p => {
+        const lbl = formatPeriodLabel(p);
+        startSel.innerHTML += `<option value="${p}">${lbl}</option>`;
+        endSel.innerHTML   += `<option value="${p}">${lbl}</option>`;
+    });
+    startSel.value = S.startPeriod;
+    endSel.value   = S.endPeriod;
+
+    startSel.addEventListener('change', () => {
+        S.startPeriod = startSel.value;
+        if (periodToNum(S.endPeriod) < periodToNum(S.startPeriod)) { S.endPeriod = S.startPeriod; endSel.value = S.endPeriod; }
+        refreshAll();
+    });
+    endSel.addEventListener('change', () => {
+        S.endPeriod = endSel.value;
+        if (periodToNum(S.startPeriod) > periodToNum(S.endPeriod)) { S.startPeriod = S.endPeriod; startSel.value = S.startPeriod; }
+        refreshAll();
+    });
+
+    const years = [...new Set(S.data.map(r => r.year))].sort();
+    years.forEach(y => { mapYearSel.innerHTML += `<option value="${y}">${y}</option>`; });
+    mapYearSel.value = S.mapYear;
+    mapYearSel.addEventListener('change', () => {
+        S.mapYear = +mapYearSel.value;
+        buildMap();
+        if (S.country) renderDetail(S.country);
+    });
+}
+
+function refreshAll() {
+    buildMap();
+    if (S.country) {
+        renderDetail(S.country);
+        renderBar(S.country);
+        renderForecastTable(S.country);
+        document.getElementById('barSubLine').textContent = `ENTSO-E · Unit: GW · ${S.startPeriod} → ${S.endPeriod}`;
+    }
+}
+
+async function init() {
+    try {
+        const [raw] = await Promise.all([loadCSV(), loadGeoJSON()]);
+        parseData(raw);
+        initControls();
+        document.getElementById('loadingMsg').style.display  = 'none';
+        document.getElementById('contentArea').style.display = 'flex';
+        document.getElementById('footerInfo').style.display  = 'block';
+        requestAnimationFrame(() => buildMap());
+        initInfoTooltip();
+        window.addEventListener('resize', () => { buildMap(); barInst && barInst.resize(); });
+    } catch (e) {
+        console.error(e);
+        document.getElementById('loadingMsg').textContent = '❌ Failed to load: ' + e.message;
+    }
+}
+
+init();
+
+/* ============================================================
+   ▼ ADDED: CSV Export functions
+   ============================================================ */
+
+// Generic CSV builder: rows is an array of arrays (each inner array = one row of cell values)
+function toCSV(rows) {
+    return rows.map(r => r.map(csvEscape).join(',')).join('\r\n');
+}
+function csvEscape(v) {
+    if (v === null || v === undefined) return '';
+    const s = String(v);
+    return /[",\r\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+}
+function downloadCSV(filename, csvString) {
+    // BOM so Excel opens UTF-8 correctly
+    const blob = new Blob(['﻿' + csvString], { type: 'text/csv;charset=utf-8;' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+
+// --- Export 1: Choropleth map — installed capacity total by country for the selected map year ---
+function exportMapCSV() {
+    if (!lastMapData || !lastMapData.rows.length) { alert('No data loaded yet.'); return; }
+
+    const rows = [['Country Code', 'Country', 'Year', 'Total Installed Capacity (GW)']];
+    lastMapData.rows.slice().sort((a, b) => b.totalMW - a.totalMW).forEach(r => {
+        rows.push([r.cc, r.label, lastMapData.year, (r.totalMW / 1000).toFixed(3)]);
+    });
+
+    downloadCSV(`capacity_by_country_${lastMapData.year}.csv`, toCSV(rows));
+}
+
+// --- Export 2: Stacked bar chart — capacity mix by production type across the selected period range ---
+// (also covers the "click a country" detail panel, which shows the latest-period slice of this same data)
+function exportCapacityMixCSV() {
+    if (!lastBarData) { alert('Select a country on the map first.'); return; }
+
+    const { country, periods, types, seriesData, periodTotalsGW } = lastBarData;
+    const rows = [['Period', ...types, 'Total (GW)']];
+
+    periods.forEach((p, i) => {
+        const row = [formatPeriodLabel(p)];
+        types.forEach(t => {
+            const s = seriesData.find(sd => sd.name === t);
+            row.push(s ? s.dataGW[i].toFixed(3) : '');
+        });
+        row.push(periodTotalsGW[i].toFixed(3));
+        rows.push(row);
+    });
+
+    const safeStart = S.startPeriod.replace(/\//g, '-');
+    const safeEnd   = S.endPeriod.replace(/\//g, '-');
+    downloadCSV(`capacity_mix_${country}_${safeStart}_${safeEnd}.csv`, toCSV(rows));
+}
+
+// --- Export 3: 2030 NECP forecast table — current vs. forecast solar & wind for the selected country ---
+function exportForecastCSV() {
+    if (!lastForecastData) { alert('Select a country on the map first.'); return; }
+
+    const d = lastForecastData;
+    const pct = v => (v === null || v === undefined || isNaN(v)) ? '' : v.toFixed(2);
+    const rows = [
+        ['Country Code', 'Country', 'Latest Period', 'Energy Type',
+         'Installed Capacity (GW)', 'Share of Total (%)',
+         '2030 Forecast (GW)', '2030 Share of Total (%)'],
+        [d.cc, d.label, d.period, 'Solar PV',
+         d.solarNowGW.toFixed(3), pct(d.nowSolarSharePct),
+         d.solar2030GW !== null ? d.solar2030GW.toFixed(2) : '', pct(d.solar2030SharePct)],
+        [d.cc, d.label, d.period, 'Wind',
+         d.windNowGW.toFixed(3), pct(d.nowWindSharePct),
+         d.wind2030GW !== null ? d.wind2030GW.toFixed(2) : '', pct(d.wind2030SharePct)],
+    ];
+
+    downloadCSV(`forecast_2030_${d.cc}.csv`, toCSV(rows));
+}
+</script>
+</body>
+</html>

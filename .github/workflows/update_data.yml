@@ -1,0 +1,245 @@
+name: Daily Energy Data Update
+on:
+  schedule:
+    - cron: "0 6 * * *"
+    - cron: "0 5 1 * *"
+  workflow_dispatch:
+    inputs:
+      full_mode:
+        description: "Run full fetch for initialization"
+        type: boolean
+        default: false
+      repair_country:
+        description: "Repair one country load+generation, for example DE. Empty runs normal flow."
+        type: string
+        default: ""
+      repair_start:
+        description: "Repair start date, for example 2024-01-01. Empty uses FULL_START_DATE."
+        type: string
+        default: ""
+      repair_end:
+        description: "Repair end date, for example 2024-12-31. Empty uses yesterday."
+        type: string
+        default: ""
+      price_only:
+        description: "Only fetch price data (updates data/entsoe/price.csv and raw_data/{YEAR}/A44.csv)"
+        type: boolean
+        default: false
+      price_country:
+        description: "Price-only specific country, for example DE. Empty runs all countries."
+        type: string
+        default: ""
+      price_start:
+        description: "Price-only start date, for example 2024-01-01. Empty uses FULL_START_DATE."
+        type: string
+        default: ""
+      price_end:
+        description: "Price-only end date, for example 2024-12-31. Empty uses yesterday."
+        type: string
+        default: ""
+      generation_load_only:
+        description: "Only fetch generation+load data (runs fetch_entsoe.py --mode gen_load)"
+        type: boolean
+        default: false
+      gen_load_country:
+        description: "Generation+load-only specific country, for example DE. Empty runs all countries."
+        type: string
+        default: ""
+      gen_load_start:
+        description: "Generation+load-only start date, for example 2024-01-01. Empty uses FULL_START_DATE."
+        type: string
+        default: ""
+      gen_load_end:
+        description: "Generation+load-only end date, for example 2024-12-31. Empty uses yesterday."
+        type: string
+        default: ""
+      imbalance_only:
+        description: "Only fetch imbalance price data (updates data/entsoe/imbalance_price.csv and raw_data/{YEAR}/A85.csv)"
+        type: boolean
+        default: false
+      imbalance_country:
+        description: "Imbalance-only specific country, for example AT. Empty runs all countries."
+        type: string
+        default: ""
+      imbalance_start:
+        description: "Imbalance-only start date, for example 2024-01-01. Empty uses FULL_START_DATE."
+        type: string
+        default: ""
+      imbalance_end:
+        description: "Imbalance-only end date, for example 2024-12-31. Empty uses yesterday."
+        type: string
+        default: ""
+      capacity_only:
+        description: "Only fetch installed capacity data (updates data/entsoe/capacity.csv, runs fetch_capacity.py)"
+        type: boolean
+        default: false
+      capacity_country:
+        description: "Capacity-only specific country, for example DE. Empty runs all countries."
+        type: string
+        default: ""
+      capacity_start_year:
+        description: "Capacity-only start year, for example 2023. Empty uses current year."
+        type: string
+        default: ""
+      capacity_end_year:
+        description: "Capacity-only end year, for example 2027. Empty uses current year."
+        type: string
+        default: ""
+
+# 与 EnAppSys workflow 共用同一个提交队列，避免两边同时 push 冲突
+concurrency:
+  group: data-commit
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: pip install pandas requests lxml
+
+      # ── repair ──────────────────────────────────────────────
+      - name: Run repair
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.repair_country != '' }}
+        env:
+          ENTSOE_TOKEN: ${{ secrets.ENTSOE_TOKEN }}
+          REPAIR_COUNTRY: ${{ inputs.repair_country }}
+          REPAIR_START: ${{ inputs.repair_start }}
+          REPAIR_END: ${{ inputs.repair_end }}
+        run: |
+          args=(--country "$REPAIR_COUNTRY")
+          if [ -n "$REPAIR_START" ]; then
+            args+=(--start "$REPAIR_START")
+          fi
+          if [ -n "$REPAIR_END" ]; then
+            args+=(--end "$REPAIR_END")
+          fi
+          python py/fetch/entsoe/repair_entsoe.py "${args[@]}"
+
+      # ── price only ──────────────────────────────────────────
+      - name: Run price-only update
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.price_only == true && inputs.repair_country == '' }}
+        env:
+          ENTSOE_TOKEN: ${{ secrets.ENTSOE_TOKEN }}
+          PRICE_COUNTRY: ${{ inputs.price_country }}
+          PRICE_START: ${{ inputs.price_start }}
+          PRICE_END: ${{ inputs.price_end }}
+        run: |
+          args=(--mode price_only)
+          if [ -n "$PRICE_COUNTRY" ]; then
+            args+=(--country "$PRICE_COUNTRY")
+          fi
+          if [ -n "$PRICE_START" ]; then
+            args+=(--start "$PRICE_START")
+          fi
+          if [ -n "$PRICE_END" ]; then
+            args+=(--end "$PRICE_END")
+          fi
+          python py/fetch/entsoe/fetch_entsoe.py "${args[@]}"
+
+      # ── generation+load only ────────────────────────────────
+      - name: Run generation+load-only update
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.generation_load_only == true && inputs.repair_country == '' && inputs.price_only == false }}
+        env:
+          ENTSOE_TOKEN: ${{ secrets.ENTSOE_TOKEN }}
+          GEN_LOAD_COUNTRY: ${{ inputs.gen_load_country }}
+          GEN_LOAD_START: ${{ inputs.gen_load_start }}
+          GEN_LOAD_END: ${{ inputs.gen_load_end }}
+        run: |
+          args=(--mode gen_load)
+          if [ -n "$GEN_LOAD_COUNTRY" ]; then
+            args+=(--country "$GEN_LOAD_COUNTRY")
+          fi
+          if [ -n "$GEN_LOAD_START" ]; then
+            args+=(--start "$GEN_LOAD_START")
+          fi
+          if [ -n "$GEN_LOAD_END" ]; then
+            args+=(--end "$GEN_LOAD_END")
+          fi
+          python py/fetch/entsoe/fetch_entsoe.py "${args[@]}"
+
+      # ── imbalance only ──────────────────────────────────────
+      - name: Run imbalance-only update
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.imbalance_only == true && inputs.repair_country == '' && inputs.price_only == false && inputs.generation_load_only == false }}
+        env:
+          ENTSOE_TOKEN: ${{ secrets.ENTSOE_TOKEN }}
+          IMBALANCE_COUNTRY: ${{ inputs.imbalance_country }}
+          IMBALANCE_START: ${{ inputs.imbalance_start }}
+          IMBALANCE_END: ${{ inputs.imbalance_end }}
+        run: |
+          args=(--mode incremental)
+          if [ -n "$IMBALANCE_COUNTRY" ]; then
+            args+=(--country "$IMBALANCE_COUNTRY")
+          fi
+          if [ -n "$IMBALANCE_START" ]; then
+            args+=(--start "$IMBALANCE_START")
+            args[0]="--mode"
+            args[1]="full"
+          fi
+          if [ -n "$IMBALANCE_END" ]; then
+            args+=(--end "$IMBALANCE_END")
+          fi
+          python py/fetch/entsoe/fetch_imbalance.py "${args[@]}"
+
+      # ── installed capacity only（月度，A68 Year Ahead）───────
+      - name: Run capacity-only update
+        if: ${{ (github.event_name == 'workflow_dispatch' && inputs.capacity_only == true && inputs.repair_country == '' && inputs.price_only == false && inputs.generation_load_only == false && inputs.imbalance_only == false) || (github.event_name == 'schedule' && github.event.schedule == '0 5 1 * *') }}
+        env:
+          ENTSOE_TOKEN: ${{ secrets.ENTSOE_TOKEN }}
+          CAPACITY_COUNTRY: ${{ inputs.capacity_country }}
+          CAPACITY_START_YEAR: ${{ inputs.capacity_start_year }}
+          CAPACITY_END_YEAR: ${{ inputs.capacity_end_year }}
+        run: |
+          args=()
+          if [ -n "$CAPACITY_COUNTRY" ]; then
+            args+=(--country "$CAPACITY_COUNTRY")
+          fi
+          if [ -n "$CAPACITY_START_YEAR" ]; then
+            args+=(--start-year "$CAPACITY_START_YEAR")
+          fi
+          if [ -n "$CAPACITY_END_YEAR" ]; then
+            args+=(--end-year "$CAPACITY_END_YEAR")
+          fi
+          python py/fetch/entsoe/fetch_capacity.py "${args[@]}"
+
+      # ── normal update（fetch_entsoe + fetch_imbalance）──────
+      - name: Run normal update script
+        if: ${{ (github.event_name == 'workflow_dispatch' && inputs.repair_country == '' && inputs.price_only == false && inputs.generation_load_only == false && inputs.imbalance_only == false && inputs.capacity_only == false) || (github.event_name == 'schedule' && github.event.schedule != '0 5 1 * *') }}
+        env:
+          ENTSOE_TOKEN: ${{ secrets.ENTSOE_TOKEN }}
+          FULL_MODE: ${{ github.event_name == 'workflow_dispatch' && inputs.full_mode || false }}
+        run: |
+          if [ "$FULL_MODE" = "true" ]; then
+            MODE=full
+          else
+            MODE=incremental
+          fi
+          python py/fetch/entsoe/fetch_entsoe.py --mode "$MODE"
+          python py/fetch/entsoe/fetch_imbalance.py --mode "$MODE"
+
+      # ── rebuild 15-min wide tables for capture-price.html ───
+      - name: Build 15-min capture price data
+        run: python py/build/build_15min.py
+
+      # ── commit ──────────────────────────────────────────────
+      - name: Commit and push updated data
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/ raw_data/
+          git diff --cached --quiet || \
+            git commit -m "chore: auto update energy data $(date -u +'%Y-%m-%d')"
+          git push --force-with-lease

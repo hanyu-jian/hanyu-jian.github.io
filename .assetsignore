@@ -1,0 +1,13 @@
+# 这些不对外提供（不是网站内容）
+.git
+.github
+.gitignore
+.assetsignore
+.wrangler
+node_modules
+wrangler.jsonc
+gate
+py
+README.md
+requirements.txt
+vcom_pipeline

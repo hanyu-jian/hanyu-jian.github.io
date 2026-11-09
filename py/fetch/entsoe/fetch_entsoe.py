@@ -1,0 +1,1098 @@
+#!/usr/bin/env python3
+"""
+ENTSOE API 数据更新脚本（增量更新版）
+- 替换原 Energy Charts API
+- 数据输出格式与原脚本完全一致
+- 每次获取最近 LOOKBACK_DAYS 天数据（默认7天）
+- 数据更新截止到 today-1（避免当天数据不完整）
+- 与现有 CSV 合并，重叠部分以新数据覆盖
+- 支持两种模式：
+    --mode incremental  仅更新最近7天（默认）
+    --mode full         全量拉取 FULL_START_DATE → yesterday
+
+时间轴说明：
+- ENTSOE 所有文档（A44/A65/A75）的时间轴统一使用 CET/CEST（Europe/Brussels）
+- 与 ENTSOE 网站下载的 CSV 时间列完全一致
+- 不再按各国本地时区转换，避免 RO/BG/GR 等东欧国家出现 +1h 偏移
+
+原始数据额外保存至 /raw_data/，按年拆分（单文件体积逼近 GitHub 50MB 限制）：
+  - /raw_data/{YEAR}/A44.csv          价格原始数据（宽表，列=国家）
+  - /raw_data/{YEAR}/A65.csv          负荷原始数据（宽表，列=国家）
+  - /raw_data/{YEAR}/generation/{CC}.csv  发电结构原始数据（长表）
+  时间轴规则：
+  - 原始 15min 数据 → 保持 15min，index 格式 "YYYY/M/D H:MM"
+  - 原始 1h 数据    → 展开为 15min（:00/:15/:30/:45 四点值相同）
+
+ENTSOE API 限制：
+- 每次请求时间跨度 ≤ 1 年 → 按年分段请求
+- 每次响应最多 100 条 TimeSeries → 用 offset 参数翻页
+
+A75 发电数据去重策略（修复 0 值问题）：
+- 同一时间戳出现在多个 Period/TimeSeries 时，取来自 Point 数最多的 Period 的值
+- 不再依赖 keep="last"（concat 顺序不可控）
+- 对每个时间戳，只保留数据最完整的那条 Period 的值
+
+B10 Hydro Pumped Storage 过滤说明：
+- ENTSO-E A75 同时返回 inBiddingZone（发电）和 outBiddingZone（抽水消耗）两条 TimeSeries
+- 必须只保留 inBiddingZone 那条
+- ElementTree XPath 无法处理标签名中的点号（如 inBiddingZone_Domain.mRID），
+  改用 iter() 遍历匹配 local tag name，绕开此限制
+"""
+
+import argparse
+import re
+import os
+import time
+import xml.etree.ElementTree as ET
+from datetime import datetime, timedelta
+from pathlib import Path
+
+import pandas as pd
+import requests
+
+# ─────────────────────────────────────────────────────────────
+# 配置
+# ─────────────────────────────────────────────────────────────
+
+ENTSOE_TOKEN = os.environ["ENTSOE_TOKEN"]
+API_URL      = "https://web-api.tp.entsoe.eu/api"
+
+ENTSOE_DISPLAY_TZ = "Europe/Brussels"
+
+COUNTRY_CONFIG = {
+    "de": {
+        "bzn_eic":  "10Y1001A1001A82H",
+        "gen_eic":  "10Y1001A1001A83F",
+        "load_eic": "10Y1001A1001A83F",
+    },
+    "fr": {"bzn_eic": "10YFR-RTE------C"},
+    "es": {"bzn_eic": "10YES-REE------0"},
+    "it": {
+        "bzn_eic":  "10Y1001A1001A73I",
+        "gen_eic":  "10YIT-GRTN-----B",
+        "load_eic": "10YIT-GRTN-----B",
+    },
+    "gr": {"bzn_eic": "10YGR-HTSO-----Y"},
+    "ro": {"bzn_eic": "10YRO-TEL------P"},
+    "hu": {"bzn_eic": "10YHU-MAVIR----U"},
+    "at": {"bzn_eic": "10YAT-APG------L"},
+    "pl": {"bzn_eic": "10YPL-AREA-----S"},
+    "sk": {"bzn_eic": "10YSK-SEPS-----K"},
+    "rs": {"bzn_eic": "10YCS-SERBIATSOV"},
+    "hr": {"bzn_eic": "10YHR-HEP------M"},
+    "bg": {"bzn_eic": "10YCA-BULGARIA-R"},
+}
+
+PSR_TYPE_MAP = {
+    "B01": "Biomass",
+    "B02": "Fossil Brown Coal/Lignite",
+    "B03": "Fossil Coal-derived Gas",
+    "B04": "Fossil Gas",
+    "B05": "Fossil Hard Coal",
+    "B06": "Fossil Oil",
+    "B07": "Fossil Oil Shale",
+    "B08": "Fossil Peat",
+    "B09": "Geothermal",
+    "B10": "Hydro Pumped Storage",
+    "B11": "Hydro Run-of-river and Poundage",
+    "B12": "Hydro Water Reservoir",
+    "B13": "Marine",
+    "B14": "Nuclear",
+    "B15": "Other Renewable",
+    "B16": "Solar",
+    "B17": "Waste",
+    "B18": "Wind Offshore",
+    "B19": "Wind Onshore",
+    "B20": "Other",
+    "B25": "Energy Storage",
+}
+
+COUNTRIES             = list(COUNTRY_CONFIG.keys())
+FULL_START_DATE       = "2024-01-01"
+LOOKBACK_DAYS         = 7
+REQUEST_DELAY         = 1.5
+CHUNK_DAYS            = 365
+PRICE_CHUNK_DAYS      = 30
+PAGE_SIZE             = 100
+DEFAULT_TIMEOUT       = 90
+GEN_TIMEOUT           = 120
+DATA_DIR              = Path("data/entsoe")
+RAW_DIR               = Path("raw_data")
+ENTSOE_FMT            = "%Y%m%d%H%M"
+HOURLY_ROUND_DECIMALS = 6
+
+
+def date_chunks(start: str, end_inclusive: str,
+                chunk_days: int = CHUNK_DAYS) -> list[tuple[str, str]]:
+    s = datetime.strptime(start,         "%Y-%m-%d")
+    e = datetime.strptime(end_inclusive, "%Y-%m-%d")
+    chunks, cur = [], s
+    while cur <= e:
+        nxt = min(cur + timedelta(days=chunk_days), e + timedelta(days=1))
+        chunks.append((cur.strftime("%Y-%m-%d"), nxt.strftime("%Y-%m-%d")))
+        cur = nxt
+    return chunks
+
+
+def _to_entsoe_dt(date_str: str) -> str:
+    return datetime.strptime(date_str, "%Y-%m-%d").strftime(ENTSOE_FMT)
+
+
+def _date_to_entsoe_utc_dt(date_str: str) -> str:
+    local_midnight = pd.Timestamp(date_str).tz_localize(ENTSOE_DISPLAY_TZ)
+    utc_dt = local_midnight.tz_convert("UTC")
+    return utc_dt.strftime(ENTSOE_FMT)
+
+
+def _get_all_timeseries(base_params: dict, label: str,
+                        timeout: int = DEFAULT_TIMEOUT) -> list[ET.Element]:
+    all_ts = []
+    offset = 0
+
+    while True:
+        params = {**base_params, "securityToken": ENTSOE_TOKEN}
+        if offset > 0:
+            params["offset"] = offset
+
+        for attempt in range(5):
+            try:
+                resp = requests.get(API_URL, params=params, timeout=timeout)
+                resp.raise_for_status()
+                break
+            except requests.RequestException as e:
+                if attempt < 4:
+                    sleep = 2 ** attempt
+                    print(f"      [RETRY] {label} offset={offset} in {sleep}s")
+                    time.sleep(sleep)
+                else:
+                    print(f"      [ERROR] {label} offset={offset}: {e}")
+                    return all_ts
+
+        try:
+            root = ET.fromstring(resp.content)
+        except ET.ParseError as e:
+            print(f"      [XML ERROR] {label} offset={offset}: {e}")
+            break
+
+        if "Acknowledgement_MarketDocument" in root.tag:
+            reason = root.findtext(".//{*}Reason/{*}text", default="unknown")
+            print(f"      [API ERROR] {label} offset={offset}: {reason}")
+            break
+
+        page_ts = root.findall(".//{*}TimeSeries")
+        all_ts.extend(page_ts)
+
+        if len(page_ts) == 0 or len(page_ts) < PAGE_SIZE:
+            break
+
+        offset += PAGE_SIZE
+        print(f"      → 翻页 offset={offset}（本页 {len(page_ts)} 条）")
+        time.sleep(REQUEST_DELAY)
+
+    return all_ts
+
+
+def _price_params(bzn_eic: str, start: str, end: str) -> dict:
+    return {
+        "documentType": "A44",
+        "out_Domain":   bzn_eic,
+        "in_Domain":    bzn_eic,
+        "periodStart":  _date_to_entsoe_utc_dt(start),
+        "periodEnd":    _date_to_entsoe_utc_dt(end),
+    }
+
+
+def _load_params(bzn_eic: str, start: str, end: str) -> dict:
+    return {
+        "documentType":          "A65",
+        "processType":           "A16",
+        "outBiddingZone_Domain": bzn_eic,
+        "periodStart":           _date_to_entsoe_utc_dt(start),
+        "periodEnd":             _date_to_entsoe_utc_dt(end),
+    }
+
+
+def _gen_params(in_domain: str, start: str, end: str, psr_type: str) -> dict:
+    return {
+        "documentType": "A75",
+        "processType":  "A16",
+        "in_Domain":    in_domain,
+        "psrType":      psr_type,
+        "periodStart":  _date_to_entsoe_utc_dt(start),
+        "periodEnd":    _date_to_entsoe_utc_dt(end),
+    }
+
+
+DELTA_MAP = {
+    "PT15M": timedelta(minutes=15),
+    "PT30M": timedelta(minutes=30),
+    "PT60M": timedelta(hours=1),
+}
+RES_MINUTES = {
+    "PT15M": 15,
+    "PT30M": 30,
+    "PT60M": 60,
+}
+
+
+def _parse_period_raw(period_el: ET.Element,
+                      value_tag: str = "quantity") -> tuple[pd.Series, int]:
+    start_el = period_el.find(".//{*}start")
+    end_el   = period_el.find(".//{*}end")
+    res_el   = period_el.find(".//{*}resolution")
+    points   = period_el.findall(".//{*}Point")
+
+    if start_el is None or res_el is None:
+        return pd.Series(dtype=float), 60
+
+    start_utc = datetime.strptime(start_el.text.strip(), "%Y-%m-%dT%H:%MZ")
+    res_str   = res_el.text.strip()
+    delta     = DELTA_MAP.get(res_str, timedelta(hours=1))
+    res_min   = RES_MINUTES.get(res_str, 60)
+
+    point_values: dict[int, float] = {}
+    for pt in points:
+        pos_el = pt.find(".//{*}position")
+        val_el = pt.find(f"./{{*}}{value_tag}")
+        if val_el is None:
+            fallback = "quantity" if value_tag == "price.amount" else "price.amount"
+            val_el = pt.find(f"./{{*}}{fallback}")
+        if pos_el is None:
+            continue
+        try:
+            pos = int(pos_el.text)
+            raw = val_el.text.strip() if (val_el is not None and val_el.text) else None
+            if raw is not None:
+                point_values[pos] = float(raw)
+        except (TypeError, ValueError):
+            pass
+
+    if end_el is not None:
+        end_utc     = datetime.strptime(end_el.text.strip(), "%Y-%m-%dT%H:%MZ")
+        total_slots = int((end_utc - start_utc) / delta)
+    elif point_values:
+        total_slots = max(point_values.keys())
+    else:
+        return pd.Series(dtype=float), res_min
+
+    if total_slots <= 0:
+        return pd.Series(dtype=float), res_min
+
+    records: dict = {}
+    last_val = None
+    for pos in range(1, total_slots + 1):
+        ts = start_utc + (pos - 1) * delta
+        if pos in point_values:
+            last_val = point_values[pos]
+        if last_val is not None:
+            records[ts] = last_val
+
+    if not records:
+        return pd.Series(dtype=float), res_min
+
+    s = pd.Series(records)
+    s.index = (
+        pd.DatetimeIndex(s.index)
+          .tz_localize("UTC")
+          .tz_convert(ENTSOE_DISPLAY_TZ)
+          .tz_localize(None)
+    )
+    return s, res_min
+
+
+# ─────────────────────────────────────────────────────────────
+# XML 辅助：处理标签名含点号的情况
+# ElementTree 的 XPath 把点号当路径分隔符，导致含点号的标签名
+# （如 inBiddingZone_Domain.mRID）用 find() 永远返回 None。
+# 改用 iter() 遍历所有子元素，手动比对 local tag name。
+# ─────────────────────────────────────────────────────────────
+
+def _local_tag(element: ET.Element) -> str:
+    """去掉命名空间前缀，返回本地标签名。"""
+    tag = element.tag
+    return tag.split("}", 1)[1] if "}" in tag else tag
+
+
+def _ts_has_tag(ts: ET.Element, local_name: str) -> bool:
+    """在 TimeSeries 的直接子元素中查找指定 local tag name（不递归进 Period）。"""
+    return any(_local_tag(el) == local_name for el in ts)
+
+
+def _ts_get_tag_text(ts: ET.Element, local_name: str) -> str | None:
+    """获取 TimeSeries 直接子元素中指定 local tag name 的文本。"""
+    for el in ts:
+        if _local_tag(el) == local_name:
+            return el.text
+    return None
+
+
+# ─────────────────────────────────────────────────────────────
+
+def _filter_ts_by_sequence_position(
+    ts_list: list[ET.Element],
+    position: int = 1
+) -> list[ET.Element]:
+    """
+    过滤含 classificationSequence_AttributeInstanceComponent.position 标签的 TimeSeries。
+    注意：标签名含点号，不能用 XPath find()，改用 _ts_has_tag / _ts_get_tag_text。
+    """
+    SEQ_LOCAL = "classificationSequence_AttributeInstanceComponent.position"
+
+    tagged   = [ts for ts in ts_list if _ts_has_tag(ts, SEQ_LOCAL)]
+    untagged = [ts for ts in ts_list if not _ts_has_tag(ts, SEQ_LOCAL)]
+
+    if tagged and untagged:
+        return untagged
+    if tagged:
+        return [ts for ts in tagged
+                if _ts_get_tag_text(ts, SEQ_LOCAL) == str(position)]
+    return ts_list
+
+
+def _filter_pumped_storage_ts(
+    ts_list: list[ET.Element], psr_code: str
+) -> list[ET.Element]:
+    """
+    B10 Hydro Pumped Storage 方向过滤。
+
+    ENTSO-E A75 对 B10 同时返回两条 TimeSeries：
+      inBiddingZone_Domain.mRID  → 放电发电（电能流入电网）← 保留
+      outBiddingZone_Domain.mRID → 抽水消耗（电能流出电网）← 丢弃
+
+    注意：标签名含点号，XPath find() 会静默失败，必须用 _ts_has_tag()。
+    对非 B10 机组原样返回。
+    """
+    if psr_code != "B10":
+        return ts_list
+
+    result = []
+    for ts in ts_list:
+        has_in  = _ts_has_tag(ts, "inBiddingZone_Domain.mRID")
+        has_out = _ts_has_tag(ts, "outBiddingZone_Domain.mRID")
+
+        if has_out and not has_in:
+            # 纯消耗方向（抽水），丢弃
+            continue
+        result.append(ts)  # inBiddingZone（发电）或未知结构保守保留
+
+    return result
+
+
+def _ts_list_to_raw_series(ts_list: list[ET.Element],
+                           value_tag: str = "quantity") -> pd.Series | None:
+    parts = []
+    for ts in ts_list:
+        for period in ts.findall(".//{*}Period"):
+            s, _res = _parse_period_raw(period, value_tag)
+            if not s.empty:
+                parts.append(s)
+    if not parts:
+        return None
+    combined = pd.concat(parts).sort_index()
+    combined = combined[~combined.index.duplicated(keep="last")]
+    return combined
+
+
+def _merge_gen_periods_best_wins(
+    period_series_list: list[tuple[int, pd.Series]]
+) -> pd.Series | None:
+    """
+    A75 发电数据专用合并：同一时间戳有多个来源时，
+    取来自「Point 数最多的 Period」的值，而不是 keep="last"。
+
+    period_series_list: [(point_count, series), ...]
+    逻辑：
+    1. 按 point_count 降序排列（最完整的 Period 优先）
+    2. 对每个时间戳，第一次赋值后不再覆盖（最完整的 Period 优先）
+    """
+    if not period_series_list:
+        return None
+
+    sorted_parts = sorted(period_series_list, key=lambda x: x[0], reverse=True)
+
+    result: dict = {}
+    for _, s in sorted_parts:
+        for ts, val in s.items():
+            if ts not in result:
+                result[ts] = val
+
+    if not result:
+        return None
+
+    combined = pd.Series(result).sort_index()
+    return combined
+
+
+def _detect_resolution_minutes(s: pd.Series) -> int:
+    if len(s) < 2:
+        return 60
+    diffs = pd.Series(s.index).diff().dropna()
+    min_minutes = int(diffs.min().total_seconds() / 60)
+    if min_minutes <= 15:
+        return 15
+    if min_minutes <= 30:
+        return 30
+    return 60
+
+
+def normalize_raw_series_to_15min(s: pd.Series) -> pd.Series:
+    if s.empty:
+        return s
+
+    s = s.sort_index()
+    if len(s) < 2:
+        return s
+
+    idx   = pd.DatetimeIndex(s.index)
+    diffs = pd.Series(idx, index=idx).diff().dt.total_seconds().div(60)
+    fine_mask = (diffs <= 15)
+
+    records: dict = {}
+    for i, (ts, val) in enumerate(s.items()):
+        if i == 0:
+            if len(diffs) > 1 and diffs.iloc[1] <= 15:
+                records[ts] = val
+            else:
+                for q in range(4):
+                    records[ts + timedelta(minutes=15 * q)] = val
+        elif fine_mask.iloc[i]:
+            records[ts] = val
+        else:
+            for q in range(4):
+                records[ts + timedelta(minutes=15 * q)] = val
+
+    result = pd.Series(records).sort_index()
+    return result[~result.index.duplicated(keep="last")]
+
+
+def _sort_index_by_time(df: pd.DataFrame) -> pd.DataFrame:
+    dt_idx = pd.to_datetime(df.index, errors="coerce")
+    df = df[dt_idx.notna()].copy()
+    df.index = dt_idx[dt_idx.notna()]
+    df.sort_index(inplace=True)
+    return df
+
+
+def _sort_col_by_time(df: pd.DataFrame, date_col: str,
+                      secondary: str | None = None) -> pd.DataFrame:
+    df = df.copy()
+    df["_dt"] = pd.to_datetime(df[date_col], errors="coerce")
+    sort_cols = ["_dt"] + ([secondary] if secondary else [])
+    df = df[df["_dt"].notna()].sort_values(sort_cols).drop(columns="_dt").reset_index(drop=True)
+    return df
+
+
+def _clean_numeric_text(x):
+    if pd.isna(x):
+        return x
+    if isinstance(x, str):
+        y = x.strip().lstrip("'").strip()
+        y = re.sub(r"[^0-9eE+\-.]", "", y)
+        return y if y != "" else None
+    return x
+
+
+def _coerce_df_numeric(df: pd.DataFrame) -> pd.DataFrame:
+    out = df.copy()
+    for col in out.columns:
+        out[col] = out[col].map(_clean_numeric_text)
+        out[col] = pd.to_numeric(out[col], errors="coerce")
+    return out
+
+
+def _fmt_dt_hourly(dt: pd.Timestamp) -> str:
+    return f"{dt.year}/{dt.month}/{dt.day} {dt.hour}:00"
+
+
+def _fmt_dt_15min(dt: pd.Timestamp) -> str:
+    return f"{dt.year}/{dt.month}/{dt.day} {dt.hour}:{dt.minute:02d}"
+
+
+def fmt_index(index: pd.DatetimeIndex) -> list[str]:
+    return [_fmt_dt_hourly(dt) for dt in index]
+
+
+def fmt_index_15min(index: pd.DatetimeIndex) -> list[str]:
+    return [_fmt_dt_15min(dt) for dt in index]
+
+
+def fetch_price(bzn_eic: str, start: str,
+                end_inclusive: str) -> tuple[pd.Series | None, pd.Series | None]:
+    raw_parts = []
+    chunks = date_chunks(start, end_inclusive, chunk_days=PRICE_CHUNK_DAYS)
+    for i, (cs, ce) in enumerate(chunks, 1):
+        print(f"     chunk {i}/{len(chunks)}: {cs} → {ce}")
+        ts_list = _get_all_timeseries(_price_params(bzn_eic, cs, ce), f"price {bzn_eic}")
+        time.sleep(REQUEST_DELAY)
+        ts_list = _filter_ts_by_sequence_position(ts_list, position=1)
+        raw = _ts_list_to_raw_series(ts_list, value_tag="price.amount")
+        if raw is not None:
+            raw_parts.append(raw)
+
+    if not raw_parts:
+        return None, None
+
+    raw_combined = pd.concat(raw_parts).sort_index()
+    raw_combined = raw_combined[~raw_combined.index.duplicated(keep="last")]
+    hourly = raw_combined.resample("h").mean()
+    return hourly, raw_combined
+
+
+def fetch_load(bzn_eic: str, start: str,
+               end_inclusive: str) -> tuple[pd.Series | None, pd.Series | None]:
+    raw_parts = []
+    chunks = date_chunks(start, end_inclusive)
+    for i, (cs, ce) in enumerate(chunks, 1):
+        print(f"     chunk {i}/{len(chunks)}: {cs} → {ce}")
+        ts_list = _get_all_timeseries(_load_params(bzn_eic, cs, ce), f"load {bzn_eic}")
+        time.sleep(REQUEST_DELAY)
+        raw = _ts_list_to_raw_series(ts_list, value_tag="quantity")
+        if raw is not None:
+            raw_parts.append(raw)
+
+    if not raw_parts:
+        return None, None
+
+    raw_combined = pd.concat(raw_parts).sort_index()
+    raw_combined = raw_combined[~raw_combined.index.duplicated(keep="last")]
+    hourly = raw_combined.resample("h").mean()
+    return hourly, raw_combined
+
+
+def fetch_generation(in_domain: str, start: str,
+                     end_inclusive: str) -> tuple[dict[str, pd.Series], dict[str, pd.Series]]:
+    hourly_series: dict[str, pd.Series] = {}
+    raw_series:    dict[str, pd.Series] = {}
+    chunks = date_chunks(start, end_inclusive, chunk_days=CHUNK_DAYS)
+
+    for psr_code, psr_name in PSR_TYPE_MAP.items():
+        period_series_list: list[tuple[int, pd.Series]] = []
+
+        for cs, ce in chunks:
+            ts_list = _get_all_timeseries(
+                _gen_params(in_domain, cs, ce, psr_code),
+                f"gen {in_domain} {psr_code}",
+                timeout=GEN_TIMEOUT,
+            )
+            time.sleep(REQUEST_DELAY)
+
+            # B10: 只保留 inBiddingZone（发电），丢弃 outBiddingZone（抽水消耗）
+            ts_list = _filter_pumped_storage_ts(ts_list, psr_code)
+
+            for ts in ts_list:
+                for period in ts.findall(".//{*}Period"):
+                    point_count = len(period.findall(".//{*}Point"))
+                    s, _res = _parse_period_raw(period, value_tag="quantity")
+                    if not s.empty:
+                        period_series_list.append((point_count, s))
+
+        raw_c = _merge_gen_periods_best_wins(period_series_list)
+        if raw_c is not None:
+            raw_series[psr_name] = raw_c
+            h_c = raw_c.resample("h").mean()
+            hourly_series[psr_name] = h_c
+            print(f"     ✓ {psr_name:<35} {h_c.notna().sum()} 有效值(1h) | "
+                  f"{raw_c.notna().sum()} 原始点")
+
+    return hourly_series, raw_series
+
+
+def build_generation_result(gen_dict: dict[str, pd.Series]) -> dict:
+    if not gen_dict:
+        return {}
+
+    solar_s  = gen_dict.get("Solar")
+    wind_off = gen_dict.get("Wind Offshore")
+    wind_on  = gen_dict.get("Wind Onshore")
+
+    if wind_off is not None and wind_on is not None:
+        wind_s = wind_off.add(wind_on, fill_value=0)
+    elif wind_off is not None:
+        wind_s = wind_off
+    elif wind_on is not None:
+        wind_s = wind_on
+    else:
+        wind_s = None
+
+    gen_df = pd.DataFrame(gen_dict)
+    cols_to_drop = [c for c in ["Wind Offshore", "Wind Onshore"] if c in gen_df.columns]
+    if cols_to_drop:
+        gen_df = gen_df.drop(columns=cols_to_drop)
+    if wind_s is not None:
+        gen_df["Wind"] = wind_s
+
+    return {"solar": solar_s, "wind": wind_s, "generation": gen_df}
+
+
+def merge_and_save_wide(new_cols: dict[str, pd.Series], path: Path, label: str):
+    if not new_cols:
+        print(f"  [SKIP] {label}: 无新数据")
+        return
+
+    new_df = pd.DataFrame(new_cols)
+    new_df = _coerce_df_numeric(new_df)
+    new_df = new_df.round(HOURLY_ROUND_DECIMALS)
+
+    if path.exists():
+        old_df = pd.read_csv(path, index_col=0)
+        old_df = _coerce_df_numeric(old_df)
+        new_df.index = fmt_index(new_df.index)
+        all_cols = old_df.columns.union(new_df.columns)
+        old_df   = old_df.reindex(columns=all_cols)
+        new_df   = new_df.reindex(columns=all_cols)
+        old_df.update(new_df)
+        merged = old_df.combine_first(new_df)
+        merged = _coerce_df_numeric(merged)
+        merged = merged.round(HOURLY_ROUND_DECIMALS)
+        merged.index.name = "Date"
+        merged = _sort_index_by_time(merged)
+        merged.index = fmt_index(merged.index)
+        merged.index.name = "Date"
+        merged.to_csv(path)
+        print(f"  ✓ {path.name}: 合并后 {len(merged)} 行 × {len(merged.columns)} 列")
+    else:
+        new_df.index = fmt_index(new_df.index)
+        new_df.index.name = "Date"
+        new_df = _sort_index_by_time(new_df)
+        new_df = _coerce_df_numeric(new_df)
+        new_df = new_df.round(HOURLY_ROUND_DECIMALS)
+        new_df.index = fmt_index(new_df.index)
+        new_df.index.name = "Date"
+        new_df.to_csv(path)
+        print(f"  ✓ {path.name}: 新建 {len(new_df)} 行 × {len(new_df.columns)} 列")
+
+
+def merge_and_save_generation(new_rows: list[dict], gen_dir: Path):
+    if not new_rows:
+        print("  [SKIP] generation: 无新数据")
+        return
+
+    gen_dir.mkdir(exist_ok=True)
+    df_new = pd.DataFrame(new_rows, columns=["date", "country", "category", "value"])
+    df_new["value"] = pd.to_numeric(df_new["value"], errors="coerce")
+
+    for country, grp_new in df_new.groupby("country"):
+        path    = gen_dir / f"{country}.csv"
+        grp_new = grp_new.drop(columns="country").reset_index(drop=True)
+
+        if path.exists():
+            grp_old = pd.read_csv(path)
+            grp_old["value"] = pd.to_numeric(grp_old["value"], errors="coerce")
+            merged = (
+                pd.concat([grp_old, grp_new])
+                  .drop_duplicates(subset=["date", "category"], keep="last")
+            )
+            merged = _sort_col_by_time(merged, "date", secondary="category")
+            merged.to_csv(path, index=False)
+            print(f"  ✓ generation/{country}.csv: 合并后 {len(merged)} 行")
+        else:
+            grp_new = _sort_col_by_time(grp_new, "date", secondary="category")
+            grp_new.to_csv(path, index=False)
+            print(f"  ✓ generation/{country}.csv: 新建 {len(grp_new)} 行")
+
+
+def _year_path(base_path: Path, year: int) -> Path:
+    """把逻辑路径 raw_data/A44.csv 映射到按年拆分后的实际路径 raw_data/{year}/A44.csv。"""
+    return base_path.parent / str(int(year)) / base_path.name
+
+
+def merge_and_save_raw_wide(new_raw_cols: dict[str, pd.Series],
+                            path: Path, label: str):
+    """
+    按年拆分写入宽表原始数据（raw_data/{YEAR}/{path.name}），
+    避免单个原始 CSV 随时间无限增长撞到 GitHub 单文件体积限制。
+    """
+    if not new_raw_cols:
+        print(f"  [SKIP RAW] {label}: 无新数据")
+        return
+
+    normalized: dict[str, pd.Series] = {}
+    for col, s in new_raw_cols.items():
+        if s is None or s.empty:
+            continue
+        normalized[col] = normalize_raw_series_to_15min(s)
+
+    if not normalized:
+        print(f"  [SKIP RAW] {label}: 标准化后无数据")
+        return
+
+    all_idx = pd.concat(
+        [s.rename("v") for s in normalized.values()]
+    ).index.unique().sort_values()
+
+    new_df = pd.DataFrame({col: s.reindex(all_idx) for col, s in normalized.items()})
+    new_df = _coerce_df_numeric(new_df)
+    new_df = new_df.round(HOURLY_ROUND_DECIMALS)
+    new_df.index = pd.DatetimeIndex(all_idx)
+
+    for year, year_df in new_df.groupby(new_df.index.year):
+        year_path = _year_path(path, year)
+        year_path.parent.mkdir(parents=True, exist_ok=True)
+
+        year_df = year_df.copy()
+        year_df.index = fmt_index_15min(year_df.index)
+        year_df.index.name = "Date"
+
+        if year_path.exists():
+            old_df = pd.read_csv(year_path, index_col=0)
+            old_df = _coerce_df_numeric(old_df)
+            all_cols = old_df.columns.union(year_df.columns)
+            old_df   = old_df.reindex(columns=all_cols)
+            year_df  = year_df.reindex(columns=all_cols)
+            old_df.update(year_df)
+            merged = old_df.combine_first(year_df)
+            merged = _coerce_df_numeric(merged)
+            merged = merged.round(HOURLY_ROUND_DECIMALS)
+            merged.index.name = "Date"
+            merged = _sort_index_by_time(merged)
+            merged.index = fmt_index_15min(merged.index)
+            merged.index.name = "Date"
+            merged.to_csv(year_path)
+            print(f"  ✓ RAW {year_path}: 合并后 {len(merged)} 行 × {len(merged.columns)} 列")
+        else:
+            year_df = _sort_index_by_time(year_df)
+            year_df = _coerce_df_numeric(year_df)
+            year_df = year_df.round(HOURLY_ROUND_DECIMALS)
+            year_df.index = fmt_index_15min(year_df.index)
+            year_df.index.name = "Date"
+            year_df.to_csv(year_path)
+            print(f"  ✓ RAW {year_path}: 新建 {len(year_df)} 行 × {len(year_df.columns)} 列")
+
+
+def merge_and_save_raw_generation(raw_gen_by_country: dict[str, dict[str, pd.Series]],
+                                  raw_gen_dir: Path):
+    """
+    按年拆分写入长表原始发电数据（raw_data/{YEAR}/generation/{CC}.csv）。
+    raw_gen_dir 仍传入逻辑目录 raw_data/generation，实际落盘路径按每行日期的年份
+    映射为 raw_gen_dir.parent/{YEAR}/raw_gen_dir.name/{CC}.csv。
+    """
+    if not raw_gen_by_country:
+        print("  [SKIP RAW] generation: 无新数据")
+        return
+
+    for cc_upper, gen_raw_dict in raw_gen_by_country.items():
+        if not gen_raw_dict:
+            continue
+
+        rows = []
+        for psr_name, s in gen_raw_dict.items():
+            if s is None or s.empty:
+                continue
+            s15 = normalize_raw_series_to_15min(s)
+            for ts, val in s15.items():
+                rows.append({
+                    "ts":       ts,
+                    "category": psr_name,
+                    "value":    val,
+                })
+
+        if not rows:
+            continue
+
+        df_new = pd.DataFrame(rows, columns=["ts", "category", "value"])
+        df_new["value"] = pd.to_numeric(df_new["value"], errors="coerce")
+        df_new["ts"] = pd.to_datetime(df_new["ts"])
+
+        for year, grp in df_new.groupby(df_new["ts"].dt.year):
+            grp = grp.copy()
+            grp["date"] = grp["ts"].apply(_fmt_dt_15min)
+            grp = grp.drop(columns="ts")[["date", "category", "value"]]
+
+            year_gen_dir = raw_gen_dir.parent / str(int(year)) / raw_gen_dir.name
+            year_gen_dir.mkdir(parents=True, exist_ok=True)
+            path = year_gen_dir / f"{cc_upper}.csv"
+
+            if path.exists():
+                df_old = pd.read_csv(path)
+                df_old["value"] = pd.to_numeric(df_old["value"], errors="coerce")
+                merged = (
+                    pd.concat([df_old, grp])
+                      .drop_duplicates(subset=["date", "category"], keep="last")
+                )
+                merged = _sort_col_by_time(merged, "date", secondary="category")
+                merged.to_csv(path, index=False)
+                print(f"  ✓ RAW {year_gen_dir.parent.name}/generation/{cc_upper}.csv: 合并后 {len(merged)} 行")
+            else:
+                grp = _sort_col_by_time(grp, "date", secondary="category")
+                grp.to_csv(path, index=False)
+                print(f"  ✓ RAW {year_gen_dir.parent.name}/generation/{cc_upper}.csv: 新建 {len(grp)} 行")
+
+
+def main():
+    parser = argparse.ArgumentParser(description="ENTSOE 数据更新")
+    parser.add_argument(
+        "--mode", choices=["incremental", "full", "price_only", "gen_load"], default="incremental",
+    )
+    parser.add_argument("--country", default="", help="只跑指定国家，例如 DE，为空则跑全部")
+    parser.add_argument("--start", default="", help="自定义起始日期 YYYY-MM-DD")
+    parser.add_argument("--end",   default="", help="自定义结束日期 YYYY-MM-DD")
+    args = parser.parse_args()
+
+    today     = datetime.now()
+    yesterday = today - timedelta(days=1)
+    end_date  = args.end if args.end else yesterday.strftime("%Y-%m-%d")
+
+    if args.mode == "full":
+        start_date = args.start if args.start else FULL_START_DATE
+        mode_label = "全量模式"
+    elif args.mode == "price_only":
+        start_date = args.start if args.start else FULL_START_DATE
+        mode_label = "仅价格模式"
+    elif args.mode == "gen_load":
+        start_date = args.start if args.start else FULL_START_DATE
+        mode_label = "仅发电+负荷模式"
+    else:
+        start_date = args.start if args.start else (today - timedelta(days=LOOKBACK_DAYS)).strftime("%Y-%m-%d")
+        mode_label = f"增量模式（最近 {LOOKBACK_DAYS} 天）"
+
+    cutoff_local = pd.Timestamp(end_date).tz_localize(ENTSOE_DISPLAY_TZ) + timedelta(days=1)
+    cutoff_naive = cutoff_local.tz_localize(None)
+
+    print("=" * 62)
+    print(f"ENTSOE 数据更新  [{mode_label}]")
+    print("=" * 62)
+    print(f"数据范围: {start_date} → {end_date}（含，CET/CEST）")
+
+    DATA_DIR.mkdir(exist_ok=True)
+    RAW_DIR.mkdir(exist_ok=True)
+
+    if args.country:
+        cc_filter = args.country.lower()
+        if cc_filter not in COUNTRY_CONFIG:
+            print(f"[ERROR] 未知国家: {args.country}")
+            return
+        countries_to_run = [cc_filter]
+    else:
+        countries_to_run = COUNTRIES
+
+    # ── price_only 分支 ──────────────────────────────────────
+    if args.mode == "price_only":
+        print(f"国家: {[c.upper() for c in countries_to_run]}\n")
+        price_cols:     dict[str, pd.Series] = {}
+        raw_price_cols: dict[str, pd.Series] = {}
+
+        for cc in countries_to_run:
+            cfg     = COUNTRY_CONFIG[cc]
+            bzn_eic = cfg["bzn_eic"]
+            col     = cc.upper()
+            print(f"[{col}]")
+            print(f"  → A44 price  eic={bzn_eic}")
+            s_hourly, s_raw = fetch_price(bzn_eic, start_date, end_date)
+            if s_hourly is not None:
+                s_hourly = s_hourly[s_hourly.index < cutoff_naive]
+                price_cols[col]     = s_hourly
+                raw_price_cols[col] = s_raw[s_raw.index < cutoff_naive]
+                print(f"     ✓ {price_cols[col].notna().sum()} 有效值(1h) | "
+                      f"{raw_price_cols[col].notna().sum()} 原始点")
+            else:
+                print(f"     [WARN] 无价格数据")
+            print()
+
+        print("保存/合并文件...")
+        merge_and_save_wide(price_cols, DATA_DIR / "price.csv", "price")
+        merge_and_save_raw_wide(raw_price_cols, RAW_DIR / "A44.csv", "A44 price")
+        return
+
+    # ── gen_load 分支 ────────────────────────────────────────
+    if args.mode == "gen_load":
+        print(f"国家: {[c.upper() for c in countries_to_run]}\n")
+
+        load_cols:     dict[str, pd.Series] = {}
+        solar_cols:    dict[str, pd.Series] = {}
+        wind_cols:     dict[str, pd.Series] = {}
+        residual_cols: dict[str, pd.Series] = {}
+        gen_rows:      list[dict]           = []
+        raw_load_cols:      dict[str, pd.Series]            = {}
+        raw_gen_by_country: dict[str, dict[str, pd.Series]] = {}
+
+        for cc in countries_to_run:
+            cfg         = COUNTRY_CONFIG[cc]
+            bzn_eic     = cfg["bzn_eic"]
+            load_domain = cfg.get("load_eic", bzn_eic)
+            gen_domain  = cfg.get("gen_eic",  bzn_eic)
+            col         = cc.upper()
+            print(f"[{col}]")
+
+            print(f"  → A65 load   eic={load_domain}")
+            s_hourly, s_raw = fetch_load(load_domain, start_date, end_date)
+            if s_hourly is not None:
+                s_hourly = s_hourly[s_hourly.index < cutoff_naive]
+                load_cols[col]     = s_hourly
+                raw_load_cols[col] = s_raw[s_raw.index < cutoff_naive]
+                print(f"     ✓ {load_cols[col].notna().sum()} 有效值(1h) | "
+                      f"{raw_load_cols[col].notna().sum()} 原始点")
+            else:
+                print(f"     [WARN] 无负荷数据")
+
+            print(f"  → A75 gen    in_Domain={gen_domain}")
+            hourly_dict, raw_dict = fetch_generation(gen_domain, start_date, end_date)
+            result = build_generation_result(hourly_dict)
+
+            if raw_dict:
+                raw_gen_by_country[col] = {
+                    k: v[v.index < cutoff_naive] for k, v in raw_dict.items()
+                }
+
+            for field, target_dict, lbl in [
+                ("solar", solar_cols, "solar"),
+                ("wind",  wind_cols,  "wind"),
+            ]:
+                s = result.get(field)
+                if s is not None:
+                    target_dict[col] = s[s.index < cutoff_naive]
+                    print(f"     ✓ {lbl:<8} {target_dict[col].notna().sum()} 有效值")
+                else:
+                    print(f"     [WARN] {lbl} 无数据")
+
+            load_s  = load_cols.get(col)
+            solar_s = solar_cols.get(col)
+            wind_s  = wind_cols.get(col)
+            if load_s is not None and (solar_s is not None or wind_s is not None):
+                renewables = pd.Series(0.0, index=load_s.index)
+                for rs in [solar_s, wind_s]:
+                    if rs is not None:
+                        renewables = renewables.add(
+                            rs.reindex(load_s.index, fill_value=0), fill_value=0)
+                residual_cols[col] = load_s - renewables
+                print(f"     ✓ residual  {residual_cols[col].notna().sum()} 有效值（计算值）")
+
+            gen_df: pd.DataFrame = result.get("generation", pd.DataFrame())
+            if not gen_df.empty:
+                gen_df = gen_df[gen_df.index < cutoff_naive]
+                for cat in gen_df.columns:
+                    for dt, val in gen_df[cat].items():
+                        gen_rows.append({
+                            "date":     _fmt_dt_hourly(dt),
+                            "country":  col,
+                            "category": cat,
+                            "value":    val,
+                        })
+                print(f"     ✓ generation {len(gen_df.columns)} 类型, {len(gen_df)} 行")
+            print()
+
+        print("保存/合并文件 [data/]...")
+        merge_and_save_wide(load_cols,     DATA_DIR / "load.csv",          "load")
+        merge_and_save_wide(solar_cols,    DATA_DIR / "solar.csv",         "solar")
+        merge_and_save_wide(wind_cols,     DATA_DIR / "wind.csv",          "wind")
+        merge_and_save_wide(residual_cols, DATA_DIR / "residual_load.csv", "residual_load")
+        merge_and_save_generation(gen_rows, DATA_DIR / "generation")
+        print()
+        print("保存/合并原始数据 [raw_data/]...")
+        merge_and_save_raw_wide(raw_load_cols, RAW_DIR / "A65.csv", "A65 load")
+        merge_and_save_raw_generation(raw_gen_by_country, RAW_DIR / "generation")
+        return
+
+    # ── incremental / full 分支 ──────────────────────────────
+    print(f"国家: {[c.upper() for c in countries_to_run]}\n")
+
+    price_cols:    dict[str, pd.Series] = {}
+    load_cols:     dict[str, pd.Series] = {}
+    solar_cols:    dict[str, pd.Series] = {}
+    wind_cols:     dict[str, pd.Series] = {}
+    residual_cols: dict[str, pd.Series] = {}
+    gen_rows:      list[dict]           = []
+
+    raw_price_cols:     dict[str, pd.Series]            = {}
+    raw_load_cols:      dict[str, pd.Series]            = {}
+    raw_gen_by_country: dict[str, dict[str, pd.Series]] = {}
+
+    for cc in countries_to_run:
+        cfg         = COUNTRY_CONFIG[cc]
+        bzn_eic     = cfg["bzn_eic"]
+        load_domain = cfg.get("load_eic", bzn_eic)
+        gen_domain  = cfg.get("gen_eic",  bzn_eic)
+        col         = cc.upper()
+
+        print(f"[{col}]")
+
+        print(f"  → A44 price  eic={bzn_eic}")
+        s_hourly, s_raw = fetch_price(bzn_eic, start_date, end_date)
+        if s_hourly is not None:
+            s_hourly = s_hourly[s_hourly.index < cutoff_naive]
+            price_cols[col]     = s_hourly
+            raw_price_cols[col] = s_raw[s_raw.index < cutoff_naive]
+            print(f"     ✓ {price_cols[col].notna().sum()} 有效值(1h) | "
+                  f"{raw_price_cols[col].notna().sum()} 原始点")
+        else:
+            print(f"     [WARN] 无价格数据")
+
+        print(f"  → A65 load   eic={load_domain}")
+        s_hourly, s_raw = fetch_load(load_domain, start_date, end_date)
+        if s_hourly is not None:
+            s_hourly = s_hourly[s_hourly.index < cutoff_naive]
+            load_cols[col]     = s_hourly
+            raw_load_cols[col] = s_raw[s_raw.index < cutoff_naive]
+            print(f"     ✓ {load_cols[col].notna().sum()} 有效值(1h) | "
+                  f"{raw_load_cols[col].notna().sum()} 原始点")
+        else:
+            print(f"     [WARN] 无负荷数据")
+
+        print(f"  → A75 gen    in_Domain={gen_domain}")
+        hourly_dict, raw_dict = fetch_generation(gen_domain, start_date, end_date)
+        result = build_generation_result(hourly_dict)
+
+        if raw_dict:
+            raw_gen_by_country[col] = {
+                k: v[v.index < cutoff_naive] for k, v in raw_dict.items()
+            }
+
+        for field, target_dict, lbl in [
+            ("solar", solar_cols, "solar"),
+            ("wind",  wind_cols,  "wind"),
+        ]:
+            s = result.get(field)
+            if s is not None:
+                target_dict[col] = s[s.index < cutoff_naive]
+                print(f"     ✓ {lbl:<8} {target_dict[col].notna().sum()} 有效值")
+            else:
+                print(f"     [WARN] {lbl} 无数据")
+
+        load_s  = load_cols.get(col)
+        solar_s = solar_cols.get(col)
+        wind_s  = wind_cols.get(col)
+        if load_s is not None and (solar_s is not None or wind_s is not None):
+            renewables = pd.Series(0.0, index=load_s.index)
+            for rs in [solar_s, wind_s]:
+                if rs is not None:
+                    renewables = renewables.add(
+                        rs.reindex(load_s.index, fill_value=0), fill_value=0)
+            residual_cols[col] = load_s - renewables
+            print(f"     ✓ residual  {residual_cols[col].notna().sum()} 有效值（计算值）")
+
+        gen_df: pd.DataFrame = result.get("generation", pd.DataFrame())
+        if not gen_df.empty:
+            gen_df = gen_df[gen_df.index < cutoff_naive]
+            for cat in gen_df.columns:
+                for dt, val in gen_df[cat].items():
+                    gen_rows.append({
+                        "date":     _fmt_dt_hourly(dt),
+                        "country":  col,
+                        "category": cat,
+                        "value":    val,
+                    })
+            print(f"     ✓ generation {len(gen_df.columns)} 类型, {len(gen_df)} 行")
+
+        print()
+
+    print("保存/合并文件 [data/]...")
+    merge_and_save_wide(price_cols,    DATA_DIR / "price.csv",         "price")
+    merge_and_save_wide(load_cols,     DATA_DIR / "load.csv",          "load")
+    merge_and_save_wide(solar_cols,    DATA_DIR / "solar.csv",         "solar")
+    merge_and_save_wide(wind_cols,     DATA_DIR / "wind.csv",          "wind")
+    merge_and_save_wide(residual_cols, DATA_DIR / "residual_load.csv", "residual_load")
+    merge_and_save_generation(gen_rows, DATA_DIR / "generation")
+    print()
+
+    print("保存/合并原始数据 [raw_data/]...")
+    merge_and_save_raw_wide(raw_price_cols, RAW_DIR / "A44.csv", "A44 price")
+    merge_and_save_raw_wide(raw_load_cols,  RAW_DIR / "A65.csv", "A65 load")
+    merge_and_save_raw_generation(raw_gen_by_country, RAW_DIR / "generation")
+    print()
+
+    print("=" * 62)
+    print(f"完成！{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    print("=" * 62)
+
+
+if __name__ == "__main__":
+    main()

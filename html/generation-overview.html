@@ -1,0 +1,1136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Generation Overview – European Electricity Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+    <script src="nav.js"></script>   
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f2f5; padding: 20px; }
+        .container { max-width: 1600px; margin: 0 auto; background: #fff; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); overflow: hidden; }
+
+        .header { background: #2c3e50; color: #fff; padding: 20px 30px 0 30px; }
+        .header-top { padding-bottom: 16px; }
+        .header-top h1 { font-size: 24px; font-weight: 500; letter-spacing: 0.2px; }
+
+        .main-nav { display: flex; gap: 2px; margin-top: 4px; }
+        .main-nav-link {
+            display: inline-flex; align-items: center; gap: 7px;
+            padding: 10px 24px; font-size: 14px; font-weight: 600;
+            color: rgba(255,255,255,0.65); text-decoration: none;
+            border-radius: 6px 6px 0 0; background: rgba(255,255,255,0.06);
+            border: 1px solid transparent; border-bottom: none; letter-spacing: 0.2px;
+            transition: background 0.2s, color 0.2s, border-color 0.2s; white-space: nowrap;
+            position: relative; top: 1px;
+        }
+        .main-nav-link:hover { color: rgba(255,255,255,0.95); background: rgba(255,255,255,0.14); }
+        .main-nav-link.active { color: #2c3e50; background: #f8f9fa; border-color: #e6e9ed; border-bottom-color: #f8f9fa; }
+
+        .sub-nav { background: #f8f9fa; border-bottom: 2px solid #e6e9ed; padding: 0 30px; display: flex; }
+        .sub-nav-link { display: inline-block; padding: 14px 22px; font-size: 14px; font-weight: 600; color: #6c757d; text-decoration: none; border-bottom: 3px solid transparent; margin-bottom: -2px; }
+        .sub-nav-link.active { color: #2c3e50; border-bottom-color: #2c3e50; }
+
+        .controls {
+            padding: 20px 30px; display: flex; flex-wrap: wrap; gap: 24px;
+            align-items: flex-end; background: #fff; border-bottom: 1px solid #e6e9ed;
+        }
+        .control-group { display: flex; flex-direction: column; gap: 6px; }
+        .control-group label { font-size: 13px; font-weight: 600; color: #2c3e50; white-space: nowrap; }
+        select {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            height: 36px; padding: 0 12px; border: 1px solid #ccc; border-radius: 6px;
+            font-size: 14px; min-width: 120px; cursor: pointer;
+        }
+
+        .country-select-wrapper { position: relative; display: inline-block; }
+        .country-select-btn {
+            min-width: 220px; height: 36px; padding: 0 12px; border: 1px solid #ccc;
+            border-radius: 6px; font-size: 14px; background: #fff; cursor: pointer;
+            display: flex; align-items: center; justify-content: space-between; gap: 8px;
+        }
+        .country-select-btn::after { content: '▼'; font-size: 10px; color: #666; }
+        .country-dropdown {
+            position: absolute; top: calc(100% + 4px); left: 0; min-width: 320px;
+            max-height: 320px; overflow-y: auto; background: #fff; border: 1px solid #ccc;
+            border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 9999;
+            display: none; padding: 8px 0;
+        }
+        .country-dropdown.show { display: block; }
+        .country-dropdown-header { display: flex; gap: 8px; padding: 4px 12px 8px; border-bottom: 1px solid #eee; margin-bottom: 4px; }
+        .btn-small { padding: 4px 10px; font-size: 12px; background: #e9ecef; border: 1px solid #ccc; cursor: pointer; border-radius: 4px; }
+        .country-list { display: grid; grid-template-columns: repeat(2, 1fr); gap: 2px 0; padding: 0 8px; }
+        .country-item { display: flex; align-items: center; gap: 6px; padding: 4px 6px; border-radius: 4px; cursor: pointer; }
+        .country-item:hover { background: #f5f5f5; }
+
+        .chart-grid { display: grid; grid-template-columns: 1fr; gap: 24px; padding: 24px 30px; }
+        .chart-card { background: #fff; border-radius: 8px; border: 1px solid #e6e9ed; padding: 16px; }
+        .chart-card-header h3 { font-size: 18px; font-weight: 500; color: #2c3e50; border-left: 4px solid #2c3e50; padding-left: 12px; margin: 0; }
+        .subtitle { font-size: 12px; color: #888; margin-top: 4px; padding-left: 16px; }
+
+        /* ▼ ADDED: Export button styles */
+        .export-btn {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 7px 14px; font-size: 12px; font-weight: 600;
+            color: #2c3e50; background: #fff;
+            border: 1px solid #ced4da; border-radius: 6px;
+            cursor: pointer; white-space: nowrap;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            transition: background 0.15s, border-color 0.15s;
+        }
+        .export-btn:hover { background: #f0f4f8; border-color: #5a8fc2; }
+        .export-btn:active { background: #e6ecf2; }
+
+        #sharedLegend, #annualLegend {
+            width: 100%; margin-top: 6px; padding: 2px 6px;
+            display: flex; flex-wrap: wrap; gap: 8px 16px; justify-content: center;
+            border-top: none;
+        }
+        .legend-row {
+            display: flex; align-items: flex-start; gap: 12px; margin-top: 6px;
+        }
+        .legend-btns {
+            display: flex; flex-direction: column; gap: 4px; flex-shrink: 0; padding-top: 2px;
+        }
+        .legend-btns button {
+            padding: 3px 9px; font-size: 11px; background: #e9ecef;
+            border: 1px solid #ccc; border-radius: 4px; cursor: pointer;
+            white-space: nowrap; font-family: inherit;
+        }
+        .legend-btns button:hover { background: #d0d3d8; }
+        .leg-item {
+            display: flex; align-items: center; gap: 7px;
+            font-size: 13px; color: #333; cursor: pointer;
+            padding: 2px 4px; border-radius: 3px; user-select: none;
+            transition: opacity 0.15s;
+        }
+        .leg-item.hidden { opacity: 0.35; }
+        .leg-swatch { flex-shrink: 0; }
+
+        .year-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 12px; }
+        .year-card { border: none; border-radius: 8px; padding: 10px; background: #fafbfd; }
+        .year-title { font-size: 13px; font-weight: 700; color: #2c3e50; margin-bottom: 8px; }
+        .year-chart { height: 280px; }
+
+        .annual-header-row {
+            display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+        }
+        .annual-year-group { display: flex; flex-direction: column; gap: 6px; }
+        .annual-year-group label { font-size: 12px; font-weight: 600; color: #6c757d; }
+
+        .annual-row { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-top: 12px; }
+        .annual-chart { height: 430px; }
+
+        .loading { text-align: center; padding: 40px 20px; color: #666; font-size: 15px; }
+
+        @media (max-width: 1100px) {
+            .year-row, .annual-row { grid-template-columns: 1fr; }
+            .year-card { border-radius: 8px; }
+        }
+        @media (max-width: 900px) {
+            .header { padding: 16px 16px 0 16px; }
+            .sub-nav { padding: 0 10px; overflow-x: auto; }
+            .controls { flex-direction: column; align-items: stretch; }
+            .country-select-btn, .country-dropdown, select { width: 100%; min-width: 0; }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="sub-nav">
+        <a class="sub-nav-link active" href="generation-overview">Generation Overview</a>
+        <a class="sub-nav-link" href="generation-type">Generation by Type</a>
+    </div>
+
+    <div class="controls">
+        <div class="control-group">
+            <label>Start month</label>
+            <select id="monthFrom"></select>
+        </div>
+        <div class="control-group">
+            <label>End month</label>
+            <select id="monthTo"></select>
+        </div>
+        <div class="control-group">
+            <label>Countries</label>
+            <div class="country-select-wrapper">
+                <div class="country-select-btn" id="countrySelectBtn"><span id="countrySelectText">Select...</span></div>
+                <div class="country-dropdown" id="countryDropdown">
+                    <div class="country-dropdown-header">
+                        <button id="selectAllBtn" class="btn-small">Select All</button>
+                        <button id="clearAllBtn" class="btn-small">Clear All</button>
+                    </div>
+                    <div id="countryCheckboxes" class="country-list"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="loadingMsg" class="loading">Loading generation data...</div>
+
+    <div class="chart-grid" style="display:none;" id="chartGrid">
+        <div class="chart-card">
+            <div class="chart-card-header">
+                <div style="display:flex; align-items:center; justify-content:space-between;">
+                    <h3>Load vs Generation by Hour (Monthly Range Avg)</h3>
+                    <button class="export-btn" id="hourlyExportBtn" onclick="exportHourlyGenerationCSV()"> Export CSV</button>
+                </div>
+                <div class="subtitle">Generation = sum of technologies excluding Cross border; CEE=HU+RO+RS+HR+PL+BG. Price = simple average of selected countries (€/MWh, right axis).</div>
+            </div>
+            <div class="year-row">
+                <div class="year-card"><div class="year-title">2024</div><div id="chart2024" class="year-chart"></div></div>
+                <div class="year-card"><div class="year-title">2025</div><div id="chart2025" class="year-chart"></div></div>
+                <div class="year-card"><div class="year-title">2026</div><div id="chart2026" class="year-chart"></div></div>
+            </div>
+            <div class="legend-row">
+                <div class="legend-btns">
+                    <button id="legendSelectAll">All</button>
+                    <button id="legendClearAll">Clear</button>
+                </div>
+                <div id="sharedLegend"></div>
+            </div>
+        </div>
+
+        <div class="chart-card">
+            <div class="chart-card-header annual-header-row">
+                <div>
+                    <h3>Annual Generation Structure</h3>
+                    <div class="subtitle">Annual generation = average hourly power × 24 × days. Left: detailed technologies, Right: Renewable/Fossil/Nuclear.</div>
+                </div>
+                <div style="display:flex; align-items:flex-end; gap:16px;">
+                    <div class="annual-year-group">
+                        <label>Year</label>
+                        <select id="annualYear">
+                            <option value="2024">2024</option>
+                            <option value="2025" selected>2025</option>
+                            <option value="2026">2026</option>
+                        </select>
+                    </div>
+                    <button class="export-btn" id="annualExportBtn" onclick="exportAnnualGenerationCSV()" style="height:36px;"> Export CSV</button>
+                </div>
+            </div>
+            <div class="annual-row">
+                <div class="year-card">
+                    <div class="year-title">Detailed Technologies</div>
+                    <div id="annualDetailChart" class="annual-chart"></div>
+                </div>
+                <div class="year-card">
+                    <div class="year-title">Primary Groups</div>
+                    <div id="annualGroupChart" class="annual-chart"></div>
+                </div>
+            </div>
+            <div id="annualLegend"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+const BASE_COUNTRIES = ['AT','BG','DE','ES','FR','GR','HR','HU','IT','PL','RO','RS','SK'];
+const CEE_COUNTRIES = ['HU','RO','RS','HR','PL','BG'];
+const DISPLAY_COUNTRIES = ['CEE', ...BASE_COUNTRIES];
+const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const YEAR_DAYS = { 2024: 366, 2025: 365, 2026: 365 };
+
+let countryData = {};
+let loadData = [];
+let priceData = [];
+let charts = {};
+let loadReport = { ok: [], fail: [] };
+let loadFailReason = {};
+let legendState = {};
+
+// ▼ ADDED: caches of currently rendered chart data, used for CSV export
+let lastHourlyDataByYear = {}; // { 2024: {techs, techSeries, load, price}, 2025: {...}, 2026: {...} }
+let lastHourlyMeta = { selectedCountries: [], mFrom: 1, mTo: 12 };
+let lastAnnualData = null; // { year, selectedCountries, total, detail:[{name,value,group}], groupTotals }
+
+// ── summarizeYear cache ───────────────────────────────────────────────────────
+const _summarizeCache = new Map();
+
+function _summarizeCacheKey(year, selectedCountries, mFrom, mTo) {
+    return selectedCountries.slice().sort().join(',') + '|' + year + '|' + mFrom + '|' + mTo;
+}
+
+function clearSummarizeCache() {
+    _summarizeCache.clear();
+}
+
+// ── Colour helpers ────────────────────────────────────────────────────────────
+function typeToColor(t) {
+    if (!t) return '#90a4ae';
+    const tl = t.toLowerCase();
+    if (tl.includes('hydro pumped') || tl.includes('pumped storage')) return '#a8c4e0';
+    if (tl.includes('hydro')) return '#1a56a0';
+    if (tl.includes('battery') || tl.includes('energy storage')) return '#b0bec5';
+    if (tl.includes('biomass')) return '#1b5e20';
+    if (tl.includes('brown coal') || tl.includes('lignite')) return '#8B6914';
+    if (tl.includes('hard coal')) return '#444444';
+    if (tl.includes('coal-derived')) return '#d4b44a';
+    if (tl.includes('fossil oil') || tl.includes('oil shale')) return '#8B6914';
+    if (tl.includes('fossil gas') || tl.includes('gas')) return '#f5821f';
+    if (tl.includes('peat')) return '#5d4037';
+    if (tl.includes('wind off')) return '#2e7d32';
+    if (tl.includes('wind on') || tl.includes('wind')) return '#81c784';
+    if (tl.includes('solar')) return '#fcc428';
+    if (tl.includes('nuclear')) return '#e53935';
+    if (tl.includes('geotherm')) return '#3949ab';
+    if (tl.includes('marine')) return '#1565c0';
+    if (tl.includes('waste')) return '#8d6e63';
+    if (tl.includes('other renew')) return '#9c7bb5';
+    if (tl.includes('other')) return '#9c7bb5';
+    return '#90a4ae';
+}
+
+// ── CSV / date parsing ────────────────────────────────────────────────────────
+function parseDate(s) {
+    if (!s) return null;
+    let m = s.match(/^(\d{4})[\/-](\d{1,2})[\/-](\d{1,2})\s+(\d{1,2}):(\d{2})/);
+    if (m) return { year: +m[1], month: +m[2], day: +m[3], hour: +m[4] };
+    m = s.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})\s+(\d{1,2}):(\d{2})/);
+    if (m) return { year: +m[3], month: +m[2], day: +m[1], hour: +m[4] };
+    return null;
+}
+
+function parseCSV(text) {
+    const lines = text.trim().split(/\r?\n/);
+    const out = [];
+    if (!lines.length) return out;
+    const first = lines[0].trim().toLowerCase();
+    const hasHeader = first.includes('date') && first.includes('category');
+    const startIdx = hasHeader ? 1 : 0;
+
+    function parseLooseLine(line) {
+        const m = line.match(/^(\d{4}\/\d{1,2}\/\d{1,2})\s+(\d{1,2}:\d{2})\s+(.+?)\s+(-?\d+(?:\.\d+)?)$/);
+        if (!m) return null;
+        return { date: `${m[1]} ${m[2]}`, category: m[3].trim(), value: parseFloat(m[4]) };
+    }
+
+    for (let i = startIdx; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (!line) continue;
+        if (line.includes('\t')) {
+            const parts = line.split('\t');
+            if (parts.length >= 3) { out.push({ date: parts[0].trim(), category: parts[1].trim(), value: parseFloat(parts[2]) }); continue; }
+        }
+        if (line.includes(',')) {
+            const parts = line.split(',');
+            if (parts.length >= 3) { out.push({ date: parts[0].trim(), category: parts[1].trim(), value: parseFloat(parts[2]) }); continue; }
+        }
+        const loose = parseLooseLine(line);
+        if (loose) out.push(loose);
+    }
+    return out;
+}
+
+function normalizeCategory(cat) { return (cat || '').replace(/\s+/g, ' ').trim(); }
+function canonicalKey(cat) { return normalizeCategory(cat).toLowerCase().replace(/[-/]/g, ' ').replace(/\s+/g, ' ').trim(); }
+
+// ── Load CSV parsing ──────────────────────────────────────────────────────────
+function parseLoadCSV(text) {
+    const lines = text.trim().split(/\r?\n/).filter(Boolean);
+    if (!lines.length) return [];
+
+    const headers = lines[0].split(',').map(h => h.trim());
+    const dateIdx = headers.findIndex(h => h.toLowerCase() === 'date');
+    if (dateIdx < 0) return [];
+
+    const countryCols = headers
+        .map((h, i) => ({ code: h, idx: i }))
+        .filter(x => x.idx !== dateIdx);
+
+    const out = [];
+    for (let i = 1; i < lines.length; i++) {
+        const cols = lines[i].split(',').map(x => x.trim());
+        if (!cols.length) continue;
+        const dt = parseDate(cols[dateIdx]);
+        if (!dt) continue;
+        const values = {};
+        countryCols.forEach(c => {
+            const v = Number(cols[c.idx]);
+            values[c.code] = Number.isFinite(v) ? v : null;
+        });
+        out.push({ year: dt.year, month: dt.month, day: dt.day, hour: dt.hour, values });
+    }
+    return out;
+}
+
+// ── Price CSV parsing (tab-separated) ────────────────────────────────────────
+function parsePriceCSV(text) {
+    const lines = text.trim().split(/\r?\n/).filter(Boolean);
+    if (!lines.length) return [];
+
+    // Support both tab and comma separated
+    const sep = lines[0].includes('\t') ? '\t' : ',';
+    const headers = lines[0].split(sep).map(h => h.trim());
+    const dateIdx = headers.findIndex(h => h.toLowerCase() === 'date');
+    if (dateIdx < 0) return [];
+
+    const countryCols = headers
+        .map((h, i) => ({ code: h, idx: i }))
+        .filter(x => x.idx !== dateIdx);
+
+    const out = [];
+    for (let i = 1; i < lines.length; i++) {
+        const cols = lines[i].split(sep).map(x => x.trim());
+        if (!cols.length) continue;
+        const dt = parseDate(cols[dateIdx]);
+        if (!dt) continue;
+        const values = {};
+        countryCols.forEach(c => {
+            const v = Number(cols[c.idx]);
+            values[c.code] = Number.isFinite(v) ? v : null;
+        });
+        out.push({ year: dt.year, month: dt.month, day: dt.day, hour: dt.hour, values });
+    }
+    return out;
+}
+
+// ── Data loading ──────────────────────────────────────────────────────────────
+async function loadAllCountries() {
+    loadReport = { ok: [], fail: [] };
+    loadFailReason = {};
+
+    await Promise.all(BASE_COUNTRIES.map(async c => {
+        try {
+            const res = await fetch(`/data/entsoe/generation/${c}.csv`);
+            if (!res.ok) { loadReport.fail.push(c); loadFailReason[c] = `HTTP ${res.status}`; return; }
+            const text = await res.text();
+            const rows = parseCSV(text);
+            if (!rows.length) { loadReport.fail.push(c); loadFailReason[c] = 'parsed 0 rows'; return; }
+            countryData[c] = rows;
+            loadReport.ok.push(c);
+        } catch (e) {
+            loadReport.fail.push(c);
+            loadFailReason[c] = e && e.message ? e.message : 'fetch error';
+        }
+    }));
+
+    const loadRes = await fetch('/data/entsoe/load.csv');
+    if (!loadRes.ok) throw new Error(`load.csv HTTP ${loadRes.status}`);
+    loadData = parseLoadCSV(await loadRes.text());
+
+    const priceRes = await fetch('/data/entsoe/price.csv');
+    if (!priceRes.ok) throw new Error(`price.csv HTTP ${priceRes.status}`);
+    priceData = parsePriceCSV(await priceRes.text());
+}
+
+// ── Country selector ──────────────────────────────────────────────────────────
+function buildCountryCheckboxes() {
+    const wrap = document.getElementById('countryCheckboxes');
+    wrap.innerHTML = '';
+    DISPLAY_COUNTRIES.forEach(c => {
+        const item = document.createElement('div');
+        item.className = 'country-item';
+        const cb = document.createElement('input');
+        cb.type = 'checkbox'; cb.value = c; cb.checked = c === 'CEE';
+        cb.addEventListener('change', refresh);
+        const span = document.createElement('span');
+        span.textContent = c;
+        item.appendChild(cb); item.appendChild(span);
+        item.addEventListener('click', e => { if (e.target !== cb) { cb.checked = !cb.checked; cb.dispatchEvent(new Event('change')); } });
+        wrap.appendChild(item);
+    });
+    updateCountryLabel();
+}
+
+function getSelectedCountriesRaw() {
+    return [...document.querySelectorAll('#countryCheckboxes input:checked')].map(x => x.value);
+}
+
+function expandCountries(selectedRaw) {
+    const expanded = selectedRaw.flatMap(c => c === 'CEE' ? CEE_COUNTRIES : [c]);
+    return [...new Set(expanded)];
+}
+
+function getSelectedCountries() {
+    return expandCountries(getSelectedCountriesRaw());
+}
+
+function updateCountryLabel() {
+    const all = [...document.querySelectorAll('#countryCheckboxes input')];
+    const checked = all.filter(x => x.checked);
+    const el = document.getElementById('countrySelectText');
+    if (!checked.length) el.textContent = 'None selected';
+    else if (checked.length === all.length) el.textContent = `All (${all.length})`;
+    else if (checked.length <= 4) el.textContent = checked.map(x => x.value).join(', ');
+    else el.textContent = `${checked.length} selected`;
+}
+
+function initControls() {
+    const from = document.getElementById('monthFrom');
+    const to   = document.getElementById('monthTo');
+    from.innerHTML = monthNames.map((m,i) => `<option value="${i+1}">${m}</option>`).join('');
+    to.innerHTML   = monthNames.map((m,i) => `<option value="${i+1}">${m}</option>`).join('');
+    from.value = '1'; to.value = '12';
+    from.addEventListener('change', refresh);
+    to.addEventListener('change', refresh);
+    document.getElementById('annualYear').addEventListener('change', refresh);
+
+    const btn  = document.getElementById('countrySelectBtn');
+    const drop = document.getElementById('countryDropdown');
+    btn.addEventListener('click', e => { e.stopPropagation(); drop.classList.toggle('show'); });
+    document.addEventListener('click', e => { if (!drop.contains(e.target) && e.target !== btn) drop.classList.remove('show'); });
+
+    document.getElementById('selectAllBtn').addEventListener('click', () => {
+        document.querySelectorAll('#countryCheckboxes input').forEach(x => x.checked = true);
+        updateCountryLabel(); refresh();
+    });
+    document.getElementById('clearAllBtn').addEventListener('click', () => {
+        document.querySelectorAll('#countryCheckboxes input').forEach(x => x.checked = false);
+        updateCountryLabel(); refresh();
+    });
+
+    // Legend select all / clear all
+    document.getElementById('legendSelectAll').addEventListener('click', () => {
+        allSeriesNames.forEach(n => { legendState[n] = true; });
+        const selected = getSelectedCountries();
+        const mFrom = parseInt(document.getElementById('monthFrom').value, 10);
+        const mTo   = parseInt(document.getElementById('monthTo').value, 10);
+        const yMax = calcGlobalYMax(selected, mFrom, mTo, null);
+        const priceRange = calcGlobalPriceRange(selected, mFrom, mTo);
+        [[charts.chart2024, 2024],[charts.chart2025, 2025],[charts.chart2026, 2026]].forEach(([c, y]) => {
+            applyYearChart(c, y, selected, mFrom, mTo, yMax, priceRange);
+        });
+        buildHtmlLegend();
+    });
+    document.getElementById('legendClearAll').addEventListener('click', () => {
+        allSeriesNames.forEach(n => { legendState[n] = false; });
+        const selected = getSelectedCountries();
+        const mFrom = parseInt(document.getElementById('monthFrom').value, 10);
+        const mTo   = parseInt(document.getElementById('monthTo').value, 10);
+        const priceRange = calcGlobalPriceRange(selected, mFrom, mTo);
+        [[charts.chart2024, 2024],[charts.chart2025, 2025],[charts.chart2026, 2026]].forEach(([c, y]) => {
+            applyYearChart(c, y, selected, mFrom, mTo, undefined, priceRange);
+        });
+        buildHtmlLegend();
+    });
+}
+
+// ── Data summarisation ────────────────────────────────────────────────────────
+function buildLoadSeries(year, selectedCountries, mFrom, mTo) {
+    const byHour = Array.from({ length: 24 }, () => ({ sum: 0, cnt: 0 }));
+
+    loadData.forEach(r => {
+        if (r.year !== year || r.month < mFrom || r.month > mTo) return;
+        let rowSum = 0;
+        let hasValue = false;
+
+        selectedCountries.forEach(c => {
+            const v = r.values[c];
+            if (Number.isFinite(v)) { rowSum += v; hasValue = true; }
+        });
+
+        if (hasValue && r.hour >= 0 && r.hour < 24) {
+            byHour[r.hour].sum += rowSum;
+            byHour[r.hour].cnt += 1;
+        }
+    });
+
+    return byHour.map(x => x.cnt ? +((x.sum / x.cnt).toFixed(2)) : null);
+}
+
+// ── Price series builder ──────────────────────────────────────────────────────
+function buildPriceSeries(year, selectedCountries, mFrom, mTo) {
+    const byHour = Array.from({ length: 24 }, () => ({ sum: 0, cnt: 0 }));
+    // price.csv has no 'CEE' column — use real country codes only
+    const priceCols = selectedCountries.filter(c => c !== 'CEE');
+
+    priceData.forEach(r => {
+        if (r.year !== year || r.month < mFrom || r.month > mTo) return;
+        let rowSum = 0, rowCnt = 0;
+        priceCols.forEach(c => {
+            const v = r.values[c];
+            if (Number.isFinite(v)) { rowSum += v; rowCnt++; }
+        });
+        if (rowCnt > 0 && r.hour >= 0 && r.hour < 24) {
+            byHour[r.hour].sum += rowSum / rowCnt; // average across countries first
+            byHour[r.hour].cnt += 1;
+        }
+    });
+
+    return byHour.map(x => x.cnt ? +((x.sum / x.cnt).toFixed(3)) : null);
+}
+
+function summarizeYear(year, selectedCountries, mFrom, mTo) {
+    const cacheKey = _summarizeCacheKey(year, selectedCountries, mFrom, mTo);
+    if (_summarizeCache.has(cacheKey)) return _summarizeCache.get(cacheKey);
+
+    const techLabelByKey = {};
+    const byHour = {};
+    for (let h = 0; h < 24; h++) byHour[h] = { techSum: {}, techCnt: {} };
+    const mergedByTs = {};
+
+    selectedCountries.forEach(c => {
+        (countryData[c] || []).forEach(r => {
+            if (isNaN(r.value)) return;
+            const dt = parseDate(r.date);
+            if (!dt || dt.year !== year || dt.month < mFrom || dt.month > mTo) return;
+
+            const key = `${dt.year}-${dt.month}-${dt.day}-${dt.hour}`;
+            if (!mergedByTs[key]) mergedByTs[key] = { hour: dt.hour, tech: {} };
+
+            const cat = normalizeCategory(r.category);
+            const ck  = canonicalKey(cat);
+
+            if (ck === 'load') return;
+            if (ck.includes('renewable share')) return;
+
+            if (!techLabelByKey[ck]) techLabelByKey[ck] = cat;
+            mergedByTs[key].tech[ck] = (mergedByTs[key].tech[ck] || 0) + r.value;
+        });
+    });
+
+    Object.values(mergedByTs).forEach(b => {
+        const h = b.hour;
+        Object.entries(b.tech).forEach(([ck, v]) => {
+            byHour[h].techSum[ck] = (byHour[h].techSum[ck] || 0) + v;
+            byHour[h].techCnt[ck] = (byHour[h].techCnt[ck] || 0) + 1;
+        });
+    });
+
+    const techKeys = Object.keys(techLabelByKey).sort((a, b) => techLabelByKey[a].localeCompare(techLabelByKey[b]));
+    const techs = techKeys.map(k => techLabelByKey[k]);
+    const load = buildLoadSeries(year, selectedCountries, mFrom, mTo);
+    const techSeries = {};
+    techs.forEach(t => techSeries[t] = []);
+
+    for (let h = 0; h < 24; h++) {
+        const x = byHour[h];
+        techKeys.forEach((k, i) => {
+            const label = techs[i];
+            const s = x.techSum[k] || 0, cnt = x.techCnt[k] || 0;
+            techSeries[label].push(cnt ? +((s / cnt).toFixed(2)) : 0);
+        });
+    }
+
+    const result = { techs, techSeries, load };
+    _summarizeCache.set(cacheKey, result);
+    return result;
+}
+
+// ── Count actual data days (for 2026 YTD calculation) ────────────────────────
+function countActualDays(year, selectedCountries, mFrom, mTo) {
+    const daySet = new Set();
+    selectedCountries.forEach(c => {
+        (countryData[c] || []).forEach(r => {
+            const dt = parseDate(r.date);
+            if (!dt || dt.year !== year || dt.month < mFrom || dt.month > mTo) return;
+            daySet.add(`${dt.year}-${dt.month}-${dt.day}`);
+        });
+    });
+    return daySet.size || 1;
+}
+
+// ── Annual generation ─────────────────────────────────────────────────────────
+function classifyPrimaryGroup(tech) {
+    const t = tech.toLowerCase();
+    if (t.includes('nuclear')) return 'Nuclear';
+    if (t.includes('coal') || t.includes('gas') || t.includes('oil') || t.includes('peat') || t.includes('fossil') || t.includes('waste non')) return 'Fossil';
+    return 'Renewable';
+}
+
+function buildAnnualTechTotals(year, selectedCountries) {
+    const { techs, techSeries } = summarizeYear(year, selectedCountries, 1, 12);
+
+    // 2026: use actual data days (YTD); other years: full calendar days
+    const days = year === 2026
+        ? countActualDays(year, selectedCountries, 1, 12)
+        : (YEAR_DAYS[year] || 365);
+
+    const out = [];
+    techs.forEach(t => {
+        const arr = techSeries[t] || [];
+        const avgHourMW = arr.length ? arr.reduce((a,b) => a + (Number.isFinite(b) ? b : 0), 0) / arr.length : 0;
+        const annualMWh = avgHourMW * 24 * days;
+        if (annualMWh > 0) out.push({ name: t, value: annualMWh, color: typeToColor(t) });
+    });
+
+    return out.sort((a, b) => b.value - a.value);
+}
+
+function renderAnnualCharts(selectedCountries, year) {
+    const detail = buildAnnualTechTotals(year, selectedCountries);
+    const total = detail.reduce((a,b) => a + b.value, 0);
+
+    const groupTotals = { Renewable: 0, Fossil: 0, Nuclear: 0 };
+    detail.forEach(x => { groupTotals[classifyPrimaryGroup(x.name)] += x.value; });
+
+    // ▼ ADDED: cache for CSV export
+    lastAnnualData = {
+        year,
+        selectedCountries: selectedCountries.slice(),
+        total,
+        detail: detail.map(x => ({ name: x.name, value: x.value, group: classifyPrimaryGroup(x.name) })),
+        groupTotals
+    };
+
+    const groupData = [
+        { name: 'Renewable', value: groupTotals.Renewable, itemStyle: { color: '#fcc428' } },
+        { name: 'Fossil',    value: groupTotals.Fossil,    itemStyle: { color: '#f5821f' } },
+        { name: 'Nuclear',   value: groupTotals.Nuclear,   itemStyle: { color: '#e53935' } }
+    ];
+
+    charts.annualDetail.setOption({
+        tooltip: { trigger: 'item', valueFormatter: v => `${(v/1e6).toFixed(2)} TWh` },
+        series: [{
+            type: 'pie', radius: ['44%', '70%'], center: ['50%', '50%'],
+            minShowLabelAngle: 3.6,
+            itemStyle: { borderColor: '#fff', borderWidth: 2 },
+            label: {
+                show: true,
+                formatter: p => p.percent < 1 ? '' : `${p.name}\n${(p.value/1e6).toFixed(2)} TWh\n${p.percent.toFixed(1)}%`,
+                fontSize: 11
+            },
+            labelLine: { show: true, length: 12, length2: 8 },
+            data: detail.map(x => ({ name: x.name, value: x.value, itemStyle: { color: x.color } }))
+        }],
+        graphic: [{
+            type: 'text', left: 'center', top: '45%',
+            style: { text: `${(total/1e6).toFixed(2)} TWh`, fill: '#4b5563', font: '500 20px Segoe UI', textAlign: 'center' }
+        }]
+    }, true);
+
+    charts.annualGroup.setOption({
+        tooltip: { trigger: 'item', valueFormatter: v => `${(v/1e6).toFixed(2)} TWh` },
+        series: [{
+            type: 'pie', radius: ['44%', '70%'], center: ['50%', '50%'],
+            minShowLabelAngle: 3.6,
+            itemStyle: { borderColor: '#fff', borderWidth: 2 },
+            label: {
+                show: true,
+                formatter: p => p.percent < 1 ? '' : `${p.name}\n${(p.value/1e6).toFixed(2)} TWh\n${p.percent.toFixed(1)}%`,
+                fontSize: 13
+            },
+            labelLine: { show: true, length: 12, length2: 8 },
+            data: groupData
+        }],
+        graphic: [{
+            type: 'text', left: 'center', top: '45%',
+            style: { text: `${(total/1e6).toFixed(2)} TWh`, fill: '#4b5563', font: '500 20px Segoe UI', textAlign: 'center' }
+        }]
+    }, true);
+
+    const legend = document.getElementById('annualLegend');
+    legend.innerHTML = '';
+    detail.forEach(x => {
+        const item = document.createElement('div');
+        item.className = 'leg-item';
+        item.innerHTML = `<div class="leg-swatch" style="width:12px;height:12px;border-radius:50%;background:${x.color};"></div><span>${x.name}</span>`;
+        legend.appendChild(item);
+    });
+}
+
+// ── Y-axis max (left axis only, excludes price) ───────────────────────────────
+function calcGlobalYMax(selected, mFrom, mTo, visibilityFilter) {
+    if (!selected.length || mFrom > mTo) return undefined;
+    let globalMax = 0;
+    [2024, 2025, 2026].forEach(year => {
+        const { techSeries, load } = summarizeYear(year, selected, mFrom, mTo);
+        for (let h = 0; h < 24; h++) {
+            let stackedSum = 0;
+            Object.entries(techSeries).forEach(([name, arr]) => {
+                // Never include price series in left-axis max calculation
+                if (name === 'Price (€/MWh)') return;
+                if (visibilityFilter ? visibilityFilter(name) : true) {
+                    if (arr[h] > 0) stackedSum += arr[h];
+                }
+            });
+            if (stackedSum > globalMax) globalMax = stackedSum;
+            const loadVisible = visibilityFilter ? visibilityFilter('Load') : true;
+            if (loadVisible && load[h] && load[h] > globalMax) globalMax = load[h];
+        }
+    });
+    return globalMax > 0 ? Math.ceil(globalMax * 1.05 / 1000) * 1000 : undefined;
+}
+
+// ── Price axis range (right axis, fixed across all 3 years) ──────────────────
+function calcGlobalPriceRange(selected, mFrom, mTo) {
+    if (!selected.length || mFrom > mTo) return {};
+    let min = Infinity, max = -Infinity;
+    [2024, 2025, 2026].forEach(year => {
+        const priceSeries = buildPriceSeries(year, selected, mFrom, mTo);
+        priceSeries.forEach(v => {
+            if (Number.isFinite(v)) {
+                if (v < min) min = v;
+                if (v > max) max = v;
+            }
+        });
+    });
+    if (!Number.isFinite(min) || !Number.isFinite(max)) return {};
+    const pad = Math.max((max - min) * 0.15, 10);
+    const priceMin = Math.floor((min - pad) / 10) * 10;
+    const priceMax = Math.ceil((max + pad) / 10) * 10;
+    return { priceMin, priceMax };
+}
+
+// ── Chart drawing ─────────────────────────────────────────────────────────────
+let allSeriesNames = [];
+let allSeriesColors = {};
+
+const PRICE_SERIES_NAME = 'Price (€/MWh)';
+const PRICE_COLOR = '#8b0000'; // dark red, distinct from Nuclear's #e53935
+
+function buildSeriesForYear(year, selectedCountries, mFrom, mTo) {
+    const { techs, techSeries, load } = summarizeYear(year, selectedCountries, mFrom, mTo);
+    const hours = Array.from({ length: 24 }, (_, i) => String(i + 1));
+
+    const series = techs.map(t => {
+        const col = typeToColor(t);
+        const visible = legendState[t] !== false;
+        // When hidden: keep stack name but zero out data so it doesn't contribute to stack height
+        return {
+            name: t, type: 'line', stack: 'gen', smooth: false, symbol: 'none',
+            yAxisIndex: 0,
+            data: visible ? techSeries[t] : techSeries[t].map(() => 0),
+            itemStyle: { color: col },
+            lineStyle: { width: visible ? 1.6 : 0, color: col },
+            areaStyle: { opacity: visible ? 1 : 0, color: col },
+            silent: !visible,
+        };
+    });
+
+    // Load line (left axis)
+    const loadVisible = legendState['Load'] !== false;
+    series.push({
+        name: 'Load', type: 'line', smooth: false, symbol: 'none',
+        yAxisIndex: 0,
+        data: loadVisible ? load : load.map(() => null),
+        itemStyle: { color: '#111827' },
+        lineStyle: { width: loadVisible ? 2.2 : 0, color: '#111827' },
+        areaStyle: { opacity: 0 },
+        silent: !loadVisible,
+    });
+
+    // Price line (right axis)
+    const priceVisible = legendState[PRICE_SERIES_NAME] !== false;
+    const priceSeries = buildPriceSeries(year, selectedCountries, mFrom, mTo);
+    series.push({
+        name: PRICE_SERIES_NAME, type: 'line', smooth: false, symbol: 'none',
+        yAxisIndex: 1,
+        data: priceVisible ? priceSeries : priceSeries.map(() => null),
+        itemStyle: { color: PRICE_COLOR },
+        lineStyle: { width: priceVisible ? 2 : 0, color: PRICE_COLOR, type: 'dashed' },
+        areaStyle: { opacity: 0 },
+        silent: !priceVisible,
+        z: 10,
+    });
+
+    // Register in global legend tracking
+    series.forEach(s => {
+        if (!allSeriesColors[s.name]) allSeriesColors[s.name] = s.itemStyle.color;
+        if (!allSeriesNames.includes(s.name)) allSeriesNames.push(s.name);
+    });
+
+    // ▼ ADDED: cache raw (visibility-independent) hourly data for CSV export
+    lastHourlyDataByYear[year] = { techs: techs.slice(), techSeries, load, price: priceSeries };
+    lastHourlyMeta = { selectedCountries: selectedCountries.slice(), mFrom, mTo };
+
+    return { series, hours };
+}
+
+function applyYearChart(chart, year, selectedCountries, mFrom, mTo, yMax, priceRange) {
+    if (!selectedCountries.length || mFrom > mTo) { chart.clear(); return; }
+    const { series, hours } = buildSeriesForYear(year, selectedCountries, mFrom, mTo);
+
+    // Right-axis (price) range: use fixed global range when provided,
+    // otherwise fall back to a per-chart dynamic range.
+    const priceSerie = series.find(s => s.name === PRICE_SERIES_NAME);
+    let priceMin, priceMax;
+    if (priceRange && Number.isFinite(priceRange.priceMin) && Number.isFinite(priceRange.priceMax)) {
+        priceMin = priceRange.priceMin;
+        priceMax = priceRange.priceMax;
+    } else if (priceSerie) {
+        const vals = priceSerie.data.filter(Number.isFinite);
+        if (vals.length) {
+            const rawMin = Math.min(...vals);
+            const rawMax = Math.max(...vals);
+            const pad = Math.max((rawMax - rawMin) * 0.15, 10);
+            priceMin = Math.floor((rawMin - pad) / 10) * 10;
+            priceMax = Math.ceil((rawMax + pad) / 10) * 10;
+        }
+    }
+
+    chart.setOption({
+        tooltip: {
+            trigger: 'axis',
+            formatter: params => {
+                let html = `<div style="font-size:13px;font-weight:600;margin-bottom:4px;">Hour ${params[0]?.axisValue}</div>`;
+                params.forEach(p => {
+                    if (p.value == null || isNaN(p.value)) return;
+                    const isPrice = p.seriesName === PRICE_SERIES_NAME;
+                    const val = isPrice
+                        ? `${Number(p.value).toFixed(2)} €/MWh`
+                        : `${Number(p.value).toFixed(2)} MW`;
+                    html += `<div style="display:flex;align-items:center;gap:6px;margin:1px 0;">
+                        <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${p.color};flex-shrink:0;"></span>
+                        <span style="flex:1">${p.seriesName}</span>
+                        <span style="font-weight:600;margin-left:8px;">${val}</span>
+                    </div>`;
+                });
+                return html;
+            }
+        },
+        legend: { show: false },
+        grid: { left: 68, right: 68, top: 24, bottom: 42 },
+        xAxis: { type: 'category', data: hours},
+        yAxis: [
+            {
+                type: 'value',
+                name: 'MW',
+                nameLocation: 'middle',
+                nameGap: 48,
+                nameRotate: 90,
+                max: yMax,
+                nameTextStyle: { color: '#555' },
+                axisLabel: { color: '#555' },
+                axisLine: { show: true, lineStyle: { color: '#aaa' } },
+                axisTick: { lineStyle: { color: '#aaa' } },
+                splitLine: { lineStyle: { color: '#e6e9ed' } },
+            },
+            {
+                type: 'value',
+                name: '€/MWh',
+                nameLocation: 'middle',
+                nameGap: 48,
+                nameRotate: 270,
+                position: 'right',
+                splitLine: { show: false },
+                min: priceMin,
+                max: priceMax,
+                nameTextStyle: { color: '#555' },
+                axisLabel: { color: '#555' },
+                axisLine: { show: true, lineStyle: { color: '#aaa' } },
+                axisTick: { lineStyle: { color: '#aaa' } },
+            }
+        ],
+        series
+    }, true);
+}
+
+// ── HTML shared legend ────────────────────────────────────────────────────────
+function buildHtmlLegend() {
+    const wrap = document.getElementById('sharedLegend');
+    wrap.innerHTML = '';
+    const names = allSeriesNames
+        .filter(n => n !== 'Load' && n !== PRICE_SERIES_NAME)
+        .sort((a, b) => a.localeCompare(b));
+    if (allSeriesNames.includes('Load')) names.push('Load');
+    if (allSeriesNames.includes(PRICE_SERIES_NAME)) names.push(PRICE_SERIES_NAME);
+
+    names.forEach(name => {
+        const visible = legendState[name] !== false;
+        const item = document.createElement('div');
+        item.className = 'leg-item' + (visible ? '' : ' hidden');
+        item.dataset.name = name;
+
+        const swatch = document.createElement('div');
+        swatch.className = 'leg-swatch';
+        const color = allSeriesColors[name] || '#90a4ae';
+
+        if (name === 'Load' || name === PRICE_SERIES_NAME) {
+            // Line swatch for Load and Price
+            swatch.style.width = '22px';
+            swatch.style.height = '0';
+            swatch.style.borderRadius = '0';
+            swatch.style.background = 'transparent';
+            swatch.style.borderTop = name === PRICE_SERIES_NAME
+                ? `2.5px dashed ${color}`
+                : `2.5px solid ${color}`;
+        } else {
+            swatch.style.width = '12px';
+            swatch.style.height = '12px';
+            swatch.style.borderRadius = '50%';
+            swatch.style.background = color;
+            swatch.style.border = 'none';
+        }
+
+        const label = document.createElement('span');
+        label.textContent = name;
+
+        item.appendChild(swatch);
+        item.appendChild(label);
+        item.addEventListener('click', () => toggleSeries(name));
+        wrap.appendChild(item);
+    });
+}
+
+function toggleSeries(name) {
+    legendState[name] = legendState[name] === false ? true : false;
+    const selected = getSelectedCountries();
+    const mFrom = parseInt(document.getElementById('monthFrom').value, 10);
+    const mTo   = parseInt(document.getElementById('monthTo').value, 10);
+
+    const yMax = calcGlobalYMax(selected, mFrom, mTo, seriesName => legendState[seriesName] !== false);
+    const priceRange = calcGlobalPriceRange(selected, mFrom, mTo);
+
+    [[charts.chart2024, 2024],[charts.chart2025, 2025],[charts.chart2026, 2026]].forEach(([c, y]) => {
+        applyYearChart(c, y, selected, mFrom, mTo, yMax, priceRange);
+    });
+    document.querySelectorAll('#sharedLegend .leg-item').forEach(el => {
+        const vis = legendState[el.dataset.name] !== false;
+        el.classList.toggle('hidden', !vis);
+    });
+}
+
+function refresh() {
+    updateCountryLabel();
+    const selected = getSelectedCountries();
+    const mFrom = parseInt(document.getElementById('monthFrom').value, 10);
+    const mTo   = parseInt(document.getElementById('monthTo').value, 10);
+    const annualYear = parseInt(document.getElementById('annualYear').value, 10);
+
+    allSeriesNames = [];
+    allSeriesColors = {};
+    clearSummarizeCache();
+
+    // ▼ ADDED: reset hourly-data export cache when nothing to render
+    if (!selected.length || mFrom > mTo) {
+        lastHourlyDataByYear = {};
+        lastHourlyMeta = { selectedCountries: selected.slice(), mFrom, mTo };
+    }
+
+    const priceRange = calcGlobalPriceRange(selected, mFrom, mTo);
+
+    applyYearChart(charts.chart2024, 2024, selected, mFrom, mTo, undefined, priceRange);
+    applyYearChart(charts.chart2025, 2025, selected, mFrom, mTo, undefined, priceRange);
+    applyYearChart(charts.chart2026, 2026, selected, mFrom, mTo, undefined, priceRange);
+
+    const yMax = calcGlobalYMax(selected, mFrom, mTo, null);
+    [[charts.chart2024, 2024],[charts.chart2025, 2025],[charts.chart2026, 2026]].forEach(([c, y]) => {
+        if (selected.length && mFrom <= mTo) {
+            c.setOption({ yAxis: [{ max: yMax }, { min: priceRange.priceMin, max: priceRange.priceMax }] });
+        }
+    });
+
+    buildHtmlLegend();
+
+    if (!selected.length) {
+        charts.annualDetail.clear();
+        charts.annualGroup.clear();
+        document.getElementById('annualLegend').innerHTML = '';
+        lastAnnualData = null; // ▼ ADDED: reset export cache
+    } else {
+        renderAnnualCharts(selected, annualYear);
+    }
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+async function init() {
+    if (typeof echarts === 'undefined') {
+        document.getElementById('loadingMsg').textContent = 'ECharts failed to load (CDN blocked or unavailable).';
+        return;
+    }
+
+    await loadAllCountries();
+    buildCountryCheckboxes();
+    initControls();
+
+    document.getElementById('loadingMsg').style.display = 'none';
+    document.getElementById('chartGrid').style.display = 'grid';
+
+    charts.chart2024     = echarts.init(document.getElementById('chart2024'));
+    charts.chart2025     = echarts.init(document.getElementById('chart2025'));
+    charts.chart2026     = echarts.init(document.getElementById('chart2026'));
+    charts.annualDetail  = echarts.init(document.getElementById('annualDetailChart'));
+    charts.annualGroup   = echarts.init(document.getElementById('annualGroupChart'));
+
+    refresh();
+
+    window.addEventListener('resize', () => Object.values(charts).forEach(c => c.resize()));
+}
+
+/* ============================================================
+   ▼ ADDED: CSV Export functions
+   ============================================================ */
+
+// Generic CSV builder: rows is an array of arrays (each inner array = one row of cell values)
+function toCSV(rows) {
+    return rows.map(r => r.map(csvEscape).join(',')).join('\r\n');
+}
+function csvEscape(v) {
+    if (v === null || v === undefined) return '';
+    const s = String(v);
+    return /[",\r\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+}
+function downloadCSV(filename, csvString) {
+    // BOM so Excel opens UTF-8 (€ sign, accented labels) correctly
+    const blob = new Blob(['﻿' + csvString], { type: 'text/csv;charset=utf-8;' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+
+// --- Export 1: Load vs Generation by Hour (all 3 years, all technologies, Load, Price) ---
+function exportHourlyGenerationCSV() {
+    const years = [2024, 2025, 2026].filter(y => lastHourlyDataByYear[y]);
+    if (!years.length) { alert('No data loaded yet.'); return; }
+
+    // Union of technology names across the loaded years, alphabetically sorted
+    const techSet = new Set();
+    years.forEach(y => lastHourlyDataByYear[y].techs.forEach(t => techSet.add(t)));
+    const techs = [...techSet].sort((a, b) => a.localeCompare(b));
+
+    const rows = [['Year', 'Hour', ...techs, 'Load (MW)', 'Price (EUR/MWh)']];
+
+    years.forEach(y => {
+        const { techSeries, load, price } = lastHourlyDataByYear[y];
+        for (let h = 0; h < 24; h++) {
+            const row = [y, `H${String(h + 1).padStart(2, '0')}`];
+            techs.forEach(t => {
+                const arr = techSeries[t];
+                row.push(arr && arr[h] !== undefined && arr[h] !== null ? arr[h] : '');
+            });
+            row.push(load[h] !== undefined && load[h] !== null ? load[h] : '');
+            row.push(price[h] !== undefined && price[h] !== null ? price[h] : '');
+            rows.push(row);
+        }
+    });
+
+    const countryLabel = lastHourlyMeta.selectedCountries.length
+        ? lastHourlyMeta.selectedCountries.slice().sort().join('-')
+        : 'none';
+    const monthLabel = `${monthNames[lastHourlyMeta.mFrom - 1]}-${monthNames[lastHourlyMeta.mTo - 1]}`;
+    downloadCSV(`hourly_generation_${countryLabel}_${monthLabel}.csv`, toCSV(rows));
+}
+
+// --- Export 2: Annual Generation Structure (detailed technologies + primary groups) ---
+function exportAnnualGenerationCSV() {
+    if (!lastAnnualData || !lastAnnualData.detail.length) {
+        alert('No data loaded yet.');
+        return;
+    }
+
+    const total = lastAnnualData.total;
+    const rows = [['Technology', 'Group', 'Annual Generation (MWh)', 'Annual Generation (TWh)', 'Share of Total (%)']];
+
+    lastAnnualData.detail.forEach(x => {
+        const pct = total > 0 ? (x.value / total * 100) : 0;
+        rows.push([x.name, x.group, x.value.toFixed(1), (x.value / 1e6).toFixed(3), pct.toFixed(2)]);
+    });
+
+    rows.push([]);
+    rows.push(['Group Totals']);
+    rows.push(['Group', 'Annual Generation (MWh)', 'Annual Generation (TWh)', 'Share of Total (%)']);
+    ['Renewable', 'Fossil', 'Nuclear'].forEach(g => {
+        const v = lastAnnualData.groupTotals[g] || 0;
+        const pct = total > 0 ? (v / total * 100) : 0;
+        rows.push([g, v.toFixed(1), (v / 1e6).toFixed(3), pct.toFixed(2)]);
+    });
+
+    const countryLabel = lastAnnualData.selectedCountries.length
+        ? lastAnnualData.selectedCountries.slice().sort().join('-')
+        : 'none';
+    downloadCSV(`annual_generation_${countryLabel}_${lastAnnualData.year}.csv`, toCSV(rows));
+}
+
+init();
+</script>
+</body>
+</html>

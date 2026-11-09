@@ -1,0 +1,1781 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Imbalance Prices – European Electricity Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+    <script src="nav.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f0f2f5;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: #2c3e50;
+            color: white;
+            padding: 20px 30px 0 30px;
+        }
+
+        .header-top { padding-bottom: 16px; }
+        .header-top h1 { font-size: 24px; font-weight: 500; letter-spacing: 0.2px; }
+
+        .main-nav { display: flex; gap: 2px; margin-top: 4px; }
+
+        .main-nav-link {
+            display: inline-flex; align-items: center; gap: 7px;
+            padding: 10px 24px; font-size: 14px; font-weight: 600;
+            color: rgba(255,255,255,0.65); text-decoration: none;
+            border-radius: 6px 6px 0 0; background: rgba(255,255,255,0.06);
+            border: 1px solid transparent; border-bottom: none;
+            letter-spacing: 0.2px;
+            transition: background 0.2s, color 0.2s, border-color 0.2s;
+            white-space: nowrap; position: relative; top: 1px;
+        }
+
+        .main-nav-link .nav-icon { font-size: 15px; line-height: 1; opacity: 0.85; }
+        .main-nav-link:hover { color: rgba(255,255,255,0.95); background: rgba(255,255,255,0.14); }
+        .main-nav-link.active {
+            color: #2c3e50; background: #f8f9fa;
+            border-color: #e6e9ed; border-bottom-color: #f8f9fa;
+        }
+
+        .sub-nav {
+            background: #f8f9fa; border-bottom: 2px solid #e6e9ed;
+            padding: 0 30px; display: flex;
+        }
+
+        .sub-nav-link {
+            display: inline-block; padding: 14px 22px; font-size: 14px;
+            font-weight: 600; color: #6c757d; text-decoration: none;
+            border-bottom: 3px solid transparent; margin-bottom: -2px;
+            transition: color 0.2s, border-color 0.2s; white-space: nowrap; cursor: pointer;
+        }
+        .sub-nav-link:hover { color: #2c3e50; }
+        .sub-nav-link.active { color: #2c3e50; border-bottom-color: #2c3e50; }
+
+        /* ── Controls bar ── */
+        .controls {
+            padding: 20px 30px;
+            display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-end;
+            background: #fff; border-bottom: 1px solid #e6e9ed;
+        }
+
+        .control-group { display: flex; flex-direction: column; gap: 6px; }
+        .control-group label { font-size: 13px; font-weight: 600; color: #2c3e50; white-space: nowrap; }
+
+        .country-select-wrapper { position: relative; display: inline-block; }
+
+        .country-select-btn {
+            min-width: 160px; height: 36px; padding: 0 12px;
+            border: 1px solid #ccc; border-radius: 6px; font-size: 14px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: white; cursor: pointer;
+            display: flex; align-items: center; justify-content: space-between;
+            gap: 8px; white-space: nowrap;
+        }
+        .country-select-btn:hover { border-color: #999; }
+        .country-select-btn::after { content: '▼'; font-size: 10px; color: #666; flex-shrink: 0; }
+
+        .country-dropdown {
+            position: absolute; top: calc(100% + 4px); left: 0;
+            min-width: 300px; max-height: 320px; overflow-y: auto;
+            background: white; border: 1px solid #ccc; border-radius: 6px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 9999;
+            display: none; padding: 8px 0;
+        }
+        .country-dropdown.show { display: block; }
+
+        .country-dropdown-header {
+            display: flex; gap: 8px; padding: 4px 12px 8px;
+            border-bottom: 1px solid #eee; margin-bottom: 4px;
+        }
+
+        .btn-small {
+            padding: 4px 10px; font-size: 12px; background: #e9ecef;
+            border: 1px solid #ccc; cursor: pointer; border-radius: 4px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        .btn-small:hover { background: #dee2e6; }
+
+        .country-list {
+            display: grid; grid-template-columns: repeat(4, 1fr);
+            gap: 2px 0; padding: 0 8px;
+        }
+
+        .country-item {
+            display: flex; align-items: center; gap: 6px;
+            padding: 4px 6px; border-radius: 4px; cursor: pointer;
+        }
+        .country-item:hover { background: #f5f5f5; }
+        .country-item input[type="checkbox"] {
+            width: 14px; height: 14px; margin: 0; flex-shrink: 0;
+            cursor: pointer; accent-color: #2c3e50;
+        }
+        .country-item span { font-size: 13px; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+
+        /* ── Chart grid ── */
+        .chart-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+            gap: 24px; padding: 24px 30px;
+        }
+
+        .chart-card {
+            background: #fff; border-radius: 8px;
+            border: 1px solid #e6e9ed; padding: 16px;
+        }
+
+        .chart-card-header {
+            display: flex; align-items: flex-start; justify-content: space-between;
+            gap: 16px; flex-wrap: wrap; margin-bottom: 14px;
+        }
+
+        .chart-card-header h3 {
+            font-size: 18px; font-weight: 500; color: #2c3e50;
+            border-left: 4px solid #2c3e50; padding-left: 12px;
+            margin: 0; line-height: 1.3;
+        }
+
+        .chart-card-header .subtitle {
+            font-size: 12px; color: #888; margin-top: 4px; padding-left: 16px;
+        }
+
+        .chart-card-controls {
+            display: flex; align-items: center; gap: 10px;
+            flex-wrap: wrap; flex-shrink: 0;
+        }
+        .chart-card-controls label {
+            font-size: 13px; font-weight: 600; color: #2c3e50; white-space: nowrap;
+        }
+
+        .btn-group-inline {
+            display: flex; border: 1px solid #ccc; border-radius: 6px; overflow: hidden;
+        }
+        .btn-group-inline button {
+            padding: 6px 13px; font-size: 13px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-weight: 500; background: #fff; border: none;
+            border-right: 1px solid #ccc; cursor: pointer; color: #555;
+            transition: background 0.15s, color 0.15s; white-space: nowrap;
+        }
+        .btn-group-inline button:last-child { border-right: none; }
+        .btn-group-inline button:hover { background: #f0f2f5; color: #2c3e50; }
+        .btn-group-inline button.active { background: #2c3e50; color: #fff; }
+
+        /* ▼ ADDED: Export button styles */
+        .export-btn {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 7px 14px; font-size: 12px; font-weight: 600;
+            color: #2c3e50; background: #fff;
+            border: 1px solid #ced4da; border-radius: 6px;
+            cursor: pointer; white-space: nowrap;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            transition: background 0.15s, border-color 0.15s;
+        }
+        .export-btn:hover { background: #f0f4f8; border-color: #5a8fc2; }
+        .export-btn:active { background: #e6ecf2; }
+
+        .full-width-card { grid-column: 1 / -1; }
+
+        .loading {
+            text-align: center; padding: 40px 20px;
+            color: #666; font-size: 15px;
+        }
+
+        .info {
+            padding: 12px 30px 20px; font-size: 13px; color: #6c757d;
+            text-align: center; border-top: 1px solid #e6e9ed; margin-top: 10px;
+        }
+        .info a { color: #5a8fc2; text-decoration: none; }
+        .info a:hover { text-decoration: underline; }
+
+        /* ── Currency note ── */
+        .currency-note {
+            font-size: 12px; color: #888; font-style: italic;
+        }
+        .currency-note a {
+            color: #5a8fc2; text-decoration: none;
+        }
+        .currency-note a:hover { text-decoration: underline; }
+
+        /* ── Hour range inputs ── */
+        .hour-range-group {
+            display: inline-flex; align-items: center; gap: 6px;
+        }
+        .hour-range-group input[type="number"] {
+            width: 52px; height: 30px; padding: 0 6px;
+            border: 1px solid #ccc; border-radius: 6px;
+            font-size: 13px; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            text-align: center; color: #2c3e50;
+        }
+        .hour-range-group input[type="number"]:focus {
+            outline: none; border-color: #2c3e50;
+        }
+        .hour-range-group span { font-size: 12px; color: #6c757d; }
+
+        /* ── Price range inputs ── */
+        .price-range-group {
+            display: inline-flex; align-items: center; gap: 6px;
+        }
+        .price-range-group input[type="text"] {
+            width: 76px; height: 30px; padding: 0 6px;
+            border: 1px solid #ccc; border-radius: 6px;
+            font-size: 13px; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            text-align: center; color: #2c3e50;
+        }
+        .price-range-group input[type="text"]:focus {
+            outline: none; border-color: #2c3e50;
+        }
+        .price-range-group span { font-size: 12px; color: #6c757d; }
+
+        /* ── Day type checkboxes ── */
+        .daytype-group {
+            display: inline-flex; align-items: center; gap: 10px;
+        }
+        .daytype-item {
+            display: inline-flex; align-items: center; gap: 5px;
+            cursor: pointer; font-size: 13px; color: #2c3e50;
+        }
+        .daytype-item input[type="checkbox"] {
+            width: 14px; height: 14px; margin: 0;
+            cursor: pointer; accent-color: #2c3e50;
+        }
+
+        @media (max-width: 900px) {
+            .chart-grid { grid-template-columns: 1fr; }
+            .controls { flex-direction: column; align-items: stretch; }
+            .country-select-btn { width: 100%; }
+            .country-dropdown { min-width: 100%; }
+        }
+        @media (max-width: 700px) {
+            .header { padding: 16px 16px 0 16px; }
+            .header-top h1 { font-size: 20px; }
+            .main-nav-link { padding: 10px 14px; font-size: 13px; }
+            .sub-nav { padding: 0 10px; overflow-x: auto; }
+            .sub-nav-link { padding: 14px 14px; font-size: 13px; }
+            .chart-card-header { flex-direction: column; }
+            .btn-group-inline button { padding: 5px 9px; font-size: 12px; }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+
+    <!-- ===== HEADER (nav injected by nav.js if present) ===== -->
+    <div class="header">
+        <div class="header-top">
+            <h1>European Electricity Dashboard</h1>
+        </div>
+        <nav class="main-nav" id="mainNav"></nav>
+    </div>
+
+    <!-- ===== SUB-NAV ===== -->
+    <div class="sub-nav">
+        <a class="sub-nav-link active" href="imbalance">Imbalance Prices</a>
+        <a class="sub-nav-link"        href="balancing-afrr-capacity">aFRR Capacity</a>
+    </div>
+
+    <!-- ===== CONTROLS ===== -->
+    <div class="controls">
+        <div class="control-group">
+            <label>Countries</label>
+            <div class="country-select-wrapper">
+                <div class="country-select-btn" id="countrySelectBtn">
+                    <span id="countrySelectText">Select...</span>
+                </div>
+                <div class="country-dropdown" id="countryDropdown">
+                    <div class="country-dropdown-header">
+                        <button id="selectAllBtn" class="btn-small" disabled>Select All</button>
+                        <button id="clearAllBtn"  class="btn-small" disabled>Clear All</button>
+                    </div>
+                    <div id="countryCheckboxes" class="country-list"></div>
+                </div>
+            </div>
+        </div>
+        <div class="control-group">
+            <label>&nbsp;</label>
+            <span class="currency-note">Exchange rates: <a href="https://www.mnb.hu/" target="_blank">MNB</a> monthly avg (HU: HUF→EUR, RO: RON→EUR)</span>
+        </div>
+    </div>
+
+    <div id="loadingMsg" class="loading">Loading imbalance data…</div>
+
+    <!-- ===== CHART GRID ===== -->
+    <div class="chart-grid" style="display:none;" id="chartGrid">
+
+        <!-- Chart 0: A85 15-min Scatter -->
+        <div class="chart-card full-width-card">
+            <div class="chart-card-header">
+                <div>
+                    <h3>Imbalance Price – 15-min</h3>
+                    <div class="subtitle">15-minute imbalance price per country, 2021 – present</div>
+                </div>
+                <div class="chart-card-controls">
+                    <label>Price range (€/MWh)</label>
+                    <div class="price-range-group">
+                        <input type="text" inputmode="decimal" id="a85PriceMin" placeholder="Min">
+                        <span>–</span>
+                        <input type="text" inputmode="decimal" id="a85PriceMax" placeholder="Max">
+                        <button id="a85PriceApplyBtn" class="btn-small">Apply</button>
+                        <button id="a85PriceResetBtn" class="btn-small">Reset</button>
+                    </div>
+                    <button class="export-btn" id="a85ExportBtn" onclick="exportA85CSV()"> Export CSV</button>
+                </div>
+            </div>
+            <div id="a85Chart" style="width:100%; height:420px;"></div>
+        </div>
+
+        <!-- Chart 0b: Monthly Boxplot -->
+        <div class="chart-card full-width-card">
+            <div class="chart-card-header">
+                <div>
+                    <h3>Monthly Imbalance Price Distribution</h3>
+                    <div class="subtitle">Box = 50%, lower = 5%, upper = 95%, dots = outliers (€/MWh)</div>
+                </div>
+                <div class="chart-card-controls">
+                    <label>Price range (€/MWh)</label>
+                    <div class="price-range-group">
+                        <input type="text" inputmode="decimal" id="boxplotPriceMin" placeholder="Min">
+                        <span>–</span>
+                        <input type="text" inputmode="decimal" id="boxplotPriceMax" placeholder="Max">
+                        <button id="boxplotPriceApplyBtn" class="btn-small">Apply</button>
+                        <button id="boxplotPriceResetBtn" class="btn-small">Reset</button>
+                    </div>
+                    <button class="export-btn" id="boxplotExportBtn" onclick="exportBoxplotCSV()"> Export CSV</button>
+                </div>
+            </div>
+            <div id="boxplotChart" style="width:100%; height:420px;"></div>
+        </div>
+        <div class="chart-card full-width-card">
+            <div class="chart-card-header">
+                <div>
+                    <h3>Imbalance Price Trends</h3>
+                    <div class="subtitle">Average imbalance price per period across selected countries (€/MWh), 2024 – present</div>
+                </div>
+                <div class="chart-card-controls" style="gap:16px;">
+                    <div style="display:flex;align-items:center;gap:10px;">
+                        <div class="daytype-group">
+                            <label class="daytype-item">
+                                <input type="checkbox" id="cbWeekday" checked> Weekday
+                            </label>
+                            <label class="daytype-item">
+                                <input type="checkbox" id="cbWeekend" checked> Weekend
+                            </label>
+                        </div>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:8px;">
+                        <label>Hours</label>
+                        <div class="hour-range-group">
+                            <select id="hourStart" style="height:30px;padding:0 6px;border:1px solid #ccc;border-radius:6px;font-size:13px;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;color:#2c3e50;cursor:pointer;"></select>
+                            <span>–</span>
+                            <select id="hourEnd" style="height:30px;padding:0 6px;border:1px solid #ccc;border-radius:6px;font-size:13px;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;color:#2c3e50;cursor:pointer;"></select>
+                        </div>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:8px;">
+                        <label>Frequency</label>
+                        <div class="btn-group-inline" id="freqGroup1">
+                            <button data-freq="daily"     class="active">Daily</button>
+                            <button data-freq="weekly">Weekly</button>
+                            <button data-freq="monthly">Monthly</button>
+                            <button data-freq="quarterly">Quarterly</button>
+                            <button data-freq="yearly">Yearly</button>
+                        </div>
+                    </div>
+                    <button class="export-btn" id="trendExportBtn" onclick="exportTrendCSV()"> Export CSV</button>
+                </div>
+            </div>
+            <div id="trendChart" style="width:100%; height:460px;"></div>
+        </div>
+
+        <!-- Chart 2: Imbalance vs Day-Ahead -->
+        <div class="chart-card full-width-card">
+            <div class="chart-card-header">
+                <div>
+                    <h3>Imbalance Price vs Day-Ahead Price</h3>
+                    <div class="subtitle">Imbalance (blue) vs day-ahead spot (red) – same frequency as chart above</div>
+                </div>
+                <div class="chart-card-controls">
+                    <label>Country</label>
+                    <select id="compareCountrySelect"
+                        style="font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;
+                               height:34px;padding:0 10px;border:1px solid #ccc;
+                               border-radius:6px;font-size:13px;cursor:pointer;">
+                    </select>
+                    <button class="export-btn" id="compareExportBtn" onclick="exportCompareCSV()"> Export CSV</button>
+                </div>
+            </div>
+            <div id="compareChart" style="width:100%; height:420px;"></div>
+        </div>
+
+    </div><!-- end #chartGrid -->
+
+    <div class="info">
+        Data source: <a href="https://www.entsoe.eu/" target="_blank">ENTSO-E Transparency Platform</a>
+        &nbsp;|&nbsp; Unit: €/MWh &nbsp;|&nbsp; Author: Hanyu Jian
+    </div>
+</div><!-- end .container -->
+
+<script>
+/* ================================================================
+   GLOBALS
+================================================================ */
+let imbalanceData  = null;
+let spotData       = null;
+let solarData      = null;
+let windData       = null;
+let loadData       = null;
+let a85Data        = null;   // 15-min granularity, MNB-converted
+let trendChart     = null;
+let compareChart   = null;
+let a85Chart       = null;
+let boxplotChart   = null;
+
+const state = {
+    freq: 'daily',
+    weekday: true,
+    weekend: true,
+    hourStart: 0,
+    hourEnd: 23
+};
+
+// Price range filter for the A85 15-min scatter chart (null = no bound)
+const a85PriceFilter = {
+    min: null,
+    max: null
+};
+
+// Price range filter for the monthly boxplot (filters underlying values before
+// quartiles/outliers are computed, independent from the A85 scatter's filter)
+const boxplotPriceFilter = {
+    min: null,
+    max: null
+};
+
+// Consistent color assigned per country (stable regardless of selection order/subset)
+const COUNTRY_PALETTE = ['#5470c6','#91cc75','#fac858','#ee6666','#73c0de','#3ba272',
+                         '#fc8452','#9a60b4','#ea7ccc','#c23531','#2f4554','#61a0a8'];
+let countryColorMap = {};
+
+// Fixed blue used for the monthly boxplot (thin-line style, matches the rest
+// of the dashboard's blue accents rather than cycling per-country colors)
+const BOX_COLOR = '#2980b9';
+
+// ▼ ADDED: caches of the data currently backing each chart, refreshed every
+// time that chart is (re)drawn — used for CSV export so downloads always
+// match what's on screen without re-deriving from raw data or the DOM.
+let lastA85Export      = null; // { countries, priceMin, priceMax }
+let lastBoxplotExport  = null; // { countries, rows: [{country, month, low, q1, median, q3, high, outlierCount}] }
+let lastTrendExport    = null; // { freq, keys, priceSeries: [{name,data}], ratioSeries: [{name,data}] }
+let lastCompareExport  = null; // { country, freq, keys, imbalVals, spotVals }
+
+/* ================================================================
+   CSV HELPERS
+================================================================ */
+function parseCSV(text) {
+    const lines = text.trim().split(/\r?\n/);
+    if (!lines.length) return [];
+    let headers = lines[0].split(',').map(h => h.trim());
+    while (headers.length && headers[headers.length - 1] === '') headers.pop();
+    const rows = [];
+    for (let i = 1; i < lines.length; i++) {
+        const line = lines[i];
+        if (!line.trim()) continue;
+        let vals = line.split(',').map(v => v.trim());
+        while (vals.length > headers.length && vals[vals.length - 1] === '') vals.pop();
+        if (vals.length > headers.length) vals = vals.slice(0, headers.length);
+        while (vals.length < headers.length) vals.push('');
+        const row = {};
+        for (let j = 0; j < headers.length; j++) row[headers[j]] = vals[j];
+        rows.push(row);
+    }
+    return rows;
+}
+
+function parseDateStr(s) {
+    if (!s) return null;
+    let m;
+    m = s.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})\s+(\d{1,2}):(\d{2})/);
+    if (!m) {
+        m = s.match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})/);
+    }
+    if (!m) return null;
+    const [, y, mo, d, h] = m.map(Number);
+    return {
+        year: y, month: mo, day: d, hour: h,
+        dateStr: `${y}-${String(mo).padStart(2,'0')}-${String(d).padStart(2,'0')}`
+    };
+}
+
+// HU joined PICASSO on 2026-10-01: from then on ENTSO-E reports the HU imbalance
+// price in EUR/MWh already, so no MNB conversion is applied to HU on/after this date.
+const HU_EUR_FROM = { year: 2026, month: 10, day: 1 };
+function huAlreadyEur(p) {
+    const a = p.year * 10000 + p.month * 100 + p.day;
+    return a >= HU_EUR_FROM.year * 10000 + HU_EUR_FROM.month * 100 + HU_EUR_FROM.day;
+}
+
+function parseMNBDate(s) {
+    if (!s) return null;
+    const m = s.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
+    if (!m) return null;
+    return { year: +m[1], month: +m[2] };
+}
+
+/* ================================================================
+   LOAD & CONVERT DATA
+================================================================ */
+async function loadMNBRates() {
+    const res = await fetch('/data/fx/MNB.csv');
+    if (!res.ok) throw new Error('Failed to load MNB.csv');
+    const rows = parseCSV(await res.text());
+
+    const acc = {};
+    for (const row of rows) {
+        const dt = parseMNBDate(row['Date'] || row['date']);
+        if (!dt) continue;
+        const key = `${dt.year}-${String(dt.month).padStart(2,'0')}`;
+        if (!acc[key]) acc[key] = { EUR: [], RON: [] };
+        const eur = parseFloat(row['EUR']);
+        const ron = parseFloat(row['RON']);
+        if (!isNaN(eur)) acc[key].EUR.push(eur);
+        if (!isNaN(ron)) acc[key].RON.push(ron);
+    }
+    const rates = {};
+    for (const [k, v] of Object.entries(acc)) {
+        rates[k] = {
+            EUR: v.EUR.length ? v.EUR.reduce((a,b) => a+b, 0) / v.EUR.length : null,
+            RON: v.RON.length ? v.RON.reduce((a,b) => a+b, 0) / v.RON.length : null
+        };
+    }
+    return rates;
+}
+
+function transformPriceCSV(rows, mnbRates, isImbalance) {
+    const data = [], cSet = new Set();
+    for (const row of rows) {
+        const dtStr = row['Date'] || row['datetime'];
+        if (!dtStr) continue;
+        const p = parseDateStr(dtStr);
+        if (!p) continue;
+        const mKey = `${p.year}-${String(p.month).padStart(2,'0')}`;
+        const values = {};
+        for (const [k, v] of Object.entries(row)) {
+            if (k === 'Date' || k === 'datetime') continue;
+            let n = parseFloat(v);
+            if (isNaN(n)) continue;
+            if (isImbalance && mnbRates) {
+                const r = mnbRates[mKey];
+                if (k === 'HU' && r && r.EUR) {
+                    if (!huAlreadyEur(p)) n = n / r.EUR;
+                } else if (k === 'RO' && r && r.EUR && r.RON) {
+                    const hufPerRon = r.RON;
+                    const hufPerEur = r.EUR;
+                    n = n * hufPerRon / hufPerEur;
+                }
+            }
+            values[k] = n;
+            cSet.add(k);
+        }
+        data.push({ dateStr: p.dateStr, year: p.year, month: p.month, day: p.day, hour: p.hour, values });
+    }
+    return { countries: [...cSet].sort(), data };
+}
+
+// Parse 15-min timestamps: "YYYY/M/D H:MM" or "YYYY-MM-DD HH:MM"
+function parseDateStr15(s) {
+    if (!s) return null;
+    let m;
+    m = s.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})\s+(\d{1,2}):(\d{2})/);
+    if (!m) m = s.match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})/);
+    if (!m) return null;
+    const [, y, mo, d, h, mn] = m.map(Number);
+    const dateStr = `${y}-${String(mo).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    // Full ISO-like label used as scatter x-value
+    const label = `${dateStr} ${String(h).padStart(2,'0')}:${String(mn).padStart(2,'0')}`;
+    return { year: y, month: mo, day: d, hour: h, minute: mn, dateStr, label };
+}
+
+/* ----------------------------------------------------------------
+   transformA85CSV – same MNB currency conversion as imbalance data
+---------------------------------------------------------------- */
+function transformA85CSV(rows, mnbRates) {
+    const data = [], cSet = new Set();
+    // 回拨日 02:00~02:45 在文件里出现两遍（Date 重复）：只取最后一次出现的（第二遍），与之前一致
+    const lastIdx = new Map();
+    rows.forEach((row, i) => { const k = row['Date'] || row['datetime']; if (k) lastIdx.set(k, i); });
+    for (const [i, row] of rows.entries()) {
+        const dtStr = row['Date'] || row['datetime'];
+        if (!dtStr || lastIdx.get(dtStr) !== i) continue;
+        const p = parseDateStr15(dtStr);
+        if (!p) continue;
+        const mKey = `${p.year}-${String(p.month).padStart(2,'0')}`;
+        const values = {};
+        for (const [k, v] of Object.entries(row)) {
+            if (k === 'Date' || k === 'datetime') continue;
+            let n = parseFloat(v);
+            if (isNaN(n)) continue;
+            // Apply MNB conversion identical to imbalance_price.csv
+            if (mnbRates) {
+                const r = mnbRates[mKey];
+                if (k === 'HU' && r && r.EUR) {
+                    if (!huAlreadyEur(p)) n = n / r.EUR;   // HUF/MWh → EUR/MWh (HU is EUR/MWh from 2026-10-01)
+                } else if (k === 'RO' && r && r.EUR && r.RON) {
+                    n = n * r.RON / r.EUR;            // RON/MWh → EUR/MWh
+                }
+            }
+            values[k] = n;
+            cSet.add(k);
+        }
+        data.push({ ...p, values });
+    }
+    return { countries: [...cSet].sort(), data };
+}
+
+/* raw_data/A85.csv is split by year (raw_data/{YEAR}/A85.csv) to stay under
+   GitHub's per-file size limit. The earliest year with data isn't hardcoded:
+   probe every year back to EARLIEST_PROBE_YEAR (a safe floor, well before
+   ENTSO-E transparency platform data exists) and keep whichever ones
+   actually respond with 2xx. Missing years (404, e.g. before data starts or
+   next January before any data lands) are skipped silently. */
+const EARLIEST_PROBE_YEAR = 2015;
+
+async function fetchRawYearlyCSV(name) {
+    const endYear = new Date().getFullYear();
+    const years = Array.from(
+        { length: endYear - EARLIEST_PROBE_YEAR + 1 },
+        (_, i) => EARLIEST_PROBE_YEAR + i
+    );
+    const texts = await Promise.all(years.map(y =>
+        fetch(`/raw_data/${y}/${name}.csv`)
+            .then(r => r.ok ? r.text() : null)
+            .catch(() => null)
+    ));
+    let rows = [];
+    for (const text of texts) {
+        if (text) rows = rows.concat(parseCSV(text));
+    }
+    return rows;
+}
+
+async function fetchAllData() {
+    const [mnbRates, imbalRes, spotRes, solarRes, windRes, loadRes, a85Rows] = await Promise.all([
+        loadMNBRates(),
+        fetch('/data/entsoe/imbalance_price.csv'),
+        fetch('/data/entsoe/price.csv'),
+        fetch('/data/entsoe/solar.csv'),
+        fetch('/data/entsoe/wind.csv'),
+        fetch('/data/entsoe/load.csv'),
+        fetchRawYearlyCSV('A85')
+    ]);
+
+    if (!imbalRes.ok) throw new Error('Failed to load imbalance_price.csv');
+
+    const imbalRows = parseCSV(await imbalRes.text());
+    imbalanceData = transformPriceCSV(imbalRows, mnbRates, true);
+
+    if (spotRes.ok)  { spotData  = transformPriceCSV(parseCSV(await spotRes.text()),  null, false); }
+    if (solarRes.ok) { solarData = transformPriceCSV(parseCSV(await solarRes.text()), null, false); }
+    if (windRes.ok)  { windData  = transformPriceCSV(parseCSV(await windRes.text()),  null, false); }
+    if (loadRes.ok)  { loadData  = transformPriceCSV(parseCSV(await loadRes.text()),  null, false); }
+    // ← Pass mnbRates so A85 also gets HU/RO currency conversion
+    if (a85Rows.length) { a85Data = transformA85CSV(a85Rows, mnbRates); }
+}
+
+/* ================================================================
+   AGGREGATION
+================================================================ */
+function getISOWeek(dateStr) {
+    const d = new Date(dateStr + 'T00:00:00Z');
+    d.setUTCDate(d.getUTCDate() + 3 - (d.getUTCDay() + 6) % 7);
+    const w1 = new Date(Date.UTC(d.getUTCFullYear(), 0, 4));
+    const wk = 1 + Math.round(((d - w1) / 86400000 - 3 + (w1.getUTCDay() + 6) % 7) / 7);
+    return `${d.getUTCFullYear()}-W${String(wk).padStart(2,'0')}`;
+}
+
+function groupKey(pt, freq) {
+    if (freq === 'hourly')    return `${pt.dateStr} ${String(pt.hour).padStart(2,'0')}:00`;
+    if (freq === 'daily')     return pt.dateStr;
+    if (freq === 'weekly')    return getISOWeek(pt.dateStr);
+    if (freq === 'monthly')   return pt.dateStr.slice(0, 7);
+    if (freq === 'quarterly') return `${pt.year}-Q${Math.ceil(pt.month / 3)}`;
+    return String(pt.year);
+}
+
+function dowFromDateStr(dateStr) {
+    return new Date(dateStr + 'T00:00:00Z').getUTCDay();
+}
+
+function passesFilter(pt, opts) {
+    if (pt.hour < opts.hourStart || pt.hour > opts.hourEnd) return false;
+    const dow = dowFromDateStr(pt.dateStr);
+    const isWeekend = (dow === 0 || dow === 6);
+    if (isWeekend && !opts.weekend) return false;
+    if (!isWeekend && !opts.weekday) return false;
+    return true;
+}
+
+function aggregateMultiCountry(data, countries, freq, opts) {
+    const acc = {};
+    countries.forEach(c => acc[c] = {});
+    data.forEach(pt => {
+        if (!passesFilter(pt, opts)) return;
+        const key = groupKey(pt, freq);
+        countries.forEach(c => {
+            const v = pt.values[c];
+            if (v == null || isNaN(v)) return;
+            if (!acc[c][key]) acc[c][key] = { sum: 0, cnt: 0 };
+            acc[c][key].sum += v;
+            acc[c][key].cnt++;
+        });
+    });
+    const keySet = new Set();
+    countries.forEach(c => Object.keys(acc[c]).forEach(k => keySet.add(k)));
+    const keys = [...keySet].sort();
+    const series = {};
+    countries.forEach(c => {
+        series[c] = keys.map(k => {
+            const g = acc[c][k];
+            return g ? +(g.sum / g.cnt).toFixed(3) : null;
+        });
+    });
+    return { keys, series };
+}
+
+function aggregateByFreq(data, country, freq, opts) {
+    const acc = {};
+    data.forEach(pt => {
+        if (opts && !passesFilter(pt, opts)) return;
+        const v = pt.values[country];
+        if (v == null || isNaN(v)) return;
+        const key = groupKey(pt, freq);
+        if (!acc[key]) acc[key] = { sum: 0, cnt: 0, year: pt.year };
+        acc[key].sum += v;
+        acc[key].cnt++;
+    });
+    const keys = Object.keys(acc).sort();
+    const vals  = keys.map(k => +(acc[k].sum / acc[k].cnt).toFixed(3));
+    return { keys, vals };
+}
+
+function aggregateRenewableRatio(country, freq, opts) {
+    if (!solarData || !windData || !loadData) return null;
+
+    function buildMap(src) {
+        const m = {};
+        src.data.forEach(pt => {
+            if (!passesFilter(pt, opts)) return;
+            const v = pt.values[country];
+            if (v == null || isNaN(v)) return;
+            const k = groupKey(pt, freq);
+            if (!m[k]) m[k] = { sum: 0, cnt: 0 };
+            m[k].sum += v;
+            m[k].cnt++;
+        });
+        return m;
+    }
+
+    const solar = buildMap(solarData);
+    const wind  = buildMap(windData);
+    const load  = buildMap(loadData);
+
+    const allKeys = new Set([...Object.keys(solar), ...Object.keys(wind), ...Object.keys(load)]);
+    const keys = [...allKeys].sort();
+
+    const vals = keys.map(k => {
+        const s = solar[k] ? solar[k].sum / solar[k].cnt : 0;
+        const w = wind[k]  ? wind[k].sum  / wind[k].cnt  : 0;
+        const l = load[k]  ? load[k].sum  / load[k].cnt  : null;
+        if (!l || l === 0) return null;
+        return +((s + w) / l).toFixed(4);
+    });
+
+    return { keys, vals };
+}
+
+/* ----------------------------------------------------------------
+   Year band markArea helper
+---------------------------------------------------------------- */
+const YEAR_BAND_COLORS = [
+    'rgba(44,62,80,0.04)',
+    'rgba(52,152,219,0.06)'
+];
+
+function buildYearMarkArea(keys) {
+    if (!keys.length) return null;
+    const bands = [];
+    let curYear = null, startIdx = 0;
+
+    for (let i = 0; i <= keys.length; i++) {
+        const key = keys[i];
+        const yr = key ? parseInt(key.slice(0, 4)) : null;
+        if (yr !== curYear) {
+            if (curYear !== null) {
+                const bandIdx = curYear % 2;
+                bands.push([
+                    {
+                        name: String(curYear),
+                        xAxis: keys[startIdx],
+                        itemStyle: { color: YEAR_BAND_COLORS[bandIdx] },
+                        label: {
+                            show: true,
+                            position: 'insideTopLeft',
+                            color: '#aaa',
+                            fontSize: 11,
+                            fontWeight: '600',
+                            offset: [4, 4]
+                        }
+                    },
+                    { xAxis: keys[i - 1] }
+                ]);
+            }
+            curYear = yr;
+            startIdx = i;
+        }
+    }
+    return { silent: true, data: bands };
+}
+
+function generateFullKeyRange(freq, startYear) {
+    const now = new Date();
+    const endYear  = now.getUTCFullYear();
+    const endMonth = now.getUTCMonth() + 1;
+    const keys = [];
+
+    if (freq === 'yearly') {
+        for (let y = startYear; y <= endYear; y++) keys.push(String(y));
+        return keys;
+    }
+    if (freq === 'quarterly') {
+        for (let y = startYear; y <= endYear; y++) {
+            const qMax = (y === endYear) ? Math.ceil(endMonth / 3) : 4;
+            for (let q = 1; q <= qMax; q++) keys.push(`${y}-Q${q}`);
+        }
+        return keys;
+    }
+    if (freq === 'monthly') {
+        for (let y = startYear; y <= endYear; y++) {
+            const mMax = (y === endYear) ? endMonth : 12;
+            for (let m = 1; m <= mMax; m++)
+                keys.push(`${y}-${String(m).padStart(2,'0')}`);
+        }
+        return keys;
+    }
+    if (freq === 'weekly') {
+        const d = new Date(Date.UTC(startYear, 0, 4));
+        d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7));
+        const endMs = now.getTime();
+        while (d.getTime() <= endMs) {
+            const iso = d.toISOString().slice(0, 10);
+            keys.push(getISOWeek(iso));
+            d.setUTCDate(d.getUTCDate() + 7);
+        }
+        return [...new Set(keys)];
+    }
+    // daily
+    const d = new Date(Date.UTC(startYear, 0, 1));
+    const endMs = now.getTime();
+    while (d.getTime() <= endMs) {
+        keys.push(d.toISOString().slice(0, 10));
+        d.setUTCDate(d.getUTCDate() + 1);
+    }
+    return keys;
+}
+
+/* ================================================================
+   CHART STYLE HELPERS
+================================================================ */
+function tooltipFmt(params) {
+    let html = `<div style="font-weight:600;margin-bottom:5px;color:#2c3e50">${params[0]?.axisValue}</div>`;
+    params.forEach(p => {
+        if (p.value == null) return;
+        const isRatio = p.seriesName && p.seriesName.includes('(Solar+Wind)/Load');
+        const valStr  = isRatio
+            ? (Number(p.value) * 100).toFixed(1) + ' %'
+            : Number(p.value).toFixed(2) + ' €/MWh';
+        html += `<div style="display:flex;align-items:center;gap:8px;margin:2px 0;font-size:12px">
+            <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${p.color}"></span>
+            <span style="flex:1;color:#555">${p.seriesName}</span>
+            <span style="font-weight:600;color:#2c3e50">${valStr}</span>
+        </div>`;
+    });
+    return html;
+}
+
+const axisStyle = {
+    axisLine:  { lineStyle: { color: '#ccc' } },
+    axisLabel: { color: '#6c757d', fontSize: 11 },
+    splitLine: { lineStyle: { color: '#f0f2f5' } }
+};
+
+const commonLegend = {
+    type: 'scroll', icon: 'circle',
+    itemWidth: 10, itemHeight: 10,
+    textStyle: { color: '#2c3e50', fontSize: 12 }
+};
+
+const dataZoomCfg = [
+    { type: 'slider', xAxisIndex: 0, bottom: 10, height: 22,
+      borderColor: '#e6e9ed', fillerColor: 'rgba(44,62,80,0.08)',
+      handleStyle: { color: '#2c3e50' }, textStyle: { color: '#6c757d', fontSize: 10 },
+      brushSelect: false },
+    { type: 'inside', xAxisIndex: 0, zoomOnMouseWheel: true, moveOnMouseMove: true }
+];
+
+/* ================================================================
+   CHART 1 – TREND
+================================================================ */
+function drawTrend() {
+    if (!trendChart || !imbalanceData) return;
+    const countries = getSelectedCountries();
+    if (!countries.length) { trendChart.setOption({ series: [] }, true); return; }
+
+    const freq = state.freq;
+
+    const dataMinYear = imbalanceData.data.length
+        ? imbalanceData.data.reduce((mn, pt) => Math.min(mn, pt.year), Infinity)
+        : 2024;
+    const startYear = Math.min(dataMinYear, 2024);
+
+    const keys = generateFullKeyRange(freq, startYear);
+
+    const { series } = aggregateMultiCountry(imbalanceData.data, countries, freq, state);
+    const hasRenewable = !!(solarData && windData && loadData);
+
+    const renewableSeriesArr = [];
+    if (hasRenewable) {
+        countries.forEach(c => {
+            const r = aggregateRenewableRatio(c, freq, state);
+            if (!r) return;
+            renewableSeriesArr.push({ country: c, keys: r.keys, vals: r.vals });
+        });
+    }
+
+    const rotate = (freq === 'daily' || freq === 'weekly') && keys.length > 60 ? 30 : 0;
+    const yearArea = buildYearMarkArea(keys);
+
+    const priceSeriesArr = countries.map((c, idx) => {
+        const valMap = {};
+        const acc = {};
+        imbalanceData.data.forEach(pt => {
+            if (!passesFilter(pt, state)) return;
+            const v = pt.values[c];
+            if (v == null || isNaN(v)) return;
+            const k = groupKey(pt, freq);
+            if (!acc[k]) acc[k] = { sum: 0, cnt: 0 };
+            acc[k].sum += v; acc[k].cnt++;
+        });
+        Object.keys(acc).forEach(k => { valMap[k] = acc[k].sum / acc[k].cnt; });
+        return {
+            name: c,
+            type: 'line',
+            yAxisIndex: 0,
+            showSymbol: false,
+            data: keys.map(k => valMap[k] != null ? +valMap[k].toFixed(3) : null),
+            connectNulls: false,
+            lineStyle: { width: freq === 'daily' ? 1.4 : 2 },
+            ...(idx === 0 && yearArea ? { markArea: yearArea } : {})
+        };
+    });
+
+    const ratioSeriesArr = renewableSeriesArr.map(r => {
+        const valMap = Object.fromEntries(r.keys.map((k, i) => [k, r.vals[i]]));
+        return {
+            name: `${r.country} (Solar+Wind)/Load`,
+            type: 'line',
+            yAxisIndex: 1,
+            showSymbol: false,
+            data: keys.map(k => valMap[k] ?? null),
+            connectNulls: false,
+            lineStyle: { width: freq === 'daily' ? 1.2 : 1.8, type: 'dashed', opacity: 0.85 }
+        };
+    });
+
+    // ▼ ADDED: cache for CSV export
+    lastTrendExport = {
+        freq, keys,
+        priceSeries: priceSeriesArr.map(s => ({ name: s.name, data: s.data })),
+        ratioSeries: ratioSeriesArr.map(s => ({ name: s.name, data: s.data }))
+    };
+
+    trendChart.setOption({
+        tooltip: { trigger: 'axis', axisPointer: { type: 'cross', lineStyle: { color: '#bbb' } },
+            formatter: tooltipFmt },
+        legend: { ...commonLegend, top: 4, left: 'center', right: hasRenewable ? 80 : 30 },
+        dataZoom: dataZoomCfg,
+        grid: { left: 65, right: hasRenewable ? 70 : 20, top: 50, bottom: 70 },
+        xAxis: { type: 'category', data: keys, ...axisStyle,
+            axisLabel: { ...axisStyle.axisLabel, rotate, interval: 'auto' } },
+        yAxis: [
+            {
+                type: 'value', name: '€/MWh',
+                nameTextStyle: { color: '#6c757d', fontSize: 11 },
+                ...axisStyle
+            },
+            {
+                type: 'value',
+                name: '(Solar+Wind)/Load',
+                show: hasRenewable,
+                position: 'right',
+                nameTextStyle: { color: '#6c757d', fontSize: 11 },
+                axisLine:  { lineStyle: { color: '#ccc' } },
+                axisLabel: { color: '#6c757d', fontSize: 11,
+                    formatter: v => (v * 100).toFixed(0) + '%' },
+                splitLine: { show: false }
+            }
+        ],
+        series: [...priceSeriesArr, ...ratioSeriesArr]
+    }, true);
+}
+
+/* ================================================================
+   CHART 2 – COMPARE (imbalance vs spot, shared freq)
+================================================================ */
+function drawCompare() {
+    if (!compareChart || !imbalanceData) return;
+    const country = document.getElementById('compareCountrySelect').value;
+    if (!country) return;
+
+    const freq = state.freq;
+
+    const dataMinYear = imbalanceData.data.length
+        ? imbalanceData.data.reduce((mn, pt) => Math.min(mn, pt.year), Infinity)
+        : 2024;
+    const startYear = Math.min(dataMinYear, 2024);
+    const keys = generateFullKeyRange(freq, startYear);
+
+    function aggMap(srcData) {
+        const acc = {};
+        srcData.forEach(pt => {
+            if (!passesFilter(pt, state)) return;
+            const v = pt.values[country];
+            if (v == null || isNaN(v)) return;
+            const k = groupKey(pt, freq);
+            if (!acc[k]) acc[k] = { sum: 0, cnt: 0 };
+            acc[k].sum += v; acc[k].cnt++;
+        });
+        const m = {};
+        Object.keys(acc).forEach(k => { m[k] = acc[k].sum / acc[k].cnt; });
+        return m;
+    }
+
+    const imbalMap = aggMap(imbalanceData.data);
+    const spotMap  = spotData ? aggMap(spotData.data) : null;
+
+    // ▼ ADDED: cache for CSV export
+    lastCompareExport = {
+        country, freq, keys,
+        imbalVals: keys.map(k => imbalMap[k] != null ? +imbalMap[k].toFixed(3) : null),
+        spotVals: spotMap ? keys.map(k => spotMap[k] != null ? +spotMap[k].toFixed(3) : null) : null
+    };
+
+    const yearArea = buildYearMarkArea(keys);
+    const rotate = (freq === 'daily' || freq === 'weekly') && keys.length > 60 ? 30 : 0;
+
+    compareChart.setOption({
+        tooltip: { trigger: 'axis', axisPointer: { type: 'cross', lineStyle: { color: '#bbb' } },
+            formatter: tooltipFmt },
+        legend: { ...commonLegend, top: 4, right: 8 },
+        dataZoom: dataZoomCfg,
+        grid: { left: 65, right: 20, top: 40, bottom: 70 },
+        xAxis: { type: 'category', data: keys, ...axisStyle,
+            axisLabel: { ...axisStyle.axisLabel, rotate, interval: 'auto' } },
+        yAxis: { type: 'value', name: '€/MWh',
+            nameTextStyle: { color: '#6c757d', fontSize: 11 }, ...axisStyle },
+        series: [
+            {
+                name: `${country} Imbalance`,
+                type: 'line',
+                data: keys.map(k => imbalMap[k] != null ? +imbalMap[k].toFixed(3) : null),
+                connectNulls: false,
+                lineStyle: { width: 2, color: '#2980b9' },
+                itemStyle: { color: '#2980b9' },
+                symbol: 'none',
+                ...(yearArea ? { markArea: yearArea } : {})
+            },
+            ...(spotMap ? [{
+                name: `${country} Day-Ahead`,
+                type: 'line',
+                data: keys.map(k => spotMap[k] != null ? +spotMap[k].toFixed(3) : null),
+                connectNulls: false,
+                lineStyle: { width: 2, color: '#e74c3c' },
+                itemStyle: { color: '#e74c3c' },
+                symbol: 'none'
+            }] : [])
+        ]
+    }, true);
+}
+
+/* ================================================================
+   CHART 0 – A85 SCATTER
+   Shows ALL 96 fifteen-minute intervals per day (no daily averaging).
+   MNB conversion is already applied in transformA85CSV.
+   Optional price-range filter (a85PriceFilter.min / .max) restricts
+   which points are plotted based on the €/MWh value.
+================================================================ */
+function drawA85() {
+    if (!a85Chart || !a85Data) return;
+    const countries = getSelectedCountries();
+    if (!countries.length) { a85Chart.setOption({ series: [] }, true); return; }
+
+    const dataMinYear = a85Data.data.reduce((mn, pt) => Math.min(mn, pt.year), Infinity);
+    const startYear   = isFinite(dataMinYear) ? dataMinYear : 2021;
+    const now         = new Date();
+
+    // Build gapless daily date list for year-band markArea only
+    const allDates = [];
+    const cursor = new Date(Date.UTC(startYear, 0, 1));
+    while (cursor <= now) {
+        allDates.push(cursor.toISOString().slice(0, 10));
+        cursor.setUTCDate(cursor.getUTCDate() + 1);
+    }
+    const yearArea = buildYearMarkArea(allDates);
+
+    const { min: priceMin, max: priceMax } = a85PriceFilter;
+
+    // ▼ ADDED: cache for CSV export
+    lastA85Export = { countries: countries.slice(), priceMin, priceMax };
+
+    // Each point: [ISO datetime string "YYYY-MM-DD HH:MM", value]
+    // No aggregation – every 15-min row becomes one scatter point
+    // (unless it's outside the optional price range filter)
+    const seriesArr = countries.map((c, idx) => ({
+        name: c,
+        type: 'scatter',
+        data: a85Data.data
+            .map(pt => {
+                const n = pt.values[c];
+                if (n == null || isNaN(n)) return null;
+                if (priceMin != null && n < priceMin) return null;
+                if (priceMax != null && n > priceMax) return null;
+                return [pt.label, +n.toFixed(2)];   // pt.label = "YYYY-MM-DD HH:MM"
+            })
+            .filter(Boolean),
+        symbolSize: 2,
+        itemStyle: { opacity: 0.45 },
+        large: true,          // ECharts large-mode for performance with many points
+        largeThreshold: 2000,
+        ...(idx === 0 && yearArea ? { markArea: yearArea } : {})
+    }));
+
+    a85Chart.setOption({
+        tooltip: {
+            trigger: 'item',
+            formatter: p =>
+                `<div style="font-weight:600;color:#2c3e50;margin-bottom:4px">${p.value[0]}</div>
+                 <div style="font-size:12px">
+                   <span style="display:inline-block;width:10px;height:10px;border-radius:50%;
+                     background:${p.color};margin-right:6px"></span>
+                   <b>${p.seriesName}</b>: ${Number(p.value[1]).toFixed(2)} €/MWh
+                 </div>`
+        },
+        legend: { ...commonLegend, top: 4, left: 'center' },
+        dataZoom: [
+            { type: 'slider', xAxisIndex: 0, bottom: 10, height: 22,
+              borderColor: '#e6e9ed', fillerColor: 'rgba(44,62,80,0.08)',
+              handleStyle: { color: '#2c3e50' }, textStyle: { color: '#6c757d', fontSize: 10 },
+              brushSelect: false },
+            { type: 'inside', xAxisIndex: 0 }
+        ],
+        grid: { left: 65, right: 20, top: 50, bottom: 70 },
+        xAxis: {
+            type: 'time',
+            ...axisStyle,
+            min: `${startYear}-01-01`,
+            max: now.toISOString().slice(0, 10),
+            axisLabel: { ...axisStyle.axisLabel, hideOverlap: true }
+        },
+        yAxis: {
+            type: 'value', name: '€/MWh',
+            nameTextStyle: { color: '#6c757d', fontSize: 11 },
+            ...(priceMin != null ? { min: priceMin } : {}),
+            ...(priceMax != null ? { max: priceMax } : {}),
+            ...axisStyle
+        },
+        series: seriesArr
+    }, true);
+}
+
+/* ================================================================
+   CHART 0b – MONTHLY BOXPLOT
+   Computes [min, Q1, median, Q3, max] per month per selected country
+   from the 15-min A85 data (same source as the scatter chart above).
+================================================================ */
+function hexToRgba(hex, alpha) {
+    const h = hex.replace('#', '');
+    const r = parseInt(h.substring(0, 2), 16);
+    const g = parseInt(h.substring(2, 4), 16);
+    const b = parseInt(h.substring(4, 6), 16);
+    return `rgba(${r},${g},${b},${alpha})`;
+}
+
+function quantile(sortedAsc, p) {
+    const n = sortedAsc.length;
+    if (n === 1) return sortedAsc[0];
+    const pos = (n - 1) * p;
+    const base = Math.floor(pos);
+    const rest = pos - base;
+    if (sortedAsc[base + 1] !== undefined) {
+        return sortedAsc[base] + rest * (sortedAsc[base + 1] - sortedAsc[base]);
+    }
+    return sortedAsc[base];
+}
+
+// Percentile-based boxplot stats:
+//   Box = Q1 (25th pct) to Q3 (75th pct) -> middle 50% of the data
+//   Whiskers = 12.5th pct (lower) to 87.5th pct (upper) -> middle 75% of the data
+// Anything outside the whisker range is an outlier, drawn as an individual dot.
+const WHISKER_LOWER_PCT = 0.05;
+const WHISKER_UPPER_PCT = 0.95;
+
+function computeBoxStats(values) {
+    if (!values.length) return null;
+    const asc = values.slice().sort((a, b) => a - b);
+    const q1 = quantile(asc, 0.25);
+    const q2 = quantile(asc, 0.5);
+    const q3 = quantile(asc, 0.75);
+    const low  = quantile(asc, WHISKER_LOWER_PCT);
+    const high = quantile(asc, WHISKER_UPPER_PCT);
+    const outliers = asc.filter(v => v < low || v > high);
+
+    return {
+        low: +low.toFixed(2), q1: +q1.toFixed(2), median: +q2.toFixed(2),
+        q3: +q3.toFixed(2), high: +high.toFixed(2), outliers
+    };
+}
+
+// Custom renderItem factory: draws one thin-line box (solid border, dashed
+// whiskers, solid caps + median) plus that country's outlier dots, all at
+// pixel-perfect positions so nothing can drift out of alignment.
+function makeBoxRenderItem(idx, n, color, renderData) {
+    return function(params, api) {
+        const raw = renderData[params.dataIndex];
+        if (!raw) return { type: 'group', children: [] };
+
+        const categoryWidth = api.size([1, 0])[0];
+        const groupWidth = categoryWidth * 0.72;
+        const slotWidth  = groupWidth / n;
+        const boxWidth   = Math.max(5, slotWidth - 4);
+        const halfW      = boxWidth / 2;
+        const capHalfW   = halfW * 0.55;
+
+        const cx = api.coord([raw.monthIndex, 0])[0] + (idx - (n - 1) / 2) * slotWidth;
+        const yLow  = api.coord([raw.monthIndex, raw.low])[1];
+        const yQ1   = api.coord([raw.monthIndex, raw.q1])[1];
+        const yMed  = api.coord([raw.monthIndex, raw.median])[1];
+        const yQ3   = api.coord([raw.monthIndex, raw.q3])[1];
+        const yHigh = api.coord([raw.monthIndex, raw.high])[1];
+
+        const children = [
+            // lower whisker (dashed)
+            { type: 'line', shape: { x1: cx, y1: yQ1, x2: cx, y2: yLow },
+              style: { stroke: color, lineWidth: 1.2, lineDash: [3, 3] } },
+            // lower cap (solid)
+            { type: 'line', shape: { x1: cx - capHalfW, y1: yLow, x2: cx + capHalfW, y2: yLow },
+              style: { stroke: color, lineWidth: 1.2 } },
+            // upper whisker (dashed)
+            { type: 'line', shape: { x1: cx, y1: yQ3, x2: cx, y2: yHigh },
+              style: { stroke: color, lineWidth: 1.2, lineDash: [3, 3] } },
+            // upper cap (solid)
+            { type: 'line', shape: { x1: cx - capHalfW, y1: yHigh, x2: cx + capHalfW, y2: yHigh },
+              style: { stroke: color, lineWidth: 1.2 } },
+            // box (thin solid border, near-white fill)
+            { type: 'rect',
+              shape: { x: cx - halfW, y: Math.min(yQ1, yQ3), width: boxWidth, height: Math.max(1, Math.abs(yQ1 - yQ3)) },
+              style: { fill: hexToRgba(color, 0.12), stroke: color, lineWidth: 1.4 } },
+            // median (solid, slightly bolder)
+            { type: 'line', shape: { x1: cx - halfW, y1: yMed, x2: cx + halfW, y2: yMed },
+              style: { stroke: color, lineWidth: 2 } }
+        ];
+
+        // outlier dots (hollow)
+        raw.outliers.forEach(v => {
+            const yv = api.coord([raw.monthIndex, v])[1];
+            children.push({
+                type: 'circle',
+                shape: { cx, cy: yv, r: 2.8 },
+                style: { fill: 'none', stroke: color, lineWidth: 1.2, opacity: 0.85 }
+            });
+        });
+
+        return { type: 'group', children };
+    };
+}
+
+function drawBoxplot() {
+    if (!boxplotChart || !a85Data) return;
+    const countries = getSelectedCountries();
+    if (!countries.length) { boxplotChart.setOption({ series: [] }, true); return; }
+
+    // Union of months present across the data, sorted chronologically
+    const monthSet = new Set();
+    a85Data.data.forEach(pt => {
+        monthSet.add(`${pt.year}-${String(pt.month).padStart(2,'0')}`);
+    });
+    const months = [...monthSet].sort();
+    const monthIndexMap = new Map(months.map((m, i) => [m, i]));
+
+    // Bucket ALL values per country per month (price range filter no longer
+    // touches the underlying data — it only changes the visible y-axis range,
+    // see below. Quartiles/whiskers/outliers are always computed from the
+    // full, unfiltered dataset.)
+    const buckets = {};
+    countries.forEach(c => { buckets[c] = {}; months.forEach(m => buckets[c][m] = []); });
+    a85Data.data.forEach(pt => {
+        const mKey = `${pt.year}-${String(pt.month).padStart(2,'0')}`;
+        countries.forEach(c => {
+            const v = pt.values[c];
+            if (v == null || isNaN(v)) return;
+            buckets[c][mKey].push(v);
+        });
+    });
+
+    const yearArea = buildYearMarkArea(months);
+    const n = countries.length;
+
+    // ▼ ADDED: flat rows (one per country/month) collected during the series
+    // build below, cached for CSV export once complete
+    const boxExportRows = [];
+
+    const series = countries.map((c, idx) => {
+        const color = BOX_COLOR;
+
+        // renderData: one entry per month that actually has data, aligned 1:1
+        // with the series `data` array below (same order/index)
+        const renderData = [];
+        const seriesData = [];
+        months.forEach(m => {
+            const stats = computeBoxStats(buckets[c][m]);
+            if (!stats) return;
+            const monthIndex = monthIndexMap.get(m);
+            renderData.push({ monthIndex, ...stats });
+            boxExportRows.push({
+                country: c, month: m,
+                low: stats.low, q1: stats.q1, median: stats.median,
+                q3: stats.q3, high: stats.high, outlierCount: stats.outliers.length
+            });
+            // extra dims (outlier min/max) so the y-axis auto-scale accounts
+            // for outliers even though they aren't part of the box itself
+            const outMin = stats.outliers.length ? Math.min(...stats.outliers) : stats.low;
+            const outMax = stats.outliers.length ? Math.max(...stats.outliers) : stats.high;
+            seriesData.push({
+                name: m,
+                value: [monthIndex, stats.low, stats.q1, stats.median, stats.q3, stats.high, outMin, outMax]
+            });
+        });
+
+        return {
+            name: c,
+            type: 'custom',
+            renderItem: makeBoxRenderItem(idx, n, color, renderData),
+            encode: { x: 0, y: [1, 2, 3, 4, 5, 6, 7] },
+            data: seriesData,
+            clip: true,
+            z: 10,
+            tooltip: {
+                formatter: p => {
+                    const raw = renderData[p.dataIndex];
+                    if (!raw) return '';
+                    return `<div style="font-weight:600;margin-bottom:4px;color:#2c3e50">${p.name} – ${p.seriesName}</div>
+                        <div style="font-size:12px;line-height:1.7">
+                            <span style="color:#888">Upper whisker</span> <b>${raw.high}</b><br/>
+                            <span style="color:#888">Q3</span> <b>${raw.q3}</b><br/>
+                            <span style="color:#888">Median</span> <b>${raw.median}</b><br/>
+                            <span style="color:#888">Q1</span> <b>${raw.q1}</b><br/>
+                            <span style="color:#888">Lower whisker</span> <b>${raw.low}</b>
+                            ${raw.outliers.length ? `<br/><span style="color:#888">Outliers</span> <b>${raw.outliers.length}</b>` : ''}
+                        </div>`;
+                }
+            },
+            ...(idx === 0 && yearArea ? { markArea: yearArea } : {})
+        };
+    });
+
+    // ▼ ADDED: cache for CSV export
+    lastBoxplotExport = { countries: countries.slice(), rows: boxExportRows };
+
+    const rotate = months.length > 24 ? 30 : 0;
+
+    boxplotChart.setOption({
+        color: countries.map(() => BOX_COLOR),
+        tooltip: { trigger: 'item', axisPointer: { type: 'shadow' } },
+        legend: { ...commonLegend, top: 4, left: 'center' },
+        dataZoom: dataZoomCfg,
+        grid: { left: 65, right: 20, top: 50, bottom: 70 },
+        xAxis: {
+            type: 'category', data: months, boundaryGap: true,
+            ...axisStyle,
+            axisLabel: { ...axisStyle.axisLabel, rotate, interval: 'auto' }
+        },
+        yAxis: { type: 'value', name: '€/MWh', scale: true,
+            nameTextStyle: { color: '#6c757d', fontSize: 11 },
+            ...(boxplotPriceFilter.min != null ? { min: boxplotPriceFilter.min } : {}),
+            ...(boxplotPriceFilter.max != null ? { max: boxplotPriceFilter.max } : {}),
+            ...axisStyle },
+        series
+    }, true);
+}
+
+/* ================================================================
+   BOXPLOT PRICE RANGE CONTROLS
+================================================================ */
+function initBoxplotPriceControls() {
+    const minInput = document.getElementById('boxplotPriceMin');
+    const maxInput = document.getElementById('boxplotPriceMax');
+    const applyBtn = document.getElementById('boxplotPriceApplyBtn');
+    const resetBtn = document.getElementById('boxplotPriceResetBtn');
+
+    function applyRange() {
+        const minVal = minInput.value.trim();
+        const maxVal = maxInput.value.trim();
+        let min = minVal === '' ? null : parseFloat(minVal);
+        let max = maxVal === '' ? null : parseFloat(maxVal);
+        if (min != null && max != null && min > max) {
+            [min, max] = [max, min];
+            minInput.value = min;
+            maxInput.value = max;
+        }
+        boxplotPriceFilter.min = min;
+        boxplotPriceFilter.max = max;
+        drawBoxplot();
+    }
+
+    applyBtn.addEventListener('click', applyRange);
+    [minInput, maxInput].forEach(inp => {
+        inp.addEventListener('keydown', e => { if (e.key === 'Enter') applyRange(); });
+    });
+    resetBtn.addEventListener('click', () => {
+        minInput.value = '';
+        maxInput.value = '';
+        boxplotPriceFilter.min = null;
+        boxplotPriceFilter.max = null;
+        drawBoxplot();
+    });
+}
+
+/* ================================================================
+   A85 PRICE RANGE CONTROLS
+================================================================ */
+function initA85PriceControls() {
+    const minInput   = document.getElementById('a85PriceMin');
+    const maxInput   = document.getElementById('a85PriceMax');
+    const applyBtn   = document.getElementById('a85PriceApplyBtn');
+    const resetBtn   = document.getElementById('a85PriceResetBtn');
+
+    function applyRange() {
+        const minVal = minInput.value.trim();
+        const maxVal = maxInput.value.trim();
+        let min = minVal === '' ? null : parseFloat(minVal);
+        let max = maxVal === '' ? null : parseFloat(maxVal);
+        if (min != null && max != null && min > max) {
+            [min, max] = [max, min];
+            minInput.value = min;
+            maxInput.value = max;
+        }
+        a85PriceFilter.min = min;
+        a85PriceFilter.max = max;
+        drawA85();
+    }
+
+    applyBtn.addEventListener('click', applyRange);
+    [minInput, maxInput].forEach(inp => {
+        inp.addEventListener('keydown', e => { if (e.key === 'Enter') applyRange(); });
+    });
+    resetBtn.addEventListener('click', () => {
+        minInput.value = '';
+        maxInput.value = '';
+        a85PriceFilter.min = null;
+        a85PriceFilter.max = null;
+        drawA85();
+    });
+}
+
+/* ================================================================
+   COUNTRY SELECTOR
+================================================================ */
+function buildCountryCheckboxes() {
+    const container = document.getElementById('countryCheckboxes');
+    container.innerHTML = '';
+    imbalanceData.countries.forEach((country, i) => {
+        countryColorMap[country] = COUNTRY_PALETTE[i % COUNTRY_PALETTE.length];
+        const item = document.createElement('div');
+        item.className = 'country-item';
+        const cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.value = country;
+        cb.id = `cb_${country}`;
+        cb.checked = (country === 'HU');
+        cb.addEventListener('change', () => { updateCountryLabel(); drawTrend(); drawA85(); drawBoxplot(); });
+        const span = document.createElement('span');
+        span.textContent = country;
+        item.addEventListener('click', e => {
+            if (e.target !== cb) { cb.checked = !cb.checked; cb.dispatchEvent(new Event('change')); }
+        });
+        item.appendChild(cb);
+        item.appendChild(span);
+        container.appendChild(item);
+    });
+    document.getElementById('selectAllBtn').disabled = false;
+    document.getElementById('clearAllBtn').disabled  = false;
+    updateCountryLabel();
+}
+
+function updateCountryLabel() {
+    const all     = [...document.querySelectorAll('#countryCheckboxes input[type="checkbox"]')];
+    const checked = all.filter(cb => cb.checked);
+    const text    = document.getElementById('countrySelectText');
+    if (!checked.length)              text.textContent = 'None selected';
+    else if (checked.length === all.length) text.textContent = `All (${all.length})`;
+    else if (checked.length <= 3)     text.textContent = checked.map(cb => cb.value).join(', ');
+    else                              text.textContent = `${checked.length} selected`;
+}
+
+function getSelectedCountries() {
+    return [...document.querySelectorAll('#countryCheckboxes input[type="checkbox"]:checked')].map(cb => cb.value);
+}
+
+function initDropdown() {
+    const btn  = document.getElementById('countrySelectBtn');
+    const drop = document.getElementById('countryDropdown');
+    btn.addEventListener('click', e => { e.stopPropagation(); drop.classList.toggle('show'); });
+    document.addEventListener('click', e => {
+        if (!drop.contains(e.target) && e.target !== btn) drop.classList.remove('show');
+    });
+}
+
+/* ================================================================
+   COMPARE COUNTRY SELECT
+================================================================ */
+function initCompareSelect() {
+    const sel = document.getElementById('compareCountrySelect');
+    sel.innerHTML = imbalanceData.countries.map(c => `<option value="${c}">${c}</option>`).join('');
+    sel.value = imbalanceData.countries.includes('HU') ? 'HU' : imbalanceData.countries[0];
+    sel.addEventListener('change', drawCompare);
+}
+
+/* ================================================================
+   CHART 1 CONTROLS (freq + day type + hour range)
+================================================================ */
+function initChart1Controls() {
+    const hourOpts = Array.from({ length: 25 }, (_, i) =>
+        `<option value="${i}">${String(i).padStart(2,'0')}:00</option>`
+    ).join('');
+    document.getElementById('hourStart').innerHTML = hourOpts;
+    document.getElementById('hourEnd').innerHTML   = hourOpts;
+    document.getElementById('hourStart').value = 0;
+    document.getElementById('hourEnd').value   = 24;
+
+    document.getElementById('freqGroup1').addEventListener('click', e => {
+        const btn = e.target.closest('button[data-freq]');
+        if (!btn) return;
+        document.querySelectorAll('#freqGroup1 button').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        state.freq = btn.dataset.freq;
+        drawTrend(); drawCompare();
+    });
+
+    document.getElementById('cbWeekday').addEventListener('change', function() {
+        if (!this.checked && !document.getElementById('cbWeekend').checked) {
+            this.checked = true; return;
+        }
+        state.weekday = this.checked;
+        drawTrend(); drawCompare();
+    });
+    document.getElementById('cbWeekend').addEventListener('change', function() {
+        if (!this.checked && !document.getElementById('cbWeekday').checked) {
+            this.checked = true; return;
+        }
+        state.weekend = this.checked;
+        drawTrend(); drawCompare();
+    });
+
+    function applyHourRange() {
+        let s = parseInt(document.getElementById('hourStart').value);
+        let e = parseInt(document.getElementById('hourEnd').value);
+        if (s > e) {
+            e = s;
+            document.getElementById('hourEnd').value = e;
+        }
+        state.hourStart = s;
+        state.hourEnd   = e === 24 ? 23 : e - 1;
+        drawTrend(); drawCompare();
+    }
+    document.getElementById('hourStart').addEventListener('change', applyHourRange);
+    document.getElementById('hourEnd').addEventListener('change',   applyHourRange);
+}
+
+/* ================================================================
+   ▼ ADDED: CSV Export functions
+================================================================ */
+
+// Generic CSV builder: rows is an array of arrays (each inner array = one row of cell values)
+function toCSV(rows) {
+    return rows.map(r => r.map(csvEscape).join(',')).join('\r\n');
+}
+function csvEscape(v) {
+    if (v === null || v === undefined) return '';
+    const s = String(v);
+    return /[",\r\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+}
+function downloadCSV(filename, csvString) {
+    // BOM so Excel opens UTF-8 (€ sign, etc.) correctly
+    const blob = new Blob(['﻿' + csvString], { type: 'text/csv;charset=utf-8;' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+
+// --- Export: Imbalance Price – 15-min scatter (Chart 0) ---
+function exportA85CSV() {
+    if (!lastA85Export || !lastA85Export.countries.length || !a85Data) {
+        alert('No data loaded yet.');
+        return;
+    }
+    const { countries, priceMin, priceMax } = lastA85Export;
+
+    const rows = [['Timestamp', 'Country', 'Price (EUR/MWh)']];
+    a85Data.data.forEach(pt => {
+        countries.forEach(c => {
+            const n = pt.values[c];
+            if (n == null || isNaN(n)) return;
+            if (priceMin != null && n < priceMin) return;
+            if (priceMax != null && n > priceMax) return;
+            rows.push([pt.label, c, n.toFixed(2)]);
+        });
+    });
+
+    downloadCSV(`imbalance_15min_${countries.join('-')}.csv`, toCSV(rows));
+}
+
+// --- Export: Monthly Imbalance Price Distribution / boxplot (Chart 0b) ---
+function exportBoxplotCSV() {
+    if (!lastBoxplotExport || !lastBoxplotExport.rows.length) {
+        alert('No data loaded yet.');
+        return;
+    }
+    const { countries, rows: boxRows } = lastBoxplotExport;
+
+    const rows = [['Country', 'Month', 'Lower Whisker (P5)', 'Q1', 'Median', 'Q3', 'Upper Whisker (P95)', 'Outlier Count']];
+    boxRows.forEach(r => {
+        rows.push([r.country, r.month, r.low, r.q1, r.median, r.q3, r.high, r.outlierCount]);
+    });
+
+    downloadCSV(`imbalance_boxplot_${countries.join('-')}.csv`, toCSV(rows));
+}
+
+// --- Export: Imbalance Price Trends (Chart 1) ---
+function exportTrendCSV() {
+    if (!lastTrendExport || !lastTrendExport.keys.length) {
+        alert('No data loaded yet.');
+        return;
+    }
+    const { freq, keys, priceSeries, ratioSeries } = lastTrendExport;
+
+    const header = ['Period'];
+    priceSeries.forEach(s => header.push(`${s.name} Imbalance Price (EUR/MWh)`));
+    ratioSeries.forEach(s => header.push(`${s.name.replace('(Solar+Wind)/Load', '').trim()} (Solar+Wind)/Load (%)`));
+
+    const rows = [header];
+    keys.forEach((k, i) => {
+        const r = [k];
+        priceSeries.forEach(s => r.push(s.data[i] != null ? s.data[i] : ''));
+        ratioSeries.forEach(s => r.push(s.data[i] != null ? (s.data[i] * 100).toFixed(2) : ''));
+        rows.push(r);
+    });
+
+    const countryPart = priceSeries.map(s => s.name).join('-') || 'none';
+    downloadCSV(`imbalance_trend_${freq}_${countryPart}.csv`, toCSV(rows));
+}
+
+// --- Export: Imbalance Price vs Day-Ahead Price (Chart 2) ---
+function exportCompareCSV() {
+    if (!lastCompareExport || !lastCompareExport.keys.length) {
+        alert('No data loaded yet.');
+        return;
+    }
+    const { country, freq, keys, imbalVals, spotVals } = lastCompareExport;
+
+    const header = ['Period', `${country} Imbalance (EUR/MWh)`];
+    if (spotVals) header.push(`${country} Day-Ahead (EUR/MWh)`);
+
+    const rows = [header];
+    keys.forEach((k, i) => {
+        const r = [k, imbalVals[i] != null ? imbalVals[i] : ''];
+        if (spotVals) r.push(spotVals[i] != null ? spotVals[i] : '');
+        rows.push(r);
+    });
+
+    downloadCSV(`imbalance_vs_dayahead_${country}_${freq}.csv`, toCSV(rows));
+}
+
+/* ================================================================
+   INIT
+================================================================ */
+async function init() {
+    try {
+        await fetchAllData();
+    } catch (e) {
+        document.getElementById('loadingMsg').textContent = `Error: ${e.message}`;
+        return;
+    }
+
+    document.getElementById('loadingMsg').style.display = 'none';
+    document.getElementById('chartGrid').style.display  = 'grid';
+
+    trendChart   = echarts.init(document.getElementById('trendChart'));
+    compareChart = echarts.init(document.getElementById('compareChart'));
+    a85Chart     = echarts.init(document.getElementById('a85Chart'));
+    boxplotChart = echarts.init(document.getElementById('boxplotChart'));
+
+    window.addEventListener('resize', () => {
+        trendChart.resize();
+        compareChart.resize();
+        a85Chart.resize();
+        boxplotChart.resize();
+    });
+
+    buildCountryCheckboxes();
+    initDropdown();
+    initCompareSelect();
+    initChart1Controls();
+    initA85PriceControls();
+    initBoxplotPriceControls();
+
+    document.getElementById('selectAllBtn').addEventListener('click', () => {
+        document.querySelectorAll('#countryCheckboxes input').forEach(cb => cb.checked = true);
+        updateCountryLabel(); drawTrend(); drawA85(); drawBoxplot();
+    });
+    document.getElementById('clearAllBtn').addEventListener('click', () => {
+        document.querySelectorAll('#countryCheckboxes input').forEach(cb => cb.checked = false);
+        updateCountryLabel(); drawTrend(); drawA85(); drawBoxplot();
+    });
+
+    drawA85();
+    drawBoxplot();
+    drawTrend();
+    drawCompare();
+}
+
+init();
+</script>
+</body>
+</html>

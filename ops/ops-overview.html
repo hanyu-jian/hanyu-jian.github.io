@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex">
+<title>Operations Overview</title>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+<script src="/ops/nav.js"></script>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f2f5; padding: 20px; }
+.container { max-width: 1600px; margin: 0 auto; background: white; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,.1); overflow: hidden; }
+
+.sub-nav { background: #f8f9fa; border-bottom: 2px solid #e6e9ed; padding: 0 30px; display: flex; }
+.sub-nav-link { display: inline-block; padding: 14px 22px; font-size: 14px; font-weight: 600; color: #6c757d; text-decoration: none;
+  border-bottom: 3px solid transparent; margin-bottom: -2px; transition: color .2s, border-color .2s; white-space: nowrap; cursor: pointer; }
+.sub-nav-link:hover { color: #2c3e50; }
+.sub-nav-link.active { color: #2c3e50; border-bottom-color: #2c3e50; }
+
+.controls { padding: 20px 30px; display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-end; background: #fff; border-bottom: 1px solid #e6e9ed; }
+.control-group { display: flex; flex-direction: column; gap: 6px; }
+.control-group label { font-size: 13px; font-weight: 600; color: #2c3e50; white-space: nowrap; }
+.control-group select, .control-group input[type=date] { font-family: inherit; height: 36px; padding: 0 12px; border: 1px solid #ccc; border-radius: 6px; font-size: 14px; color: #2c3e50; background: #fff; cursor: pointer; }
+.control-group select { min-width: 120px; }
+#fc { width: 250px; }
+.btn-group-inline { display: flex; border: 1px solid #ccc; border-radius: 6px; overflow: hidden; height: 36px; }
+.btn-group-inline button { padding: 0 13px; font-size: 13px; font-family: inherit; font-weight: 500; background: #fff; border: none; border-right: 1px solid #ccc; cursor: pointer; color: #555; transition: background .15s, color .15s; white-space: nowrap; }
+.btn-group-inline button:last-child { border-right: none; }
+.btn-group-inline button:hover { background: #f0f2f5; color: #2c3e50; }
+.btn-group-inline button.active { background: #2c3e50; color: #fff; }
+.load-btn { height: 36px; padding: 0 22px; background: #2c3e50; color: #fff; border: none; border-radius: 6px; font-size: 14px; font-weight: 600; font-family: inherit; cursor: pointer; }
+.load-btn:hover { background: #1e2b38; }
+.status { padding: 10px 30px 0; font-size: 13px; color: #888; min-height: 28px; }
+.status.err { color: #e74c3c; }
+
+.chart-grid { display: grid; grid-template-columns: 1fr; gap: 24px; padding: 24px 30px 30px; }
+.chart-card { background: #fff; border-radius: 8px; border: 1px solid #e6e9ed; padding: 16px; }
+.chart-card-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 14px; }
+.chart-card-header h3 { font-size: 18px; font-weight: 500; color: #2c3e50; border-left: 4px solid #2c3e50; padding-left: 12px; margin: 0; line-height: 1.3; }
+.chart-card-header .subtitle { font-size: 12px; color: #888; margin-top: 4px; padding-left: 16px; }
+#chart { height: 440px; } #chart2 { height: 240px; }
+.note { font-size: 12px; color: #888; line-height: 1.6; margin-top: 10px; }
+.scroll { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 13px; }
+th, td { padding: 8px 10px; text-align: right; border-bottom: 1px solid #eef0f3; white-space: nowrap; }
+th:first-child, td:first-child { text-align: left; }
+th { background: #f3f5f7; font-size: 12px; color: #4a5560; }
+tr.total td { font-weight: 700; background: #fafbfc; }
+.pos { color: #c0392b; } .neg { color: #27ae60; }
+
+@media (max-width: 700px) {
+  body { padding: 8px; }
+  .controls { flex-direction: column; align-items: stretch; padding: 16px; }
+  .chart-grid { padding: 16px; }
+  .sub-nav { padding: 0 10px; overflow-x: auto; }
+  .sub-nav-link { padding: 14px 14px; font-size: 13px; }
+}
+</style>
+</head>
+<body>
+<div class="container">
+
+  <div class="sub-nav">
+    <a class="sub-nav-link active" href="/ops/overview">Overview</a>
+    <a class="sub-nav-link" href="/ops/capture-price">Capture Price</a>
+  </div>
+
+  <div class="controls">
+    <div class="control-group"><label>Start date</label><input type="date" id="start"></div>
+    <div class="control-group"><label>End date</label><input type="date" id="end"></div>
+    <div class="control-group"><label>Quick range</label>
+      <div class="btn-group-inline" id="quick">
+        <button data-d="1">Yesterday</button><button data-d="7">7 days</button><button data-d="30">30 days</button><button data-d="90">90 days</button>
+      </div></div>
+    <div class="control-group"><label>Resolution</label>
+      <select id="res"><option value="15min">15 min</option><option value="hourly">Hourly</option></select></div>
+    <div class="control-group"><label>Production forecast version</label><select id="fc"></select></div>
+    <div class="control-group"><label>&nbsp;</label><button class="load-btn" id="go">Load</button></div>
+  </div>
+  <div class="status" id="status"></div>
+
+  <div class="chart-grid">
+    <div class="chart-card">
+      <div class="chart-card-header" style="margin-bottom:0;align-items:center;">
+        <div><h3>Site</h3></div>
+        <div class="btn-group-inline" id="sites"></div>
+      </div>
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-card-header">
+        <div>
+          <h3 id="chartTitle">Theoretical production vs production forecast</h3>
+          <div class="subtitle">kWh per interval · Budapest local time, interval start</div>
+        </div>
+      </div>
+      <div id="chart"></div>
+      <div id="chart2"></div>
+      <p class="note">
+        Deviation = production forecast &minus; theoretical production (positive = forecast too high).<br>
+        <b>Metered (meter reading)</b> comes from the meter data in the vcom repository (click its legend entry to hide it); it includes grid curtailment, unlike theoretical production.
+        In the All sites view an interval counts only if all five sites have a reading.<br>
+        <b>Production forecast:</b> DA is the base forecast. IDA1, IDA2, IDA3 and ID3 are successive revisions of it; where a revision has no value for an interval,
+        the previous version carries forward. The orange line is DA with every revision up to the chosen version applied (default: Latest).
+      </p>
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-card-header">
+        <div><h3>Summary by site</h3><div class="subtitle">Selected period</div></div>
+      </div>
+      <div class="scroll"><table id="sumTable"></table></div>
+      <p class="note">
+        <b>Theoretical production</b> is calculated from VCOM POA irradiance (includes the AC limit, excludes grid curtailment); it is not the meter reading.
+        Statistics only use intervals where theoretical production and the respective forecast are both available.<br>
+        <b>Dev. %</b> = (&Sigma;forecast &minus; &Sigma;theoretical) / &Sigma;theoretical &mdash; net bias; over- and under-forecasts cancel out (negative = forecast too low overall).<br>
+        <b>Abs. error %</b> = &Sigma;|forecast &minus; theoretical| / &Sigma;theoretical &mdash; every interval&rsquo;s error counts in full, so errors do not cancel out.
+      </p>
+    </div>
+  </div>
+</div>
+
+<script>
+const SITES = ["Putnok", "Serenyfalva", "Sajokaza", "Szuhakálló 1", "Szuhakálló 2"];
+// Publication order of the forecast runs; later runs revise earlier ones.
+const CHAIN = ["da", "ida1", "ida2", "ida3", "id3_11_15", "id3_16_20"];
+const VERSIONS = [  // [key, dropdown label, last column of CHAIN that is applied, short name for chart/table]
+  ["latest", "Latest (default)", "id3_16_20", "Latest"],
+  ["da", "DA only (D-1 09:30)", "da", "DA"],
+  ["ida1", "DA + IDA1 (D-1 14:30)", "ida1", "IDA1"],
+  ["ida2", "DA + up to IDA2 (D-1 21:30)", "ida2", "IDA2"],
+  ["ida3", "DA + up to IDA3 (D 09:30, from 12:00)", "ida3", "IDA3"],
+  ["id3_11_15", "DA + up to ID3 11-15h (D 09:30)", "id3_11_15", "ID3"],
+];
+const shortName = v => VERSIONS.find(x => x[0] === v)[3];
+const $ = id => document.getElementById(id);
+let selected = "ALL", store = {}, meterStore = {}, meterErr = "", chart, chart2;
+
+const pad = n => String(n).padStart(2, "0");
+const fmtDate = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+function setRange(days) {
+  const e = new Date(); e.setDate(e.getDate() - 1);
+  const s = new Date(e); s.setDate(s.getDate() - (days - 1));
+  $("start").value = fmtDate(s); $("end").value = fmtDate(e);
+}
+function capRange(maxDays) {
+  const e = new Date($("end").value), s = new Date($("start").value);
+  if ((e - s) / 86400000 + 1 > maxDays) { s.setTime(e.getTime() - (maxDays - 1) * 86400000); $("start").value = fmtDate(s); }
+}
+
+function init() {
+  $("fc").innerHTML = VERSIONS.map(([k, l]) => `<option value="${k}">${l}</option>`).join("");
+  $("sites").innerHTML = ["ALL", ...SITES].map(s => `<button data-s="${s}">${s === "ALL" ? "All sites" : s}</button>`).join("");
+  $("sites").onclick = e => { const b = e.target.closest("button"); if (!b) return; selected = b.dataset.s; paint(); };
+  document.querySelectorAll("#quick button").forEach(b => b.onclick = () => { setRange(+b.dataset.d); load(); });
+  $("go").onclick = load;
+  $("fc").onchange = paint;
+  $("res").onchange = load;
+  chart = echarts.init($("chart")); chart2 = echarts.init($("chart2")); echarts.connect([chart, chart2]);
+  window.addEventListener("resize", () => { chart.resize(); chart2.resize(); });
+  setRange(7); load();
+}
+
+async function load() {
+  const res = $("res").value;
+  if (res === "15min") capRange(100);
+  const q = `start=${$("start").value}&end=${$("end").value}&resolution=${res}`;
+  $("status").className = "status"; $("status").textContent = "Loading…";
+  try {
+    const out = await Promise.all(SITES.map(async s => {
+      const r = await fetch(`/ops/api/production?site=${encodeURIComponent(s)}&${q}`, { credentials: "same-origin" });
+      if (r.status === 401) { location.href = "/ops/login?next=" + encodeURIComponent(location.pathname); throw new Error("Session expired"); }
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(`${s}: ${j.error || r.status}`);
+      return [s, j];
+    }));
+    store = Object.fromEntries(out);
+    await loadMeter(q);
+    $("status").textContent = `Loaded ${SITES.length} sites, ${store[SITES[0]].rows.length} rows each` + (meterErr ? ` · metered data unavailable (${meterErr})` : "");
+    paint();
+  } catch (e) {
+    $("status").className = "status err"; $("status").textContent = "Failed to load: " + e.message;
+  }
+}
+
+// Meter readings (vcom data/meter); if they cannot be loaded the rest of the page still works.
+async function loadMeter(q) {
+  meterStore = {}; meterErr = "";
+  try {
+    await Promise.all(SITES.map(async s => {
+      const r = await fetch(`/ops/api/meter?site=${encodeURIComponent(s)}&${q}`, { credentials: "same-origin" });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j.error || r.status);
+      meterStore[s] = new Map(j.rows);
+    }));
+  } catch (e) { meterStore = {}; meterErr = String(e.message || e); }
+}
+const meterAt = (site, t) => { const m = meterStore[site]; return m && m.has(t) ? m.get(t) : null; };
+
+// Per site: time axis, actual, DA, and the revised forecast (DA + revisions up to the selected version, carried forward).
+function series(site, version) {
+  const d = store[site]; if (!d) return { t: [], act: [], da: [], rev: [], met: [] };
+  const idx = k => d.columns.indexOf(k);
+  const last = CHAIN.indexOf(VERSIONS.find(v => v[0] === version)[2]);
+  const cols = CHAIN.slice(0, last + 1).map(idx).reverse();   // newest run first
+  const ia = idx("theoretical_kwh"), ida = idx("da");
+  return {
+    t: d.rows.map(r => r[0]),
+    act: d.rows.map(r => r[ia]),
+    da: d.rows.map(r => r[ida]),
+    rev: d.rows.map(r => { for (const c of cols) if (r[c] != null) return r[c]; return null; }),
+    met: d.rows.map(r => meterAt(site, r[0])),
+  };
+}
+function total(version) {   // sum of the five sites per timestamp; an interval counts only if all five sites have a value
+  const m = new Map();
+  SITES.forEach(s => { const x = series(s, version); x.t.forEach((t, i) => {
+    const o = m.get(t) || { a: 0, d: 0, r: 0, e: 0, na: 0, nd: 0, nr: 0, ne: 0 };
+    if (x.met[i] != null) { o.e += x.met[i]; o.ne++; }
+    if (x.act[i] != null) { o.a += x.act[i]; o.na++; }
+    if (x.da[i] != null) { o.d += x.da[i]; o.nd++; }
+    if (x.rev[i] != null) { o.r += x.rev[i]; o.nr++; }
+    m.set(t, o); }); });
+  const t = [...m.keys()].sort(), n = SITES.length;
+  return { t, act: t.map(k => m.get(k).na === n ? m.get(k).a : null), da: t.map(k => m.get(k).nd === n ? m.get(k).d : null), rev: t.map(k => m.get(k).nr === n ? m.get(k).r : null), met: t.map(k => m.get(k).ne === n ? m.get(k).e : null) };
+}
+
+const nf = (v, d = 0) => v == null || isNaN(v) ? "–" : v.toLocaleString("en-US", { maximumFractionDigits: d, minimumFractionDigits: d });
+
+function paint() {
+  const version = $("fc").value, vLabel = VERSIONS.find(v => v[0] === version)[1];
+  document.querySelectorAll("#sites button").forEach(b => b.classList.toggle("active", b.dataset.s === selected));
+  if (!Object.keys(store).length) return;
+  const x = selected === "ALL" ? total(version) : series(selected, version);
+  $("chartTitle").textContent = `${selected === "ALL" ? "All sites" : selected} · theoretical production vs production forecast`;
+  const dev = x.t.map((_, i) => x.act[i] != null && x.rev[i] != null ? x.rev[i] - x.act[i] : null);
+  const common = { animation: false, tooltip: { trigger: "axis" }, xAxis: { type: "category", data: x.t, axisLabel: { formatter: v => v.slice(5, 16) } } };
+  const line = (name, data, color, extra = {}) => ({ name, type: "line", data, showSymbol: false, lineStyle: { width: 1.6, color }, itemStyle: { color }, ...extra });
+  const seriesList = [
+    line("Theoretical production", x.act, "#2c7fb8", { areaStyle: { color: "rgba(44,127,184,.12)" } }),
+    line("Production forecast (DA)", x.da, "#95a5a6", { lineStyle: { width: 1.4, color: "#95a5a6", type: "dashed" } }),
+  ];
+  if (version !== "da") seriesList.push(line("Production forecast (" + shortName(version) + ")", x.rev, "#e67e22"));
+  if (x.met.some(v => v != null)) seriesList.push(line("Metered (meter reading)", x.met, "#27ae60"));
+  chart.setOption({ ...common, grid: { left: 70, right: 24, top: 40, bottom: 64 }, legend: { top: 4 },
+    dataZoom: [{ type: "inside" }, { type: "slider", height: 18, bottom: 6 }],
+    yAxis: { type: "value", name: "kWh", nameLocation: "end" }, series: seriesList }, true);
+  chart2.setOption({ ...common, grid: { left: 70, right: 24, top: 34, bottom: 30 }, dataZoom: [{ type: "inside" }],
+    yAxis: { type: "value", name: "Deviation, kWh", nameLocation: "end" },
+    series: [{ name: "Deviation (" + shortName(version) + ")", type: "bar",
+      data: dev.map(v => v == null ? null : { value: v, itemStyle: { color: v >= 0 ? "#e08b84" : "#7fc79a" } }) }] }, true);
+  summary(version);
+}
+
+function stats(t, act, fc) {
+  let a = 0, f = 0, ae = 0, n = 0;
+  t.forEach((_, i) => { if (act[i] != null && fc[i] != null) { a += act[i]; f += fc[i]; ae += Math.abs(fc[i] - act[i]); n++; } });
+  return { a: a / 1000, f: f / 1000, devPct: a ? (f - a) / a * 100 : null, mae: a ? ae / a * 100 : null, n };
+}
+function summary(version) {
+  const rows = SITES.map(s => { const x = series(s, version); return { name: s, da: stats(x.t, x.act, x.da), rev: stats(x.t, x.act, x.rev) }; });
+  const tt = total(version);
+  rows.push({ name: "Total", cls: "total", da: stats(tt.t, tt.act, tt.da), rev: stats(tt.t, tt.act, tt.rev) });
+  const pc = v => `<td class="${v >= 0 ? "pos" : "neg"}">${nf(v, 1)}%</td>`;
+  $("sumTable").innerHTML = `<tr><th>Site</th><th>Theoretical MWh</th><th>Forecast DA MWh</th><th>DA dev. %</th><th>DA abs. error %</th>
+      <th>Forecast ${shortName(version)} MWh</th><th>${shortName(version)} dev. %</th><th>${shortName(version)} abs. error %</th></tr>` +
+    rows.map(r => `<tr class="${r.cls || ""}"><td>${r.name}</td><td>${nf(r.rev.a, 1)}</td>
+      <td>${nf(r.da.f, 1)}</td>${pc(r.da.devPct)}<td>${nf(r.da.mae, 1)}%</td>
+      <td>${nf(r.rev.f, 1)}</td>${pc(r.rev.devPct)}<td>${nf(r.rev.mae, 1)}%</td></tr>`).join("");
+}
+init();
+</script>
+</body>
+</html>

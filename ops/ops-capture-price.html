@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex">
+<title>Operations Capture Price</title>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+<script src="/ops/nav.js"></script>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f2f5; padding: 20px; }
+.container { max-width: 1600px; margin: 0 auto; background: white; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,.1); overflow: hidden; }
+
+.sub-nav { background: #f8f9fa; border-bottom: 2px solid #e6e9ed; padding: 0 30px; display: flex; }
+.sub-nav-link { display: inline-block; padding: 14px 22px; font-size: 14px; font-weight: 600; color: #6c757d; text-decoration: none;
+  border-bottom: 3px solid transparent; margin-bottom: -2px; transition: color .2s, border-color .2s; white-space: nowrap; cursor: pointer; }
+.sub-nav-link:hover { color: #2c3e50; }
+.sub-nav-link.active { color: #2c3e50; border-bottom-color: #2c3e50; }
+
+.controls { padding: 20px 30px; display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-end; background: #fff; border-bottom: 1px solid #e6e9ed; }
+.control-group { display: flex; flex-direction: column; gap: 6px; }
+.control-group label { font-size: 13px; font-weight: 600; color: #2c3e50; white-space: nowrap; }
+.control-group select, .control-group input[type=date] { font-family: inherit; height: 36px; padding: 0 12px; border: 1px solid #ccc; border-radius: 6px; font-size: 14px; color: #2c3e50; background: #fff; cursor: pointer; }
+.control-group select { min-width: 120px; }
+#fc { width: 250px; }
+.btn-group-inline { display: flex; border: 1px solid #ccc; border-radius: 6px; overflow: hidden; height: 36px; }
+.btn-group-inline button { padding: 0 13px; font-size: 13px; font-family: inherit; font-weight: 500; background: #fff; border: none; border-right: 1px solid #ccc; cursor: pointer; color: #555; transition: background .15s, color .15s; white-space: nowrap; }
+.btn-group-inline button:last-child { border-right: none; }
+.btn-group-inline button:hover { background: #f0f2f5; color: #2c3e50; }
+.btn-group-inline button.active { background: #2c3e50; color: #fff; }
+.load-btn { height: 36px; padding: 0 22px; background: #2c3e50; color: #fff; border: none; border-radius: 6px; font-size: 14px; font-weight: 600; font-family: inherit; cursor: pointer; }
+.load-btn:hover { background: #1e2b38; }
+.status { padding: 10px 30px 0; font-size: 13px; color: #888; min-height: 28px; }
+.status.err { color: #e74c3c; }
+
+.chart-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px; padding: 24px 30px 30px; }
+.chart-card { background: #fff; border-radius: 8px; border: 1px solid #e6e9ed; padding: 16px; }
+.chart-card-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 14px; }
+.chart-card-header h3 { font-size: 18px; font-weight: 500; color: #2c3e50; border-left: 4px solid #2c3e50; padding-left: 12px; margin: 0; line-height: 1.3; }
+.chart-card-header .subtitle { font-size: 12px; color: #888; margin-top: 4px; padding-left: 16px; }
+#chart { height: 440px; } #chart2 { height: 240px; }
+.note { font-size: 12px; color: #888; line-height: 1.6; margin-top: 10px; }
+.scroll { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 13px; }
+th, td { padding: 8px 10px; text-align: right; border-bottom: 1px solid #eef0f3; white-space: nowrap; }
+th:first-child, td:first-child { text-align: left; }
+th { background: #f3f5f7; font-size: 12px; color: #4a5560; }
+tr.total td { font-weight: 700; background: #fafbfc; }
+.pos { color: #c0392b; } .neg { color: #27ae60; }
+
+.chart-card-controls { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.chart-card-controls label { font-size: 13px; font-weight: 600; color: #2c3e50; white-space: nowrap; }
+.ctrl-select { font-family: inherit; height: 36px; padding: 0 12px; border: 1px solid #ccc; border-radius: 6px; font-size: 14px; cursor: pointer; background: white; color: #2c3e50; }
+.ctrl-select:focus { outline: none; border-color: #2c3e50; }
+.card-divider { border: none; border-top: 1px solid #e6e9ed; margin: 18px 0 16px; }
+.card-section-title { font-size: 13px; font-weight: 600; color: #6c757d; margin-bottom: 10px; display: flex; align-items: center; gap: 6px; }
+.card-section-title::before { content: ''; display: block; width: 3px; height: 14px; background: #2c3e50; border-radius: 2px; }
+.export-btn { display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; font-size: 12px; font-weight: 600; color: #2c3e50; background: #fff;
+  border: 1px solid #ced4da; border-radius: 6px; cursor: pointer; white-space: nowrap; font-family: inherit; transition: background .15s, border-color .15s; }
+.export-btn:hover { background: #f0f4f8; border-color: #5a8fc2; }
+.panels { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 28px 32px; }
+.panel h4 { font-size: 14px; font-weight: 600; color: #2c3e50; margin-bottom: 8px; }
+.ptable { font-size: 13px; }
+.ptable th, .ptable td { padding: 5px 10px; }
+.ptable td:first-child, .ptable th:first-child { text-align: left; color: #6c757d; width: 64px; }
+.ptable tr.total td { color: #2c3e50; }
+@media (max-width: 900px) { .panels { grid-template-columns: minmax(0, 1fr); } }
+.val-high { color: #1a7a3c; font-weight: 600; } .val-low { color: #c0392b; font-weight: 600; }
+.scroll { overflow-x: auto; }
+.pair { display: flex; gap: 16px; align-items: flex-start; }
+.pair > div { flex: 1; min-width: 0; }
+@media (max-width: 700px) { .pair { flex-direction: column; } .pair > div { width: 100%; } }
+
+@media (max-width: 700px) {
+  body { padding: 8px; }
+  .controls { flex-direction: column; align-items: stretch; padding: 16px; }
+  .chart-grid { padding: 16px; }
+  .sub-nav { padding: 0 10px; overflow-x: auto; }
+  .sub-nav-link { padding: 14px 14px; font-size: 13px; }
+}
+</style>
+</head>
+<body>
+<div class="container">
+
+  <div class="sub-nav">
+    <a class="sub-nav-link" href="/ops/overview">Overview</a>
+    <a class="sub-nav-link active" href="/ops/capture-price">Capture Price</a>
+  </div>
+
+  <div class="status" id="status">Loading…</div>
+
+  <div class="chart-grid">
+    <div class="chart-card">
+      <div class="chart-card-header" style="margin-bottom:0;align-items:center;">
+        <div><h3>Site</h3></div>
+        <div class="btn-group-inline" id="sites"></div>
+      </div>
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-card-header">
+        <div>
+          <h3 id="cardTitle">Solar Capture Price – All sites</h3>
+          <div class="subtitle">Baseload (bar) · capture price post / pre curtailment · non-positive hours &middot; HU day-ahead prices, theoretical production</div>
+        </div>
+        <div class="chart-card-controls">
+          <div class="btn-group-inline" id="modeGroup">
+            <button class="active" data-mode="price">Price (€/MWh)</button>
+            <button data-mode="ratio">Ratio (%)</button>
+          </div>
+          <label>Year</label>
+          <select class="ctrl-select" id="yearSelect"></select>
+          <button class="export-btn" id="exportBtn">Export CSV</button>
+        </div>
+      </div>
+      <div class="card-section-title">Daily</div>
+      <div id="chartDaily" style="width:100%;height:480px;"></div>
+      <hr class="card-divider">
+      <div class="pair">
+        <div><div class="card-section-title">Weekly</div><div id="chartWeekly" style="width:100%;height:340px;"></div></div>
+        <div><div class="card-section-title">Monthly</div><div id="chartMonthly" style="width:100%;height:340px;"></div></div>
+      </div>
+      <hr class="card-divider">
+      <div class="pair">
+        <div><div class="card-section-title">Quarterly</div><div id="chartQuarterly" style="width:100%;height:300px;"></div></div>
+        <div><div class="card-section-title">Yearly</div><div id="chartYearly" style="width:100%;height:300px;"></div></div>
+      </div>
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-card-header" style="margin-bottom:10px;align-items:center;">
+        <div>
+          <h3>Summary</h3>
+          <div class="subtitle" id="sumSubtitle">Solar</div>
+        </div>
+      </div>
+      <div class="chart-card-controls" style="margin-bottom:18px;flex-wrap:nowrap;overflow-x:auto;">
+        <div class="btn-group-inline" id="sumSite"></div>
+        <label>Threshold</label>
+        <div class="btn-group-inline" id="sumThresh">
+          <button data-t="negative">Price &lt; 0</button>
+          <button class="active" data-t="nonpositive">Price &le; 0</button>
+        </div>
+        <button class="export-btn" id="sumExport" style="margin-left:auto;flex-shrink:0;">Export CSV</button>
+      </div>
+      <div class="panels" id="panels"></div>
+      <p class="note">
+        <b>Metered Production</b> is the meter reading (includes grid curtailment); <b>Theoretical Production</b> is calculated from VCOM POA irradiance. The two charts use the same y-axis range so they can be compared side by side. For Total, a 15-minute interval counts only if all five sites
+        have a reading (blank readings are skipped, not counted as zero), so months after Szuhak&aacute;ll&oacute; 1 / 2 meter data ends (2026-09-30) show &ndash; for Total.
+      </p>
+    </div>
+  </div>
+</div>
+
+<script>
+const SITES = ["Putnok", "Serenyfalva", "Sajokaza", "Szuhakálló 1", "Szuhakálló 2"];
+const FIRST_YEAR = 2024, THIS_YEAR = new Date().getFullYear();
+const COLORS = { baseload: '#d0d4d8', solar: '#f39c12', post_s: '#e67e22', bar: '#e74c3c' };
+const INTERVAL_H = 0.25;
+const $ = id => document.getElementById(id);
+const state = { site: "ALL", year: String(THIS_YEAR), mode: "price" };
+let charts = {}, price = null, gen = {}, met = {}, metErr = "", hoursCache = {}, last = {};
+
+/* ── Loading ─────────────────────────────────────────────── */
+async function getText(url) {
+  const r = await fetch(url, { credentials: "same-origin" });
+  if (r.status === 401) { location.href = "/ops/login?next=" + encodeURIComponent(location.pathname); throw new Error("Session expired"); }
+  if (r.status === 404) return null;
+  if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error(`${url.split("?")[0]}: ${j.error || r.status}`); }
+  return r.text();
+}
+// "2024/1/1 0:00" -> "2024-01-01 00:00"
+function priceKey(s) {
+  const m = s.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2}) (\d{1,2}):(\d{2})/);
+  return m ? `${m[1]}-${m[2].padStart(2, "0")}-${m[3].padStart(2, "0")} ${m[4].padStart(2, "0")}:${m[5]}` : null;
+}
+function parsePrice(text) {
+  const lines = text.split(/\r?\n/), col = lines[0].split(",").map(h => h.trim()).indexOf("HU");
+  if (col < 0) throw new Error("HU column not found in price data");
+  const keys = [], pr = [];
+  for (let i = 1; i < lines.length; i++) {
+    if (!lines[i]) continue;
+    const f = lines[i].split(","), k = priceKey(f[0]), v = parseFloat(f[col]);
+    if (k && Number.isFinite(v)) { keys.push(k); pr.push(v); }
+  }
+  return { keys, pr };
+}
+// Theoretical production CSV: Date, POA, MWh, kWh. Returns Map(key -> kWh); blanks are left out.
+function parseGen(text, into) {
+  const lines = text.replace(/^\uFEFF/, "").split(/\r?\n/), col = lines[0].split(",").findIndex(h => h.includes("[kWh]"));
+  if (col < 0) throw new Error("kWh column not found in production data");
+  for (let i = 1; i < lines.length; i++) {
+    if (!lines[i]) continue;
+    const f = lines[i].split(","), v = f[col];
+    if (v !== undefined && v !== "") into.m.set(f[0].slice(0, 16), +v);
+  }
+}
+async function load() {
+  const years = []; for (let y = FIRST_YEAR; y <= THIS_YEAR; y++) years.push(y);
+  const jobs = [getText("/ops/api/price").then(t => { price = parsePrice(t); })];
+  SITES.forEach(s => { gen[s] = { m: new Map() };
+    years.forEach(y => jobs.push(getText(`/ops/api/theoretical?site=${encodeURIComponent(s)}&year=${y}`).then(t => { if (t) parseGen(t, gen[s]); }))); });
+  // Metered production (vcom data/meter): if it cannot be loaded the rest of the page still works.
+  SITES.forEach(s => { met[s] = { m: new Map() };
+    years.forEach(y => jobs.push(getText(`/ops/api/metered?site=${encodeURIComponent(s)}&year=${y}`).then(t => { if (t) parseGen(t, met[s]); })
+      .catch(e => { metErr = e.message; }))); });
+  await Promise.all(jobs);
+}
+
+/* ── Hourly-style records (one per 15-min price point) ─────── */
+function computeHours(sel) {
+  if (hoursCache[sel]) return hoursCache[sel];
+  const sites = sel === "ALL" ? SITES : [sel], maps = sites.map(s => gen[s].m);
+  const out = [];
+  for (let i = 0; i < price.keys.length; i++) {     // every price point counts for baseload; missing generation = 0
+    const k = price.keys[i];
+    let g = 0; for (const m of maps) g += m.get(k) || 0;
+    g /= 1000;                                       // kWh -> MWh
+    const pr = price.pr[i], pos = pr > 0;
+    out.push({ date: k.slice(0, 10), pr, gen: g, genPost: pos ? g : 0, rev: pos ? g * pr : 0, revPre: g * pr,
+      isNonPos: pr <= 0 ? INTERVAL_H : 0 });
+  }
+  return (hoursCache[sel] = out);
+}
+
+/* ── Aggregation (same as html/capture-price.html) ─────────── */
+function getISOWeek(dateStr) {
+  const d = new Date(dateStr + 'T00:00:00Z');
+  d.setUTCDate(d.getUTCDate() + 3 - (d.getUTCDay() + 6) % 7);
+  const week1 = new Date(Date.UTC(d.getUTCFullYear(), 0, 4));
+  const wk = 1 + Math.round(((d - week1) / 86400000 - 3 + (week1.getUTCDay() + 6) % 7) / 7);
+  return `${d.getUTCFullYear()}-W${String(wk).padStart(2, '0')}`;
+}
+function groupKey(date, freq) {
+  if (freq === 'daily') return date;
+  if (freq === 'weekly') return getISOWeek(date);
+  if (freq === 'monthly') return date.slice(0, 7);
+  if (freq === 'quarterly') return `${date.slice(0, 4)}-Q${Math.ceil(parseInt(date.slice(5, 7)) / 3)}`;
+  return date.slice(0, 4);
+}
+function aggregate(hours, freq) {
+  const groups = {};
+  hours.forEach(h => {
+    const key = groupKey(h.date, freq);
+    const g = groups[key] || (groups[key] = { sumPr: 0, cnt: 0, sumGen: 0, sumGenPost: 0, sumRev: 0, sumRevPre: 0, sumNonPos: 0 });
+    g.sumPr += h.pr; g.cnt++; g.sumGen += h.gen; g.sumGenPost += h.genPost; g.sumRev += h.rev; g.sumRevPre += h.revPre; g.sumNonPos += h.isNonPos;
+  });
+  return Object.entries(groups).sort((a, b) => a[0] < b[0] ? -1 : 1).map(([key, g]) => {
+    const baseload = g.cnt ? g.sumPr / g.cnt : null;
+    const capPost = g.sumGenPost > 0 ? g.sumRev / g.sumGenPost : null, capPre = g.sumGen > 0 ? g.sumRevPre / g.sumGen : null;
+    const ratio = c => baseload !== null && baseload !== 0 && c !== null ? c / baseload * 100 : null;
+    return { date: key, baseload, capPost, capPre, capRatioPost: ratio(capPost), capRatioPre: ratio(capPre), nonPosHours: g.sumNonPos };
+  });
+}
+
+/* ── Charts (same layout as html/capture-price.html Deep Dive) ─ */
+const axisStyle = {
+  axisLine: { lineStyle: { color: '#ccc' } }, axisLabel: { color: '#6c757d', fontSize: 11 }, splitLine: { lineStyle: { color: '#f0f2f5' } }
+};
+function buildOption({ xData, baseVals, postVals, preVals, barVals, isRatio, showDots = false, barMaxWidth = 16,
+  topGridBottom = '42%', botGridTop = '62%', xRotate = 0, xFontSize = 11, barYMax = null, barYInterval = null }) {
+  const sym = showDots ? 'circle' : 'none', symSize = showDots ? 6 : 4;
+  const yAxisBar = { type: 'value', name: 'Hours', gridIndex: 1, nameTextStyle: { color: '#6c757d', fontSize: 11 }, ...axisStyle };
+  if (barYMax !== null) { yAxisBar.min = 0; yAxisBar.max = barYMax; }
+  if (barYInterval !== null) yAxisBar.interval = barYInterval;
+  const postLabel = isRatio ? 'Capture Ratio (post)' : 'Capture Price (post)';
+  const preLabel = isRatio ? 'Capture Ratio (pre)' : 'Capture Price (pre)';
+  const yAxesTop = isRatio ? [
+    { type: 'value', name: '€/MWh', gridIndex: 0, nameTextStyle: { color: '#6c757d', fontSize: 11 }, ...axisStyle },
+    { type: 'value', name: '%', gridIndex: 0, position: 'right', nameTextStyle: { color: '#6c757d', fontSize: 11 },
+      axisLine: { lineStyle: { color: '#ccc' } }, axisLabel: { color: '#6c757d', fontSize: 10, formatter: v => v + '%' }, splitLine: { show: false } }
+  ] : [{ type: 'value', name: '€/MWh', gridIndex: 0, nameTextStyle: { color: '#6c757d', fontSize: 11 }, ...axisStyle }];
+  const ratioYIdx = isRatio ? 1 : 0, barYIdx = isRatio ? 2 : 1;
+  return {
+    animation: false,
+    tooltip: { trigger: 'axis', axisPointer: { type: 'cross', lineStyle: { color: '#bbb' } },
+      formatter: params => {
+        let html = `<div style="font-weight:600;margin-bottom:5px;color:#2c3e50">${params[0]?.axisValue}</div>`;
+        params.forEach(p => {
+          if (p.value == null) return;
+          const isH = p.seriesName.includes('Hours'), isRat = isRatio && p.seriesName.includes('Ratio');
+          const unit = isH ? 'h' : isRat ? '%' : '€/MWh', dec = isH ? 0 : isRat ? 1 : 2;
+          html += `<div style="display:flex;align-items:center;gap:8px;margin:2px 0;font-size:12px">
+            <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${p.color}"></span>
+            <span style="flex:1;color:#555">${p.seriesName}</span>
+            <span style="font-weight:600;color:#2c3e50">${Number(p.value).toFixed(dec)} ${unit}</span></div>`;
+        });
+        return html;
+      } },
+    legend: { top: 2, right: 8, type: 'scroll', textStyle: { color: '#2c3e50', fontSize: 11 }, itemWidth: 12,
+      data: ['Baseload', postLabel, preLabel, 'Non-positive Hours'] },
+    axisPointer: { link: [{ xAxisIndex: 'all' }] },
+    grid: [{ left: 60, right: isRatio ? 50 : 16, top: 32, bottom: topGridBottom }, { left: 60, right: isRatio ? 50 : 16, top: botGridTop, bottom: 36 }],
+    xAxis: [
+      { type: 'category', data: xData, gridIndex: 0, axisLabel: { show: false }, axisLine: { lineStyle: { color: '#ccc' } }, splitLine: { show: false } },
+      { type: 'category', data: xData, gridIndex: 1, axisLabel: { color: '#6c757d', fontSize: xFontSize, rotate: xRotate, interval: 'auto' },
+        axisLine: { lineStyle: { color: '#ccc' } }, splitLine: { show: false } }
+    ],
+    yAxis: [...yAxesTop, yAxisBar],
+    series: [
+      { name: 'Baseload', type: 'bar', data: baseVals, barMaxWidth, itemStyle: { color: COLORS.baseload, borderWidth: 0 }, xAxisIndex: 0, yAxisIndex: 0, z: 1 },
+      { name: postLabel, type: 'line', symbol: sym, symbolSize: symSize, data: postVals, smooth: false,
+        lineStyle: { color: COLORS.solar, width: 2 }, itemStyle: { color: COLORS.solar }, xAxisIndex: 0, yAxisIndex: ratioYIdx },
+      { name: preLabel, type: 'line', symbol: sym, symbolSize: symSize, data: preVals, smooth: false,
+        lineStyle: { color: COLORS.post_s, width: 1.5, type: 'dashed' }, itemStyle: { color: COLORS.post_s }, xAxisIndex: 0, yAxisIndex: ratioYIdx },
+      { name: 'Non-positive Hours', type: 'bar', data: barVals, barMaxWidth, itemStyle: { color: COLORS.bar, opacity: 0.8 }, xAxisIndex: 1, yAxisIndex: barYIdx }
+    ]
+  };
+}
+function toArrays(agg) {
+  const r = state.mode === 'ratio';
+  return { xData: agg.map(d => d.date), baseVals: agg.map(d => d.baseload),
+    postVals: agg.map(d => r ? d.capRatioPost : d.capPost), preVals: agg.map(d => r ? d.capRatioPre : d.capPre),
+    barVals: agg.map(d => d.nonPosHours), isRatio: r };
+}
+const CHARTS = [  // [freq, element id, extra options]
+  ['daily', 'chartDaily', { barMaxWidth: 10, xFontSize: 10, barYMax: 24, barYInterval: 6 }],
+  ['weekly', 'chartWeekly', { barMaxWidth: 10, xRotate: 30, xFontSize: 9 }],
+  ['monthly', 'chartMonthly', { showDots: true, barMaxWidth: 20 }],
+  ['quarterly', 'chartQuarterly', { showDots: true, barMaxWidth: 32, topGridBottom: '44%', botGridTop: '64%' }],
+  ['yearly', 'chartYearly', { showDots: true, barMaxWidth: 48, topGridBottom: '44%', botGridTop: '64%', xFontSize: 12 }],
+];
+function paint() {
+  if (!price) return;
+  document.querySelectorAll("#sites button").forEach(b => b.classList.toggle("active", b.dataset.s === state.site));
+  document.querySelectorAll("#modeGroup button").forEach(b => b.classList.toggle("active", b.dataset.mode === state.mode));
+  $("cardTitle").textContent = `Solar ${state.mode === 'ratio' ? 'Capture Ratio' : 'Capture Price'} – ${state.site === 'ALL' ? 'All sites' : state.site}`;
+  const hours = computeHours(state.site);
+  CHARTS.forEach(([freq, id, opt]) => {
+    const h = freq === 'daily' ? hours.filter(x => x.date.startsWith(state.year)) : hours;
+    const arr = toArrays(aggregate(h, freq));
+    last[freq] = arr;
+    const xr = freq === 'daily' ? (arr.xData.length > 60 ? 30 : 0) : opt.xRotate || 0;
+    charts[freq].setOption(buildOption({ ...arr, ...opt, xRotate: xr }), true);
+  });
+}
+
+/* ── Summary: tables with matching charts, two per row ────── */
+const MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const sum = { site: 'Total', thresh: 'nonpositive' };
+const YEARS = []; for (let y = FIRST_YEAR; y <= THIS_YEAR; y++) YEARS.push(String(y));
+const YEAR_COLORS = ['#95a5a6', '#2980b9', '#e67e22', '#27ae60', '#8e44ad'];
+const PANELS = [  // key, title, chart type, decimals, unit, hide zero as dash, last-row label
+  ['curt', 'Economic Curtailment Volume (MWh)', 'bar', 0, 'MWh', true, 'Total'],
+  ['curtPct', 'Economic Curtailment Ratio (%)', 'line', 1, '%', false, 'Year'],
+  ['cap', 'Solar Capture Price – post-curtailment (€/MWh)', 'bar', 1, '€/MWh', false, 'Year'],
+  ['ratio', 'Solar Capture Ratio – post-curtailment (%)', 'line', 1, '%', false, 'Year'],
+  ['gen', 'Theoretical Production (MWh)', 'bar', 0, 'MWh', true, 'Total'],
+  ['meter', 'Metered Production (MWh)', 'bar', 0, 'MWh', true, 'Total'],
+];
+let lastSum = null, panelCharts = {};
+const nf = (v, d = 0) => v == null || isNaN(v) ? '<span style="color:#bbb">–</span>' : v.toLocaleString('en-US', { maximumFractionDigits: d, minimumFractionDigits: d });
+function sumAggregate(hours, year, month) {   // month 1-12, or 0 for the whole year
+  const negOnly = sum.thresh === 'negative';
+  let sumPr = 0, cnt = 0, g = 0, gPost = 0, rev = 0;
+  for (const h of hours) {
+    if (!h.date.startsWith(year)) continue;
+    if (month && +h.date.slice(5, 7) !== month) continue;
+    sumPr += h.pr; cnt++;
+    const cut = negOnly ? h.pr < 0 : h.pr <= 0, gp = cut ? 0 : h.gen;
+    g += h.gen; gPost += gp; rev += gp * h.pr;
+  }
+  const baseload = cnt ? sumPr / cnt : null, cap = gPost > 0 ? rev / gPost : null;
+  return { gen: cnt && g > 0 ? g : null, curt: cnt && g > 0 ? g - gPost : null, curtPct: g > 0 ? (g - gPost) / g * 100 : null, cap,
+    ratio: baseload && cap !== null ? cap / baseload * 100 : null };
+}
+// Metered production per price interval (MWh); null unless every selected site has a reading (blank readings are skipped, not zero).
+function meterRecords(sel) {
+  const maps = (sel === "ALL" ? SITES : [sel]).map(s => met[s].m), out = [];
+  for (const k of price.keys) {
+    let g = 0, ok = true;
+    for (const m of maps) { const v = m.get(k); if (v === undefined) { ok = false; break; } g += v; }
+    out.push({ date: k.slice(0, 10), g: ok ? g / 1000 : null });
+  }
+  return out;
+}
+// Whole-period metered MWh (null when there is no reading).
+function meterSum(recs, year, month) {
+  let g = 0, n = 0;
+  for (const r of recs) {
+    if (!r.date.startsWith(year) || (month && +r.date.slice(5, 7) !== month) || r.g === null) continue;
+    g += r.g; n++;
+  }
+  return n && g > 0 ? g : null;
+}
+function buildPanels() {
+  $("panels").innerHTML = PANELS.map(([k, title]) => `<div class="panel"><h4>${title}</h4>
+    <div class="scroll"><table class="ptable" id="pt_${k}"></table></div><div id="pc_${k}" style="width:100%;height:260px;margin-top:10px;"></div></div>`).join("");
+  PANELS.forEach(([k]) => { panelCharts[k] = echarts.init($("pc_" + k)); });
+}
+function paintSummary() {
+  if (!price) return;
+  document.querySelectorAll("#sumSite button").forEach(b => b.classList.toggle("active", b.dataset.s === sum.site));
+  const hours = computeHours(sum.site === 'Total' ? 'ALL' : sum.site);
+  // data[m][yi]: m = 0..11 months, 12 = whole year
+  const mrec = meterRecords(sum.site === 'Total' ? 'ALL' : sum.site);
+  const data = Array.from({ length: 13 }, (_, m) => YEARS.map(y => ({ ...sumAggregate(hours, y, m === 12 ? 0 : m + 1), meter: meterSum(mrec, y, m === 12 ? 0 : m + 1) })));
+  // Theoretical and metered panels share one y-axis range so the two charts can be compared side by side.
+  const prodMax = Math.max(0, ...data.slice(0, 12).flatMap(r => r.flatMap(d => [d.gen || 0, d.meter || 0])));
+  const step = prodMax > 20000 ? 10000 : prodMax > 5000 ? 5000 : 1000, yMax = Math.max(step, Math.ceil(prodMax / step) * step);
+  lastSum = data;
+  $('sumSubtitle').textContent = `${sum.site === 'Total' ? 'Total (all sites)' : sum.site} · curtailed when price ${sum.thresh === 'negative' ? '< 0' : '≤ 0'}`;
+  PANELS.forEach(([k, title, type, dec, unit, dashZero, lastLabel]) => {
+    const cell = v => v == null || (dashZero && v < 0.5 && dec === 0) ? nf(null) : nf(v, dec);
+    $("pt_" + k).innerHTML = '<tr><th></th>' + YEARS.map(y => `<th>${y}</th>`).join('') + '</tr>' +
+      data.map((row, m) => `<tr class="${m === 12 ? 'total' : ''}"><td>${m === 12 ? lastLabel : m + 1}</td>${row.map(d => `<td>${cell(d[k])}</td>`).join('')}</tr>`).join('');
+    const fmt = v => v == null ? '–' : v.toLocaleString('en-US', { minimumFractionDigits: dec, maximumFractionDigits: dec }) + ' ' + unit;
+    panelCharts[k].setOption({
+      animation: false, tooltip: { trigger: 'axis', valueFormatter: fmt },
+      legend: { top: 0, right: 8, textStyle: { color: '#2c3e50', fontSize: 12 } },
+      grid: { left: 56, right: 16, top: 30, bottom: 26 },
+      xAxis: { type: 'category', data: MON, ...axisStyle },
+      yAxis: { type: 'value', name: unit, nameTextStyle: { color: '#6c757d', fontSize: 11 }, ...(k === 'gen' || k === 'meter' ? { min: 0, max: yMax } : {}), ...axisStyle },
+      series: YEARS.map((y, yi) => ({ name: y, type, color: YEAR_COLORS[yi], barMaxWidth: 16, symbolSize: 6, lineStyle: { width: 2 },
+        data: data.slice(0, 12).map(r => r[yi][k]) }))
+    }, true);
+  });
+}
+function exportSummary() {
+  if (!lastSum) return;
+  const head = ['Period'];
+  PANELS.forEach(([, title]) => YEARS.forEach(y => head.push(`${title.replace('€', 'EUR').replace('–', '-')} ${y}`)));
+  const rows = [head];
+  lastSum.forEach((row, m) => rows.push([m === 12 ? 'Year' : m + 1, ...PANELS.flatMap(([k, , , dec]) => row.map(d => d[k] == null ? '' : d[k].toFixed(dec)))]));
+  const blob = new Blob(['\uFEFF' + rows.map(x => x.map(csvEscape).join(',')).join('\r\n')], { type: 'text/csv;charset=utf-8;' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `ops_capture_summary_${sum.site === 'Total' ? 'total' : sum.site}_${sum.thresh}.csv`;
+  document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(a.href);
+}
+
+/* ── CSV export ──────────────────────────────────────────── */
+const csvEscape = v => { if (v == null) return ''; const s = String(v); return /[",\r\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+function exportCSV() {
+  if (!last.daily) return;
+  const r = state.mode === 'ratio';
+  const rows = [['Frequency', 'Period', 'Baseload (EUR/MWh)',
+    r ? 'Solar Capture Ratio Post-Curtailment (%)' : 'Solar Capture Price Post-Curtailment (EUR/MWh)',
+    r ? 'Solar Capture Ratio Pre-Curtailment (%)' : 'Solar Capture Price Pre-Curtailment (EUR/MWh)', 'Non-positive Hours']];
+  const f = v => v == null ? '' : v.toFixed(2);
+  CHARTS.forEach(([freq]) => { const d = last[freq];
+    d.xData.forEach((x, i) => rows.push([freq, x, f(d.baseVals[i]), f(d.postVals[i]), f(d.preVals[i]), d.barVals[i]])); });
+  const blob = new Blob(['\uFEFF' + rows.map(x => x.map(csvEscape).join(',')).join('\r\n')], { type: 'text/csv;charset=utf-8;' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `ops_capture_solar_${state.site === 'ALL' ? 'all-sites' : state.site}_${state.mode}.csv`;
+  document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(a.href);
+}
+
+/* ── Init ────────────────────────────────────────────────── */
+async function init() {
+  $("sites").innerHTML = ["ALL", ...SITES].map(s => `<button data-s="${s}">${s === "ALL" ? "All sites" : s}</button>`).join("");
+  $("sites").onclick = e => { const b = e.target.closest("button"); if (!b) return; state.site = b.dataset.s; paint(); };
+  $("modeGroup").onclick = e => { const b = e.target.closest("button"); if (!b) return; state.mode = b.dataset.mode; paint(); };
+  let ys = ""; for (let y = FIRST_YEAR; y <= THIS_YEAR; y++) ys += `<option value="${y}"${String(y) === state.year ? " selected" : ""}>${y}</option>`;
+  $("yearSelect").innerHTML = ys;
+  $("yearSelect").onchange = e => { state.year = e.target.value; paint(); };
+  $("exportBtn").onclick = exportCSV;
+  $("sumSite").innerHTML = [...SITES, "Total"].map(n => `<button data-s="${n}">${n}</button>`).join("");
+  $("sumSite").onclick = e => { const b = e.target.closest("button"); if (!b) return; sum.site = b.dataset.s; paintSummary(); };
+  $("sumThresh").onclick = e => { const b = e.target.closest("button"); if (!b) return; sum.thresh = b.dataset.t;
+    document.querySelectorAll("#sumThresh button").forEach(x => x.classList.toggle("active", x === b)); paintSummary(); };
+  $("sumExport").onclick = exportSummary;
+  CHARTS.forEach(([freq, id]) => { charts[freq] = echarts.init($(id)); });
+  buildPanels();
+  window.addEventListener("resize", () => { Object.values(charts).forEach(c => c.resize()); Object.values(panelCharts).forEach(c => c.resize()); });
+  try {
+    await load();
+    $("status").textContent = metErr ? `Metered production unavailable (${metErr}); the Metered panel is empty.` : "";
+    paint(); paintSummary();
+  } catch (e) {
+    $("status").className = "status err"; $("status").textContent = "Failed to load: " + e.message;
+  }
+}
+init();
+</script>
+</body>
+</html>

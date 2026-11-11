@@ -227,8 +227,114 @@ async function handleProduction(url, env) {
 const UST_HORIZONS = [15, 30, 45, 60, 75, 90, 105, 120, 135, 150, 165, 180, 195, 210, 225, 240];
 const UST_DEFAULT_H = 60;
 const UST_MAX_DAYS = 62; // 宽表一行 49 列，免费版 Worker CPU 很紧，单次别查太久
-// da_kwh：原来的 DA（日前报量）预测，来自 vcom 仓库 data/production forecast 的第 I 列，页面上画成灰色虚线。
+// da_kwh：DA（日前报量）预测的功率，页面上画成灰色虚线。由乙方 DA 的 POA 预测按我们自己的公式换算（含 AC 限值），见下面的 PLANT_PARAMS。
 const UST_COLUMNS = ["theoretical_kwh", "ust_kwh", "ust_horizon_min", "da_kwh"];
+
+// ── DA 预测的功率换算（和理论发电量、超短期完全同一个公式，且含 AC 侧限值）──────────────────────────
+// DA 不再用乙方自己的 power，而是取乙方 DA 的 POA 预测（vcom 仓库 data/irradiance forecast 的 I 列），自己换算：
+//   kWh(15min) = MIN(AC 限值, MAX(0, POA/1000 × DC 容量 MWp × 当月 PR) / 4) × 1000
+// 下面的参数必须和 vcom 仓库 py/calc_theoretical_production.py 里的 DC_MWP / PR / AC_LIMIT_MWH_15MIN 完全一致
+// （超短期的 kWh 视图就是用那份 Python 常量算的）；py/tests/test_worker_plant_params.py 会核对两边，改了其中一边要同步另一边。
+// PLANT_PARAMS:BEGIN
+const PLANT_PARAMS = {
+  "Putnok": {
+    "dc": 28.5948,
+    "ac": 5.35,
+    "pr": [
+      0.9548,
+      0.9514,
+      0.922,
+      0.8906,
+      0.8536,
+      0.8417,
+      0.8431,
+      0.8555,
+      0.8811,
+      0.9101,
+      0.9291,
+      0.9462
+    ]
+  },
+  "Serenyfalva": {
+    "dc": 36.8131,
+    "ac": 6.85,
+    "pr": [
+      0.9362,
+      0.9362,
+      0.9073,
+      0.8792,
+      0.8412,
+      0.8351,
+      0.8232,
+      0.8417,
+      0.8683,
+      0.8902,
+      0.9106,
+      0.9234
+    ]
+  },
+  "Sajokaza": {
+    "dc": 51.0086,
+    "ac": 9.57,
+    "pr": [
+      0.9628,
+      0.9595,
+      0.9234,
+      0.8963,
+      0.8621,
+      0.8588,
+      0.8498,
+      0.8593,
+      0.8845,
+      0.9144,
+      0.9296,
+      0.9505
+    ]
+  },
+  "Szuhakálló 1": {
+    "dc": 43.1257,
+    "ac": 8.1,
+    "pr": [
+      0.9396,
+      0.9405,
+      0.8992,
+      0.8754,
+      0.8417,
+      0.8298,
+      0.8313,
+      0.8417,
+      0.8626,
+      0.8887,
+      0.9077,
+      0.9229
+    ]
+  },
+  "Szuhakálló 2": {
+    "dc": 36.8131,
+    "ac": 6.85,
+    "pr": [
+      0.9529,
+      0.9529,
+      0.9177,
+      0.8935,
+      0.8512,
+      0.856,
+      0.8346,
+      0.856,
+      0.8797,
+      0.9035,
+      0.9191,
+      0.9367
+    ]
+  }
+};
+// PLANT_PARAMS:END
+
+function poaToKwh(site, month, poa) {
+  const p = PLANT_PARAMS[site];
+  const mwh = Math.max(poa / 1000 * p.dc * p.pr[month - 1], 0) / 4;
+  return Math.min(mwh, p.ac) * 1000;
+}
 
 async function loadUstView(env, month, site) {
   const obj = await env.UST.get(`ust/view/${month}/${site}.csv`);
@@ -296,15 +402,36 @@ async function handleUst(url, env) {
 
   const merged = new Map();
   let any = false;
-  // 理论发电量 + DA 预测：和 /production 一样来自 vcom 仓库（15min 或 hourly 文件）
+  // 理论发电量来自 vcom 仓库（15min 或 hourly 文件）；DA 取乙方 DA 的 POA 预测（始终读 15min 文件），自己换算成功率
+  const poa15 = new Map();
   for (let y = y0; y <= y1; y++) {
-    const [theo, fc] = await Promise.all([
+    const [theo, poaFc] = await Promise.all([
       loadFile(env, `data/theoretical production/${y}/${resolution}/${name}.csv`),
-      loadFile(env, `data/production forecast/${y}/${resolution}/${name}.csv`),
+      loadFile(env, `data/irradiance forecast/${y}/15min/${name}.csv`),
     ]);
-    // theoretical 列：Date, POA, MWh, kWh → 取第 3 列；production forecast 列：Date, I..N → 只取第 1 列（I = DA）
+    // theoretical 列：Date, POA, MWh, kWh → 取第 3 列；irradiance forecast 列：Date, I..N（W/m²）→ 只取第 1 列（I = DA）
     if (theo) { any = true; sliceRows(theo, startKey, endKey, [3], merged, 0, UST_COLUMNS.length); }
-    if (fc) { any = true; sliceRows(fc, startKey, endKey, [1], merged, 3, UST_COLUMNS.length); }
+    if (poaFc) { any = true; sliceRows(poaFc, startKey, endKey, [1], poa15, 0, 1); }
+  }
+  // POA(W/m²) -> kWh（月份取时段所在的布达佩斯本地月份，和理论发电量一致）；hourly 由 4 个 15min 相加（4 个齐全才算），起点标签
+  const da = new Map();
+  for (const [t, v] of poa15) {
+    if (v[0] == null || Number.isNaN(v[0])) continue;
+    const kwh = poaToKwh(site, Number(t.slice(5, 7)), v[0]);
+    if (resolution === "15min") da.set(t, Math.round(kwh * 1000) / 1000);
+    else {
+      const k = t.slice(0, 13) + ":00:00";
+      const h = da.get(k) || [0, 0];
+      h[0] += kwh; h[1] += 1;
+      da.set(k, h);
+    }
+  }
+  for (const [t, v] of da) {
+    const kwh = resolution === "15min" ? v : (v[1] === 4 ? Math.round(v[0] * 1000) / 1000 : null);
+    if (kwh == null) continue;
+    let row = merged.get(t);
+    if (!row) { row = new Array(UST_COLUMNS.length).fill(null); merged.set(t, row); }
+    row[3] = kwh;
   }
   // 超短期：只有 15min 视图；hourly 在这里由 4 个 15min 相加
   const ust15 = new Map();

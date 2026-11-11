@@ -225,9 +225,10 @@ async function handleProduction(url, env) {
 // 用户选提前量 H（horizon，分钟），这里对每个时段取「提前量 >= H 里最小的那一档」的 kWh，那一档缺就退到更大的。
 // 时间标签和 /production 一样：布达佩斯当地时间、区间起点。hourly 由 4 个 15 分钟相加（4 个齐全才算），起点标签。
 const UST_HORIZONS = [15, 30, 45, 60, 75, 90, 105, 120, 135, 150, 165, 180, 195, 210, 225, 240];
-const UST_DEFAULT_H = 45;
+const UST_DEFAULT_H = 60;
 const UST_MAX_DAYS = 62; // 宽表一行 49 列，免费版 Worker CPU 很紧，单次别查太久
-const UST_COLUMNS = ["theoretical_kwh", "ust_kwh", "ust_horizon_min"];
+// da_kwh：原来的 DA（日前报量）预测，来自 vcom 仓库 data/production forecast 的第 I 列，页面上画成灰色虚线。
+const UST_COLUMNS = ["theoretical_kwh", "ust_kwh", "ust_horizon_min", "da_kwh"];
 
 async function loadUstView(env, month, site) {
   const obj = await env.UST.get(`ust/view/${month}/${site}.csv`);
@@ -255,7 +256,7 @@ function sliceUst(text, startKey, endKey, minH, into) {
       if (f[i] !== undefined && f[i] !== "") { hit = [Number(f[i]), h]; break; }
     }
     let row = into.get(f[0]);
-    if (!row) { row = [null, null, null]; into.set(f[0], row); }
+    if (!row) { row = new Array(UST_COLUMNS.length).fill(null); into.set(f[0], row); }
     if (hit) { row[1] = hit[0]; row[2] = hit[1]; }
   }
 }
@@ -295,10 +296,15 @@ async function handleUst(url, env) {
 
   const merged = new Map();
   let any = false;
-  // 理论发电量：和 /production 一样来自 vcom 仓库（15min 或 hourly 文件）
+  // 理论发电量 + DA 预测：和 /production 一样来自 vcom 仓库（15min 或 hourly 文件）
   for (let y = y0; y <= y1; y++) {
-    const theo = await loadFile(env, `data/theoretical production/${y}/${resolution}/${name}.csv`);
+    const [theo, fc] = await Promise.all([
+      loadFile(env, `data/theoretical production/${y}/${resolution}/${name}.csv`),
+      loadFile(env, `data/production forecast/${y}/${resolution}/${name}.csv`),
+    ]);
+    // theoretical 列：Date, POA, MWh, kWh → 取第 3 列；production forecast 列：Date, I..N → 只取第 1 列（I = DA）
     if (theo) { any = true; sliceRows(theo, startKey, endKey, [3], merged, 0, UST_COLUMNS.length); }
+    if (fc) { any = true; sliceRows(fc, startKey, endKey, [1], merged, 3, UST_COLUMNS.length); }
   }
   // 超短期：只有 15min 视图；hourly 在这里由 4 个 15min 相加
   const ust15 = new Map();
@@ -309,7 +315,7 @@ async function handleUst(url, env) {
   if (resolution === "15min") {
     for (const [t, v] of ust15) {
       let row = merged.get(t);
-      if (!row) { row = [null, null, null]; merged.set(t, row); }
+      if (!row) { row = new Array(UST_COLUMNS.length).fill(null); merged.set(t, row); }
       row[1] = v[1]; row[2] = v[2];
     }
   } else {
@@ -324,7 +330,7 @@ async function handleUst(url, env) {
     for (const [k, h] of hours) {
       if (h[1] !== 4) continue;
       let row = merged.get(k);
-      if (!row) { row = [null, null, null]; merged.set(k, row); }
+      if (!row) { row = new Array(UST_COLUMNS.length).fill(null); merged.set(k, row); }
       row[1] = Math.round(h[0] * 1000) / 1000; row[2] = h[2];
     }
   }

@@ -30,12 +30,14 @@ Tokaj 五站「预测 → 报量 → 不平衡」回溯计算（复现 PV_Genera
     Z = 0 若 N 空，否则 N − (J 若 K 空或为 0，否则 K)（11:00~11:45）；12:00~15:45 为 N − L
     不平衡 AI = H+S+T+U+Y+Z − AH            （正 = 报多了/缺电，负 = 报少了/余电）
     收入：Q = P·H/1000，AB = V·S/1000，AC = W·T/1000，AD = X·U/1000，AE = AA·(Y+Z)/1000，AF = Q+AB+AC+AD+AE
-    不平衡费用（默认，和工作簿 Putnok 那张表一致，五个站统一用它；--fee-mode legacy 是另外四张旧表的写法）：
-        AM = AI<=0 且 AJ>=0 时 −AI·Pneg/1000·(−1)，AN = AI<=0 且 AJ<=0 时同式，
-        AO = AI>=0 且 AJ>=0 时 −AI·Ppos/1000·(−1)，AP = AI>=0 且 AJ<=0 时同式，费用 AQ = AM+AN+AO+AP
-        （AJ 是系统方向。两个负号抵消，实际是 +AI·价格：缺电 AI>0 时费用为正，余电 AI<0 时为负。）
-        AJ 非零时四列里恰好一列成立；AJ 为 0 时两列同时成立，按模板原样重复计一次。
-        AJ 缺失（本仓库没有这份数据）：Excel 会把空当成 0 而重复计算，这里按「方向未知、只算一次」处理，
+    不平衡费用（和工作簿 Putnok / Szuhakálló II 两张表的公式逐字一致；用 2026-01~08 的 Putnok 表 22,924 个格子
+        逐行核对过，AI、AF、费用 AQ、结果 AS 全部一致）：
+        AM = (AJ>=0)·(−MIN(0,AI))·Pneg/1000，AN = (AJ<0)·(−MIN(0,AI))·Pneg/1000，
+        AO = (AJ>=0)·(−MAX(0,AI))·Ppos/1000，AP = (AJ<0)·(−MAX(0,AI))·Ppos/1000，费用 AQ = AM+AN+AO+AP，结果 AS = AF + AQ
+        （AJ 是系统方向。注意公式里只有一个负号：AQ 为正是收入、为负是成本。
+          余电 AI<0：多出来的电按不平衡价卖给系统，价格为正时是收入；缺电 AI>0：缺的电按不平衡价买回，价格为正时是成本；价格为负时反过来。）
+        四个条件互斥，每个格子恰好一列成立，所以总额与 AJ 无关，AJ 只决定数落在哪一列。
+        AJ 缺失（本仓库没有这份数据）：Excel 会把空当成 0（落在 AM / AO 列），这里同样只算一次，
         AM~AP 留空，并在汇总里统计没有系统方向的格子数（cells_no_system_direction）。
         可用 --montel 或 --system-direction 提供系统方向。
         Montel 的 SYSTEM DIRECTION（MW）和工作簿 Putnok 的 AJ 符号相反（8 月 97.5% 的格子相反，取反后四列费用与 Excel
@@ -44,8 +46,9 @@ Tokaj 五站「预测 → 报量 → 不平衡」回溯计算（复现 PV_Genera
     价格缺失按 0 计（和 Excel 的空单元格一样），但会在汇总里统计「没有价格覆盖的成交量」。
     实测 AH 缺失（或日前预测 I 缺失）的格子整格剔除，不参与任何汇总（工作簿里这类格子结果为 0）。
 
-说明：工作簿里只有 Putnok 一张表带系统方向，用的是上面这套公式；另外四张表还是旧公式（符号相反：缺电付费、
-余电得钱，且没有系统方向）。按约定一切以 Putnok 为准，所以默认五站都用 Putnok 的写法；旧写法保留为 --fee-mode legacy。
+说明：最新的工作簿里 Putnok 和 Szuhakálló II 两张表的不平衡费用公式完全相同（上面那套）。
+旧版本的这个脚本把默认模式的符号写反了（多乘了一个 −1，缺电算成正费用、余电算成负费用，结果 AS 比工作簿多出两倍的不平衡费用）；
+已按工作簿修正，并加了用工作簿真实数值做的回归测试。--fee-mode legacy 保留作为兼容别名，数值和默认模式相同。
 
 输出（--out，默认 data/tokaj/）：
     daily.csv     每个场站 × 每天的汇总
@@ -85,8 +88,8 @@ FCST_COL = {  # vcom 里 production forecast 的列名 -> 模板列字母
 def compute(df, fee_mode="putnok"):
     """df：以 15 分钟起点（当地时间）为索引，列 I J K L M N（预测 kWh）、AH（实测 kWh）、
     P（日前价）、V W X（IDA1/2/3 价）、AA（ID3 价）、Pneg、Ppos（不平衡价，EUR/MWh）；
-    AJ（系统方向）可选，缺失时费用只算一次（见模块说明）。fee_mode：'putnok'（默认，Putnok 模板）或 'legacy'
-    （另外四张旧表）。返回加上计算列的拷贝，列名沿用工作簿的字母。"""
+    AJ（系统方向）可选，缺失时费用只算一次（见模块说明）。fee_mode：'putnok'（默认，和工作簿一致）或 'legacy'
+    （兼容别名，数值相同）。返回加上计算列的拷贝，列名沿用工作簿的字母。"""
     d = df.copy()
     for c in FCST_LETTERS + ["AH", "P", "V", "W", "X", "AA", "Pneg", "Ppos", "AJ"]:
         if c not in d:
@@ -123,19 +126,19 @@ def compute(df, fee_mode="putnok"):
     elif fee_mode == "putnok":
         ai = d["AI"].to_numpy()
         known = d["AJ"].notna().to_numpy()
-        sd = d["AJ"].fillna(0).to_numpy()
-        v_neg = -ai / 1000 * f("Pneg").to_numpy() * (-1)
-        v_pos = -ai / 1000 * f("Ppos").to_numpy() * (-1)
+        sd = d["AJ"].fillna(0).to_numpy()                      # Excel 把空的 AJ 当 0
+        # 和工作簿一致：AM = (AJ>=0)*-MIN(0,AI)*AK/1000 …，只有一个负号。AQ 为正是收入，为负是成本。
+        v_neg = -np.minimum(0.0, ai) / 1000 * f("Pneg").to_numpy() + 0.0      # 余电 AI<0
+        v_pos = -np.maximum(0.0, ai) / 1000 * f("Ppos").to_numpy() + 0.0      # 缺电 AI>0
         parts = {
-            "AM": np.where((ai <= 0) & (sd >= 0), v_neg, 0.0),
-            "AN": np.where((ai <= 0) & (sd <= 0), v_neg, 0.0),
-            "AO": np.where((ai >= 0) & (sd >= 0), v_pos, 0.0),
-            "AP": np.where((ai >= 0) & (sd <= 0), v_pos, 0.0),
+            "AM": np.where(sd >= 0, v_neg, 0.0),
+            "AN": np.where(sd < 0, v_neg, 0.0),
+            "AO": np.where(sd >= 0, v_pos, 0.0),
+            "AP": np.where(sd < 0, v_pos, 0.0),
         }
-        single = np.where(ai < 0, v_neg, np.where(ai > 0, v_pos, 0.0))      # 方向未知：只算一次
         for k, v in parts.items():
-            d[k] = np.where(known, v, np.nan)
-        d["fee"] = np.where(known, sum(parts.values()), single)
+            d[k] = np.where(known, v, np.nan)                  # 方向未知：这四列留空
+        d["fee"] = v_neg + v_pos                               # 四个条件互斥，总额与 AJ 无关（AJ 缺失也只算一次）
         d["no_direction"] = ~known
     else:
         raise ValueError(f"fee_mode 只能是 putnok 或 legacy，收到 {fee_mode!r}")

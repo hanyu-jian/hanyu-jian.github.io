@@ -23,7 +23,8 @@ py/          脚本
   fetch/enappsys/   EnAppSys(Montel) 抓取（IDA / ID3）
   fetch/mavir/      MAVIR 不平衡数据抓取
   build/            由已有数据生成宽表 / 合并表（build_15min / build_hu_combined）
-  analysis/         tokaj_imbalance_price_calculation.py（Tokaj 五站预测→报量→不平衡价格计算，读 vcom 仓库数据）
+  analysis/         tokaj_da_idc_settlement.py（Tokaj 五站「DA + IDC 滚动（超短期）」结算：日前收入 + IDC 调整收入 − 不平衡费用，读 vcom 仓库数据和 R2 的超短期视图）
+                    tokaj_imbalance_price_calculation.py（旧的六次预测版本，复现工作簿；不平衡费用的符号已按工作簿修正）
   tools/            一次性维护工具（fix_csv）
   tests/            单元测试
 data/

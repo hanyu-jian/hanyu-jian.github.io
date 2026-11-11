@@ -81,6 +81,20 @@ def test_invalid_rows_are_dropped_from_summary():
     close(s.result_EUR.iloc[0], 5.5); close(s.idc_gain_EUR.iloc[0], -0.2)
 
 
+def test_da_error_columns_and_lead_table():
+    # 两个格子：DA 100 / 实际 110；超短期 120 / 实际 110。DA 误差 −10（偏低）、超短期 +10（偏高）
+    d = pd.concat([one("2026-11-01 12:00", I=100, F=120, AH=110, P=50, AA=60, Pneg=70),
+                   one("2026-11-01 12:15", I=100, F=105, AH=110, P=50, AA=60, Pneg=70)])
+    s = S.summarize(S.compute(d), 60)
+    close(s.da_imbalance_net_kWh.iloc[0], -20); close(s.da_imbalance_abs_kWh.iloc[0], 20)
+    close(s.imbalance_net_kWh.iloc[0], 5); close(s.imbalance_abs_kWh.iloc[0], 15)          # (+10) + (−5)
+    close(s.imbalance_abs_pct_of_actual.iloc[0], 15 / 220 * 100); close(s.da_abs_pct_of_actual.iloc[0], 20 / 220 * 100)
+    daily = pd.concat([s.reset_index(), S.summarize(S.compute(d.assign(F=d["I"])), 15).reset_index()])
+    t = S.lead_table(daily)
+    close(t.loc[60, "abs_err_pct"], 15 / 220 * 100); close(t.loc[15, "abs_err_pct"], 20 / 220 * 100)   # F = DA → 误差同 DA
+    assert t.loc[60, "vs_da"] < 0 and abs(t.loc[15, "vs_da"]) < 1e-9
+
+
 def _view(rows, cols):
     head = "Date," + ",".join(cols) + "\n"
     return head + "".join(f"{t},{','.join('' if v is None else str(v) for v in vals)}\n" for t, vals in rows)
@@ -125,7 +139,7 @@ def test_run_site_end_to_end_with_injected_prices():
         th.index.name = "Date"; th.to_csv(plant / "data" / "theoretical production" / "2026" / "15min" / "Putnok.csv")
         prices = pd.DataFrame({"P": 50.0, "AA": 60.0, "Pneg": 70.0}, index=idx)
         view = _view([("2026-11-01 12:00:00", [120]), ("2026-11-01 12:15:00", [80])], ["kWh h60"])
-        d = S.run_site(plant, "Putnok", prices, lambda m, s: view, 60, "2026-11-01", "2026-11-01")
+        d = S.run_site(plant, "Putnok", prices, lambda m, s: view, 60, "2026-11-01", "2026-11-01", da_source="power")
         assert list(d["valid"]) == [True, True, True, False]                 # 最后一格 DA 缺失
         assert list(d["has_ust"]) == [True, True, False, False]
         assert list(d["position"]) == [120, 80, 100, 0]                     # 最后一格 DA 缺失 → H 按 0，且这一格无效，不进汇总
@@ -134,6 +148,38 @@ def test_run_site_end_to_end_with_injected_prices():
         # 12:00 = 5.5（手算同上）；12:15：F=80, AH=90 → IDC −20 → AE −1.2；AI −10 → 费用 +0.7；Q 5 → 4.5；12:30 无超短期：AI 0 → 5
         close(s.result_EUR.iloc[0], 5.5 + (5 - 1.2 + 0.7) + 5.0)
         close(s.lead_min.iloc[0], 60)
+
+
+def test_da_from_poa_uses_the_vcom_conversion_formula():
+    with tempfile.TemporaryDirectory() as t:
+        plant = Path(t) / "vcom"
+        (plant / "py").mkdir(parents=True)
+        (plant / "py" / "calc_theoretical_production.py").write_text(
+            "import pandas as pd\n"
+            "DC_MWP = {'Putnok': 10.0}\nPR = {'Putnok': [0.9] * 12}\nAC_LIMIT_MWH_15MIN = {'Putnok': 2.0}\n"
+            "def production_mwh_15min(poa, dc, pr, ac):\n"
+            "    return (poa / 1000 * dc * pr).clip(lower=0).div(4).clip(upper=ac)\n", encoding="utf-8")
+        idx = pd.date_range("2026-11-01 12:00", periods=3, freq="15min")
+        (plant / "data" / "irradiance forecast" / "2026" / "15min").mkdir(parents=True)
+        poa = pd.DataFrame({"POA fcst I (DA) [W/m²]": [400.0, 1000.0, -5.0]}, index=idx); poa.index.name = "Date"
+        poa.to_csv(plant / "data" / "irradiance forecast" / "2026" / "15min" / "Putnok.csv")
+        (plant / "data" / "production forecast" / "2026" / "15min").mkdir(parents=True)
+        pw = pd.DataFrame({"Production fcst I (DA) [kWh]": [111.0, 222.0, 333.0]}, index=idx); pw.index.name = "Date"
+        pw.to_csv(plant / "data" / "production forecast" / "2026" / "15min" / "Putnok.csv")
+        (plant / "data" / "theoretical production" / "2026" / "15min").mkdir(parents=True)
+        th = pd.DataFrame({"Theoretical production [kWh]": [1, 2, 3]}, index=idx); th.index.name = "Date"
+        th.to_csv(plant / "data" / "theoretical production" / "2026" / "15min" / "Putnok.csv")
+        x = S.load_da_and_actual(plant, "Putnok")                      # 默认：POA + 公式
+        # 400 W/m² × 10 MWp × 0.9 / 4 = 0.9 MWh = 900 kWh；1000 → 2.25 MWh 被 AC 限值 2.0 截断 = 2000 kWh；负值记 0
+        assert list(x["I"].round(6)) == [900.0, 2000.0, 0.0] and list(x["AH"]) == [1, 2, 3]
+        y = S.load_da_and_actual(plant, "Putnok", "power")             # 乙方 power
+        assert list(y["I"]) == [111.0, 222.0, 333.0]
+        try:
+            S.load_da_and_actual(Path(t) / "nowhere", "Putnok")
+        except FileNotFoundError:
+            pass
+        else:
+            raise AssertionError("没有换算公式时应该报错")
 
 
 if __name__ == "__main__":

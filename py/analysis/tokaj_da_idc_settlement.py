@@ -2,7 +2,10 @@
 Tokaj 五站「DA + IDC 滚动（超短期）」结算回溯：日前收入 + IDC 调整收入 − 不平衡费用 = 最终收入。
 
 不再用日前 + 五轮日内（IDA1/2/3、ID3）这六次预测，只用两样：
-    DA 预测          乙方每天 09:30 出的日前报量（vcom 仓库 data/production forecast 的 I 列，kWh）
+    DA 预测          乙方每天 09:30 出的日前报量。默认只取它的 POA 预测（vcom 仓库 data/irradiance forecast 的 I 列），
+                    功率用我们自己的公式算（POA × DC 容量 × 当月 PR，含 AC 限值，公式取自 vcom 仓库的 py/calc_theoretical_production.py），
+                    和理论发电量、超短期完全同一个换算口径；--da-source power 才改用乙方自己的 power（data/production forecast 的 I 列）。
+                    （2026-11 乙方 power 只有同一个 POA 按我们公式算出来的 0.925 倍，两个口径不能混着比。）
     IDC 滚动预测     乙方超短期 POA 预测换算成发电量（R2 里 ust/view/<月>/<场站>.csv，kWh）。
                     每个 15 分钟时段 T 用「提前 L 分钟」那一期修正（默认 L = 60，即 t0 = T−60 分钟的那一期；
                     每期约在 t0 之后 26 分钟生成，赶在日内关闸（交割前约 15 分钟）之前）。
@@ -154,6 +157,8 @@ def summarize(d, lead, freq="D"):
     v = d[d["valid"]].copy()
     v["abs_imbalance"] = v["AI"].abs()
     v["abs_idc"] = v["IDC"].abs()
+    v["da_err"] = v["H"] - v["AH"]                       # DA 自己的误差，用来和各提前量的超短期比精度
+    v["da_abs_err"] = v["da_err"].abs()
     v["Pimb_missing"] = v["Pneg"].isna()
     v["DA_missing"] = v["P"].isna()
     g = v.groupby(v.index.to_period(freq))
@@ -168,6 +173,8 @@ def summarize(d, lead, freq="D"):
         "idc_abs_kWh": g["abs_idc"].sum(),
         "imbalance_net_kWh": g["AI"].sum(),
         "imbalance_abs_kWh": g["abs_imbalance"].sum(),
+        "da_imbalance_net_kWh": g["da_err"].sum(),
+        "da_imbalance_abs_kWh": g["da_abs_err"].sum(),
         "rev_da_EUR": g["Q"].sum(),
         "rev_idc_EUR": g["AE"].sum(),
         "rev_before_imbalance_EUR": g["AF"].sum(),
@@ -186,23 +193,38 @@ def add_ratios(out):
     o = out.copy()
     a = o["actual_kWh"].replace(0, np.nan)
     o["idc_gain_EUR"] = o["result_EUR"] - o["result_da_only_EUR"]
-    o["imbalance_abs_pct_of_actual"] = o["imbalance_abs_kWh"] / a * 100
+    o["imbalance_abs_pct_of_actual"] = o["imbalance_abs_kWh"] / a * 100          # 最终计划（超短期）的绝对误差 / 实际发电量
+    o["da_abs_pct_of_actual"] = o["da_imbalance_abs_kWh"] / a * 100              # 同一批格子上 DA 的绝对误差，用来比较
     o["result_EUR_per_MWh"] = o["result_EUR"] / a * 1000
     o["result_da_only_EUR_per_MWh"] = o["result_da_only_EUR"] / a * 1000
     return o
 
 
-RATIO_COLS = ("idc_gain_EUR", "imbalance_abs_pct_of_actual", "result_EUR_per_MWh", "result_da_only_EUR_per_MWh")
+RATIO_COLS = ("idc_gain_EUR", "imbalance_abs_pct_of_actual", "da_abs_pct_of_actual", "result_EUR_per_MWh", "result_da_only_EUR_per_MWh")
 
 
 # ───────────────────────── 读数据、跑一个场站 ─────────────────────────
 
-DA_COLUMN = "Production fcst I (DA) [kWh]"
+DA_POWER_COLUMN = "Production fcst I (DA) [kWh]"        # 乙方自己的 power
+DA_POA_COLUMN = "POA fcst I (DA) [W/m²]"                  # 乙方的 POA 预测
 ACTUAL_COLUMN = "Theoretical production [kWh]"
 
 
-def load_da_and_actual(plant_dir, site):
-    """DA 预测 I 和理论发电量 AH（kWh，15 分钟，当地时间区间起点）。只读 I 列：以后预测文件里只剩 DA 一列也能用。"""
+def load_converter(plant_dir):
+    """从 vcom 仓库加载 py/calc_theoretical_production.py：理论发电量用的同一个公式和 DC 容量 / 月 PR / AC 限值，只留一份来源。"""
+    import importlib.util
+    path = Path(plant_dir) / "py" / "calc_theoretical_production.py"
+    if not path.exists():
+        raise FileNotFoundError(f"{path} 不存在：--da-source poa 需要 vcom 仓库里的换算公式（--plant-dir 指向 vcom 的 checkout）")
+    spec = importlib.util.spec_from_file_location("calc_theoretical_production", path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def load_da_and_actual(plant_dir, site, da_source="poa"):
+    """DA 预测 I 和理论发电量 AH（kWh，15 分钟，当地时间区间起点）。
+    da_source='poa'（默认）：I = 乙方 DA 的 POA 预测按我们的公式换算；'power'：I = 乙方自己的 power。只读 I 列，不依赖另外五列。"""
     def cat(sub, column):
         files = sorted((Path(plant_dir) / "data" / sub).glob(f"*/15min/{site}.csv"))
         if not files:
@@ -210,12 +232,21 @@ def load_da_and_actual(plant_dir, site):
         x = pd.concat(pd.read_csv(f, index_col=0, parse_dates=True, encoding="utf-8-sig", usecols=lambda c: c in ("Date", column))
                       for f in files).sort_index()
         return x[~x.index.duplicated(keep="last")][column]
-    return pd.concat([cat("production forecast", DA_COLUMN).rename("I"),
-                      cat("theoretical production", ACTUAL_COLUMN).rename("AH")], axis=1, join="outer", sort=True)
+    if da_source == "power":
+        da = cat("production forecast", DA_POWER_COLUMN)
+    elif da_source == "poa":
+        poa = cat("irradiance forecast", DA_POA_COLUMN)
+        c = load_converter(plant_dir)
+        pr = pd.Series(c.PR[site]).reindex(poa.index.month - 1).to_numpy()
+        da = pd.Series((c.production_mwh_15min(poa, c.DC_MWP[site], pr, c.AC_LIMIT_MWH_15MIN[site]) * 1000).to_numpy(),
+                       index=poa.index).where(poa.notna())
+    else:
+        raise ValueError(f"da_source 只能是 poa 或 power，收到 {da_source!r}")
+    return pd.concat([da.rename("I"), cat("theoretical production", ACTUAL_COLUMN).rename("AH")], axis=1, join="outer", sort=True)
 
 
-def run_site(plant_dir, site, prices, read_ust, lead, start=None, end=None):
-    x = load_da_and_actual(plant_dir, site)
+def run_site(plant_dir, site, prices, read_ust, lead, start=None, end=None, da_source="poa"):
+    x = load_da_and_actual(plant_dir, site, da_source)
     x = x.join(prices[["P", "AA", "Pneg"]], how="left")
     if start:
         x = x[x.index >= pd.Timestamp(start)]
@@ -226,6 +257,34 @@ def run_site(plant_dir, site, prices, read_ust, lead, start=None, end=None):
     return compute(x)
 
 
+def lead_table(daily):
+    """各提前量的精度对比（所有场站、所有天合计）。误差都是 |计划 − 实际| 之和除以实际发电量；偏差 > 0 表示计划偏高（缺电）。"""
+    g = daily.groupby("lead_min")
+    t = pd.DataFrame({
+        "cells_with_ust": g["cells_with_ust"].sum(), "cells": g["cells"].sum(),
+        "actual_kWh": g["actual_kWh"].sum(),
+        "abs_err_pct": g["imbalance_abs_kWh"].sum() / g["actual_kWh"].sum() * 100,
+        "da_abs_err_pct": g["da_imbalance_abs_kWh"].sum() / g["actual_kWh"].sum() * 100,
+        "bias_pct": g["imbalance_net_kWh"].sum() / g["actual_kWh"].sum() * 100,
+        "da_bias_pct": g["da_imbalance_net_kWh"].sum() / g["actual_kWh"].sum() * 100,
+        "result_EUR": g["result_EUR"].sum(), "idc_gain_EUR": g["result_EUR"].sum() - g["result_da_only_EUR"].sum(),
+    })
+    t["vs_da"] = t["abs_err_pct"] - t["da_abs_err_pct"]              # < 0：比 DA 准；> 0：比 DA 差
+    return t
+
+
+def print_lead_table(daily):
+    if daily["lead_min"].nunique() < 2:
+        return
+    t = lead_table(daily)
+    print("\n提前量精度对比（所有选中场站、所有天合计；误差 = Σ|计划−实际| / Σ实际）：")
+    print(f"{'提前量':>6}{'超短期误差%':>12}{'DA误差%':>9}{'比DA':>8}{'偏差%':>8}{'DA偏差%':>9}{'有超短期格':>14}{'最终收入EUR':>14}{'IDC收益EUR':>12}")
+    for lead, r in t.iterrows():
+        print(f"{lead:>6}{r.abs_err_pct:>12.2f}{r.da_abs_err_pct:>9.2f}{r.vs_da:>+8.2f}{r.bias_pct:>8.2f}{r.da_bias_pct:>9.2f}"
+              f"{int(r.cells_with_ust):>8}/{int(r.cells):<5}{r.result_EUR:>14,.0f}{r.idc_gain_EUR:>12,.0f}")
+    print("（「比DA」< 0 表示这个提前量的超短期比 DA 更准；正常情况下提前量越短应该越准。）\n")
+
+
 def main():
     ap = argparse.ArgumentParser(description="Tokaj 五站 DA + IDC 滚动（超短期）结算回溯")
     ap.add_argument("--plant-dir", default=os.environ.get("TOKAJ_PLANT_DIR", str(T.BASE.parent / "vcom")),
@@ -233,6 +292,8 @@ def main():
     ap.add_argument("--start", help="起始日期 YYYY-MM-DD（含）")
     ap.add_argument("--end", help="结束日期 YYYY-MM-DD（含）")
     ap.add_argument("--sites", nargs="+", choices=SITES, default=SITES)
+    ap.add_argument("--da-source", choices=["poa", "power"], default="poa",
+                    help="DA 的来源：poa = 乙方 DA 的 POA 预测按我们的公式换算功率（默认，和理论发电量、超短期同口径）；power = 乙方自己的 power")
     ap.add_argument("--lead", nargs="+", type=int, choices=UST_HORIZONS, default=[DEFAULT_LEAD],
                     help="最终计划用提前多少分钟的超短期（可给多个一次比较），默认 %(default)s")
     src = ap.add_mutually_exclusive_group(required=True)
@@ -257,7 +318,7 @@ def main():
     daily = []
     for site in args.sites:
         for lead in args.lead:
-            d = run_site(args.plant_dir, site, prices, read_ust, lead, args.start, args.end)
+            d = run_site(args.plant_dir, site, prices, read_ust, lead, args.start, args.end, args.da_source)
             s = summarize(d, lead, "D")
             s.insert(0, "site", site)
             s.index = s.index.to_timestamp()
@@ -272,6 +333,7 @@ def main():
                   f"最终收入 {s.result_EUR.sum():,.0f} EUR（只用 DA {s.result_da_only_EUR.sum():,.0f}，IDC 收益 {s.idc_gain_EUR.sum():,.0f}）"
                   f"；有超短期的格子 {cov}，白天缺超短期 {gap} 格")
     new = pd.concat(daily, ignore_index=True)
+    print_lead_table(new)
 
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)

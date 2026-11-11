@@ -220,6 +220,129 @@ async function handleProduction(url, env) {
 
 
 
+// ── /ust：理论发电量 + 超短期（UST）预测发电量 ───────────────────────────────────
+// UST 数据在 R2（绑定名 UST，桶里 ust/view/<YYYY-MM>/<场站>.csv），是每个 15 分钟时段存了 16 档提前量的宽表。
+// 用户选提前量 H（horizon，分钟），这里对每个时段取「提前量 >= H 里最小的那一档」的 kWh，那一档缺就退到更大的。
+// 时间标签和 /production 一样：布达佩斯当地时间、区间起点。hourly 由 4 个 15 分钟相加（4 个齐全才算），起点标签。
+const UST_HORIZONS = [15, 30, 45, 60, 75, 90, 105, 120, 135, 150, 165, 180, 195, 210, 225, 240];
+const UST_DEFAULT_H = 45;
+const UST_MAX_DAYS = 62; // 宽表一行 49 列，免费版 Worker CPU 很紧，单次别查太久
+const UST_COLUMNS = ["theoretical_kwh", "ust_kwh", "ust_horizon_min"];
+
+async function loadUstView(env, month, site) {
+  const obj = await env.UST.get(`ust/view/${month}/${site}.csv`);
+  if (!obj) return null;
+  let text = await obj.text();
+  if (text.charCodeAt(0) === 0xfeff) text = text.slice(1);
+  return text;
+}
+
+// 宽表 -> into: Map<时间戳, [theoretical, ust_kwh, 实际用到的提前量]>，只填 ust 两个槽
+function sliceUst(text, startKey, endKey, minH, into) {
+  const nl = text.indexOf("\n");
+  const header = text.slice(0, nl).replace(/\r/g, "").split(",");
+  const cand = UST_HORIZONS.filter((h) => h >= minH)
+    .map((h) => [h, header.indexOf(`kWh h${h}`)])
+    .filter(([, i]) => i > 0);
+  const a = lowerBound(text, startKey, nl + 1);
+  const b = lowerBound(text, endKey, nl + 1);
+  if (b <= a) return;
+  for (const line of text.slice(a, b).split("\n")) {
+    if (!line) continue;
+    const f = line.replace(/\r/g, "").split(",");
+    let hit = null;
+    for (const [h, i] of cand) {
+      if (f[i] !== undefined && f[i] !== "") { hit = [Number(f[i]), h]; break; }
+    }
+    let row = into.get(f[0]);
+    if (!row) { row = [null, null, null]; into.set(f[0], row); }
+    if (hit) { row[1] = hit[0]; row[2] = hit[1]; }
+  }
+}
+
+function monthsBetween(start, end) {
+  const out = [];
+  let y = Number(start.slice(0, 4)), m = Number(start.slice(5, 7));
+  const y1 = Number(end.slice(0, 4)), m1 = Number(end.slice(5, 7));
+  while (y < y1 || (y === y1 && m <= m1)) {
+    out.push(`${y}-${String(m).padStart(2, "0")}`);
+    if (++m > 12) { m = 1; y++; }
+  }
+  return out;
+}
+
+async function handleUst(url, env) {
+  const q = url.searchParams;
+  const site = q.get("site");
+  const start = q.get("start");
+  const end = q.get("end") || start;
+  const resolution = q.get("resolution") || "15min";
+  const horizon = q.get("horizon") === null ? UST_DEFAULT_H : Number(q.get("horizon"));
+
+  if (!SITES.includes(site)) return json({ error: `site must be one of ${SITES.join(" / ")}` }, 400);
+  if (!PROD_RESOLUTIONS.includes(resolution)) return json({ error: "resolution must be 15min or hourly" }, 400);
+  if (!UST_HORIZONS.includes(horizon)) return json({ error: `horizon must be one of ${UST_HORIZONS.join(" / ")}` }, 400);
+  if (!DATE_RE.test(start || "") || !DATE_RE.test(end) || Number.isNaN(Date.parse(start)) || Number.isNaN(Date.parse(end)))
+    return json({ error: "start / end must be YYYY-MM-DD" }, 400);
+  if (end < start) return json({ error: "end must not be before start" }, 400);
+  if (daysBetween(start, end) + 1 > UST_MAX_DAYS) return json({ error: `at most ${UST_MAX_DAYS} days per request` }, 400);
+
+  const startKey = `${start} 00:00:00`;
+  const endKey = `${nextDay(end)} 00:00:00`;
+  const y0 = Math.max(FIRST_YEAR, Number(start.slice(0, 4)));
+  const y1 = Number(end.slice(0, 4));
+  const name = encodeURIComponent(site);
+
+  const merged = new Map();
+  let any = false;
+  // 理论发电量：和 /production 一样来自 vcom 仓库（15min 或 hourly 文件）
+  for (let y = y0; y <= y1; y++) {
+    const theo = await loadFile(env, `data/theoretical production/${y}/${resolution}/${name}.csv`);
+    if (theo) { any = true; sliceRows(theo, startKey, endKey, [3], merged, 0, UST_COLUMNS.length); }
+  }
+  // 超短期：只有 15min 视图；hourly 在这里由 4 个 15min 相加
+  const ust15 = new Map();
+  for (const month of monthsBetween(start, end)) {
+    const text = await loadUstView(env, month, site);
+    if (text) sliceUst(text, startKey, endKey, horizon, ust15);
+  }
+  if (resolution === "15min") {
+    for (const [t, v] of ust15) {
+      let row = merged.get(t);
+      if (!row) { row = [null, null, null]; merged.set(t, row); }
+      row[1] = v[1]; row[2] = v[2];
+    }
+  } else {
+    const hours = new Map(); // 小时起点 -> [和, 个数, 最大提前量]
+    for (const [t, v] of ust15) {
+      if (v[1] == null) continue;
+      const k = t.slice(0, 13) + ":00:00";
+      const h = hours.get(k) || [0, 0, 0];
+      h[0] += v[1]; h[1] += 1; h[2] = Math.max(h[2], v[2]);
+      hours.set(k, h);
+    }
+    for (const [k, h] of hours) {
+      if (h[1] !== 4) continue;
+      let row = merged.get(k);
+      if (!row) { row = [null, null, null]; merged.set(k, row); }
+      row[1] = Math.round(h[0] * 1000) / 1000; row[2] = h[2];
+    }
+  }
+  if (!any && ust15.size === 0) return json({ error: "No data for this site / period" }, 404);
+
+  const rows = [...merged.entries()].sort((a, b) => (a[0] < b[0] ? -1 : 1)).map(([t, v]) => [t, ...v]);
+  return json({
+    site,
+    resolution,
+    horizon_min: horizon,
+    unit: "kWh per interval",
+    timezone: "Europe/Budapest (local time, interval start)",
+    columns: ["Date", ...UST_COLUMNS],
+    rows,
+  });
+}
+
+
 // ── /theoretical：整年的 15 分钟理论发电量 CSV（原样转发，不解析，省 CPU）──────────────
 // ── /meter：表计读数（vcom 仓库 data/meter/tokaj/<年>/15min|hourly/<场站>.csv）────────────
 // 和 /production 一样是布达佩斯当地时间、区间起点标签，Overview 页用它叠一条「实测」线。
@@ -336,6 +459,18 @@ async function handleOps(request, env, url, path) {
     if (!env.GITHUB_TOKEN) return json({ error: "GITHUB_TOKEN is not configured" }, 500);
     try {
       return await handleProduction(url, env);
+    } catch (e) {
+      return json({ error: String(e.message || e) }, 502);
+    }
+  }
+
+  // 超短期预测：理论发电量来自 vcom 仓库（GITHUB_TOKEN），UST 视图来自 R2（绑定 UST）
+  if (path === "/ops/api/ust") {
+    if (request.method !== "GET") return new Response("Method not allowed", { status: 405 });
+    if (!env.GITHUB_TOKEN) return json({ error: "GITHUB_TOKEN is not configured" }, 500);
+    if (!env.UST) return json({ error: "R2 binding UST is not configured" }, 500);
+    try {
+      return await handleUst(url, env);
     } catch (e) {
       return json({ error: String(e.message || e) }, 502);
     }

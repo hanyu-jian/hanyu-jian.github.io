@@ -21,7 +21,7 @@ const PAGES = new Set([
 ]);
 const OPS_COOKIE = "ops_token";
 // 运营页面：对外地址 /ops/<name> → 文件 ops/ops-<name>.html。新增页面（如 capture-price）时把名字加进来即可。
-const OPS_PAGE_NAMES = new Set(["overview", "capture-price"]);
+const OPS_PAGE_NAMES = new Set(["overview", "capture-price", "imbalance"]);
 const OPS_HOME = "/ops/overview";
 const MAX_AGE = 60 * 60 * 24 * 30;
 
@@ -128,8 +128,8 @@ function lowerBound(text, key, lo) {
   return lo;
 }
 
-async function loadFile(env, path) {
-  const res = await fetch(`https://api.github.com/repos/${env.GITHUB_REPO || "hanyu-jian/vcom"}/contents/${path}`, {
+async function loadFile(env, path, repo = env.GITHUB_REPO || "hanyu-jian/vcom") {
+  const res = await fetch(`https://api.github.com/repos/${repo}/contents/${path}`, {
     headers: {
       Authorization: `Bearer ${env.GITHUB_TOKEN}`,
       Accept: "application/vnd.github.raw+json",
@@ -469,6 +469,95 @@ async function handleUstRange(url, env) {
   });
 }
 
+// ── /imbalance：逐 15 分钟的结算输入（DA 预测、理论发电量、提前 L 分钟的超短期预测、三个价格）────────────────
+// 结算本身（DA 报量百分比、剩余部分在 IDC 平仓还是留在不平衡里）在页面里算，这样改参数不用再请求；这里只负责把数据对齐：
+//   H = DA 预测（vcom production forecast 的 I 列，kWh）   AH = 理论发电量（kWh）
+//   F = 提前 L 分钟的超短期预测（提前量 >= L 里最小的一档，没有则为空；live > replay > hindcast 逐单元格取）
+//   P = 日前价，AA = ID3 指数价，PI = 不平衡价（单一价格），EUR/MWh；缺失为空。只返回 AH 和 H 都有值的时段。
+// 价格来自 hu-market-data 仓库的 HU_<年>.csv（build_hu_combined.py 每天整合的 15 分钟表，福林已换算成欧元），列：
+//   "DA Price (EUR/MWh)"、"ID3 Price (EUR/MWh)"、"Imbalance Price (EUR/MWh)"。读它要用 GITHUB_TOKEN 对该仓库有读权限（env.PRICE_REPO 可改仓库）。
+// 一次最多 62 天，列式 JSON（每个字段一个数组）。
+const IMB_MAX_DAYS = 62;
+const IMB_PRICE_COLS = ["DA Price (EUR/MWh)", "ID3 Price (EUR/MWh)", "Imbalance Price (EUR/MWh)"];
+
+// 价格表是「YYYY-MM-DD HH:MM」（没有秒），按字符串二分查找后只解析需要的那一段；夏令时回拨日重复的小时，后出现的覆盖先出现的（和理论发电量 / 预测文件的 96 行一致）。
+function sliceImbalancePrices(text, startKey, endKey, into) {
+  const nl = text.indexOf("\n");
+  const header = text.slice(0, nl).replace(/\r/g, "").split(",");
+  const cols = IMB_PRICE_COLS.map((c) => header.indexOf(c));
+  if (cols.some((i) => i < 0)) throw new Error(`price table is missing a column (${IMB_PRICE_COLS.filter((c, k) => cols[k] < 0).join(", ")})`);
+  const a = lowerBound(text, startKey.slice(0, 16), nl + 1);
+  const b = lowerBound(text, endKey.slice(0, 16), nl + 1);
+  if (b <= a) return;
+  for (const line of text.slice(a, b).split("\n")) {
+    if (!line) continue;
+    const f = line.replace(/\r/g, "").split(",");
+    into.set(f[0].slice(0, 16) + ":00", cols.map((i) => (f[i] === undefined || f[i] === "" ? null : Number(f[i]))));
+  }
+}
+
+async function handleImbalance(url, env) {
+  const q = url.searchParams;
+  const site = q.get("site");
+  const start = q.get("start");
+  const end = q.get("end") || start;
+  const lead = q.get("lead") === null ? UST_DEFAULT_H : Number(q.get("lead"));
+  if (!SITES.includes(site)) return json({ error: `site must be one of ${SITES.join(" / ")}` }, 400);
+  if (!UST_HORIZONS.includes(lead)) return json({ error: `lead must be one of ${UST_HORIZONS.join(" / ")}` }, 400);
+  if (!DATE_RE.test(start || "") || !DATE_RE.test(end) || Number.isNaN(Date.parse(start)) || Number.isNaN(Date.parse(end)))
+    return json({ error: "start / end must be YYYY-MM-DD" }, 400);
+  if (end < start) return json({ error: "end must not be before start" }, 400);
+  if (daysBetween(start, end) + 1 > IMB_MAX_DAYS) return json({ error: `at most ${IMB_MAX_DAYS} days per request` }, 400);
+
+  const startKey = `${start} 00:00:00`;
+  const endKey = `${nextDay(end)} 00:00:00`;
+  const y0 = Math.max(FIRST_YEAR, Number(start.slice(0, 4)));
+  const y1 = Number(end.slice(0, 4));
+  const name = encodeURIComponent(site);
+  const nl = UST_HORIZONS.length, width = 2 + nl;
+
+  const merged = new Map();            // 时段 -> [理论, DA, h15..h240]
+  for (let y = y0; y <= y1; y++) {
+    const [theo, fc] = await Promise.all([
+      loadFile(env, `data/theoretical production/${y}/15min/${name}.csv`),
+      loadFile(env, `data/production forecast/${y}/15min/${name}.csv`),
+    ]);
+    if (theo) sliceRows(theo, startKey, endKey, [3], merged, 0, width);
+    if (fc) sliceRows(fc, startKey, endKey, [1], merged, 1, width);
+  }
+  for (const month of monthsBetween(start, end)) {
+    for (const src of UST_SOURCE_ORDER) {
+      const cfg = UST_SOURCES[src];
+      if (month < cfg.from || month > cfg.to) continue;
+      const text = await loadUstView(env, month, site, cfg.prefix);
+      if (text) ustRangeFill(text, startKey, endKey, merged);
+    }
+  }
+  const prices = new Map();            // 时段 -> [P, AA, PI]
+  for (let y = y0; y <= y1; y++) {
+    let ptext;
+    try {
+      ptext = await loadFile(env, `HU_${y}.csv`, env.PRICE_REPO || "hanyu-jian/hu-market-data");
+    } catch (e) {
+      return json({ error: `Price table HU_${y}.csv (hu-market-data) could not be read: ${e.message}. The GITHUB_TOKEN needs read access to that repository.` }, 502);
+    }
+    if (ptext) sliceImbalancePrices(ptext, startKey, endKey, prices);
+  }
+
+  const out = { t: [], H: [], AH: [], F: [], P: [], AA: [], PI: [] };
+  const li = UST_HORIZONS.indexOf(lead);
+  const r3 = (x) => (x === null ? null : Math.round(x * 1000) / 1000);
+  for (const [t, v] of [...merged.entries()].sort((a, b) => (a[0] < b[0] ? -1 : 1))) {
+    if (v[0] === null || v[1] === null) continue;            // 只返回理论发电量和 DA 都有值的时段
+    let F = null;                                             // 提前量 >= L 里最小的一档
+    for (let j = li; j < nl; j++) if (v[2 + j] !== null) { F = v[2 + j]; break; }
+    const pr = prices.get(t) || [null, null, null];
+    out.t.push(t.slice(0, 16)); out.AH.push(r3(v[0])); out.H.push(r3(v[1])); out.F.push(r3(F));
+    out.P.push(pr[0]); out.AA.push(pr[1]); out.PI.push(pr[2] === null ? null : r3(pr[2]));
+  }
+  return json({ site, start, end, lead, unit: "kWh per 15 min (H, AH, F); EUR/MWh (P, AA, PI); t = Budapest local time, interval start", ...out });
+}
+
 // ── /theoretical：整年的 15 分钟理论发电量 CSV（原样转发，不解析，省 CPU）──────────────
 // ── /meter：表计读数（vcom 仓库 data/meter/tokaj/<年>/15min|hourly/<场站>.csv）────────────
 // 和 /production 一样是布达佩斯当地时间、区间起点标签，Overview 页用它叠一条「实测」线。
@@ -585,6 +674,18 @@ async function handleOps(request, env, url, path) {
     if (!env.GITHUB_TOKEN) return json({ error: "GITHUB_TOKEN is not configured" }, 500);
     try {
       return await handleProduction(url, env);
+    } catch (e) {
+      return json({ error: String(e.message || e) }, 502);
+    }
+  }
+
+  // 结算（DA + IDC 滚动）：按天 × 16 档提前量
+  if (path === "/ops/api/imbalance") {
+    if (request.method !== "GET") return new Response("Method not allowed", { status: 405 });
+    if (!env.GITHUB_TOKEN) return json({ error: "GITHUB_TOKEN is not configured" }, 500);
+    if (!env.UST) return json({ error: "R2 binding UST is not configured" }, 500);
+    try {
+      return await handleImbalance(url, env);
     } catch (e) {
       return json({ error: String(e.message || e) }, 502);
     }

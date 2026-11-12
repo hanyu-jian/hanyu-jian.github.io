@@ -23,7 +23,6 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background:
 .control-group label { font-size: 13px; font-weight: 600; color: #2c3e50; white-space: nowrap; }
 .control-group select, .control-group input[type=date] { font-family: inherit; height: 36px; padding: 0 12px; border: 1px solid #ccc; border-radius: 6px; font-size: 14px; color: #2c3e50; background: #fff; cursor: pointer; }
 .control-group select { min-width: 120px; }
-#fc { width: 250px; }
 .btn-group-inline { display: flex; border: 1px solid #ccc; border-radius: 6px; overflow: hidden; height: 36px; }
 .btn-group-inline button { padding: 0 13px; font-size: 13px; font-family: inherit; font-weight: 500; background: #fff; border: none; border-right: 1px solid #ccc; cursor: pointer; color: #555; transition: background .15s, color .15s; white-space: nowrap; }
 .btn-group-inline button:last-child { border-right: none; }
@@ -37,15 +36,17 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background:
 .chart-card-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 14px; }
 .chart-card-header h3 { font-size: 18px; font-weight: 500; color: #2c3e50; border-left: 4px solid #2c3e50; padding-left: 12px; margin: 0; line-height: 1.3; }
 .chart-card-header .subtitle { font-size: 12px; color: #888; margin-top: 4px; padding-left: 16px; }
-#chart { height: 440px; } #chart2 { height: 240px; }
-#dayChart { height: 320px; } #dayHeat { height: 380px; }
-.day-controls { display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-end; margin-bottom: 8px; }
-.day-controls input[type=date] { font-family: inherit; height: 36px; padding: 0 12px; border: 1px solid #ccc; border-radius: 6px; font-size: 14px; color: #2c3e50; }
+#chart { height: 360px; } #heat { height: 380px; }
+#bChart { height: 340px; } #bBars { height: 340px; }
+.row2 { display: grid; grid-template-columns: 1.9fr 1fr; gap: 16px; }
+.slider-controls { display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-end; margin-bottom: 8px; }
+.slider-controls input[type=date] { font-family: inherit; height: 36px; padding: 0 12px; border: 1px solid #ccc; border-radius: 6px; font-size: 14px; color: #2c3e50; }
 .slider-group { flex: 1; min-width: 320px; max-width: 760px; }
 .slider-group input[type=range] { width: 100%; accent-color: #e67e22; }
+.cover { font-size: 12px; color: #888; margin-left: 6px; font-weight: 400; }
 .slider-ends { display: flex; justify-content: space-between; font-size: 12px; color: #888; }
 .lead-badge { font-size: 14px; font-weight: 600; color: #e67e22; }
-.day-stats { font-size: 13px; color: #2c3e50; min-height: 22px; margin: 6px 0 2px; }
+.slider-stats { font-size: 13px; color: #2c3e50; min-height: 22px; margin: 6px 0 2px; }
 .note { font-size: 12px; color: #888; line-height: 1.6; margin-top: 10px; }
 .scroll { overflow-x: auto; }
 table { border-collapse: collapse; width: 100%; font-size: 13px; }
@@ -55,6 +56,7 @@ th { background: #f3f5f7; font-size: 12px; color: #4a5560; }
 tr.total td { font-weight: 700; background: #fafbfc; }
 .pos { color: #c0392b; } .neg { color: #27ae60; }
 
+@media (max-width: 900px) { .row2 { grid-template-columns: 1fr; } }
 @media (max-width: 700px) {
   body { padding: 8px; }
   .controls { flex-direction: column; align-items: stretch; padding: 16px; }
@@ -81,7 +83,6 @@ tr.total td { font-weight: 700; background: #fafbfc; }
       </div></div>
     <div class="control-group"><label>Resolution</label>
       <select id="res"><option value="15min">15 min</option><option value="hourly">Hourly</option></select></div>
-    <div class="control-group"><label>Forecast lead time</label><select id="fc"></select></div>
   </div>
   <div class="status" id="status"></div>
 
@@ -97,63 +98,37 @@ tr.total td { font-weight: 700; background: #fafbfc; }
       <div class="chart-card-header">
         <div>
           <h3 id="chartTitle">Theoretical production vs ultra-short-term forecast</h3>
-          <div class="subtitle">kWh per interval · Budapest local time, interval start</div>
+          <div class="subtitle">kWh per interval · Budapest local time, interval start · selected period</div>
         </div>
       </div>
-      <div id="chart"></div>
-      <div id="chart2"></div>
-      <p class="note">
-        Deviation = ultra-short-term forecast &minus; theoretical production (positive = forecast too high).<br>
-        <b>Metered (meter reading)</b> comes from the meter data in the vcom repository (click its legend entry to hide it); it includes grid curtailment, unlike theoretical production.
-        In the All sites view an interval counts only if all five sites have a reading.<br>
-        <b>Production forecast (DA)</b> (grey dashed line) is the day-ahead forecast from the vcom repository: the supplier's DA POA forecast converted to energy with our own formula (DC capacity × monthly PR, capped at the AC limit), same as the theoretical production and the ultra-short-term forecast.<br>
-        <b>Ultra-short-term (UST) forecast:</b> the supplier&rsquo;s rolling POA forecast (new issue every 15 minutes, 0&ndash;4 h ahead), converted to production
-        with the same formula as theoretical production (DC capacity &times; monthly PR, AC limit). It is a shadow forecast, not a declaration basis.
-        <b>UST forecast</b> is one continuous line made of three sources with the same format: the supplier's backtest (hindcast, 2026-01-01 to 2026-10-25), their after-the-fact replay (from 2026-10-25) and the live shadow run (from 2026-10-29). Where several exist for an interval the live value wins, otherwise replay, otherwise hindcast. Backtest/replay values assume the newest measurement at issue time and look better than what live achieves while its measurement input is stale.<br>
-        <b>Lead time</b> = how many minutes before the interval starts the forecast was issued. For each interval the line uses the issue with the
-        <i>smallest lead time at or above the chosen value</i> (if that one is missing, the next older issue), so for intervals still in the future the line
-        shows the newest issue available, which can be several hours ahead. Each issue is available about 26 minutes after its issue time and
-        intraday gates close roughly 15 minutes before delivery, so <b>45 min</b> is the shortest lead time that can still be used for trading (default: 60 min);
-        15 and 30 min are only meaningful for after-the-fact evaluation. In hourly view, four 15-min values are summed (all four must exist) and the shown lead time is the oldest of the four.<br>
-        UST data is only available from 2026-10-29 (when the supplier started issuing it). Today&rsquo;s theoretical production is not available until the evening, so today shows forecasts only.
-      </p>
-    </div>
-
-    <div class="chart-card">
-      <div class="chart-card-header">
-        <div>
-          <h3 id="dayTitle">One day · forecast vs theoretical production by lead time</h3>
-          <div class="subtitle">kWh per interval · Budapest local time, interval start · uses the site buttons above</div>
-        </div>
-      </div>
-      <div class="day-controls">
-        <div class="control-group"><label>Day</label>
-          <div style="display:flex;gap:6px;align-items:center;">
-            <div class="btn-group-inline"><button id="dayPrev" title="Previous day">&lsaquo;</button><button id="dayNext" title="Next day">&rsaquo;</button></div>
-            <input type="date" id="dayDate">
-          </div></div>
+      <div class="slider-controls">
         <div class="control-group slider-group">
-          <label>Lead time: <span class="lead-badge" id="dayLead"></span></label>
-          <input type="range" id="daySlider" min="0" max="15" step="1">
+          <label>Lead time: <span class="lead-badge" id="lead"></span></label>
+          <input type="range" id="slider" min="0" max="15" step="1">
           <div class="slider-ends"><span>240 min ahead (older forecast)</span><span>15 min ahead (newest forecast)</span></div>
         </div>
       </div>
-      <div class="day-stats" id="dayStats"></div>
-      <div id="dayChart"></div>
-      <div id="dayHeat"></div>
+      <div class="slider-stats" id="stats"></div>
+      <div id="chart"></div>
+      <div id="heat"></div>
       <p class="note">
-        <b>Slider:</b> drag it from 240 min (far left) to 15 min (far right) to see the orange UST line move towards the theoretical production. The slider only switches the lead time, it does not reload data.<br>
-        <b>Heat map:</b> one row per lead time (plus the DA forecast on top), one column per 15-minute interval of the chosen day. The colour is the
-        <b>error = forecast &minus; theoretical production</b> in kWh: red = forecast too high, blue = too low, white = close to the theoretical value. The row of the selected lead time has a light periwinkle (blue-purple) frame.
-        Night intervals have no forecast and stay empty. Hover a cell to see the forecast, the theoretical value and the error.<br>
-        Each cell uses its own lead time only (no fallback to another lead time). Where several sources exist for a cell, live wins, then replay, then hindcast (see above).
-        In the All sites view an interval counts only if all five sites have a value. The default day is yesterday because the theoretical production of today is only complete in the evening.
+        <b>Slider:</b> drag it from 240 min (far left) to 15 min (far right); the orange UST line moves towards the theoretical production and the summary table below follows. It only switches the lead time, nothing is reloaded.
+        <b>Lead time</b> = how many minutes before the interval starts the forecast was issued. Each issue is available about 26 minutes after its issue time and intraday gates close roughly
+        15 minutes before delivery, so <b>45 min</b> is the shortest lead time that can still be used for trading (default 60 min); 15 and 30 min are only meaningful for after-the-fact evaluation.<br>
+        <b>Heat map:</b> one row per lead time (plus the DA forecast on top), one column per interval of the selected period (nights without forecast are left out). The colour is the
+        <b>error = forecast &minus; theoretical production</b> in kWh per interval: red = forecast too high, blue = too low, white = close. The row of the selected lead time has a light-purple frame.
+        Hover a cell for the forecast, the theoretical value and the error; scroll or drag the slider under the line chart to zoom (both charts zoom together). Each cell uses its own lead time only, there is no fallback to another lead time.<br>
+        <b>Production forecast (DA)</b> (grey dashed line) is the supplier&rsquo;s day-ahead POA forecast converted to energy with our own formula (DC capacity &times; monthly PR, capped at the AC limit), the same formula as the theoretical production and the ultra-short-term forecast.<br>
+        <b>Ultra-short-term (UST) forecast</b> is the supplier&rsquo;s rolling POA forecast (a new issue every 15 minutes, 0&ndash;4 h ahead), converted with the same formula. It is a shadow forecast, not a declaration basis.
+        The line is made of three sources with the same format: the supplier&rsquo;s backtest (hindcast, 2026-01-01 to 2026-10-25), their after-the-fact replay (from 2026-10-25) and the live shadow run (from 2026-10-29).
+        Where several exist for a cell the live value wins, otherwise replay, otherwise hindcast. Backtest and replay assume the newest measurement at issue time and look better than what live achieves while its measurement input is stale.
+        In the All sites view an interval counts only if all five sites have a value. In hourly view four 15-min values are summed (all four must exist).
       </p>
     </div>
 
     <div class="chart-card">
       <div class="chart-card-header">
-        <div><h3>Summary by site</h3><div class="subtitle">Selected period</div></div>
+        <div><h3>Summary by site</h3><div class="subtitle">Selected period · UST at the lead time chosen above</div></div>
       </div>
       <div class="scroll"><table id="sumTable"></table></div>
       <p class="note">
@@ -163,6 +138,36 @@ tr.total td { font-weight: 700; background: #fafbfc; }
         <b>Abs. error %</b> = &Sigma;|forecast &minus; theoretical| / &Sigma;theoretical &mdash; every interval&rsquo;s error counts in full, so errors do not cancel out.
       </p>
     </div>
+
+    <div class="chart-card">
+      <div class="chart-card-header">
+        <div>
+          <h3 id="bTitle">One forecast issue · accuracy by lead time</h3>
+          <div class="subtitle">kWh per interval · Budapest local time · one day, uses the site buttons above</div>
+        </div>
+      </div>
+      <div class="slider-controls">
+        <div class="control-group"><label>Day</label>
+          <div style="display:flex;gap:6px;align-items:center;">
+            <div class="btn-group-inline"><button id="bPrev" title="Previous day">&lsaquo;</button><button id="bNext" title="Next day">&rsaquo;</button></div>
+            <input type="date" id="bDate">
+          </div></div>
+        <div class="control-group slider-group">
+          <label>Issue time: <span class="lead-badge" id="bIssue"></span> <span class="cover" id="bCover"></span></label>
+          <input type="range" id="bSlider" min="0" max="0" step="1">
+          <div class="slider-ends"><span id="bFrom"></span><span id="bTo"></span></div>
+        </div>
+      </div>
+      <div class="slider-stats" id="bStats"></div>
+      <div class="row2"><div id="bChart"></div><div id="bBars"></div></div>
+      <p class="note">
+        <b>Issue time</b> is the moment a forecast was issued; that single issue forecasts the next 16 intervals (15 to 240 min ahead, shown as the orange segment with a dotted line at the issue time).
+        Drag the slider to move the issue time through the day: the points right after the issue time sit on the theoretical production, the later ones drift away.
+        <b>Bars</b>: absolute error of that issue at each lead time; <b>dashed line</b>: average absolute error at that lead time over all issue times of the day.
+        First hour = leads 15&ndash;60 min, last hour = leads 195&ndash;240 min; abs. error % = &Sigma;|forecast &minus; theoretical| / &Sigma;theoretical over those intervals, and DA is compared on the same 4 hours.
+        The default day is yesterday because the theoretical production of today is only complete in the evening. Backtest and replay days look better than live while the live measurement input is stale.
+      </p>
+    </div>
   </div>
 </div>
 
@@ -170,14 +175,14 @@ tr.total td { font-weight: 700; background: #fafbfc; }
 const SITES = ["Putnok", "Serenyfalva", "Sajokaza", "Szuhakálló 1", "Szuhakálló 2"];
 // Lead time in minutes: how long before the interval start the forecast was issued.
 const HORIZONS = [15, 30, 45, 60, 75, 90, 105, 120, 135, 150, 165, 180, 195, 210, 225, 240];
+const STEPS = HORIZONS.slice().reverse();      // slider index 0 = 240 min ... 15 = 15 min
 const DEFAULT_H = 60;
-const MIN_TRADABLE_H = 45;   // issues are ready ~26 min after issue time, gates close ~15 min before delivery
 const MAX_DAYS = 62;
-const DEFAULT_SPAN = 30;     // picking a start date sets the end date to start + 29 days
+const DEFAULT_SPAN = 30;                       // picking a start date sets the end date to start + 29 days
 const $ = id => document.getElementById(id);
-let selected = "ALL", store = {}, meterStore = {}, meterErr = "", chart, chart2, loadSeq = 0, loadTimer = null;
-const horizon = () => +$("fc").value;
-const fcName = () => `UST forecast (${horizon()} min ahead)`;
+let selected = "ALL", store = {}, chart, heat, loadSeq = 0, loadTimer = null;
+let bStore = {}, bChart, bBars, bSeq = 0, bTimer = null, bMsg = "", bIssue = null, bCand = [];   // second card: one issue time
+const lead = () => STEPS[+$("slider").value];
 
 // All timestamps in the data are Budapest local time, so "today" is the Budapest date, not the browser's.
 function budapestToday() {
@@ -187,6 +192,7 @@ function budapestToday() {
 }
 const addDays = (iso, n) => { const d = new Date(iso + "T00:00:00Z"); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
 const daysBetween = (a, b) => (Date.parse(b) - Date.parse(a)) / 86400000;
+function addMin(t, m) { const d = new Date(t.replace(" ", "T") + "Z"); d.setUTCMinutes(d.getUTCMinutes() + m); return d.toISOString().slice(0, 19).replace("T", " "); }
 function setRange(days, endBack = 0) {            // endBack = 0 -> the range ends today, 1 -> yesterday
   const e = addDays(budapestToday(), -endBack);
   $("start").value = addDays(e, -(days - 1)); $("end").value = e;
@@ -196,20 +202,22 @@ function capRange() {
   if (daysBetween(s, e) + 1 > MAX_DAYS) $("start").value = addDays(e, -(MAX_DAYS - 1));
 }
 function setStatus(text, err = false) { $("status").className = err ? "status err" : "status"; $("status").textContent = text; }
+const nf = (v, d = 0) => v == null || isNaN(v) ? "–" : v.toLocaleString("en-US", { maximumFractionDigits: d, minimumFractionDigits: d });
+const pc = v => v == null ? "–" : (v >= 0 ? "+" : "") + nf(v, 1) + "%";
 
 // Every control reloads automatically (short debounce so typing a date does not fire several requests).
 function scheduleLoad(delay = 250) { clearTimeout(loadTimer); loadTimer = setTimeout(load, delay); }
 
 function init() {
-  $("fc").innerHTML = HORIZONS.map(h => `<option value="${h}"${h === DEFAULT_H ? " selected" : ""}>${h} min${h === DEFAULT_H ? " (default)" : h === MIN_TRADABLE_H ? " (shortest tradable)" : h < MIN_TRADABLE_H ? " (not tradable)" : ""}</option>`).join("");
+  $("slider").value = STEPS.indexOf(DEFAULT_H);
   $("sites").innerHTML = ["ALL", ...SITES].map(s => `<button data-s="${s}">${s === "ALL" ? "All sites" : s}</button>`).join("");
-  $("sites").onclick = e => { const b = e.target.closest("button"); if (!b) return; selected = b.dataset.s; paint(); paintDay(); };
+  $("sites").onclick = e => { const b = e.target.closest("button"); if (!b) return; selected = b.dataset.s; paint(); paintB(); };
   document.querySelectorAll("#quick button").forEach(b => b.onclick = () => { setRange(+b.dataset.d, +(b.dataset.e || 0)); scheduleLoad(0); });
-  ["res", "fc"].forEach(id => $(id).onchange = () => scheduleLoad());
+  $("res").onchange = () => scheduleLoad();
   // Changing the start date sets the end date to start + 29 days, capped at today (the range used to snap back from the end, which made early dates hard to pick).
   $("start").onchange = () => {
     const s = $("start").value;
-    if (s) { const t = budapestToday(), e = addDays(s, DEFAULT_SPAN - 1); $("end").value = e > t ? (s > t ? s : t) : e; }  // never later than today
+    if (s) { const t = budapestToday(), e = addDays(s, DEFAULT_SPAN - 1); $("end").value = e > t ? (s > t ? s : t) : e; }
     scheduleLoad();
   };
   $("end").onchange = () => {
@@ -217,108 +225,65 @@ function init() {
     if (e && s && (e < s || daysBetween(s, e) + 1 > MAX_DAYS)) $("start").value = addDays(e, -(DEFAULT_SPAN - 1));
     scheduleLoad();
   };
-  chart = echarts.init($("chart")); chart2 = echarts.init($("chart2")); echarts.connect([chart, chart2]);
-  window.addEventListener("resize", () => { chart.resize(); chart2.resize(); });
-  initDay();
+  $("slider").oninput = paint;
+  chart = echarts.init($("chart")); heat = echarts.init($("heat")); echarts.connect([chart, heat]);
+  bChart = echarts.init($("bChart")); bBars = echarts.init($("bBars"));
+  window.addEventListener("resize", () => { chart.resize(); heat.resize(); bChart.resize(); bBars.resize(); });
+  initB();
   setRange(7, 0); load();
+}
+
+async function fetchRange(s, start, end, res) {
+  const r = await fetch(`/ops/api/ust-range?site=${encodeURIComponent(s)}&start=${start}&end=${end}&resolution=${res}`, { credentials: "same-origin" });
+  if (r.status === 401) { location.href = "/ops/login?next=" + encodeURIComponent(location.pathname); throw new Error("Session expired"); }
+  if (r.status === 404) return null;
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(`${s}: ${j.error || r.status}`);
+  return j;
 }
 
 async function load() {
   const seq = ++loadSeq;                           // a newer load supersedes this one; stale responses are dropped
-  const res = $("res").value;
   if (!$("start").value || !$("end").value) return setStatus("Pick a start and an end date.", true);
   if ($("end").value < $("start").value) return setStatus("End date is before the start date.", true);
   capRange();
-  const q = `start=${$("start").value}&end=${$("end").value}&resolution=${res}`;
   setStatus("Loading…");
   try {
-    const out = await Promise.all(SITES.map(async s => {
-      const r = await fetch(`/ops/api/ust?site=${encodeURIComponent(s)}&${q}&horizon=${horizon()}`, { credentials: "same-origin" });
-      if (r.status === 401) { location.href = "/ops/login?next=" + encodeURIComponent(location.pathname); throw new Error("Session expired"); }
-      const j = await r.json().catch(() => ({}));
-      if (!r.ok) throw new Error(`${s}: ${j.error || r.status}`);
-      return [s, j];
-    }));
-    const meter = await loadMeter(q);
+    const out = await Promise.all(SITES.map(async s => [s, await fetchRange(s, $("start").value, $("end").value, $("res").value)]));
     if (seq !== loadSeq) return;
-    store = Object.fromEntries(out); meterStore = meter.store; meterErr = meter.err;
-    const rows = SITES.reduce((n, s) => n + store[s].rows.length, 0);
-    const withFc = SITES.reduce((n, s) => { const i = store[s].columns.indexOf("ust_kwh"); return n + store[s].rows.filter(r => r[i] != null).length; }, 0);
-    setStatus(`Loaded ${SITES.length} sites, ${store[SITES[0]].rows.length} rows each · UST forecast available for ${withFc} of ${rows} site-intervals`
-      + (withFc === 0 ? " (no UST data in this period yet)" : "") + (meterErr ? ` · metered data unavailable (${meterErr})` : ""));
+    store = Object.fromEntries(out.filter(([, j]) => j));
+    const n = Object.keys(store).length;
+    setStatus(n ? `Loaded ${n} of ${SITES.length} sites, ${store[Object.keys(store)[0]].rows.length} rows each` : "No data for this period.");
     paint();
   } catch (e) {
     if (seq === loadSeq) setStatus("Failed to load: " + e.message, true);
   }
 }
 
-// Meter readings (vcom data/meter); if they cannot be loaded the rest of the page still works.
-async function loadMeter(q) {
-  const m = {};
-  try {
-    await Promise.all(SITES.map(async s => {
-      const r = await fetch(`/ops/api/meter?site=${encodeURIComponent(s)}&${q}`, { credentials: "same-origin" });
-      const j = await r.json().catch(() => ({}));
-      if (!r.ok) throw new Error(j.error || r.status);
-      m[s] = new Map(j.rows);
-    }));
-    return { store: m, err: "" };
-  } catch (e) { return { store: {}, err: String(e.message || e) }; }
+// ───────────── data helpers ─────────────
+// st: {site: payload}; returns the sum over `sites` per timestamp (an interval counts only if every site has the value):
+// { t, act, da, lead: {h: []} }; rows of one site are returned as they are.
+function combine(st, sites) {
+  const have = sites.filter(s => st[s]);
+  if (!have.length || have.length < sites.length) return null;
+  const nk = 2 + HORIZONS.length, m = new Map();
+  have.forEach(s => st[s].rows.forEach(r => {
+    let o = m.get(r[0]); if (!o) { o = { sum: new Array(nk).fill(0), cnt: new Array(nk).fill(0) }; m.set(r[0], o); }
+    for (let k = 0; k < nk; k++) { const v = r[1 + k]; if (v != null) { o.sum[k] += v; o.cnt[k]++; } }
+  }));
+  const need = have.length, t = [...m.keys()].sort();
+  const col = k => t.map(x => { const o = m.get(x); return o.cnt[k] === need ? o.sum[k] : null; });
+  const lead = {}; HORIZONS.forEach((h, j) => { lead[h] = col(2 + j); });
+  return { t, act: col(0), da: col(1), lead };
 }
-const meterAt = (site, t) => { const m = meterStore[site]; return m && m.has(t) ? m.get(t) : null; };
-
-// Per site: time axis, theoretical production (actual), DA, UST forecast at the chosen lead time, meter.
-function series(site) {
-  const d = store[site]; if (!d) return { t: [], act: [], da: [], fc: [], met: [] };
-  const idx = k => d.columns.indexOf(k);
-  const ia = idx("theoretical_kwh"), id = idx("da_kwh"), iu = idx("ust_kwh");
-  return {
-    t: d.rows.map(r => r[0]),
-    act: d.rows.map(r => r[ia]),
-    da: d.rows.map(r => r[id]),
-    fc: d.rows.map(r => r[iu]),
-    met: d.rows.map(r => meterAt(site, r[0])),
-  };
+// Keep only intervals with something to show (drops nights and days without data).
+function daytime(d) {
+  const keep = d.t.map((_, i) => (d.act[i] || 0) > 0 || (d.da[i] || 0) > 0 || HORIZONS.some(h => (d.lead[h][i] || 0) > 0));
+  const pick = a => a.filter((_, i) => keep[i]);
+  const lead = {}; HORIZONS.forEach(h => { lead[h] = pick(d.lead[h]); });
+  return { t: pick(d.t), act: pick(d.act), da: pick(d.da), lead };
 }
-function total() {   // sum of the five sites per timestamp; an interval counts only if all five sites have a value
-  const m = new Map();
-  SITES.forEach(s => { const x = series(s); x.t.forEach((t, i) => {
-    const o = m.get(t) || { a: 0, d: 0, f: 0, e: 0, na: 0, nd: 0, nf: 0, ne: 0 };
-    if (x.met[i] != null) { o.e += x.met[i]; o.ne++; }
-    if (x.act[i] != null) { o.a += x.act[i]; o.na++; }
-    if (x.da[i] != null) { o.d += x.da[i]; o.nd++; }
-    if (x.fc[i] != null) { o.f += x.fc[i]; o.nf++; }
-    m.set(t, o); }); });
-  const t = [...m.keys()].sort(), n = SITES.length;
-  const only = (k, c) => t.map(x => m.get(x)[c] === n ? m.get(x)[k] : null);
-  return { t, act: only("a", "na"), da: only("d", "nd"), fc: only("f", "nf"), met: only("e", "ne") };
-}
-
-const nf = (v, d = 0) => v == null || isNaN(v) ? "–" : v.toLocaleString("en-US", { maximumFractionDigits: d, minimumFractionDigits: d });
-
-function paint() {
-  document.querySelectorAll("#sites button").forEach(b => b.classList.toggle("active", b.dataset.s === selected));
-  if (!Object.keys(store).length) return;
-  const x = selected === "ALL" ? total() : series(selected);
-  $("chartTitle").textContent = `${selected === "ALL" ? "All sites" : selected} · theoretical production vs forecasts`;
-  const dev = x.t.map((_, i) => x.act[i] != null && x.fc[i] != null ? x.fc[i] - x.act[i] : null);
-  const common = { animation: false, tooltip: { trigger: "axis" }, xAxis: { type: "category", data: x.t, axisLabel: { formatter: v => v.slice(5, 16) } } };
-  const line = (name, data, color, extra = {}) => ({ name, type: "line", data, showSymbol: false, lineStyle: { width: 1.6, color }, itemStyle: { color }, ...extra });
-  const seriesList = [
-    line("Theoretical production", x.act, "#2c7fb8", { areaStyle: { color: "rgba(44,127,184,.12)" } }),
-    line("Production forecast (DA)", x.da, "#95a5a6", { lineStyle: { width: 1.4, color: "#95a5a6", type: "dashed" } }),
-    line(fcName(), x.fc, "#e67e22"),
-  ];
-  if (x.met.some(v => v != null)) seriesList.push(line("Metered (meter reading)", x.met, "#27ae60"));
-  chart.setOption({ ...common, grid: { left: 70, right: 24, top: 40, bottom: 64 }, legend: { top: 4 },
-    dataZoom: [{ type: "inside" }, { type: "slider", height: 18, bottom: 6 }],
-    yAxis: { type: "value", name: "kWh", nameLocation: "end" }, series: seriesList }, true);
-  chart2.setOption({ ...common, grid: { left: 70, right: 24, top: 34, bottom: 30 }, dataZoom: [{ type: "inside" }],
-    yAxis: { type: "value", name: "Deviation, kWh", nameLocation: "end" },
-    series: [{ name: "Deviation (UST, " + horizon() + " min ahead)", type: "bar",
-      data: dev.map(v => v == null ? null : { value: v, itemStyle: { color: v >= 0 ? "#e08b84" : "#7fc79a" } }) }] }, true);
-  summary();
-}
+const viewSites = () => selected === "ALL" ? SITES : [selected];
 
 // DA and UST are compared on the same intervals: only those where theoretical production, DA and UST all exist.
 function stats(t, act, da, fc) {
@@ -329,107 +294,31 @@ function stats(t, act, da, fc) {
     devD: a ? (d - a) / a * 100 : null, maeD: a ? aeD / a * 100 : null,
     devF: a ? (f - a) / a * 100 : null, maeF: a ? aeF / a * 100 : null };
 }
-function summary() {
-  const rows = SITES.map(s => { const x = series(s); return { name: s, st: stats(x.t, x.act, x.da, x.fc) }; });
-  const tt = total();
-  rows.push({ name: "Total", cls: "total", st: stats(tt.t, tt.act, tt.da, tt.fc) });
-  const pc = v => v == null ? `<td>–</td>` : `<td class="${v >= 0 ? "pos" : "neg"}">${nf(v, 1)}%</td>`;
-  const ab = v => `<td>${v == null ? "–" : nf(v, 1) + "%"}</td>`;
-  $("sumTable").innerHTML = `<tr><th>Site</th><th>Theoretical MWh</th><th>Forecast DA MWh</th><th>DA dev. %</th><th>DA abs. error %</th>
-      <th>UST forecast MWh (${horizon()} min ahead)</th><th>UST dev. %</th><th>UST abs. error %</th><th>Intervals</th></tr>` +
-    rows.map(r => `<tr class="${r.cls || ""}"><td>${r.name}</td><td>${nf(r.st.a, 1)}</td><td>${nf(r.st.d, 1)}</td>${pc(r.st.devD)}${ab(r.st.maeD)}
-      <td>${nf(r.st.f, 1)}</td>${pc(r.st.devF)}${ab(r.st.maeF)}<td>${r.st.n}</td></tr>`).join("");
-}
 
-// ───────────── One-day view: lead-time slider + error heat map ─────────────
-const DAY_STEPS = HORIZONS.slice().reverse();            // slider index 0 = 240 min ... 15 = 15 min
-const leadOfIdx = i => DAY_STEPS[i];
-let dayStore = {}, dayChart, dayHeat, daySeq = 0, dayTimer = null, dayMsg = "";
-const dayLead = () => leadOfIdx(+$("daySlider").value);
-
-function initDay() {
-  $("daySlider").value = DAY_STEPS.indexOf(DEFAULT_H);
-  $("dayDate").value = addDays(budapestToday(), -1);
-  dayChart = echarts.init($("dayChart")); dayHeat = echarts.init($("dayHeat")); echarts.connect([dayChart, dayHeat]);
-  window.addEventListener("resize", () => { dayChart.resize(); dayHeat.resize(); });
-  $("daySlider").oninput = paintDay;
-  $("dayDate").onchange = () => scheduleDay();
-  $("dayPrev").onclick = () => { $("dayDate").value = addDays($("dayDate").value || budapestToday(), -1); scheduleDay(0); };
-  $("dayNext").onclick = () => { $("dayDate").value = addDays($("dayDate").value || budapestToday(), 1); scheduleDay(0); };
-  scheduleDay(0);
-}
-function scheduleDay(delay = 250) { clearTimeout(dayTimer); dayTimer = setTimeout(loadDay, delay); }
-
-async function loadDay() {
-  const seq = ++daySeq, date = $("dayDate").value;
-  if (!date) return;
-  dayMsg = "Loading…"; paintDay();
-  try {
-    const out = await Promise.all(SITES.map(async s => {
-      const r = await fetch(`/ops/api/ust-day?site=${encodeURIComponent(s)}&date=${date}`, { credentials: "same-origin" });
-      if (r.status === 401) { location.href = "/ops/login?next=" + encodeURIComponent(location.pathname); throw new Error("Session expired"); }
-      if (r.status === 404) return [s, null];
-      const j = await r.json().catch(() => ({}));
-      if (!r.ok) throw new Error(`${s}: ${j.error || r.status}`);
-      return [s, j];
-    }));
-    if (seq !== daySeq) return;
-    dayStore = Object.fromEntries(out.filter(([, j]) => j));
-    dayMsg = Object.keys(dayStore).length ? "" : "No data for this day.";
-  } catch (e) {
-    if (seq !== daySeq) return;
-    dayStore = {}; dayMsg = "Failed to load: " + e.message;
-  }
-  paintDay();
-}
-
-// -> { t, act, da, lead: {h: []} } for the selected site (or the five-site total) restricted to the daytime window with any forecast
-function dayData() {
-  const sites = selected === "ALL" ? SITES : [selected];
-  const have = sites.filter(s => dayStore[s]);
-  if (!have.length || (selected === "ALL" && have.length < SITES.length)) return null;
-  const keys = ["act", "da", ...HORIZONS];
-  const m = new Map();                                   // time -> {sum[], cnt[]}
-  have.forEach(s => { const d = dayStore[s];
-    d.rows.forEach(r => { let o = m.get(r[0]); if (!o) { o = { sum: keys.map(() => 0), cnt: keys.map(() => 0) }; m.set(r[0], o); }
-      keys.forEach((_, k) => { const v = r[1 + k]; if (v != null) { o.sum[k] += v; o.cnt[k]++; } }); }); });
-  const need = have.length;
-  let t = [...m.keys()].sort();
-  const val = (x, k) => m.get(x).cnt[k] === need ? m.get(x).sum[k] : null;
-  const anyFc = x => keys.slice(1).some((_, j) => val(x, j + 1) != null);
-  const first = t.findIndex(anyFc), last = t.length - 1 - [...t].reverse().findIndex(anyFc);
-  t = first < 0 ? [] : t.slice(first, last + 1);
-  const lead = {}; HORIZONS.forEach((h, j) => { lead[h] = t.map(x => val(x, 2 + j)); });
-  return { t, act: t.map(x => val(x, 0)), da: t.map(x => val(x, 1)), lead };
-}
-
-function paintDay() {
-  if (!dayChart) return;
-  const h = dayLead();
-  $("dayLead").textContent = `${h} min ahead`;
-  const name = selected === "ALL" ? "All sites" : selected;
-  $("dayTitle").textContent = `${name} · ${$("dayDate").value || ""} · forecast vs theoretical production by lead time`;
-  const d = dayData();
-  if (!d || !d.t.length) {
-    $("dayStats").textContent = dayMsg || (Object.keys(dayStore).length ? "No forecast data for this selection and day." : "");
-    dayChart.clear(); dayHeat.clear(); return;
-  }
-  const hasAct = d.act.some(v => v != null);
+// ───────────── card 1: slider + line chart + heat map + summary ─────────────
+function paint() {
+  document.querySelectorAll("#sites button").forEach(b => b.classList.toggle("active", b.dataset.s === selected));
+  const h = lead();
+  $("lead").textContent = `${h} min ahead`;
+  if (!Object.keys(store).length) { chart.clear(); heat.clear(); $("stats").textContent = ""; $("sumTable").innerHTML = ""; return; }
+  $("chartTitle").textContent = `${selected === "ALL" ? "All sites" : selected} · theoretical production vs forecasts`;
+  const full = combine(store, viewSites());
+  if (!full) { chart.clear(); heat.clear(); $("stats").textContent = "No data for this selection."; summary(); return; }
+  const d = daytime(full);
+  const multi = d.t.length && d.t[0].slice(0, 10) !== d.t[d.t.length - 1].slice(0, 10);
+  const x = d.t.map(v => multi ? v.slice(5, 16) : v.slice(11, 16));
   const st = stats(d.t, d.act, d.da, d.lead[h]);
-  const pc = v => v == null ? "–" : (v >= 0 ? "+" : "") + nf(v, 1) + "%";
-  $("dayStats").innerHTML = !hasAct
-    ? "No theoretical production for this day yet (today's is only complete in the evening) — forecasts only."
-    : st.n === 0 ? "No interval where theoretical, DA and the selected UST lead all exist."
+  $("stats").innerHTML = st.n === 0 ? "No interval where theoretical, DA and the selected UST lead all exist in this period."
     : `<b>${h} min ahead</b>: UST dev. ${pc(st.devF)}, abs. error ${nf(st.maeF, 1)}% &nbsp;|&nbsp; DA: dev. ${pc(st.devD)}, abs. error ${nf(st.maeD, 1)}% &nbsp;·&nbsp; ${st.n} intervals`;
 
-  const x = d.t.map(v => v.slice(11, 16));
-  const line = (nm, data, color, extra = {}) => ({ name: nm, type: "line", data, showSymbol: false, lineStyle: { width: 1.8, color }, itemStyle: { color }, ...extra });
-  dayChart.setOption({ animation: false, tooltip: { trigger: "axis" }, legend: { top: 4 },
-    grid: { left: 70, right: 24, top: 40, bottom: 28 },
-    xAxis: { type: "category", data: x }, yAxis: { type: "value", name: "kWh", nameLocation: "end" },
+  const line = (nm, data, color, extra = {}) => ({ name: nm, type: "line", data, showSymbol: false, lineStyle: { width: 1.6, color }, itemStyle: { color }, ...extra });
+  chart.setOption({ animation: false, tooltip: { trigger: "axis" }, legend: { top: 4 },
+    grid: { left: 70, right: 24, top: 40, bottom: 64 },
+    dataZoom: [{ type: "inside" }, { type: "slider", height: 18, bottom: 6 }],
+    xAxis: { type: "category", data: x }, yAxis: { type: "value", name: "kWh", nameLocation: "end", min: 0 },
     series: [ line("Theoretical production", d.act, "#2c7fb8", { areaStyle: { color: "rgba(44,127,184,.12)" } }),
       line("Production forecast (DA)", d.da, "#95a5a6", { lineStyle: { width: 1.4, color: "#95a5a6", type: "dashed" } }),
-      line(`UST forecast (${h} min ahead)`, d.lead[h], "#e67e22", { lineStyle: { width: 2.4, color: "#e67e22" } }) ] }, true);
+      line(`UST forecast (${h} min ahead)`, d.lead[h], "#e67e22", { lineStyle: { width: 2.2, color: "#e67e22" } }) ] }, true);
 
   // Heat map rows, bottom to top: 15 ... 240 min, then DA on top.
   const rowsLbl = [...HORIZONS.map(v => `${v} min`), "DA"];
@@ -443,19 +332,118 @@ function paintDay() {
   }));
   const M = maxAbs > 0 ? Math.ceil(maxAbs / 10) * 10 : 1;
   const yi = HORIZONS.indexOf(h);
-  dayHeat.setOption({ animation: false,
-    tooltip: { position: "top", formatter: p => `${x[p.data[0]]} · ${rowsLbl[p.data[1]]}<br>forecast ${nf(p.data[3], 1)} kWh<br>theoretical ${nf(p.data[4], 1)} kWh<br><b>error ${p.data[2] >= 0 ? "+" : ""}${nf(p.data[2], 1)} kWh</b>` },
+  heat.setOption({ animation: false,
+    tooltip: { position: "top", formatter: p => p.data ? `${x[p.data[0]]} · ${rowsLbl[p.data[1]]}<br>forecast ${nf(p.data[3], 1)} kWh<br>theoretical ${nf(p.data[4], 1)} kWh<br><b>error ${p.data[2] >= 0 ? "+" : ""}${nf(p.data[2], 1)} kWh</b>` : "" },
     grid: { left: 70, right: 24, top: 56, bottom: 28 },
+    dataZoom: [{ type: "inside" }],
     xAxis: { type: "category", data: x, splitArea: { show: true } },
     yAxis: { type: "category", data: rowsLbl, splitArea: { show: true } },
     visualMap: { dimension: 2, min: -M, max: M, calculable: false, orient: "horizontal", left: "center", top: 0, itemWidth: 14, itemHeight: 220,
       text: ["forecast too high", "too low"], textStyle: { color: "#555" }, inRange: { color: ["#2c7fb8", "#f7f7f7", "#d7301f"] } },
-    series: [{ type: "heatmap", data: cells, progressive: 0, emphasis: { itemStyle: { borderColor: "#333", borderWidth: 1 } } },
-      // Light periwinkle (between blue and purple), slightly rounded frame around the selected lead-time row (markArea rounds category coordinates, so draw the rectangle ourselves).
+    series: [{ type: "heatmap", data: cells, progressive: 5000, emphasis: { itemStyle: { borderColor: "#333", borderWidth: 1 } } },
+      // Light-purple, slightly rounded frame around the selected lead-time row (spans the whole grid width, also when zoomed).
       { type: "custom", silent: true, z: 10, data: [[0, yi]], tooltip: { show: false },
-        renderItem: (params, api) => { const a = api.coord([0, yi]), b = api.coord([x.length - 1, yi]), sz = api.size([1, 1]);
-          return { type: "rect", shape: { x: a[0] - sz[0] / 2, y: a[1] - sz[1] / 2, width: b[0] - a[0] + sz[0], height: sz[1], r: 4 },
+        renderItem: (params, api) => { const c = api.coord([0, yi]), sz = api.size([1, 1]), cs = params.coordSys;
+          return { type: "rect", shape: { x: cs.x, y: c[1] - sz[1] / 2, width: cs.width, height: sz[1], r: 4 },
             style: { fill: "none", stroke: "#c3c9f3", lineWidth: 1.5 } }; } }] }, true);
+  summary();
+}
+
+function summary() {
+  const h = lead();
+  const at = (st, s) => { const d = st[s] && combine(st, [s]); return d ? stats(d.t, d.act, d.da, d.lead[h]) : null; };
+  const rows = SITES.map(s => ({ name: s, st: at(store, s) }));
+  const tot = combine(store, SITES);
+  rows.push({ name: "Total", cls: "total", st: tot ? stats(tot.t, tot.act, tot.da, tot.lead[h]) : null });
+  const pcell = v => v == null ? `<td>–</td>` : `<td class="${v >= 0 ? "pos" : "neg"}">${nf(v, 1)}%</td>`;
+  const ab = v => `<td>${v == null ? "–" : nf(v, 1) + "%"}</td>`;
+  $("sumTable").innerHTML = `<tr><th>Site</th><th>Theoretical MWh</th><th>Forecast DA MWh</th><th>DA dev. %</th><th>DA abs. error %</th>
+      <th>UST forecast MWh (${h} min ahead)</th><th>UST dev. %</th><th>UST abs. error %</th><th>Intervals</th></tr>` +
+    rows.map(r => r.st ? `<tr class="${r.cls || ""}"><td>${r.name}</td><td>${nf(r.st.a, 1)}</td><td>${nf(r.st.d, 1)}</td>${pcell(r.st.devD)}${ab(r.st.maeD)}
+      <td>${nf(r.st.f, 1)}</td>${pcell(r.st.devF)}${ab(r.st.maeF)}<td>${r.st.n}</td></tr>`
+      : `<tr class="${r.cls || ""}"><td>${r.name}</td><td colspan="8" style="text-align:left;color:#aaa">no data</td></tr>`).join("");
+}
+
+// ───────────── card 2: one issue time, 16 forecasts, accuracy by lead ─────────────
+function initB() {
+  $("bDate").value = addDays(budapestToday(), -1);
+  $("bDate").onchange = () => scheduleB();
+  $("bPrev").onclick = () => { $("bDate").value = addDays($("bDate").value || budapestToday(), -1); scheduleB(0); };
+  $("bNext").onclick = () => { $("bDate").value = addDays($("bDate").value || budapestToday(), 1); scheduleB(0); };
+  $("bSlider").oninput = () => { bIssue = bCand[+$("bSlider").value] || bIssue; paintB(); };
+  scheduleB(0);
+}
+function scheduleB(delay = 250) { clearTimeout(bTimer); bTimer = setTimeout(loadB, delay); }
+async function loadB() {
+  const seq = ++bSeq, day = $("bDate").value;
+  if (!day) return;
+  bMsg = "Loading…"; bIssue = null; paintB();
+  try {
+    const out = await Promise.all(SITES.map(async s => [s, await fetchRange(s, day, day, "15min")]));
+    if (seq !== bSeq) return;
+    bStore = Object.fromEntries(out.filter(([, j]) => j));
+    bMsg = Object.keys(bStore).length ? "" : "No data for this day.";
+  } catch (e) {
+    if (seq !== bSeq) return;
+    bStore = {}; bMsg = "Failed to load: " + e.message;
+  }
+  paintB();
+}
+function paintB() {
+  if (!bChart) return;
+  const name = selected === "ALL" ? "All sites" : selected, day = $("bDate").value || "";
+  $("bTitle").textContent = `${name} · ${day} · one forecast issue, accuracy by lead time`;
+  const full = Object.keys(bStore).length ? combine(bStore, viewSites()) : null;
+  if (!full) { $("bStats").textContent = bMsg || "No data for this selection."; bChart.clear(); bBars.clear(); $("bSlider").max = 0; return; }
+  const d = daytime(full);
+  const idx = new Map(full.t.map((t, i) => [t, i]));
+  // Issue times that have at least one forecast value: the forecast for slot T + h comes from the column "h".
+  const cand = []; if (d.t.length) {
+    for (let T = addMin(d.t[0], -240); T <= addMin(d.t[d.t.length - 1], -15); T = addMin(T, 15)) {
+      if (HORIZONS.some(h => { const i = idx.get(addMin(T, h)); return i != null && full.lead[h][i] != null; })) cand.push(T);
+    }
+  }
+  if (!cand.length) { $("bStats").textContent = "No forecast data for this selection and day."; bChart.clear(); bBars.clear(); return; }
+  const sl = $("bSlider");
+  bCand = cand;
+  // keep the issue time if it is still valid (e.g. after switching site), otherwise start near 10:00
+  const T = bIssue && cand.includes(bIssue) ? bIssue : cand.find(t => t.slice(11, 16) >= "10:00") || cand[Math.floor(cand.length / 2)];
+  bIssue = T; sl.max = cand.length - 1; sl.value = cand.indexOf(T);
+  const hhmm = t => t.slice(11, 16);
+  $("bIssue").textContent = hhmm(T);
+  $("bCover").textContent = `covers ${hhmm(addMin(T, 15))} – ${hhmm(addMin(T, 240))}`;
+  $("bFrom").textContent = hhmm(cand[0]); $("bTo").textContent = hhmm(cand[cand.length - 1]);
+
+  const x = d.t.map(hhmm), seg = new Array(d.t.length).fill(null), errs = [], pts = [];
+  HORIZONS.forEach(h => {
+    const slot = addMin(T, h), i = idx.get(slot), f = i == null ? null : full.lead[h][i], a = i == null ? null : full.act[i];
+    const k = d.t.indexOf(slot);
+    if (f != null && k >= 0) seg[k] = f;
+    errs.push(f != null && a != null ? Math.abs(f - a) : null);
+    pts.push({ f, a, da: i == null ? null : full.da[i] });
+  });
+  const avg = HORIZONS.map(h => { let s = 0, n = 0; full.t.forEach((_, i) => { const f = full.lead[h][i], a = full.act[i]; if (f != null && a != null) { s += Math.abs(f - a); n++; } }); return n ? s / n : null; });
+  const win = (lo, hi) => { let e = 0, a = 0; pts.slice(lo, hi).forEach(p => { if (p.f != null && p.a != null) { e += Math.abs(p.f - p.a); a += p.a; } }); return a ? e / a * 100 : null; };
+  let eDA = 0, aDA = 0; pts.forEach(p => { if (p.da != null && p.a != null && p.f != null) { eDA += Math.abs(p.da - p.a); aDA += p.a; } });
+  const first = win(0, 4), last = win(12, 16);
+  $("bStats").innerHTML = pts.every(p => p.a == null) ? "No theoretical production for this day yet (today's is only complete in the evening) — forecasts only."
+    : `<b>Issued ${hhmm(T)}</b>: first hour abs. error <b>${first == null ? "–" : nf(first, 1) + "%"}</b> &nbsp;|&nbsp; last hour abs. error <b>${last == null ? "–" : nf(last, 1) + "%"}</b> &nbsp;|&nbsp; DA over the same 4 h: abs. error ${aDA ? nf(eDA / aDA * 100, 1) + "%" : "–"}`;
+
+  const lineS = (nm, data, color, extra = {}) => ({ name: nm, type: "line", data, showSymbol: false, lineStyle: { width: 1.6, color }, itemStyle: { color }, ...extra });
+  const t0 = x.indexOf(hhmm(T)), a0 = x.indexOf(hhmm(addMin(T, 15))), a1 = x.indexOf(hhmm(addMin(T, 240)));
+  bChart.setOption({ animation: false, tooltip: { trigger: "axis" }, legend: { top: 0 },
+    grid: { left: 60, right: 20, top: 38, bottom: 28 }, xAxis: { type: "category", data: x }, yAxis: { type: "value", name: "kWh", min: 0 },
+    series: [ lineS("Theoretical production", d.act, "#2c7fb8", { areaStyle: { color: "rgba(44,127,184,.12)" } }),
+      lineS("Production forecast (DA)", d.da, "#95a5a6", { lineStyle: { width: 1.4, color: "#95a5a6", type: "dashed" } }),
+      lineS(`UST forecast issued ${hhmm(T)}`, seg, "#e67e22", { showSymbol: true, symbolSize: 5, lineStyle: { width: 2.6, color: "#e67e22" }, connectNulls: true,
+        markLine: { symbol: "none", silent: true, label: { formatter: `issued ${hhmm(T)}`, color: "#e67e22" }, lineStyle: { color: "#e67e22", type: "dotted" }, data: t0 >= 0 ? [{ xAxis: t0 }] : [] },
+        markArea: { silent: true, itemStyle: { color: "rgba(230,126,34,.07)" }, data: a0 >= 0 || a1 >= 0 ? [[{ xAxis: a0 >= 0 ? a0 : 0 }, { xAxis: a1 >= 0 ? a1 : x.length - 1 }]] : [] } }) ] }, true);
+  bBars.setOption({ animation: false, tooltip: { trigger: "axis" }, legend: { top: 0, textStyle: { fontSize: 11 } },
+    grid: { left: 56, right: 16, top: 62, bottom: 46 },
+    xAxis: { type: "category", data: HORIZONS, name: "lead, min", nameLocation: "middle", nameGap: 28 },
+    yAxis: { type: "value", name: "abs. error, kWh", nameGap: 14, min: 0 },
+    series: [ { name: `Issued ${hhmm(T)}`, type: "bar", data: errs.map(v => v == null ? null : Math.round(v * 10) / 10), itemStyle: { color: "#e67e22" } },
+      { name: "Average over the day", type: "line", data: avg.map(v => v == null ? null : Math.round(v * 10) / 10), showSymbol: false, lineStyle: { width: 2, color: "#6c7a89", type: "dashed" } } ] }, true);
 }
 init();
 </script>

@@ -62,9 +62,11 @@ tr.total td { font-weight: 700; background: #fafbfc; }
   .sub-nav-link { padding: 14px 14px; font-size: 13px; }
 }
 
-#chartRev { height: 400px; } #chartSens { height: 340px; }
+#chartRev { height: 400px; }
 .banner { margin: 14px 30px 0; padding: 10px 14px; background: #fff8e6; border: 1px solid #f3dfa2; border-radius: 6px; font-size: 12.5px; color: #7a5c00; line-height: 1.6; }
 tr.sel td { background: #f1f4ff; font-weight: 600; }
+th.grp { text-align: center; border-left: 1px solid #dfe3e8; border-right: 1px solid #dfe3e8; }
+td.l, th.l { border-left: 1px solid #eef0f3; }
 td.dim { color: #aaa; }
 
 .control-group input[type=number] { font-family: inherit; height: 36px; width: 110px; padding: 0 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 14px; color: #2c3e50; }
@@ -125,15 +127,15 @@ td.dim { color: #aaa; }
 
     <div class="chart-card">
       <div class="chart-card-header">
-        <div><h3 id="sensTitle">Sensitivity to the DA bid share</h3><div class="subtitle">Total result of the selected sites and period (EUR) for every DA bid share, both ways of handling the rest</div></div>
+        <div><h3 id="sensTitle">Sensitivity to the DA bid share</h3><div class="subtitle">Selected sites and period, for every DA bid share and both ways of handling the rest (EUR)</div></div>
       </div>
       <div class="best" id="best"></div>
-      <div id="chartSens"></div>
+      <div class="scroll"><table id="sensTable"></table></div>
       <p class="note">
         <b>Rest in IDC:</b> the DA position is D = bid share &times; DA forecast; the rest is traded in the intraday market so that the final position equals the UST forecast F issued <i>lead time</i> minutes before the interval
         (F &minus; D is bought or sold at the ID3 price; where no UST forecast exists the position stays at D).
         <b>Rest in imbalance:</b> nothing is traded after the DA, the position stays at D and the whole difference to the actual production is settled at the imbalance price (an opportunistic imbalance position).<br>
-        <b>Reading the lines:</b> with the prices of the period known, the result is linear in the bid share, so each line is straight and the best share is always 0% or the upper limit; the slope is the volume-weighted spread between the DA price and the price the rest is settled at (ID3 or imbalance). The sign of that spread can change between months (use the monthly frequency above to see it), and it is a look back, not a forecastable rule.<br>
+        <b>Reading the table:</b> with the prices of the period known, the result is linear in the bid share, so it changes by the same amount for every +10 points and the best share is always 0% or the upper limit; the slope is the volume-weighted spread between the DA price and the price the rest is settled at (ID3 or imbalance). The sign of that spread can change between months (pick a single month above to see it), and it is a look back, not a forecastable rule.<br>
         With a 100% bid and the rest left in imbalance this is the plain DA-only reference; with a 100% bid and IDC it is the settlement confirmed against the Robestec workbook.
       </p>
     </div>
@@ -144,7 +146,7 @@ td.dim { color: #aaa; }
         H = DA forecast &nbsp;|&nbsp; D = DA bid = share &times; H &nbsp;|&nbsp; F = UST forecast issued <i>lead time</i> minutes before (the smallest available lead at or above the chosen one) &nbsp;|&nbsp; AH = theoretical production (from measured POA, includes the AC limit)<br>
         Final position = F (rest in IDC and F available) or D (otherwise) &nbsp;|&nbsp; DA revenue = P &middot; D / 1000 &nbsp;|&nbsp; IDC revenue = AA &middot; (final position &minus; D) / 1000 &nbsp;|&nbsp;
         <b>Imbalance revenue = &minus;(final position &minus; AH) &middot; Pimb / 1000</b> (positive = income, negative = cost) &nbsp;|&nbsp; Result = DA + IDC + imbalance<br>
-        P = day-ahead price, AA = ID3 index price, Pimb = imbalance price, EUR/MWh. <b>DA-only (100%)</b> = reference with a 100% bid and nothing traded afterwards. <b>Abs. imbalance %</b> = &Sigma;|final position &minus; AH| / &Sigma;AH.
+        P = day-ahead price, AA = ID3 index price, Pimb = imbalance price, EUR/MWh. <b>DA-only (100%)</b> = reference with a 100% bid and nothing traded afterwards. <b>Result</b> = revenue / cost after the imbalance cost (DA + IDC + imbalance revenue); <b>Imbalance %</b> = imbalance revenue / result (negative = the imbalance cost as a share of the result); <b>Abs. imbalance volume %</b> = &Sigma;|final position &minus; AH| / &Sigma;AH.
         Only intervals with theoretical production and a DA forecast are counted. A missing price counts as 0 and is listed under &ldquo;Price gaps&rdquo; (intervals); days with no DA or no imbalance price at all (usually the last day or two) are left out.<br>
         <b>Data:</b> DA forecast and theoretical production from the vcom repository; UST from R2 (live &gt; replay &gt; hindcast per cell); prices from the <i>hu-market-data</i> combined table (day-ahead, ID3 and imbalance price in EUR/MWh; the HUF imbalance price before 2026-10-01 is converted with the MNB rate of the previous working day).
         Changing the dates or the IDC lead time reloads the data; everything else is calculated in the browser.
@@ -175,7 +177,7 @@ function settleSlot(H, AH, F, P, AA, PI, p, mode, out) {
 }
 // </core>
 
-let selected = "ALL", store = {}, loadSeq = 0, loadTimer = null, chRev, chSens;
+let selected = "ALL", store = {}, loadSeq = 0, loadTimer = null, chRev;
 const addDays = (iso, n) => { const d = new Date(iso + "T00:00:00Z"); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
 function budapestToday() {
   const p = Object.fromEntries(new Intl.DateTimeFormat("en-US", { timeZone: "Europe/Budapest", year: "numeric", month: "2-digit", day: "2-digit" })
@@ -206,8 +208,8 @@ function init() {
   ["start", "end", "lead"].forEach(id => $(id).onchange = () => scheduleLoad());
   ["freq", "mode"].forEach(id => $(id).onchange = paint);
   $("pct").oninput = paint;
-  chRev = echarts.init($("chartRev")); chSens = echarts.init($("chartSens"));
-  window.addEventListener("resize", () => { chRev.resize(); chSens.resize(); });
+  chRev = echarts.init($("chartRev"));
+  window.addEventListener("resize", () => chRev.resize());
   setRange("7"); load();
 }
 
@@ -295,38 +297,41 @@ function paint() {
       { name: "Result", type: "line", data: rows.map(([, g]) => Math.round(g.res * 100) / 100), lineStyle: { width: 2.2, color: "#2c3e50" }, itemStyle: { color: "#2c3e50" }, showSymbol: x.length < 120, symbolSize: 5 },
       { name: "DA-only (100%)", type: "line", data: rows.map(([, g]) => Math.round(g.ref * 100) / 100), lineStyle: { width: 1.6, color: "#95a5a6", type: "dashed" }, itemStyle: { color: "#95a5a6" }, showSymbol: false } ] }, true);
   summary(p, mode);
-  sensitivity(sites, p, mode);
+  sensitivity(sites, p);
 }
 
 function summary(p, mode) {
   const one = s => store[s] ? (aggregate([s], "all", p, mode)[0] || [0, blank()])[1] : null;
   const all = SITES.map(s => [s, one(s)]), tot = (aggregate(SITES, "all", p, mode)[0] || [0, blank()])[1];
-  const row = (label, g, cls = "") => !g ? `<tr><td>${label}</td><td colspan="14" style="text-align:left;color:#aaa">no data</td></tr>` : `<tr class="${cls}"><td>${label}</td>
+  const ipct = g => g.res ? g.imb / g.res * 100 : null;      // imbalance revenue / result (negative = imbalance cost as a share of the result)
+  const row = (label, g, cls = "") => !g ? `<tr><td>${label}</td><td colspan="15" style="text-align:left;color:#aaa">no data</td></tr>` : `<tr class="${cls}"><td>${label}</td>
     <td>${nf(g.AH / 1000, 1)}</td><td>${nf(g.H / 1000, 1)}</td><td>${nf(g.D / 1000, 1)}</td><td>${nf(g.idc / 1000, 1)}</td><td>${nf(g.pos / 1000, 1)}</td>
-    <td>${eur(g.q)}</td><td>${eur(g.ae)}</td><td>${eur(g.imb)}</td><td><b>${eur(g.res)}</b></td><td>${eur(g.ref)}</td>
+    <td>${eur(g.q)}</td><td>${eur(g.ae)}</td><td>${eur(g.imb)}</td><td><b>${eur(g.res)}</b></td><td>${ipct(g) == null ? "–" : sgn(ipct(g), 1) + "%"}</td><td>${eur(g.ref)}</td>
     <td class="${g.res - g.ref >= 0 ? "neg" : "pos"}">${sgn(g.res - g.ref)}</td><td>${nf(g.AH ? g.res / g.AH * 1000 : null, 1)}</td><td>${nf(g.AH ? g.absPos / g.AH * 100 : null, 1)}%</td><td class="${g.gaps ? "" : "dim"}">${nf(g.gaps)}</td></tr>`;
   $("sumTable").innerHTML = `<tr><th>Site</th><th>Actual MWh</th><th>DA forecast MWh</th><th>DA bid MWh</th><th>IDC net MWh</th><th>Final position MWh</th><th>DA revenue €</th><th>IDC revenue €</th>
-      <th>Imbalance revenue €</th><th>Result €</th><th>DA-only (100%) €</th><th>Δ vs DA-only €</th><th>Result €/MWh</th><th>Abs. imbalance %</th><th>Price gaps</th></tr>` +
+      <th>Imbalance revenue €</th><th title="Revenue / cost after the imbalance cost = DA revenue + IDC revenue + imbalance revenue">Result €</th><th title="Imbalance revenue / Result">Imbalance %</th><th>DA-only (100%) €</th><th>Δ vs DA-only €</th><th>Result €/MWh</th><th>Abs. imbalance volume %</th><th>Price gaps</th></tr>` +
     all.map(([s, g]) => row(s, g)).join("") + row("Total", tot, "total");
 }
 
-// Result of the selected sites and period for every bid share 0..150%, both ways of handling the rest.
-function sensitivity(sites, p, mode) {
-  const pts = []; for (let v = 0; v <= 150; v += 5) pts.push(v);
-  const tmp = new Array(8), idc = [], imb = [];
-  const run = (m, v) => { let r = 0; sites.forEach(s => { const o = store[s]; if (!o) return;
-    for (let i = 0; i < o.t.length; i++) if (o.keep[i]) r += settleSlot(o.H[i], o.AH[i], o.F[i], o.P[i], o.AA[i], o.PI[i], v / 100, m, tmp)[6]; }); return r; };
-  pts.forEach(v => { idc.push(Math.round(run("idc", v))); imb.push(Math.round(run("imb", v))); });
-  const at = (a, v) => a[pts.indexOf(v)], slope = a => (at(a, 100) - at(a, 0)) / 10;   // EUR per +10 percentage points of bid
-  const dir = v => v >= 0 ? "bidding more in the DA pays" : "bidding less in the DA pays";
-  $("best").innerHTML = `Per +10 points of DA bid: <b class="i">${sgn(slope(idc))} €</b> with the rest closed out in IDC (${dir(slope(idc))}) &nbsp;·&nbsp; <b class="m">${sgn(slope(imb))} €</b> with the rest left in imbalance (${dir(slope(imb))}) &nbsp;·&nbsp; DA-only at 100%: ${eur(at(imb, 100))} €`;
-  const cur = Math.round(p * 100);
-  chSens.setOption({ animation: false, tooltip: { trigger: "axis", valueFormatter: v => nf(v, 0) + " EUR" }, legend: { top: 4 },
-    grid: { left: 80, right: 24, top: 44, bottom: 40 },
-    xAxis: { type: "value", min: 0, max: 150, name: "DA bid, % of DA forecast", nameLocation: "middle", nameGap: 26, axisLabel: { formatter: "{value}%" } }, yAxis: { type: "value", name: "Result, EUR", scale: true },
-    series: [ { name: "Rest closed out in IDC", type: "line", data: pts.map((v, i) => [v, idc[i]]), showSymbol: false, lineStyle: { width: 2.4, color: "#e67e22" }, itemStyle: { color: "#e67e22" },
-        markLine: { symbol: "none", silent: true, label: { formatter: `current ${cur}%`, color: "#555" }, lineStyle: { color: "#9aa3ff", type: "dashed" }, data: [{ xAxis: cur }] } },
-      { name: "Rest left in imbalance", type: "line", data: pts.map((v, i) => [v, imb[i]]), showSymbol: false, lineStyle: { width: 2.4, color: "#6c7a89" }, itemStyle: { color: "#6c7a89" } } ] }, true);
+// Result of the selected sites and period for every bid share (steps of 10 points up to 150%, plus the current share), both ways of handling the rest.
+function sensitivity(sites, p) {
+  const cur = Math.round(p * 100), pts = [];
+  for (let v = 0; v <= 150; v += 10) pts.push(v);
+  if (!pts.includes(cur)) { pts.push(cur); pts.sort((a, b) => a - b); }
+  const tmp = new Array(8);
+  const run = (m, v) => { const r = { n: 0, D: 0, q: 0, ae: 0, imb: 0, res: 0, ref: 0 }; sites.forEach(s => { const o = store[s]; if (!o) return;
+    for (let i = 0; i < o.t.length; i++) if (o.keep[i]) { settleSlot(o.H[i], o.AH[i], o.F[i], o.P[i], o.AA[i], o.PI[i], v / 100, m, tmp);
+      r.D += tmp[0]; r.q += tmp[3]; r.ae += tmp[4]; r.imb += tmp[5]; r.res += tmp[6]; r.ref += tmp[7]; } }); return r; };
+  const rows = pts.map(v => ({ v, idc: run("idc", v), imb: run("imb", v) }));
+  const ref = rows[0].imb.ref, at100 = rows.find(r => r.v === 100);
+  const slope = k => (at100 ? (at100[k].res - rows[0][k].res) / 10 : null);
+  $("best").innerHTML = `Per +10 points of DA bid: <b class="i">${sgn(slope("idc"))} €</b> with the rest closed out in IDC &nbsp;·&nbsp; <b class="m">${sgn(slope("imb"))} €</b> with the rest left in imbalance &nbsp;·&nbsp; DA-only at 100%: ${eur(ref)} €`;
+  const ip = r => r.res ? sgn(r.imb / r.res * 100, 1) + "%" : "–";
+  const cells = (r, ref) => `<td class="l">${eur(r.q)}</td><td>${eur(r.ae)}</td><td>${eur(r.imb)}</td><td><b>${eur(r.res)}</b></td><td>${ip(r)}</td><td class="${r.res - ref >= 0 ? "neg" : "pos"}">${sgn(r.res - ref)}</td>`;
+  $("sensTable").innerHTML = `<tr><th rowspan="2">DA bid %</th><th rowspan="2">DA bid MWh</th><th class="grp" colspan="6">Rest closed out in IDC (lead ${$("lead").value} min)</th><th class="grp" colspan="6">Rest left in imbalance</th></tr>
+    <tr><th class="l">DA revenue €</th><th>IDC revenue €</th><th>Imbalance revenue €</th><th>Result €</th><th>Imbalance %</th><th>Δ vs DA-only €</th>
+        <th class="l">DA revenue €</th><th>IDC revenue €</th><th>Imbalance revenue €</th><th>Result €</th><th>Imbalance %</th><th>Δ vs DA-only €</th></tr>` +
+    rows.map(r => `<tr class="${r.v === cur ? "sel" : ""}"><td>${r.v}%${r.v === cur ? " (current)" : ""}</td><td>${nf(r.idc.D / 1000, 1)}</td>${cells(r.idc, ref)}${cells(r.imb, ref)}</tr>`).join("");
 }
 init();
 </script>

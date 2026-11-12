@@ -230,8 +230,18 @@ const UST_MAX_DAYS = 62; // 宽表一行 49 列，免费版 Worker CPU 很紧，
 // da_kwh：原来的 DA（日前报量）预测，来自 vcom 仓库 data/production forecast 的第 I 列，页面上画成灰色虚线。
 const UST_COLUMNS = ["theoretical_kwh", "ust_kwh", "ust_horizon_min", "da_kwh"];
 
-// source：live = R2 的 ust/（实时影子运行）；hindcast = ust-hindcast/（乙方回测 2026-01-01 ~ 2026-10-25，同样的宽表格式）
-const UST_SOURCES = { live: "ust", hindcast: "ust-hindcast" };
+// 三个来源的宽表格式完全一样，页面上合成一条橙线（不区分来源）：
+//   live     = ust/          实时影子运行（2026-10-29 起）；实测输入有时陈旧
+//   replay   = ust-replay/   乙方事后回放（2026-10-25 起）
+//   hindcast = ust-hindcast/ 乙方回测（2026-01-01 ~ 2026-10-25）
+// 同一个时段多个来源都有值时，按下面的顺序取第一个（live 优先：它是真实运行时拿得到的值），缺了才用后面的。
+// 月份范围只用来少读 R2（范围外的月份肯定没有该来源的文件）。
+const UST_SOURCES = {
+  live: { prefix: "ust", from: "2026-10", to: "9999-12" },
+  replay: { prefix: "ust-replay", from: "2026-10", to: "9999-12" },
+  hindcast: { prefix: "ust-hindcast", from: "2026-01", to: "2026-10" },
+};
+const UST_SOURCE_ORDER = ["live", "replay", "hindcast"];
 
 async function loadUstView(env, month, site, prefix = "ust") {
   const obj = await env.UST.get(`${prefix}/view/${month}/${site}.csv`);
@@ -242,7 +252,8 @@ async function loadUstView(env, month, site, prefix = "ust") {
 }
 
 // 宽表 -> into: Map<时间戳, [theoretical, ust_kwh, 实际用到的提前量]>，只填 ust 两个槽
-function sliceUst(text, startKey, endKey, minH, into) {
+// fillOnly：该时段已经有值就不覆盖（多来源合并时，靠前的来源优先）
+function sliceUst(text, startKey, endKey, minH, into, fillOnly = false) {
   const nl = text.indexOf("\n");
   const header = text.slice(0, nl).replace(/\r/g, "").split(",");
   const cand = UST_HORIZONS.filter((h) => h >= minH)
@@ -260,7 +271,7 @@ function sliceUst(text, startKey, endKey, minH, into) {
     }
     let row = into.get(f[0]);
     if (!row) { row = new Array(UST_COLUMNS.length).fill(null); into.set(f[0], row); }
-    if (hit) { row[1] = hit[0]; row[2] = hit[1]; }
+    if (hit && !(fillOnly && row[1] !== null)) { row[1] = hit[0]; row[2] = hit[1]; }
   }
 }
 
@@ -282,9 +293,9 @@ async function handleUst(url, env) {
   const end = q.get("end") || start;
   const resolution = q.get("resolution") || "15min";
   const horizon = q.get("horizon") === null ? UST_DEFAULT_H : Number(q.get("horizon"));
-  const source = q.get("source") || "live";
+  const source = q.get("source") || "all";   // all = live > replay > hindcast 合并；也可单独指定一个来源（排查用）
 
-  if (!(source in UST_SOURCES)) return json({ error: `source must be one of ${Object.keys(UST_SOURCES).join(" / ")}` }, 400);
+  if (source !== "all" && !(source in UST_SOURCES)) return json({ error: `source must be all / ${Object.keys(UST_SOURCES).join(" / ")}` }, 400);
   if (!SITES.includes(site)) return json({ error: `site must be one of ${SITES.join(" / ")}` }, 400);
   if (!PROD_RESOLUTIONS.includes(resolution)) return json({ error: "resolution must be 15min or hourly" }, 400);
   if (!UST_HORIZONS.includes(horizon)) return json({ error: `horizon must be one of ${UST_HORIZONS.join(" / ")}` }, 400);
@@ -313,9 +324,14 @@ async function handleUst(url, env) {
   }
   // 超短期：只有 15min 视图；hourly 在这里由 4 个 15min 相加
   const ust15 = new Map();
+  const sources = source === "all" ? UST_SOURCE_ORDER : [source];
   for (const month of monthsBetween(start, end)) {
-    const text = await loadUstView(env, month, site, UST_SOURCES[source]);
-    if (text) sliceUst(text, startKey, endKey, horizon, ust15);
+    for (const src of sources) {
+      const cfg = UST_SOURCES[src];
+      if (month < cfg.from || month > cfg.to) continue;
+      const text = await loadUstView(env, month, site, cfg.prefix);
+      if (text) sliceUst(text, startKey, endKey, horizon, ust15, true);
+    }
   }
   if (resolution === "15min") {
     for (const [t, v] of ust15) {

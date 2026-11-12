@@ -38,6 +38,14 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background:
 .chart-card-header h3 { font-size: 18px; font-weight: 500; color: #2c3e50; border-left: 4px solid #2c3e50; padding-left: 12px; margin: 0; line-height: 1.3; }
 .chart-card-header .subtitle { font-size: 12px; color: #888; margin-top: 4px; padding-left: 16px; }
 #chart { height: 440px; } #chart2 { height: 240px; }
+#dayChart { height: 320px; } #dayHeat { height: 520px; }
+.day-controls { display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-end; margin-bottom: 8px; }
+.day-controls input[type=date] { font-family: inherit; height: 36px; padding: 0 12px; border: 1px solid #ccc; border-radius: 6px; font-size: 14px; color: #2c3e50; }
+.slider-group { flex: 1; min-width: 320px; max-width: 760px; }
+.slider-group input[type=range] { width: 100%; accent-color: #e67e22; }
+.slider-ends { display: flex; justify-content: space-between; font-size: 12px; color: #888; }
+.lead-badge { font-size: 14px; font-weight: 600; color: #e67e22; }
+.day-stats { font-size: 13px; color: #2c3e50; min-height: 22px; margin: 6px 0 2px; }
 .note { font-size: 12px; color: #888; line-height: 1.6; margin-top: 10px; }
 .scroll { overflow-x: auto; }
 table { border-collapse: collapse; width: 100%; font-size: 13px; }
@@ -113,6 +121,38 @@ tr.total td { font-weight: 700; background: #fafbfc; }
 
     <div class="chart-card">
       <div class="chart-card-header">
+        <div>
+          <h3 id="dayTitle">One day · forecast vs theoretical production by lead time</h3>
+          <div class="subtitle">kWh per interval · Budapest local time, interval start · uses the site buttons above</div>
+        </div>
+      </div>
+      <div class="day-controls">
+        <div class="control-group"><label>Day</label>
+          <div style="display:flex;gap:6px;align-items:center;">
+            <div class="btn-group-inline"><button id="dayPrev" title="Previous day">&lsaquo;</button><button id="dayNext" title="Next day">&rsaquo;</button></div>
+            <input type="date" id="dayDate">
+          </div></div>
+        <div class="control-group slider-group">
+          <label>Lead time: <span class="lead-badge" id="dayLead"></span></label>
+          <input type="range" id="daySlider" min="0" max="15" step="1">
+          <div class="slider-ends"><span>240 min ahead (older forecast)</span><span>15 min ahead (newest forecast)</span></div>
+        </div>
+      </div>
+      <div class="day-stats" id="dayStats"></div>
+      <div id="dayChart"></div>
+      <div id="dayHeat"></div>
+      <p class="note">
+        <b>Slider:</b> drag it from 240 min (far left) to 15 min (far right) to see the orange UST line move towards the theoretical production. The slider only switches the lead time, it does not reload data.<br>
+        <b>Heat map:</b> one row per lead time (plus the DA forecast on top), one column per 15-minute interval of the chosen day. The colour is the
+        <b>error = forecast &minus; theoretical production</b> in kWh: red = forecast too high, blue = too low, white = close to the theoretical value. The row of the selected lead time has a light-blue frame.
+        Night intervals have no forecast and stay empty. Hover a cell to see the forecast, the theoretical value and the error.<br>
+        Each cell uses its own lead time only (no fallback to another lead time). Where several sources exist for a cell, live wins, then replay, then hindcast (see above).
+        In the All sites view an interval counts only if all five sites have a value. The default day is yesterday because the theoretical production of today is only complete in the evening.
+      </p>
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-card-header">
         <div><h3>Summary by site</h3><div class="subtitle">Selected period</div></div>
       </div>
       <div class="scroll"><table id="sumTable"></table></div>
@@ -163,7 +203,7 @@ function scheduleLoad(delay = 250) { clearTimeout(loadTimer); loadTimer = setTim
 function init() {
   $("fc").innerHTML = HORIZONS.map(h => `<option value="${h}"${h === DEFAULT_H ? " selected" : ""}>${h} min${h === DEFAULT_H ? " (default)" : h === MIN_TRADABLE_H ? " (shortest tradable)" : h < MIN_TRADABLE_H ? " (not tradable)" : ""}</option>`).join("");
   $("sites").innerHTML = ["ALL", ...SITES].map(s => `<button data-s="${s}">${s === "ALL" ? "All sites" : s}</button>`).join("");
-  $("sites").onclick = e => { const b = e.target.closest("button"); if (!b) return; selected = b.dataset.s; paint(); };
+  $("sites").onclick = e => { const b = e.target.closest("button"); if (!b) return; selected = b.dataset.s; paint(); paintDay(); };
   document.querySelectorAll("#quick button").forEach(b => b.onclick = () => { setRange(+b.dataset.d, +(b.dataset.e || 0)); scheduleLoad(0); });
   ["res", "fc"].forEach(id => $(id).onchange = () => scheduleLoad());
   // Changing the start date sets the end date to start + 29 days, capped at today (the range used to snap back from the end, which made early dates hard to pick).
@@ -179,6 +219,7 @@ function init() {
   };
   chart = echarts.init($("chart")); chart2 = echarts.init($("chart2")); echarts.connect([chart, chart2]);
   window.addEventListener("resize", () => { chart.resize(); chart2.resize(); });
+  initDay();
   setRange(7, 0); load();
 }
 
@@ -298,6 +339,123 @@ function summary() {
       <th>UST forecast MWh (${horizon()} min ahead)</th><th>UST dev. %</th><th>UST abs. error %</th><th>Intervals</th></tr>` +
     rows.map(r => `<tr class="${r.cls || ""}"><td>${r.name}</td><td>${nf(r.st.a, 1)}</td><td>${nf(r.st.d, 1)}</td>${pc(r.st.devD)}${ab(r.st.maeD)}
       <td>${nf(r.st.f, 1)}</td>${pc(r.st.devF)}${ab(r.st.maeF)}<td>${r.st.n}</td></tr>`).join("");
+}
+
+// ───────────── One-day view: lead-time slider + error heat map ─────────────
+const DAY_STEPS = HORIZONS.slice().reverse();            // slider index 0 = 240 min ... 15 = 15 min
+const leadOfIdx = i => DAY_STEPS[i];
+let dayStore = {}, dayChart, dayHeat, daySeq = 0, dayTimer = null, dayMsg = "";
+const dayLead = () => leadOfIdx(+$("daySlider").value);
+
+function initDay() {
+  $("daySlider").value = DAY_STEPS.indexOf(DEFAULT_H);
+  $("dayDate").value = addDays(budapestToday(), -1);
+  dayChart = echarts.init($("dayChart")); dayHeat = echarts.init($("dayHeat")); echarts.connect([dayChart, dayHeat]);
+  window.addEventListener("resize", () => { dayChart.resize(); dayHeat.resize(); });
+  $("daySlider").oninput = paintDay;
+  $("dayDate").onchange = () => scheduleDay();
+  $("dayPrev").onclick = () => { $("dayDate").value = addDays($("dayDate").value || budapestToday(), -1); scheduleDay(0); };
+  $("dayNext").onclick = () => { $("dayDate").value = addDays($("dayDate").value || budapestToday(), 1); scheduleDay(0); };
+  scheduleDay(0);
+}
+function scheduleDay(delay = 250) { clearTimeout(dayTimer); dayTimer = setTimeout(loadDay, delay); }
+
+async function loadDay() {
+  const seq = ++daySeq, date = $("dayDate").value;
+  if (!date) return;
+  dayMsg = "Loading…"; paintDay();
+  try {
+    const out = await Promise.all(SITES.map(async s => {
+      const r = await fetch(`/ops/api/ust-day?site=${encodeURIComponent(s)}&date=${date}`, { credentials: "same-origin" });
+      if (r.status === 401) { location.href = "/ops/login?next=" + encodeURIComponent(location.pathname); throw new Error("Session expired"); }
+      if (r.status === 404) return [s, null];
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(`${s}: ${j.error || r.status}`);
+      return [s, j];
+    }));
+    if (seq !== daySeq) return;
+    dayStore = Object.fromEntries(out.filter(([, j]) => j));
+    dayMsg = Object.keys(dayStore).length ? "" : "No data for this day.";
+  } catch (e) {
+    if (seq !== daySeq) return;
+    dayStore = {}; dayMsg = "Failed to load: " + e.message;
+  }
+  paintDay();
+}
+
+// -> { t, act, da, lead: {h: []} } for the selected site (or the five-site total) restricted to the daytime window with any forecast
+function dayData() {
+  const sites = selected === "ALL" ? SITES : [selected];
+  const have = sites.filter(s => dayStore[s]);
+  if (!have.length || (selected === "ALL" && have.length < SITES.length)) return null;
+  const keys = ["act", "da", ...HORIZONS];
+  const m = new Map();                                   // time -> {sum[], cnt[]}
+  have.forEach(s => { const d = dayStore[s];
+    d.rows.forEach(r => { let o = m.get(r[0]); if (!o) { o = { sum: keys.map(() => 0), cnt: keys.map(() => 0) }; m.set(r[0], o); }
+      keys.forEach((_, k) => { const v = r[1 + k]; if (v != null) { o.sum[k] += v; o.cnt[k]++; } }); }); });
+  const need = have.length;
+  let t = [...m.keys()].sort();
+  const val = (x, k) => m.get(x).cnt[k] === need ? m.get(x).sum[k] : null;
+  const anyFc = x => keys.slice(1).some((_, j) => val(x, j + 1) != null);
+  const first = t.findIndex(anyFc), last = t.length - 1 - [...t].reverse().findIndex(anyFc);
+  t = first < 0 ? [] : t.slice(first, last + 1);
+  const lead = {}; HORIZONS.forEach((h, j) => { lead[h] = t.map(x => val(x, 2 + j)); });
+  return { t, act: t.map(x => val(x, 0)), da: t.map(x => val(x, 1)), lead };
+}
+
+function paintDay() {
+  if (!dayChart) return;
+  const h = dayLead();
+  $("dayLead").textContent = `${h} min ahead`;
+  const name = selected === "ALL" ? "All sites" : selected;
+  $("dayTitle").textContent = `${name} · ${$("dayDate").value || ""} · forecast vs theoretical production by lead time`;
+  const d = dayData();
+  if (!d || !d.t.length) {
+    $("dayStats").textContent = dayMsg || (Object.keys(dayStore).length ? "No forecast data for this selection and day." : "");
+    dayChart.clear(); dayHeat.clear(); return;
+  }
+  const hasAct = d.act.some(v => v != null);
+  const st = stats(d.t, d.act, d.da, d.lead[h]);
+  const pc = v => v == null ? "–" : (v >= 0 ? "+" : "") + nf(v, 1) + "%";
+  $("dayStats").innerHTML = !hasAct
+    ? "No theoretical production for this day yet (today's is only complete in the evening) — forecasts only."
+    : st.n === 0 ? "No interval where theoretical, DA and the selected UST lead all exist."
+    : `<b>${h} min ahead</b>: UST dev. ${pc(st.devF)}, abs. error ${nf(st.maeF, 1)}% &nbsp;|&nbsp; DA: dev. ${pc(st.devD)}, abs. error ${nf(st.maeD, 1)}% &nbsp;·&nbsp; ${st.n} intervals`;
+
+  const x = d.t.map(v => v.slice(11, 16));
+  const line = (nm, data, color, extra = {}) => ({ name: nm, type: "line", data, showSymbol: false, lineStyle: { width: 1.8, color }, itemStyle: { color }, ...extra });
+  dayChart.setOption({ animation: false, tooltip: { trigger: "axis" }, legend: { top: 4 },
+    grid: { left: 70, right: 24, top: 40, bottom: 28 },
+    xAxis: { type: "category", data: x }, yAxis: { type: "value", name: "kWh", nameLocation: "end" },
+    series: [ line("Theoretical production", d.act, "#2c7fb8", { areaStyle: { color: "rgba(44,127,184,.12)" } }),
+      line("Production forecast (DA)", d.da, "#95a5a6", { lineStyle: { width: 1.4, color: "#95a5a6", type: "dashed" } }),
+      line(`UST forecast (${h} min ahead)`, d.lead[h], "#e67e22", { lineStyle: { width: 2.4, color: "#e67e22" } }) ] }, true);
+
+  // Heat map rows, bottom to top: 15 ... 240 min, then DA on top.
+  const rowsLbl = [...HORIZONS.map(v => `${v} min`), "DA"];
+  const rowVals = [...HORIZONS.map(v => d.lead[v]), d.da];
+  const cells = []; let maxAbs = 0;
+  rowVals.forEach((vals, yi) => vals.forEach((f, xi) => {
+    const a = d.act[xi];
+    if (f == null || a == null) return;
+    const e = f - a; maxAbs = Math.max(maxAbs, Math.abs(e));
+    cells.push([xi, yi, Math.round(e * 10) / 10, Math.round(f * 10) / 10, Math.round(a * 10) / 10]);
+  }));
+  const M = maxAbs > 0 ? Math.ceil(maxAbs / 10) * 10 : 1;
+  const yi = HORIZONS.indexOf(h);
+  dayHeat.setOption({ animation: false,
+    tooltip: { position: "top", formatter: p => `${x[p.data[0]]} · ${rowsLbl[p.data[1]]}<br>forecast ${nf(p.data[3], 1)} kWh<br>theoretical ${nf(p.data[4], 1)} kWh<br><b>error ${p.data[2] >= 0 ? "+" : ""}${nf(p.data[2], 1)} kWh</b>` },
+    grid: { left: 70, right: 24, top: 56, bottom: 28 },
+    xAxis: { type: "category", data: x, splitArea: { show: true } },
+    yAxis: { type: "category", data: rowsLbl, splitArea: { show: true } },
+    visualMap: { dimension: 2, min: -M, max: M, calculable: false, orient: "horizontal", left: "center", top: 0, itemWidth: 14, itemHeight: 220,
+      text: ["forecast too high", "too low"], textStyle: { color: "#555" }, inRange: { color: ["#2c7fb8", "#f7f7f7", "#d7301f"] } },
+    series: [{ type: "heatmap", data: cells, progressive: 0, emphasis: { itemStyle: { borderColor: "#333", borderWidth: 1 } } },
+      // Light-blue, slightly rounded frame around the selected lead-time row (markArea rounds category coordinates, so draw the rectangle ourselves).
+      { type: "custom", silent: true, z: 10, data: [[0, yi]], tooltip: { show: false },
+        renderItem: (params, api) => { const a = api.coord([0, yi]), b = api.coord([x.length - 1, yi]), sz = api.size([1, 1]);
+          return { type: "rect", shape: { x: a[0] - sz[0] / 2, y: a[1] - sz[1] / 2, width: b[0] - a[0] + sz[0], height: sz[1], r: 4 },
+            style: { fill: "none", stroke: "#6aa9e0", lineWidth: 2.5 } }; } }] }, true);
 }
 init();
 </script>

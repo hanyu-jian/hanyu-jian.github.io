@@ -371,6 +371,68 @@ async function handleUst(url, env) {
 }
 
 
+// ── /ust-day：某一天的理论发电量 + DA + 16 档提前量的 UST 预测（给「单日滑块 + 热力图」用）────────────
+// 返回 columns = ["Date","theoretical_kwh","da_kwh","h15",...,"h240"]，kWh per 15 min，布达佩斯当地时间、区间起点。
+// 每个 (时段, 提前量) 单元格独立取值：live > replay > hindcast，缺了才用后面的来源；不做「退到更大提前量」的回退，
+// 因为热力图每一行就是一个确定的提前量。页面拖滑块时只在浏览器里换列，不再请求。
+function ustDayFill(text, startKey, endKey, into) {
+  const nl = text.indexOf("\n");
+  const header = text.slice(0, nl).replace(/\r/g, "").split(",");
+  const cols = UST_HORIZONS.map((h) => header.indexOf(`kWh h${h}`));
+  const a = lowerBound(text, startKey, nl + 1);
+  const b = lowerBound(text, endKey, nl + 1);
+  if (b <= a) return;
+  for (const line of text.slice(a, b).split("\n")) {
+    if (!line) continue;
+    const f = line.replace(/\r/g, "").split(",");
+    let row = into.get(f[0]);
+    if (!row) { row = new Array(2 + UST_HORIZONS.length).fill(null); into.set(f[0], row); }
+    cols.forEach((i, k) => {
+      if (i > 0 && row[2 + k] === null && f[i] !== undefined && f[i] !== "") row[2 + k] = Number(f[i]);
+    });
+  }
+}
+
+async function handleUstDay(url, env) {
+  const q = url.searchParams;
+  const site = q.get("site");
+  const date = q.get("date");
+  if (!SITES.includes(site)) return json({ error: `site must be one of ${SITES.join(" / ")}` }, 400);
+  if (!DATE_RE.test(date || "") || Number.isNaN(Date.parse(date))) return json({ error: "date must be YYYY-MM-DD" }, 400);
+
+  const startKey = `${date} 00:00:00`;
+  const endKey = `${nextDay(date)} 00:00:00`;
+  const year = Number(date.slice(0, 4));
+  const name = encodeURIComponent(site);
+  const width = 2 + UST_HORIZONS.length;
+  const merged = new Map();
+  if (year >= FIRST_YEAR) {
+    const [theo, fc] = await Promise.all([
+      loadFile(env, `data/theoretical production/${year}/15min/${name}.csv`),
+      loadFile(env, `data/production forecast/${year}/15min/${name}.csv`),
+    ]);
+    if (theo) sliceRows(theo, startKey, endKey, [3], merged, 0, width);
+    if (fc) sliceRows(fc, startKey, endKey, [1], merged, 1, width);
+  }
+  const month = date.slice(0, 7);
+  for (const src of UST_SOURCE_ORDER) {
+    const cfg = UST_SOURCES[src];
+    if (month < cfg.from || month > cfg.to) continue;
+    const text = await loadUstView(env, month, site, cfg.prefix);
+    if (text) ustDayFill(text, startKey, endKey, merged);
+  }
+  if (merged.size === 0) return json({ error: "No data for this site / day" }, 404);
+  const rows = [...merged.entries()].sort((a, b) => (a[0] < b[0] ? -1 : 1)).map(([t, v]) => [t, ...v]);
+  return json({
+    site,
+    date,
+    unit: "kWh per interval",
+    timezone: "Europe/Budapest (local time, interval start)",
+    columns: ["Date", "theoretical_kwh", "da_kwh", ...UST_HORIZONS.map((h) => `h${h}`)],
+    rows,
+  });
+}
+
 // ── /theoretical：整年的 15 分钟理论发电量 CSV（原样转发，不解析，省 CPU）──────────────
 // ── /meter：表计读数（vcom 仓库 data/meter/tokaj/<年>/15min|hourly/<场站>.csv）────────────
 // 和 /production 一样是布达佩斯当地时间、区间起点标签，Overview 页用它叠一条「实测」线。
@@ -487,6 +549,18 @@ async function handleOps(request, env, url, path) {
     if (!env.GITHUB_TOKEN) return json({ error: "GITHUB_TOKEN is not configured" }, 500);
     try {
       return await handleProduction(url, env);
+    } catch (e) {
+      return json({ error: String(e.message || e) }, 502);
+    }
+  }
+
+  // 单日：理论发电量 + DA + 16 档提前量（热力图 / 滑块）
+  if (path === "/ops/api/ust-day") {
+    if (request.method !== "GET") return new Response("Method not allowed", { status: 405 });
+    if (!env.GITHUB_TOKEN) return json({ error: "GITHUB_TOKEN is not configured" }, 500);
+    if (!env.UST) return json({ error: "R2 binding UST is not configured" }, 500);
+    try {
+      return await handleUstDay(url, env);
     } catch (e) {
       return json({ error: String(e.message || e) }, 502);
     }

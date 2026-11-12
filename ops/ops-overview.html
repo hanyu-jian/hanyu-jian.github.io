@@ -455,7 +455,7 @@ function paintDay() {
       { type: "custom", silent: true, z: 10, data: [[0, yi]], tooltip: { show: false },
         renderItem: (params, api) => { const a = api.coord([0, yi]), b = api.coord([x.length - 1, yi]), sz = api.size([1, 1]);
           return { type: "rect", shape: { x: a[0] - sz[0] / 2, y: a[1] - sz[1] / 2, width: b[0] - a[0] + sz[0], height: sz[1], r: 4 },
-            style: { fill: "none", stroke: "#a3acec", lineWidth: 2.5 } }; } }] }, true);
+            style: { fill: "none", stroke: "#c3c9f3", lineWidth: 2.5 } }; } }] }, true);
 }
 init();
 </script>

@@ -74,6 +74,8 @@ tr.total td { font-weight: 700; background: #fafbfc; }
     <div class="control-group"><label>Resolution</label>
       <select id="res"><option value="15min">15 min</option><option value="hourly">Hourly</option></select></div>
     <div class="control-group"><label>Forecast lead time</label><select id="fc"></select></div>
+    <div class="control-group"><label>UST source</label>
+      <select id="src"><option value="live">Live (shadow run)</option><option value="hindcast">Backtest (hindcast, to 2026-10-25)</option></select></div>
   </div>
   <div class="status" id="status"></div>
 
@@ -101,6 +103,7 @@ tr.total td { font-weight: 700; background: #fafbfc; }
         <b>Production forecast (DA)</b> (grey dashed line) is the day-ahead forecast from the vcom repository: the supplier's DA POA forecast converted to energy with our own formula (DC capacity × monthly PR, capped at the AC limit), same as the theoretical production and the ultra-short-term forecast.<br>
         <b>Ultra-short-term (UST) forecast:</b> the supplier&rsquo;s rolling POA forecast (new issue every 15 minutes, 0&ndash;4 h ahead), converted to production
         with the same formula as theoretical production (DC capacity &times; monthly PR, AC limit). It is a shadow forecast, not a declaration basis.
+        <b>UST source</b>: <i>Live</i> is the real shadow run (its measurement input is currently stale, so short lead times are degraded); <i>Backtest</i> is the supplier's hindcast for 2026-01-01 to 2026-10-25 computed after the fact with the latest measurements up to each issue time (never issued, accuracy looks better than live). Pick a date range inside the backtest period to see it.<br>
         <b>Lead time</b> = how many minutes before the interval starts the forecast was issued. For each interval the line uses the issue with the
         <i>smallest lead time at or above the chosen value</i> (if that one is missing, the next older issue), so for intervals still in the future the line
         shows the newest issue available, which can be several hours ahead. Each issue is available about 26 minutes after its issue time and
@@ -135,7 +138,7 @@ const MAX_DAYS = 62;
 const $ = id => document.getElementById(id);
 let selected = "ALL", store = {}, meterStore = {}, meterErr = "", chart, chart2, loadSeq = 0, loadTimer = null;
 const horizon = () => +$("fc").value;
-const fcName = () => `UST forecast (${horizon()} min ahead)`;
+const fcName = () => `UST ${$("src").value === "hindcast" ? "backtest" : "forecast"} (${horizon()} min ahead)`;
 
 // All timestamps in the data are Budapest local time, so "today" is the Budapest date, not the browser's.
 function budapestToday() {
@@ -163,7 +166,7 @@ function init() {
   $("sites").innerHTML = ["ALL", ...SITES].map(s => `<button data-s="${s}">${s === "ALL" ? "All sites" : s}</button>`).join("");
   $("sites").onclick = e => { const b = e.target.closest("button"); if (!b) return; selected = b.dataset.s; paint(); };
   document.querySelectorAll("#quick button").forEach(b => b.onclick = () => { setRange(+b.dataset.d, +(b.dataset.e || 0)); scheduleLoad(0); });
-  ["start", "end", "res", "fc"].forEach(id => $(id).onchange = () => scheduleLoad());
+  ["start", "end", "res", "fc", "src"].forEach(id => $(id).onchange = () => scheduleLoad());
   chart = echarts.init($("chart")); chart2 = echarts.init($("chart2")); echarts.connect([chart, chart2]);
   window.addEventListener("resize", () => { chart.resize(); chart2.resize(); });
   setRange(7, 0); load();
@@ -179,7 +182,7 @@ async function load() {
   setStatus("Loading…");
   try {
     const out = await Promise.all(SITES.map(async s => {
-      const r = await fetch(`/ops/api/ust?site=${encodeURIComponent(s)}&${q}&horizon=${horizon()}`, { credentials: "same-origin" });
+      const r = await fetch(`/ops/api/ust?site=${encodeURIComponent(s)}&${q}&horizon=${horizon()}&source=${$("src").value}`, { credentials: "same-origin" });
       if (r.status === 401) { location.href = "/ops/login?next=" + encodeURIComponent(location.pathname); throw new Error("Session expired"); }
       const j = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(`${s}: ${j.error || r.status}`);

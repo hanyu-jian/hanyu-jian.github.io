@@ -230,8 +230,11 @@ const UST_MAX_DAYS = 62; // 宽表一行 49 列，免费版 Worker CPU 很紧，
 // da_kwh：原来的 DA（日前报量）预测，来自 vcom 仓库 data/production forecast 的第 I 列，页面上画成灰色虚线。
 const UST_COLUMNS = ["theoretical_kwh", "ust_kwh", "ust_horizon_min", "da_kwh"];
 
-async function loadUstView(env, month, site) {
-  const obj = await env.UST.get(`ust/view/${month}/${site}.csv`);
+// source：live = R2 的 ust/（实时影子运行）；hindcast = ust-hindcast/（乙方回测 2026-01-01 ~ 2026-10-25，同样的宽表格式）
+const UST_SOURCES = { live: "ust", hindcast: "ust-hindcast" };
+
+async function loadUstView(env, month, site, prefix = "ust") {
+  const obj = await env.UST.get(`${prefix}/view/${month}/${site}.csv`);
   if (!obj) return null;
   let text = await obj.text();
   if (text.charCodeAt(0) === 0xfeff) text = text.slice(1);
@@ -279,7 +282,9 @@ async function handleUst(url, env) {
   const end = q.get("end") || start;
   const resolution = q.get("resolution") || "15min";
   const horizon = q.get("horizon") === null ? UST_DEFAULT_H : Number(q.get("horizon"));
+  const source = q.get("source") || "live";
 
+  if (!(source in UST_SOURCES)) return json({ error: `source must be one of ${Object.keys(UST_SOURCES).join(" / ")}` }, 400);
   if (!SITES.includes(site)) return json({ error: `site must be one of ${SITES.join(" / ")}` }, 400);
   if (!PROD_RESOLUTIONS.includes(resolution)) return json({ error: "resolution must be 15min or hourly" }, 400);
   if (!UST_HORIZONS.includes(horizon)) return json({ error: `horizon must be one of ${UST_HORIZONS.join(" / ")}` }, 400);
@@ -309,7 +314,7 @@ async function handleUst(url, env) {
   // 超短期：只有 15min 视图；hourly 在这里由 4 个 15min 相加
   const ust15 = new Map();
   for (const month of monthsBetween(start, end)) {
-    const text = await loadUstView(env, month, site);
+    const text = await loadUstView(env, month, site, UST_SOURCES[source]);
     if (text) sliceUst(text, startKey, endKey, horizon, ust15);
   }
   if (resolution === "15min") {
@@ -341,6 +346,7 @@ async function handleUst(url, env) {
     site,
     resolution,
     horizon_min: horizon,
+    source,
     unit: "kWh per interval",
     timezone: "Europe/Budapest (local time, interval start)",
     columns: ["Date", ...UST_COLUMNS],

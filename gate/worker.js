@@ -371,11 +371,14 @@ async function handleUst(url, env) {
 }
 
 
-// ── /ust-day：某一天的理论发电量 + DA + 16 档提前量的 UST 预测（给「单日滑块 + 热力图」用）────────────
-// 返回 columns = ["Date","theoretical_kwh","da_kwh","h15",...,"h240"]，kWh per 15 min，布达佩斯当地时间、区间起点。
+// ── /ust-range：一段日期的理论发电量 + DA + 16 档提前量的 UST 预测（给「滑块 + 热力图」用）──────────────
+// 返回 columns = ["Date","theoretical_kwh","da_kwh","h15",...,"h240"]，kWh per interval，布达佩斯当地时间、区间起点。
 // 每个 (时段, 提前量) 单元格独立取值：live > replay > hindcast，缺了才用后面的来源；不做「退到更大提前量」的回退，
 // 因为热力图每一行就是一个确定的提前量。页面拖滑块时只在浏览器里换列，不再请求。
-function ustDayFill(text, startKey, endKey, into) {
+// hourly：理论发电量 / DA 取 hourly 文件；16 档由 15min 相加（4 个齐全才算），起点标签。
+const UST_RANGE_MAX_DAYS = 62;
+
+function ustRangeFill(text, startKey, endKey, into) {
   const nl = text.indexOf("\n");
   const header = text.slice(0, nl).replace(/\r/g, "").split(",");
   const cols = UST_HORIZONS.map((h) => header.indexOf(`kWh h${h}`));
@@ -393,39 +396,72 @@ function ustDayFill(text, startKey, endKey, into) {
   }
 }
 
-async function handleUstDay(url, env) {
+async function handleUstRange(url, env) {
   const q = url.searchParams;
   const site = q.get("site");
-  const date = q.get("date");
+  const start = q.get("start");
+  const end = q.get("end") || start;
+  const resolution = q.get("resolution") || "15min";
   if (!SITES.includes(site)) return json({ error: `site must be one of ${SITES.join(" / ")}` }, 400);
-  if (!DATE_RE.test(date || "") || Number.isNaN(Date.parse(date))) return json({ error: "date must be YYYY-MM-DD" }, 400);
+  if (!PROD_RESOLUTIONS.includes(resolution)) return json({ error: "resolution must be 15min or hourly" }, 400);
+  if (!DATE_RE.test(start || "") || !DATE_RE.test(end) || Number.isNaN(Date.parse(start)) || Number.isNaN(Date.parse(end)))
+    return json({ error: "start / end must be YYYY-MM-DD" }, 400);
+  if (end < start) return json({ error: "end must not be before start" }, 400);
+  if (daysBetween(start, end) + 1 > UST_RANGE_MAX_DAYS) return json({ error: `at most ${UST_RANGE_MAX_DAYS} days per request` }, 400);
 
-  const startKey = `${date} 00:00:00`;
-  const endKey = `${nextDay(date)} 00:00:00`;
-  const year = Number(date.slice(0, 4));
+  const startKey = `${start} 00:00:00`;
+  const endKey = `${nextDay(end)} 00:00:00`;
+  const y0 = Math.max(FIRST_YEAR, Number(start.slice(0, 4)));
+  const y1 = Number(end.slice(0, 4));
   const name = encodeURIComponent(site);
   const width = 2 + UST_HORIZONS.length;
+
   const merged = new Map();
-  if (year >= FIRST_YEAR) {
+  for (let y = y0; y <= y1; y++) {
     const [theo, fc] = await Promise.all([
-      loadFile(env, `data/theoretical production/${year}/15min/${name}.csv`),
-      loadFile(env, `data/production forecast/${year}/15min/${name}.csv`),
+      loadFile(env, `data/theoretical production/${y}/${resolution}/${name}.csv`),
+      loadFile(env, `data/production forecast/${y}/${resolution}/${name}.csv`),
     ]);
     if (theo) sliceRows(theo, startKey, endKey, [3], merged, 0, width);
     if (fc) sliceRows(fc, startKey, endKey, [1], merged, 1, width);
   }
-  const month = date.slice(0, 7);
-  for (const src of UST_SOURCE_ORDER) {
-    const cfg = UST_SOURCES[src];
-    if (month < cfg.from || month > cfg.to) continue;
-    const text = await loadUstView(env, month, site, cfg.prefix);
-    if (text) ustDayFill(text, startKey, endKey, merged);
+  const ust15 = new Map();
+  for (const month of monthsBetween(start, end)) {
+    for (const src of UST_SOURCE_ORDER) {
+      const cfg = UST_SOURCES[src];
+      if (month < cfg.from || month > cfg.to) continue;
+      const text = await loadUstView(env, month, site, cfg.prefix);
+      if (text) ustRangeFill(text, startKey, endKey, ust15);
+    }
   }
-  if (merged.size === 0) return json({ error: "No data for this site / day" }, 404);
-  const rows = [...merged.entries()].sort((a, b) => (a[0] < b[0] ? -1 : 1)).map(([t, v]) => [t, ...v]);
+  if (resolution === "15min") {
+    for (const [t, v] of ust15) {
+      let row = merged.get(t);
+      if (!row) { row = new Array(width).fill(null); merged.set(t, row); }
+      for (let k = 2; k < width; k++) row[k] = v[k];
+    }
+  } else {
+    const hours = new Map(); // 小时起点 -> {sum[16], cnt[16]}
+    for (const [t, v] of ust15) {
+      const k = t.slice(0, 13) + ":00:00";
+      let o = hours.get(k);
+      if (!o) { o = { sum: new Array(UST_HORIZONS.length).fill(0), cnt: new Array(UST_HORIZONS.length).fill(0) }; hours.set(k, o); }
+      for (let j = 0; j < UST_HORIZONS.length; j++) if (v[2 + j] !== null) { o.sum[j] += v[2 + j]; o.cnt[j]++; }
+    }
+    for (const [k, o] of hours) {
+      let row = merged.get(k);
+      if (!row) { row = new Array(width).fill(null); merged.set(k, row); }
+      for (let j = 0; j < UST_HORIZONS.length; j++) if (o.cnt[j] === 4) row[2 + j] = o.sum[j];
+    }
+  }
+  if (merged.size === 0) return json({ error: "No data for this site / period" }, 404);
+  const r1 = (v) => (v === null ? null : Math.round(v * 10) / 10);
+  const rows = [...merged.entries()].sort((a, b) => (a[0] < b[0] ? -1 : 1)).map(([t, v]) => [t, ...v.map(r1)]);
   return json({
     site,
-    date,
+    start,
+    end,
+    resolution,
     unit: "kWh per interval",
     timezone: "Europe/Budapest (local time, interval start)",
     columns: ["Date", "theoretical_kwh", "da_kwh", ...UST_HORIZONS.map((h) => `h${h}`)],
@@ -554,13 +590,13 @@ async function handleOps(request, env, url, path) {
     }
   }
 
-  // 单日：理论发电量 + DA + 16 档提前量（热力图 / 滑块）
-  if (path === "/ops/api/ust-day") {
+  // 一段日期：理论发电量 + DA + 16 档提前量（热力图 / 滑块）
+  if (path === "/ops/api/ust-range") {
     if (request.method !== "GET") return new Response("Method not allowed", { status: 405 });
     if (!env.GITHUB_TOKEN) return json({ error: "GITHUB_TOKEN is not configured" }, 500);
     if (!env.UST) return json({ error: "R2 binding UST is not configured" }, 500);
     try {
-      return await handleUstDay(url, env);
+      return await handleUstRange(url, env);
     } catch (e) {
       return json({ error: String(e.message || e) }, 502);
     }

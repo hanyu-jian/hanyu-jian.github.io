@@ -1,0 +1,74 @@
+// /ops/api/ust-range：一段日期的理论发电量 + DA + 16 档提前量。每个 (时段, 提前量) 单元格独立按 live > replay > hindcast 取值，
+// 不做「退到更大提前量」的回退；hourly 由 15min 相加（4 个齐全才算）。用假 GitHub + 假 R2 验证。
+// 运行：node gate/tests/worker_ust_range.test.mjs
+import fs from "node:fs";
+import assert from "node:assert/strict";
+
+const src = fs.readFileSync(new URL("../worker.js", import.meta.url), "utf-8").replace(/^export default/m, "const __default =");
+const { handleUstRange } = await import(new URL("data:text/javascript;base64," + Buffer.from(src + "\nexport { handleUstRange };").toString("base64")));
+
+const H = [15, 30, 45, 60, 75, 90, 105, 120, 135, 150, 165, 180, 195, 210, 225, 240];
+const cols = ["Date", ...H.map((h) => `POA h${h} [W/m²]`), ...H.map((h) => `kWh h${h}`), ...H.map((h) => `Lvl h${h}`)];
+const view = (rows) => "﻿" + [cols.join(","), ...rows.map(([d, m]) => [d, ...H.map(() => ""), ...H.map((h) => (m[h] ?? "")), ...H.map(() => "")].join(","))].join("\n") + "\n";
+
+const R2 = {
+  "ust/view/2026-11/Putnok.csv": view([
+    ["2026-11-05 12:00:00", { 15: 11, 60: 61 }], ["2026-11-05 12:15:00", { 15: 12 }],
+    ["2026-11-06 09:00:00", { 15: 5 }],
+    ["2026-11-07 10:00:00", { 15: 1 }], ["2026-11-07 10:15:00", { 15: 2 }], ["2026-11-07 10:30:00", { 15: 3 }], ["2026-11-07 10:45:00", { 15: 4 }],
+    ["2026-11-07 11:00:00", { 15: 1 }], ["2026-11-07 11:15:00", { 15: 2 }], ["2026-11-07 11:30:00", { 15: 3 }],
+  ]),
+  "ust-replay/view/2026-11/Putnok.csv": view([["2026-11-05 12:00:00", { 15: 99, 30: 31, 60: 99 }], ["2026-11-05 12:15:00", { 240: 241 }]]),
+  "ust-hindcast/view/2026-10/Putnok.csv": view([["2026-10-20 12:00:00", { 60: 6 }]]),
+};
+const GH = {
+  "data/theoretical production/2026/15min/Putnok.csv": "Date,POA avg [W/m²],Theoretical production [MWh],Theoretical production [kWh]\n2026-11-05 12:00:00,300,0.1,100\n2026-11-05 12:15:00,310,0.1,110\n2026-11-06 09:00:00,10,0,7\n2026-10-20 12:00:00,300,0.1,50\n",
+  "data/production forecast/2026/15min/Putnok.csv": "Date,I,J,K,L,M,N\n2026-11-05 12:00:00,90,,,,,\n2026-11-05 12:15:00,95,,,,,\n",
+  "data/theoretical production/2026/hourly/Putnok.csv": "Date,POA avg [W/m²],Theoretical production [MWh],Theoretical production [kWh]\n2026-11-07 10:00:00,300,0.1,400\n2026-11-07 11:00:00,300,0.1,300\n",
+  "data/production forecast/2026/hourly/Putnok.csv": "Date,I,J,K,L,M,N\n2026-11-07 10:00:00,450,,,,,\n",
+};
+const reads = [];
+const env = { UST: { get: async (k) => { reads.push(k); return R2[k] ? { text: async () => R2[k] } : null; } }, GITHUB_TOKEN: "x" };
+globalThis.fetch = async (u) => {
+  const p = decodeURIComponent(String(u).split("/contents/")[1]);
+  return GH[p] ? { ok: true, status: 200, text: async () => GH[p] } : { ok: false, status: 404, text: async () => "" };
+};
+const get = async (qs) => { const r = await handleUstRange(new URL("https://x/ops/api/ust-range?" + qs), env); return [r.status, await r.json()]; };
+const cell = (j, d, k) => { const r = j.rows.find((x) => x[0] === d); return r ? r[j.columns.indexOf(k)] : undefined; };
+
+// 单日
+let [st, j] = await get("site=Putnok&start=2026-11-05");
+assert.equal(st, 200);
+assert.deepEqual(j.columns.slice(0, 5), ["Date", "theoretical_kwh", "da_kwh", "h15", "h30"]);
+assert.equal(j.columns.length, 1 + 2 + 16);
+assert.equal(cell(j, "2026-11-05 12:00:00", "theoretical_kwh"), 100);
+assert.equal(cell(j, "2026-11-05 12:00:00", "da_kwh"), 90);
+assert.equal(cell(j, "2026-11-05 12:00:00", "h15"), 11, "live 优先");
+assert.equal(cell(j, "2026-11-05 12:00:00", "h30"), 31, "live 缺这一档 -> replay");
+assert.equal(cell(j, "2026-11-05 12:00:00", "h60"), 61, "同一档 live 有值就不被 replay 覆盖");
+assert.equal(cell(j, "2026-11-05 12:00:00", "h45"), null, "没有回退到更大提前量");
+assert.equal(cell(j, "2026-11-05 12:15:00", "h240"), 241);
+// 多日 + 跨来源
+[st, j] = await get("site=Putnok&start=2026-10-20&end=2026-11-06");
+assert.equal(cell(j, "2026-10-20 12:00:00", "h60"), 6, "只有 hindcast 的日子");
+assert.equal(cell(j, "2026-11-06 09:00:00", "h15"), 5, "跨日");
+assert.equal(cell(j, "2026-11-05 12:00:00", "h15"), 11);
+// 只读该来源能覆盖的月份
+reads.length = 0;
+[st, j] = await get("site=Putnok&start=2026-01-15&end=2026-01-15");
+assert.equal(st, 404);
+assert.deepEqual(reads.filter((k) => k.includes("/view/")), ["ust-hindcast/view/2026-01/Putnok.csv"], "1 月只读 hindcast");
+// hourly：15min 相加，4 个齐全才算
+[st, j] = await get("site=Putnok&start=2026-11-07&resolution=hourly");
+assert.equal(st, 200);
+assert.equal(cell(j, "2026-11-07 10:00:00", "theoretical_kwh"), 400, "hourly 文件");
+assert.equal(cell(j, "2026-11-07 10:00:00", "da_kwh"), 450);
+assert.equal(cell(j, "2026-11-07 10:00:00", "h15"), 10, "1+2+3+4");
+assert.equal(cell(j, "2026-11-07 11:00:00", "h15"), null, "只有 3 个 15min -> 不算");
+// 校验
+[st] = await get("site=Putnok&start=2026-01-01&end=2026-03-10"); assert.equal(st, 400, "超过 62 天");
+[st] = await get("site=Nope&start=2026-11-05"); assert.equal(st, 400);
+[st] = await get("site=Putnok&start=2026-13-45"); assert.equal(st, 400);
+[st] = await get("site=Putnok&start=2026-11-05&end=2026-11-01"); assert.equal(st, 400);
+[st] = await get("site=Putnok&start=2026-11-05&resolution=weekly"); assert.equal(st, 400);
+console.log("全部通过（单日 / 多日、逐单元格 live > replay > hindcast、无提前量回退、hourly 4 个齐全、按月份少读 R2、参数校验）");

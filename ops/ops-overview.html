@@ -38,7 +38,7 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background:
 .chart-card-header h3 { font-size: 18px; font-weight: 500; color: #2c3e50; border-left: 4px solid #2c3e50; padding-left: 12px; margin: 0; line-height: 1.3; }
 .chart-card-header .subtitle { font-size: 12px; color: #888; margin-top: 4px; padding-left: 16px; }
 #chart { height: 440px; } #chart2 { height: 240px; }
-#dayChart { height: 320px; } #dayHeat { height: 520px; }
+#dayChart { height: 320px; } #dayHeat { height: 380px; }
 .day-controls { display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-end; margin-bottom: 8px; }
 .day-controls input[type=date] { font-family: inherit; height: 36px; padding: 0 12px; border: 1px solid #ccc; border-radius: 6px; font-size: 14px; color: #2c3e50; }
 .slider-group { flex: 1; min-width: 320px; max-width: 760px; }
@@ -144,7 +144,7 @@ tr.total td { font-weight: 700; background: #fafbfc; }
       <p class="note">
         <b>Slider:</b> drag it from 240 min (far left) to 15 min (far right) to see the orange UST line move towards the theoretical production. The slider only switches the lead time, it does not reload data.<br>
         <b>Heat map:</b> one row per lead time (plus the DA forecast on top), one column per 15-minute interval of the chosen day. The colour is the
-        <b>error = forecast &minus; theoretical production</b> in kWh: red = forecast too high, blue = too low, white = close to the theoretical value. The row of the selected lead time has a light-blue frame.
+        <b>error = forecast &minus; theoretical production</b> in kWh: red = forecast too high, blue = too low, white = close to the theoretical value. The row of the selected lead time has a light-purple frame.
         Night intervals have no forecast and stay empty. Hover a cell to see the forecast, the theoretical value and the error.<br>
         Each cell uses its own lead time only (no fallback to another lead time). Where several sources exist for a cell, live wins, then replay, then hindcast (see above).
         In the All sites view an interval counts only if all five sites have a value. The default day is yesterday because the theoretical production of today is only complete in the evening.
@@ -451,11 +451,11 @@ function paintDay() {
     visualMap: { dimension: 2, min: -M, max: M, calculable: false, orient: "horizontal", left: "center", top: 0, itemWidth: 14, itemHeight: 220,
       text: ["forecast too high", "too low"], textStyle: { color: "#555" }, inRange: { color: ["#2c7fb8", "#f7f7f7", "#d7301f"] } },
     series: [{ type: "heatmap", data: cells, progressive: 0, emphasis: { itemStyle: { borderColor: "#333", borderWidth: 1 } } },
-      // Light-blue, slightly rounded frame around the selected lead-time row (markArea rounds category coordinates, so draw the rectangle ourselves).
+      // Light-purple, slightly rounded frame around the selected lead-time row (markArea rounds category coordinates, so draw the rectangle ourselves).
       { type: "custom", silent: true, z: 10, data: [[0, yi]], tooltip: { show: false },
         renderItem: (params, api) => { const a = api.coord([0, yi]), b = api.coord([x.length - 1, yi]), sz = api.size([1, 1]);
           return { type: "rect", shape: { x: a[0] - sz[0] / 2, y: a[1] - sz[1] / 2, width: b[0] - a[0] + sz[0], height: sz[1], r: 4 },
-            style: { fill: "none", stroke: "#6aa9e0", lineWidth: 2.5 } }; } }] }, true);
+            style: { fill: "none", stroke: "#b39ddb", lineWidth: 2.5 } }; } }] }, true);
 }
 init();
 </script>

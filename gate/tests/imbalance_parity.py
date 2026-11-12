@@ -27,14 +27,21 @@ for h in S.UST_HORIZONS:
 view = pd.DataFrame({f"kWh h{h}": leads[h] for h in S.UST_HORIZONS}, index=idx)
 view_text = view.to_csv(date_format="%Y-%m-%d %H:%M:%S")
 read = lambda month, site: view_text
-expected = {}
+PCTS = [1.0, 0.8, 0.5]
+expected = {}   # expected[lead][mode][pct][day] = {da, idc, imb, result, ref}
 for L in S.UST_HORIZONS:
     fp = S.final_plan(read, "X", L, ["2026-11"])
-    df = pd.DataFrame({"I": I, "AH": AH, "P": P, "AA": AA, "Pneg": PI}, index=idx)
-    df["F"] = fp["F"].reindex(idx)
-    d = S.compute(df)
-    s = S.summarize(d, L, "D")
-    expected[str(L)] = {str(k): {c: (None if pd.isna(v) else float(v)) for c, v in row.items()} for k, row in s.iterrows()}
+    expected[str(L)] = {"idc": {}, "imb": {}}
+    for pct in PCTS:
+        for mode in ("idc", "imb"):
+            df = pd.DataFrame({"I": I * pct, "AH": AH, "P": P, "AA": AA, "Pneg": PI}, index=idx)
+            df["F"] = fp["F"].reindex(idx) if mode == "idc" else np.nan     # imb：IDC 不动，仓位 = DA 报量
+            sm = S.summarize(S.compute(df), L, "D")
+            expected[str(L)][mode][str(pct)] = {str(k): {"da": float(r["rev_da_EUR"]), "idc": float(r["rev_idc_EUR"]), "imb": float(r["imbalance_fee_EUR"]),
+                                                          "result": float(r["result_EUR"]), "cells": float(r["cells"])} for k, r in sm.iterrows()}
+    # 参考线：100% DA、IDC 不动（= result_da_only）
+    ref = S.summarize(S.compute(pd.DataFrame({"I": I, "AH": AH, "P": P, "AA": AA, "Pneg": PI, "F": np.nan}, index=idx)), L, "D")
+    expected[str(L)]["ref"] = {str(k): float(r["result_da_only_EUR"]) for k, r in ref.iterrows()}
 f = lambda a: [None if pd.isna(x) else float(x) for x in a]
 print(json.dumps({"index": [t.strftime("%Y-%m-%d %H:%M:%S") for t in idx], "AH": f(AH), "I": f(I), "P": f(P), "AA": f(AA), "PI": f(PI),
                   "leads": {str(h): f(leads[h]) for h in S.UST_HORIZONS}, "expected": expected}))

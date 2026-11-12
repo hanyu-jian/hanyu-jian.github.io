@@ -469,17 +469,15 @@ async function handleUstRange(url, env) {
   });
 }
 
-// ── /imbalance：DA + IDC 滚动（超短期）结算，按天 × 16 档提前量汇总 ─────────────────────────────
-// 口径同 py/analysis/tokaj_da_idc_settlement.py（和工作簿核对过的那一版），每个 15 分钟：
-//   H = DA 预测（vcom production forecast 的 I 列）   AH = 理论发电量   F(L) = 提前 L 分钟的超短期预测（提前量 >= L 里最小的一档，没有则 = H）
-//   Q = P·H/1000    AE = AA·(F−H)/1000    AI = F−AH    fee = −AI·Pimb/1000    result = Q + AE + fee    result_da_only = Q − (H−AH)·Pimb/1000
-//   P = 日前价，AA = ID3 指数价，Pimb = 不平衡价（单一价格），EUR/MWh；价格缺失按 0 计并统计缺口。只统计 AH 和 H 都有值的格子。
+// ── /imbalance：逐 15 分钟的结算输入（DA 预测、理论发电量、提前 L 分钟的超短期预测、三个价格）────────────────
+// 结算本身（DA 报量百分比、剩余部分在 IDC 平仓还是留在不平衡里）在页面里算，这样改参数不用再请求；这里只负责把数据对齐：
+//   H = DA 预测（vcom production forecast 的 I 列，kWh）   AH = 理论发电量（kWh）
+//   F = 提前 L 分钟的超短期预测（提前量 >= L 里最小的一档，没有则为空；live > replay > hindcast 逐单元格取）
+//   P = 日前价，AA = ID3 指数价，PI = 不平衡价（单一价格），EUR/MWh；缺失为空。只返回 AH 和 H 都有值的时段。
 // 价格来自 hu-market-data 仓库的 HU_<年>.csv（build_hu_combined.py 每天整合的 15 分钟表，福林已换算成欧元），列：
-//   "DA Price (EUR/MWh)" = P，"ID3 Price (EUR/MWh)" = AA，"Imbalance Price (EUR/MWh)" = Pimb。读它要用 GITHUB_TOKEN 对该仓库有读权限（env.PRICE_REPO 可改仓库）。
-// 一次最多 62 天；16 档提前量一起算好返回，页面切换提前量不用再请求。
+//   "DA Price (EUR/MWh)"、"ID3 Price (EUR/MWh)"、"Imbalance Price (EUR/MWh)"。读它要用 GITHUB_TOKEN 对该仓库有读权限（env.PRICE_REPO 可改仓库）。
+// 一次最多 62 天，列式 JSON（每个字段一个数组）。
 const IMB_MAX_DAYS = 62;
-const IMB_LEAD_FIELDS = ["ust", "idc_net", "idc_abs", "ae", "ai_net", "ai_abs", "fee", "result"];
-const IMB_BASE_FIELDS = ["n", "actual", "da", "q", "da_only", "da_net", "da_abs", "no_p", "no_aa", "no_pimb"];
 const IMB_PRICE_COLS = ["DA Price (EUR/MWh)", "ID3 Price (EUR/MWh)", "Imbalance Price (EUR/MWh)"];
 
 // 价格表是「YYYY-MM-DD HH:MM」（没有秒），按字符串二分查找后只解析需要的那一段；夏令时回拨日重复的小时，后出现的覆盖先出现的（和理论发电量 / 预测文件的 96 行一致）。
@@ -503,7 +501,9 @@ async function handleImbalance(url, env) {
   const site = q.get("site");
   const start = q.get("start");
   const end = q.get("end") || start;
+  const lead = q.get("lead") === null ? UST_DEFAULT_H : Number(q.get("lead"));
   if (!SITES.includes(site)) return json({ error: `site must be one of ${SITES.join(" / ")}` }, 400);
+  if (!UST_HORIZONS.includes(lead)) return json({ error: `lead must be one of ${UST_HORIZONS.join(" / ")}` }, 400);
   if (!DATE_RE.test(start || "") || !DATE_RE.test(end) || Number.isNaN(Date.parse(start)) || Number.isNaN(Date.parse(end)))
     return json({ error: "start / end must be YYYY-MM-DD" }, 400);
   if (end < start) return json({ error: "end must not be before start" }, 400);
@@ -533,8 +533,7 @@ async function handleImbalance(url, env) {
       if (text) ustRangeFill(text, startKey, endKey, merged);
     }
   }
-  // 价格：时段 -> [P, AA, Pimb]（hu-market-data 仓库）
-  const prices = new Map();
+  const prices = new Map();            // 时段 -> [P, AA, PI]
   for (let y = y0; y <= y1; y++) {
     let ptext;
     try {
@@ -545,44 +544,18 @@ async function handleImbalance(url, env) {
     if (ptext) sliceImbalancePrices(ptext, startKey, endKey, prices);
   }
 
-  const days = new Map();              // 日期 -> { base: {...}, lead: {field: Float64Array(16)} }
-  const day = (d) => {
-    let o = days.get(d);
-    if (!o) { o = { base: Object.fromEntries(IMB_BASE_FIELDS.map((k) => [k, 0])), lead: Object.fromEntries(IMB_LEAD_FIELDS.map((k) => [k, new Array(nl).fill(0)])) }; days.set(d, o); }
-    return o;
-  };
+  const out = { t: [], H: [], AH: [], F: [], P: [], AA: [], PI: [] };
+  const li = UST_HORIZONS.indexOf(lead);
+  const r3 = (x) => (x === null ? null : Math.round(x * 1000) / 1000);
   for (const [t, v] of [...merged.entries()].sort((a, b) => (a[0] < b[0] ? -1 : 1))) {
-    const AH = v[0], H = v[1];
-    if (AH === null || H === null) continue;               // 只统计理论发电量和 DA 都有值的格子
+    if (v[0] === null || v[1] === null) continue;            // 只返回理论发电量和 DA 都有值的时段
+    let F = null;                                             // 提前量 >= L 里最小的一档
+    for (let j = li; j < nl; j++) if (v[2 + j] !== null) { F = v[2 + j]; break; }
     const pr = prices.get(t) || [null, null, null];
-    const P = pr[0] ?? 0, AA = pr[1] ?? 0, Pimb = pr[2] ?? 0;
-    const Q = (P * H) / 1000;
-    const o = day(t.slice(0, 10)), B = o.base;
-    B.n++; B.actual += AH; B.da += H; B.q += Q;
-    B.da_only += Q - ((H - AH) * Pimb) / 1000; B.da_net += H - AH; B.da_abs += Math.abs(H - AH);
-    if (pr[0] === null) B.no_p++; if (pr[1] === null) B.no_aa++; if (pr[2] === null) B.no_pimb++;
-    let cur = null;                                          // 提前量 >= L 里最小的一档：从 240 往 15 扫，沿途记住最近的值
-    for (let j = nl - 1; j >= 0; j--) {
-      if (v[2 + j] !== null) cur = v[2 + j];
-      const has = cur !== null, pos = has ? cur : H, idc = pos - H, AI = pos - AH;
-      const ae = (AA * idc) / 1000, fee = (-AI * Pimb) / 1000, L = o.lead;
-      if (has) L.ust[j]++;
-      L.idc_net[j] += idc; L.idc_abs[j] += Math.abs(idc); L.ae[j] += ae;
-      L.ai_net[j] += AI; L.ai_abs[j] += Math.abs(AI); L.fee[j] += fee; L.result[j] += Q + ae + fee;
-    }
+    out.t.push(t.slice(0, 16)); out.AH.push(r3(v[0])); out.H.push(r3(v[1])); out.F.push(r3(F));
+    out.P.push(pr[0]); out.AA.push(pr[1]); out.PI.push(pr[2] === null ? null : r3(pr[2]));
   }
-  const dates = [...days.keys()].sort();
-  const r = (x, d) => { const k = 10 ** d; return Math.round(x * k) / k; };
-  return json({
-    site, start, end,
-    leads: UST_HORIZONS,
-    days: dates,
-    base_fields: IMB_BASE_FIELDS,
-    base: dates.map((d) => IMB_BASE_FIELDS.map((k) => r(days.get(d).base[k], k.startsWith("no_") || k === "n" ? 0 : 3))),
-    lead_fields: IMB_LEAD_FIELDS,
-    by_lead: Object.fromEntries(IMB_LEAD_FIELDS.map((k) => [k, dates.map((d) => days.get(d).lead[k].map((x) => r(x, k === "ust" ? 0 : 3)))])),
-    units: "kWh and EUR per day; by_lead[field][day][lead]",
-  });
+  return json({ site, start, end, lead, unit: "kWh per 15 min (H, AH, F); EUR/MWh (P, AA, PI); t = Budapest local time, interval start", ...out });
 }
 
 // ── /theoretical：整年的 15 分钟理论发电量 CSV（原样转发，不解析，省 CPU）──────────────

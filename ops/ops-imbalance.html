@@ -64,15 +64,10 @@ tr.total td { font-weight: 700; background: #fafbfc; }
 
 #chartRev { height: 400px; }
 .banner { margin: 14px 30px 0; padding: 10px 14px; background: #fff8e6; border: 1px solid #f3dfa2; border-radius: 6px; font-size: 12.5px; color: #7a5c00; line-height: 1.6; }
-tr.sel td { background: #f1f4ff; font-weight: 600; }
-th.grp { text-align: center; border-left: 1px solid #dfe3e8; border-right: 1px solid #dfe3e8; }
-td.l, th.l { border-left: 1px solid #eef0f3; }
 td.dim { color: #aaa; }
 
 .control-group input[type=number] { font-family: inherit; height: 36px; width: 110px; padding: 0 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 14px; color: #2c3e50; }
 .strategy { display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-end; }
-.best { font-size: 13px; color: #2c3e50; margin: 4px 0 8px; line-height: 1.7; }
-.best b.i { color: #e67e22; } .best b.m { color: #6c7a89; }
 </style>
 </head>
 <body>
@@ -126,15 +121,6 @@ td.dim { color: #aaa; }
       </div>
       <div class="scroll"><table id="sumTable"></table></div>
     </div>
-
-    <div class="chart-card">
-      <div class="chart-card-header">
-        <div><h3 id="sensTitle">Sensitivity to the DA bid share</h3><div class="subtitle">EUR, selected sites and dates</div></div>
-      </div>
-      <div class="best" id="best"></div>
-      <div class="scroll"><table id="sensTable"></table></div>
-    </div>
-
   </div>
 </div>
 
@@ -323,7 +309,6 @@ function paint() {
       { name: "Total revenue", type: "line", data: rows.map(([, g]) => Math.round(g.res * 100) / 100), lineStyle: { width: 2.2, color: "#2c3e50" }, itemStyle: { color: "#2c3e50" }, showSymbol: x.length < 120, symbolSize: 5 },
       { name: "DA-only (100%)", type: "line", data: rows.map(([, g]) => Math.round(g.ref * 100) / 100), lineStyle: { width: 1.6, color: "#95a5a6", type: "dashed" }, itemStyle: { color: "#95a5a6" }, showSymbol: false } ] }, true);
   summary(sites, p, mode);
-  sensitivity(sites, p);
 }
 
 // Summary table: January..December of the loaded year for the selected site(s) (the site buttons above), whatever dates the chart shows.
@@ -348,26 +333,6 @@ function summary(sites, p, mode) {
       <th>Total revenue (post imbalance cost) €</th><th>Imbalance %</th></tr>` + rows.join("") + row(`Total ${year}`, any ? tot : null, "total");
 }
 
-// Total revenue of the selected sites and period for every bid share (steps of 10 points up to 150%, plus the current share), both ways of handling the rest.
-function sensitivity(sites, p) {
-  const cur = Math.round(p * 100), pts = [];
-  for (let v = 0; v <= 150; v += 10) pts.push(v);
-  if (!pts.includes(cur)) { pts.push(cur); pts.sort((a, b) => a - b); }
-  const tmp = new Array(8), lo = $("start").value, hi = $("end").value;
-  const run = (m, v) => { const r = { n: 0, D: 0, q: 0, ae: 0, imb: 0, res: 0, ref: 0 }; sites.forEach(s => { const o = store[s]; if (!o) return;
-    for (let i = 0; i < o.t.length; i++) if (o.keep[i] && o.t[i].slice(0, 10) >= lo && o.t[i].slice(0, 10) <= hi) { settleSlot(o.H[i], o.AH[i], o.F[i], o.P[i], o.AA[i], o.PI[i], v / 100, m, tmp);
-      r.D += tmp[0]; r.q += tmp[3]; r.ae += tmp[4]; r.imb += tmp[5]; r.res += tmp[6]; r.ref += tmp[7]; } }); return r; };
-  const rows = pts.map(v => ({ v, idc: run("idc", v), imb: run("imb", v) }));
-  const ref = rows[0].imb.ref, at100 = rows.find(r => r.v === 100);
-  const slope = k => (at100 ? (at100[k].res - rows[0][k].res) / 10 : null);
-  $("best").innerHTML = `Per +10 points of DA bid: <b class="i">${sgn(slope("idc"))} €</b> with the rest closed out in IDC &nbsp;·&nbsp; <b class="m">${sgn(slope("imb"))} €</b> with the rest left in imbalance &nbsp;·&nbsp; DA-only at 100%: ${eur(ref)} €`;
-  const ip = r => r.res ? sgn(r.imb / r.res * 100, 1) + "%" : "–";
-  const cells = (r, ref) => `<td class="l">${eur(r.q)}</td><td>${eur(r.ae)}</td><td>${eur(r.imb)}</td><td><b>${eur(r.res)}</b></td><td>${ip(r)}</td><td class="${r.res - ref >= 0 ? "neg" : "pos"}">${sgn(r.res - ref)}</td>`;
-  $("sensTable").innerHTML = `<tr><th rowspan="2">DA bid %</th><th rowspan="2">DA bid MWh</th><th class="grp" colspan="6">Rest closed out in IDC (lead ${$("lead").value} min)</th><th class="grp" colspan="6">Rest left in imbalance</th></tr>
-    <tr><th class="l">DA revenue €</th><th>IDC revenue €</th><th>Imbalance cost €</th><th>Total revenue €</th><th>Imbalance %</th><th>Δ vs DA-only €</th>
-        <th class="l">DA revenue €</th><th>IDC revenue €</th><th>Imbalance cost €</th><th>Total revenue €</th><th>Imbalance %</th><th>Δ vs DA-only €</th></tr>` +
-    rows.map(r => `<tr class="${r.v === cur ? "sel" : ""}"><td>${r.v}%${r.v === cur ? " (current)" : ""}</td><td>${nf(r.idc.D / 1000, 1)}</td>${cells(r.idc, ref)}${cells(r.imb, ref)}</tr>`).join("");
-}
 init();
 </script>
 </body>

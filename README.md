@@ -339,7 +339,7 @@ token 只在服务端，不会发给浏览器；数据不会进入本仓库，�
 页面上不放说明文字，下面是它的全部口径。
 
 *页面结构*
-- 顶部：起止日期（默认今天和前两天）、Frequency 点击按钮（15 min / Hourly / Daily / Weekly / Monthly / Quarterly / Yearly，样式同 Price Overview；只影响图表的聚合，不重新请求）。
+- 顶部：起止日期（默认前三天，不含今天，因为今天的价格和理论发电量还不完整）、Frequency 点击按钮（15 min / Hourly / Daily / Weekly / Monthly / Quarterly / Yearly，样式同 Price Overview；只影响图表的聚合，不重新请求）。
 - Site 按钮（All sites = 五站相加，其余是单站）；它同时驱动图、Summary table 和 Sensitivity table。
 - Strategy（图表正上方）：**DA bid %**（DA 预测量按多少百分比报进日前市场，默认 100%，0–150%）、**Rest**（没报进 DA 的部分：在 IDC 里平仓 / 全部留在不平衡里）、**IDC lead time**（15–240 分钟，默认 60）。
 - 图：按所选频率画 DA revenue / IDC revenue / Imbalance cost 的堆叠柱，叠 Total revenue 线和 “DA-only (100%)” 虚线（100% 报量、之后不交易）。

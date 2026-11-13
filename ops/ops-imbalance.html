@@ -174,8 +174,8 @@ const sgn = (v, d = 0) => v == null || !isFinite(v) ? "â€“" : (v >= 0 ? "+" : "â
 function setStatus(t, err = false) { $("status").className = err ? "status err" : "status"; $("status").textContent = t; }
 const pctVal = () => { const v = parseFloat($("pct").value); return isFinite(v) ? Math.min(Math.max(v, 0), 150) / 100 : 1; };
 
-function defaultRange() {                                    // today and the two days before
-  const t = budapestToday(); $("start").value = addDays(t, -2); $("end").value = t;
+function defaultRange() {                                    // the three days before today (prices and theoretical production are complete)
+  const t = budapestToday(); $("start").value = addDays(t, -3); $("end").value = addDays(t, -1);
 }
 function scheduleLoad(delay = 250) { clearTimeout(loadTimer); loadTimer = setTimeout(load, delay); }
 // The page works on one calendar year (the year of the end date), loaded once: changing the dates inside that year only repaints.

@@ -7,6 +7,11 @@ MAVIR 不平衡价格下载脚本 — Pos_ImbalancePrice_ENG_preliminary_<数据
     其余列保持 xlsx 原列名（Pos 与 Neg 价格相同，只取这一个文件）
 - 文件名里的发布日不固定（如 18 日 → 22 日，19 日 → 23 日），所以对每个缺失的数据日
   依次试 数据日+1 … +MAX_LAG 的发布日；拿不到就跳过，下次再试。
+- MAVIR 的文件放在 Liferay 的目录里，目录号会换（2026-10 的文件在 358398864，11 月起在 360748237），换了以后旧目录里就再也没有新文件。
+  所以目录是一个列表（最新的排前面），每个文件依次试每个目录；以后再换目录，不用改代码：
+  给环境变量 MAVIR_BASES 加上新目录（逗号分隔，可以写完整的目录地址如 https://www.mavir.hu/documents/187408084/360748237/，
+  也可以只写目录号如 360748237），它们排在内置目录前面。GitHub 上可以在仓库 Settings → Secrets and variables → Actions → Variables
+  里加一个名为 MAVIR_BASES 的变量，workflow 会传进来。
 - 2026-01-01 … 09-30 只有 System direction [MWh] 一列（手工提供的数据），其余列留空；10-01 起为 preliminary 全部列
 - 全空的列不写入；数值保留 9 位小数
 - 同一个 Date 以新数据为准；秋季回拨那天 02:00~02:45 出现两遍（xlsx 里第二遍标成 "02+00"、"02+15"…），
@@ -20,6 +25,7 @@ MAVIR 不平衡价格下载脚本 — Pos_ImbalancePrice_ENG_preliminary_<数据
 
 import argparse
 import io
+import os
 import re
 import sys
 from datetime import date, timedelta
@@ -29,7 +35,8 @@ import numpy as np
 import pandas as pd
 import requests
 
-BASE = "https://mavir.hu/documents/187408084/358398864/"
+ROOT = "https://www.mavir.hu/documents/187408084/"
+FOLDERS = ["360748237", "358398864"]        # 最新的排前面：11 月起 → 10 月
 NAME = "Pos_ImbalancePrice_ENG_preliminary_{d}_{p}.xlsx"
 OUT_DIR = Path("data/mavir/imbalance")
 DATE_FMT = "%d/%m/%Y %H:%M"
@@ -48,12 +55,25 @@ def get(url):
     return r.content if r.status_code == 200 and r.content[:2] == b"PK" else None
 
 
+def bases():
+    """要试的目录地址列表：环境变量 MAVIR_BASES 里的在前，内置的 FOLDERS 在后；去重保序。"""
+    out = []
+    for item in [x.strip() for x in os.environ.get("MAVIR_BASES", "").split(",") if x.strip()] + FOLDERS:
+        url = item if "/" in item else ROOT + item
+        url = url if url.endswith("/") else url + "/"
+        if url not in out:
+            out.append(url)
+    return out
+
+
 def download(d):
     ds = d.strftime("%Y%m%d")
+    folders = bases()
     for lag in range(1, MAX_LAG + 1):
         pub = (d + timedelta(days=lag)).strftime("%Y%m%d")
-        if c := get(BASE + NAME.format(d=ds, p=pub)):
-            return c
+        for base in folders:
+            if c := get(base + NAME.format(d=ds, p=pub)):
+                return c
     return None
 
 

@@ -37,6 +37,7 @@ jobs:
         env:
           START_DATE: ${{ inputs.start_date }}
           END_DATE: ${{ inputs.end_date }}
+          MAVIR_BASES: ${{ vars.MAVIR_BASES }}   # 可选：MAVIR 换了文件目录时在仓库变量里加新目录（逗号分隔），不用改代码
         run: |
           args=()
           if [ -n "$START_DATE" ]; then args+=(--start "$START_DATE"); fi

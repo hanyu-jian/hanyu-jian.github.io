@@ -37,7 +37,7 @@ data/
     ID3/HU_<年>.csv   ID3 指数，列 Date, ID3, Vol（制表符分隔，日/月/年）；每天由 py/fetch/enappsys/fetch_enappsys_id3.py 接着往下更新（`update_enappsys.yml` 手动运行时可勾选 `ida_only` / `id3_only` / `afrr_capacity_only` 只更新其中一个）
     afrr/capacity/<up|down>/15min/HU_<年>.csv   匈牙利 aFRR 容量，7 列：WAP(hourly/daily/monthly)、Volume(hourly/daily/monthly)、Total volume（无成交 / 无数据写 "-"）；由 py/fetch/enappsys/fetch_enappsys_afrr_capacity.py 更新
   fx/MNB.csv  匈牙利央行汇率（HUF per EUR / RON / PLN，工作日）
-  mavir/imbalance/HU_<年>.csv  MAVIR System direction（及 10 月起的 preliminary 全部列），15 分钟；每天由 `update_mavir_imbalance.yml` 更新
+  mavir/imbalance/HU_<年>.csv  MAVIR System direction（及 10 月起的 preliminary 全部列），15 分钟；每天由 `update_mavir_imbalance.yml` 更新；文件按天从 MAVIR 的 Liferay 目录取（`Pos_ImbalancePrice_ENG_preliminary_<数据日>_<发布日>.xlsx`），目录号会换（10 月的在 `358398864`，11 月起在 `360748237`），脚本依次试内置的目录列表，换了目录时在仓库变量 `MAVIR_BASES` 里加新目录（逗号分隔，目录号或完整地址都行）即可，不用改代码
   （HU 整合表不放在本仓库：`py/build/build_hu_combined.py` 生成，`build_combined.yml` 在上面几个数据 workflow 跑完后重建并推送到只含这一个文件的私有仓库 `hanyu-jian/hu-market-data`。同事用只授权该仓库的只读 token 通过 GitHub contents API 取：
     `GET https://api.github.com/repos/hanyu-jian/hu-market-data/contents/HU_2026.csv`，头 `Authorization: Bearer <token>`、`Accept: application/vnd.github.raw+json`；本仓库需要 secret `DATA_REPO_TOKEN`）
 raw_data/<年>/  ENTSO-E 15 分钟原始数据（A44 日前价、A65 负荷、A85 不平衡价、generation/）

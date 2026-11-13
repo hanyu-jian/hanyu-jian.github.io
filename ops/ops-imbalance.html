@@ -70,6 +70,7 @@ td.l, th.l { border-left: 1px solid #eef0f3; }
 td.dim { color: #aaa; }
 
 .control-group input[type=number] { font-family: inherit; height: 36px; width: 110px; padding: 0 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 14px; color: #2c3e50; }
+.strategy { display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-end; }
 .best { font-size: 13px; color: #2c3e50; margin: 4px 0 8px; line-height: 1.7; }
 .best b.i { color: #e67e22; } .best b.m { color: #6c7a89; }
 </style>
@@ -86,23 +87,12 @@ td.dim { color: #aaa; }
   <div class="controls">
     <div class="control-group"><label>Start date</label><input type="date" id="start"></div>
     <div class="control-group"><label>End date</label><input type="date" id="end"></div>
-    <div class="control-group"><label>Quick range</label>
-      <div class="btn-group-inline" id="quick">
-        <button data-r="7">Last 7 days</button><button data-r="30">Last 30 days</button><button data-r="month">This month</button><button data-r="lastmonth">Last month</button><button data-r="ytd">Year to date</button>
-      </div></div>
     <div class="control-group"><label>Frequency</label>
-      <select id="freq"><option value="15min">15 min</option><option value="hour">Hourly</option><option value="day">Daily</option><option value="month">Monthly</option></select></div>
-    <div class="control-group"><label>DA bid, % of DA forecast</label><input type="number" id="pct" min="0" max="150" step="5" value="100"></div>
-    <div class="control-group"><label>Rest (not bid in DA)</label>
-      <select id="mode"><option value="idc">Close out in IDC (rolling forecast)</option><option value="imb">Leave in imbalance</option></select></div>
-    <div class="control-group"><label>IDC lead time</label><select id="lead"></select></div>
+      <div class="btn-group-inline" id="freqGroup">
+        <button data-f="15min" class="active">15 min</button><button data-f="hour">Hourly</button><button data-f="day">Daily</button><button data-f="week">Weekly</button><button data-f="month">Monthly</button><button data-f="quarter">Quarterly</button><button data-f="year">Yearly</button>
+      </div></div>
   </div>
   <div class="status" id="status"></div>
-  <div class="banner" id="banner">
-    Before 2026-10-29 the UST forecast is the supplier&rsquo;s <b>backtest / replay</b>, which assumes the newest measurement at every issue time. For these periods the IDC results show what the rolling forecast
-    could earn <b>under ideal measurement conditions</b>, an upper bound rather than what was achievable in live operation.
-  </div>
-
   <div class="chart-grid">
     <div class="chart-card">
       <div class="chart-card-header" style="margin-bottom:0;align-items:center;">
@@ -112,46 +102,39 @@ td.dim { color: #aaa; }
     </div>
 
     <div class="chart-card">
+      <div class="chart-card-header" style="margin-bottom:0;align-items:flex-end;">
+        <div><h3>Strategy</h3></div>
+        <div class="strategy">
+          <div class="control-group"><label>DA bid, % of DA forecast</label><input type="number" id="pct" min="0" max="150" step="5" value="100"></div>
+          <div class="control-group"><label>Rest (not bid in DA)</label>
+            <select id="mode"><option value="idc">Close out in IDC (rolling forecast)</option><option value="imb">Leave in imbalance</option></select></div>
+          <div class="control-group"><label>IDC lead time</label><select id="lead"></select></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="chart-card">
       <div class="chart-card-header">
-        <div><h3 id="revTitle">Revenue and result</h3><div class="subtitle" id="revSub">EUR per period</div></div>
+        <div><h3 id="revTitle">Revenue and total revenue</h3><div class="subtitle" id="revSub">EUR per period</div></div>
       </div>
       <div id="chartRev"></div>
     </div>
 
     <div class="chart-card">
       <div class="chart-card-header">
-        <div><h3 id="sumTitle">Summary by site</h3><div class="subtitle">Selected period, DA bid share and rest handling as chosen above</div></div>
+        <div><h3 id="sumTitle">Summary table</h3><div class="subtitle" id="sumSub">EUR per month</div></div>
       </div>
       <div class="scroll"><table id="sumTable"></table></div>
     </div>
 
     <div class="chart-card">
       <div class="chart-card-header">
-        <div><h3 id="sensTitle">Sensitivity to the DA bid share</h3><div class="subtitle">Selected sites and period, for every DA bid share and both ways of handling the rest (EUR)</div></div>
+        <div><h3 id="sensTitle">Sensitivity to the DA bid share</h3><div class="subtitle">EUR, selected sites and dates</div></div>
       </div>
       <div class="best" id="best"></div>
       <div class="scroll"><table id="sensTable"></table></div>
-      <p class="note">
-        <b>Rest in IDC:</b> the DA position is D = bid share &times; DA forecast; the rest is traded in the intraday market so that the final position equals the UST forecast F issued <i>lead time</i> minutes before the interval
-        (F &minus; D is bought or sold at the ID3 price; where no UST forecast exists the position stays at D).
-        <b>Rest in imbalance:</b> nothing is traded after the DA, the position stays at D and the whole difference to the actual production is settled at the imbalance price (an opportunistic imbalance position).<br>
-        <b>Reading the table:</b> with the prices of the period known, the result is linear in the bid share, so it changes by the same amount for every +10 points and the best share is always 0% or the upper limit; the slope is the volume-weighted spread between the DA price and the price the rest is settled at (ID3 or imbalance). The sign of that spread can change between months (pick a single month above to see it), and it is a look back, not a forecastable rule.<br>
-        With a 100% bid and the rest left in imbalance this is the plain DA-only reference; with a 100% bid and IDC it is the settlement confirmed against the Robestec workbook.
-      </p>
     </div>
 
-    <div class="chart-card">
-      <p class="note" style="margin-top:0">
-        <b>How each 15-minute interval is settled</b> (single imbalance price, so the system direction does not change the total):<br>
-        H = DA forecast &nbsp;|&nbsp; D = DA bid = share &times; H &nbsp;|&nbsp; F = UST forecast issued <i>lead time</i> minutes before (the smallest available lead at or above the chosen one) &nbsp;|&nbsp; AH = theoretical production (from measured POA, includes the AC limit)<br>
-        Final position = F (rest in IDC and F available) or D (otherwise) &nbsp;|&nbsp; DA revenue = P &middot; D / 1000 &nbsp;|&nbsp; IDC revenue = AA &middot; (final position &minus; D) / 1000 &nbsp;|&nbsp;
-        <b>Imbalance revenue = &minus;(final position &minus; AH) &middot; Pimb / 1000</b> (positive = income, negative = cost) &nbsp;|&nbsp; Result = DA + IDC + imbalance<br>
-        P = day-ahead price, AA = ID3 index price, Pimb = imbalance price, EUR/MWh. <b>DA-only (100%)</b> = reference with a 100% bid and nothing traded afterwards. <b>Result</b> = revenue / cost after the imbalance cost (DA + IDC + imbalance revenue); <b>Imbalance %</b> = imbalance revenue / result (negative = the imbalance cost as a share of the result); <b>Abs. imbalance volume %</b> = &Sigma;|final position &minus; AH| / &Sigma;AH.
-        Only intervals with theoretical production and a DA forecast are counted. A missing price counts as 0 and is listed under &ldquo;Price gaps&rdquo; (intervals); days with no DA or no imbalance price at all (usually the last day or two) are left out.<br>
-        <b>Data:</b> DA forecast and theoretical production from the vcom repository; UST from R2 (live &gt; replay &gt; hindcast per cell); prices from the daily combined HU market table (day-ahead, ID3 and imbalance price in EUR/MWh; the HUF imbalance price before 2026-10-01 is converted with the MNB rate of the previous working day), which the &ldquo;Build HU Combined Data&rdquo; workflow uploads to R2.
-        Changing the dates or the IDC lead time reloads the data; everything else is calculated in the browser.
-      </p>
-    </div>
   </div>
 </div>
 
@@ -160,6 +143,7 @@ const SITES = ["Putnok", "Serenyfalva", "Sajokaza", "Szuhakálló 1", "Szuhakál
 const LEADS = [15, 30, 45, 60, 75, 90, 105, 120, 135, 150, 165, 180, 195, 210, 225, 240];
 const DEFAULT_LEAD = 60, MIN_TRADABLE = 45, CHUNK_DAYS = 62, CONCURRENCY = 6;
 const $ = id => document.getElementById(id);
+let freq = "15min";
 
 // <core>
 // Settles one 15-minute interval. H = DA forecast, AH = theoretical production (kWh), F = UST forecast at the chosen lead (kWh or null),
@@ -190,27 +174,48 @@ const sgn = (v, d = 0) => v == null || !isFinite(v) ? "–" : (v >= 0 ? "+" : "�
 function setStatus(t, err = false) { $("status").className = err ? "status err" : "status"; $("status").textContent = t; }
 const pctVal = () => { const v = parseFloat($("pct").value); return isFinite(v) ? Math.min(Math.max(v, 0), 150) / 100 : 1; };
 
-function setRange(kind) {
-  const t = budapestToday(), end = addDays(t, -2);           // prices usually lag by a day or two
-  if (kind === "7") { $("start").value = addDays(end, -6); $("end").value = end; }
-  else if (kind === "30") { $("start").value = addDays(end, -29); $("end").value = end; }
-  else if (kind === "ytd") { $("start").value = t.slice(0, 4) + "-01-01"; $("end").value = end; }
-  else if (kind === "month") { $("start").value = t.slice(0, 7) + "-01"; $("end").value = t; }
-  else { const first = t.slice(0, 7) + "-01", e = addDays(first, -1); $("start").value = e.slice(0, 7) + "-01"; $("end").value = e; }
+function defaultRange() {                                    // the three days before today (prices and theoretical production are complete)
+  const t = budapestToday(); $("start").value = addDays(t, -3); $("end").value = addDays(t, -1);
 }
 function scheduleLoad(delay = 250) { clearTimeout(loadTimer); loadTimer = setTimeout(load, delay); }
+// The page works on one calendar year (the year of the end date), loaded once: changing the dates inside that year only repaints.
+function scheduleRefresh(delay = 250) {
+  clearTimeout(loadTimer);
+  loadTimer = setTimeout(() => { const e = $("end").value; (e && e.slice(0, 4) !== dataYear) ? load() : (checkRange() && paint()); }, delay);
+}
+function checkRange() {
+  const s = $("start").value, e = $("end").value;
+  if (!s || !e) { setStatus("Pick a start and an end date.", true); return false; }
+  if (e < s) { setStatus("End date is before the start date.", true); return false; }
+  if (s.slice(0, 4) !== e.slice(0, 4)) $("start").value = e.slice(0, 4) + "-01-01";      // one calendar year at a time
+  return true;
+}
 
 function init() {
   $("lead").innerHTML = LEADS.map(h => `<option value="${h}"${h === DEFAULT_LEAD ? " selected" : ""}>${h} min${h === DEFAULT_LEAD ? " (default)" : h === MIN_TRADABLE ? " (shortest tradable)" : h < MIN_TRADABLE ? " (not tradable)" : ""}</option>`).join("");
   $("sites").innerHTML = ["ALL", ...SITES].map(s => `<button data-s="${s}">${s === "ALL" ? "All sites" : s}</button>`).join("");
   $("sites").onclick = e => { const b = e.target.closest("button"); if (!b) return; selected = b.dataset.s; paint(); };
-  document.querySelectorAll("#quick button").forEach(b => b.onclick = () => { setRange(b.dataset.r); scheduleLoad(0); });
-  ["start", "end", "lead"].forEach(id => $(id).onchange = () => scheduleLoad());
-  ["freq", "mode"].forEach(id => $(id).onchange = paint);
+  $("freqGroup").addEventListener("click", e => {
+    const b = e.target.closest("button[data-f]"); if (!b) return;
+    freq = b.dataset.f; document.querySelectorAll("#freqGroup button").forEach(x => x.classList.toggle("active", x === b)); paint();
+  });
+  $("lead").onchange = () => scheduleLoad();
+  // The page works on one calendar year: moving one date into another year moves the other date into that year too.
+  $("start").onchange = () => {
+    const st = $("start").value, en = $("end").value;
+    if (st && (!en || st.slice(0, 4) !== en.slice(0, 4))) { const t = budapestToday(), last = [st.slice(0, 4) + "-12-31", addDays(st, 29)].sort()[0]; $("end").value = last > t && st <= t ? t : last; }
+    scheduleRefresh();
+  };
+  $("end").onchange = () => {
+    const st = $("start").value, en = $("end").value;
+    if (en && (!st || st.slice(0, 4) !== en.slice(0, 4))) $("start").value = en.slice(0, 4) + "-01-01";
+    scheduleRefresh();
+  };
+  $("mode").onchange = paint;
   $("pct").oninput = paint;
   chRev = echarts.init($("chartRev"));
   window.addEventListener("resize", () => chRev.resize());
-  setRange("7"); load();
+  defaultRange(); load();
 }
 
 // ───────────── loading: 62-day chunks per site, at most CONCURRENCY requests at a time ─────────────
@@ -221,32 +226,43 @@ async function fetchChunk(site, a, b, lead) {
   if (!r.ok) throw new Error(`${site}: ${j.error || r.status}`);
   return j;
 }
+let dataYear = null, loading = "";
 async function load() {
-  const seq = ++loadSeq, s = $("start").value, e = $("end").value, lead = $("lead").value;
-  if (!s || !e) return setStatus("Pick a start and an end date.", true);
-  if (e < s) return setStatus("End date is before the start date.", true);
+  const seq = ++loadSeq, lead = $("lead").value;
+  if (!checkRange()) return;
+  const s = $("start").value, e = $("end").value, year = e.slice(0, 4);
+  const from = year + "-01-01", to = [year + "-12-31", budapestToday()].sort()[0];
   const jobs = [];
-  for (const site of SITES) for (let a = s; a <= e; a = addDays(a, CHUNK_DAYS)) { const b = addDays(a, CHUNK_DAYS - 1); jobs.push([site, a, b > e ? e : b, lead]); }
-  setStatus(`Loading 0 / ${jobs.length}…`);
-  const results = new Array(jobs.length); let next = 0, done = 0;
-  try {
-    await Promise.all(Array.from({ length: Math.min(CONCURRENCY, jobs.length) }, async () => {
-      while (next < jobs.length) {
-        const i = next++; results[i] = await fetchChunk(...jobs[i]);
-        if (seq !== loadSeq) return;
-        setStatus(`Loading ${++done} / ${jobs.length}…`);
-      }
-    }));
-    if (seq !== loadSeq) return;
+  for (const site of SITES) for (let a = from; a <= to; a = addDays(a, CHUNK_DAYS)) { const b = addDays(a, CHUNK_DAYS - 1); jobs.push({ site, a, b: b > to ? to : b }); }
+  // the chunks that overlap the selected dates come first, so the chart can be drawn before the rest of the year has arrived
+  const near = j => j.a <= e && j.b >= s;
+  jobs.sort((x, y) => (near(y) - near(x)) || (x.a < y.a ? -1 : x.a > y.a ? 1 : 0));
+  const firstBatch = jobs.filter(near).length;
+  dataYear = null; loading = `Loading ${year}: 0 / ${jobs.length}…`; setStatus(loading);
+  let next = 0, done = 0; const results = [];
+  const build = () => {
     store = {};
-    jobs.forEach(([site], i) => {
-      const j = results[i], o = store[site] || (store[site] = { t: [], H: [], AH: [], F: [], P: [], AA: [], PI: [] });
+    results.slice().sort((x, y) => x.job.site === y.job.site ? (x.job.a < y.job.a ? -1 : 1) : 0).forEach(({ job, j }) => {
+      const o = store[job.site] || (store[job.site] = { t: [], H: [], AH: [], F: [], P: [], AA: [], PI: [] });
       Object.keys(o).forEach(k => o[k].push(...j[k]));
     });
     Object.values(store).forEach(markSkipped);
-    paint();
+  };
+  try {
+    await Promise.all(Array.from({ length: Math.min(CONCURRENCY, jobs.length) }, async () => {
+      while (next < jobs.length) {
+        const job = jobs[next++]; const j = await fetchChunk(job.site, job.a, job.b, lead);
+        if (seq !== loadSeq) return;
+        results.push({ job, j }); done++;
+        loading = `Loading ${year}: ${done} / ${jobs.length}…`;
+        if (done === firstBatch && done < jobs.length) { build(); paint(); }       // the selected period is complete: draw it now
+        else if (done < jobs.length) setStatus(loading + " (the rest of the year is still loading)");
+      }
+    }));
+    if (seq !== loadSeq) return;
+    build(); dataYear = year; loading = ""; paint();
   } catch (err) {
-    if (seq === loadSeq) setStatus("Failed to load: " + err.message, true);
+    if (seq === loadSeq) { loading = ""; setStatus("Failed to load: " + err.message, true); }
   }
 }
 // Days without any DA price or without any imbalance price (usually the newest days) are left out of every figure.
@@ -258,14 +274,21 @@ function markSkipped(o) {
 }
 
 // ───────────── aggregation ─────────────
-const keyFn = f => f === "15min" ? t => t : f === "hour" ? t => t.slice(0, 13) + ":00" : f === "day" ? t => t.slice(0, 10) : f === "month" ? t => t.slice(0, 7) : () => "all";
+function isoWeek(d) {                                         // "YYYY-Www" (ISO week, Monday first)
+  const x = new Date(d + "T00:00:00Z"), day = (x.getUTCDay() + 6) % 7; x.setUTCDate(x.getUTCDate() - day + 3);
+  const y = x.getUTCFullYear(), w = 1 + Math.round(((x - new Date(Date.UTC(y, 0, 4))) / 86400000 - 3 + ((new Date(Date.UTC(y, 0, 4)).getUTCDay() + 6) % 7)) / 7);
+  return `${y}-W${String(w).padStart(2, "0")}`;
+}
+const keyFn = f => f === "15min" ? t => t : f === "hour" ? t => t.slice(0, 13) + ":00" : f === "day" ? t => t.slice(0, 10) : f === "week" ? t => isoWeek(t.slice(0, 10))
+  : f === "month" ? t => t.slice(0, 7) : f === "quarter" ? t => `${t.slice(0, 4)}-Q${Math.ceil(+t.slice(5, 7) / 3)}` : f === "year" ? t => t.slice(0, 4) : () => "all";
 const FIELDS = ["n", "AH", "H", "D", "idc", "pos", "q", "ae", "imb", "res", "ref", "absPos", "absH", "gaps"];
 const blank = () => Object.fromEntries(FIELDS.map(k => [k, 0]));
-function aggregate(sites, freq, p, mode) {
-  const key = keyFn(freq), groups = new Map(), tmp = new Array(8);
+function aggregate(sites, freq, p, mode, ranged = true) {
+  const key = keyFn(freq), groups = new Map(), tmp = new Array(8), lo = $("start").value, hi = $("end").value;
   sites.forEach(s => { const o = store[s]; if (!o) return;
     for (let i = 0; i < o.t.length; i++) {
       if (!o.keep[i]) continue;
+      if (ranged) { const d = o.t[i].slice(0, 10); if (d < lo || d > hi) continue; }
       const H = o.H[i], AH = o.AH[i]; settleSlot(H, AH, o.F[i], o.P[i], o.AA[i], o.PI[i], p, mode, tmp);
       const k = key(o.t[i]); let g = groups.get(k); if (!g) { g = blank(); groups.set(k, g); }
       g.n++; g.AH += AH; g.H += H; g.D += tmp[0]; g.pos += tmp[1]; g.idc += tmp[2]; g.q += tmp[3]; g.ae += tmp[4]; g.imb += tmp[5]; g.res += tmp[6]; g.ref += tmp[7];
@@ -279,50 +302,60 @@ function aggregate(sites, freq, p, mode) {
 function paint() {
   document.querySelectorAll("#sites button").forEach(b => b.classList.toggle("active", b.dataset.s === selected));
   if (!Object.keys(store).length) return;
-  const sites = selected === "ALL" ? SITES : [selected], freq = $("freq").value, p = pctVal(), mode = $("mode").value;
+  const sites = selected === "ALL" ? SITES : [selected], p = pctVal(), mode = $("mode").value;
   const name = selected === "ALL" ? "All sites" : selected, lead = $("lead").value;
   const rows = aggregate(sites, freq, p, mode);
-  const skipped = sites.reduce((n, s) => n + (store[s] ? store[s].skipDays.size : 0), 0);
+  const lo = $("start").value, hi = $("end").value;
+  const skipped = sites.reduce((n, s) => n + (store[s] ? [...store[s].skipDays].filter(d => d >= lo && d <= hi).length : 0), 0);
   const modeTxt = mode === "idc" ? `rest closed out in IDC (lead ${lead} min)` : "rest left in imbalance";
-  setStatus(rows.length ? `${name} · ${nf(Math.round(p * 100))}% DA bid, ${modeTxt}` + (skipped ? ` · ${skipped} site-days left out (no DA / imbalance price yet)` : "")
+  setStatus(rows.length ? `${name} · ${nf(Math.round(p * 100))}% DA bid, ${modeTxt}` + (skipped ? ` · ${skipped} site-days left out (no DA / imbalance price yet)` : "") + (loading ? ` · ${loading} (the rest of the year is still loading)` : "")
     : skipped ? `No data to show: all ${skipped} site-days in this period have no DA / imbalance price yet. Pick an earlier period, or check that the price table is up to date (the &ldquo;Build HU Combined Data&rdquo; workflow runs daily at 10:30 UTC).`
     : "No data for this selection.", !rows.length);
-  $("revTitle").textContent = `${name} · revenue and result`;
-  $("revSub").textContent = `EUR per ${({ "15min": "15 minutes", hour: "hour", day: "day", month: "month" })[freq]} · ${nf(Math.round(p * 100))}% DA bid, ${modeTxt}`;
+  $("revTitle").textContent = `${name} · revenue and total revenue`;
+  $("revSub").textContent = `EUR per ${({ "15min": "15 minutes", hour: "hour", day: "day", week: "week", month: "month", quarter: "quarter", year: "year" })[freq]} · ${nf(Math.round(p * 100))}% DA bid, ${modeTxt}`;
 
   const x = rows.map(([k]) => k), many = x.length > 60;
   const bar = (nm, f, color) => ({ name: nm, type: "bar", stack: "rev", data: rows.map(([, g]) => Math.round(g[f] * 100) / 100), itemStyle: { color }, barMaxWidth: 28 });
   chRev.setOption({ animation: false, tooltip: { trigger: "axis", valueFormatter: v => v == null ? "–" : nf(v, 2) + " EUR" }, legend: { top: 4 },
     grid: { left: 80, right: 24, top: 44, bottom: many ? 64 : 34 }, dataZoom: many ? [{ type: "inside" }, { type: "slider", height: 18, bottom: 6 }] : [{ type: "inside" }],
     xAxis: { type: "category", data: x, axisLabel: { formatter: v => freq === "15min" || freq === "hour" ? v.slice(5) : v } }, yAxis: { type: "value", name: "EUR", nameLocation: "end" },
-    series: [ bar("DA revenue", "q", "#2c7fb8"), bar("IDC revenue", "ae", "#e67e22"), bar("Imbalance revenue", "imb", "#d98b84"),
-      { name: "Result", type: "line", data: rows.map(([, g]) => Math.round(g.res * 100) / 100), lineStyle: { width: 2.2, color: "#2c3e50" }, itemStyle: { color: "#2c3e50" }, showSymbol: x.length < 120, symbolSize: 5 },
+    series: [ bar("DA revenue", "q", "#2c7fb8"), bar("IDC revenue", "ae", "#e67e22"), bar("Imbalance cost", "imb", "#d98b84"),
+      { name: "Total revenue", type: "line", data: rows.map(([, g]) => Math.round(g.res * 100) / 100), lineStyle: { width: 2.2, color: "#2c3e50" }, itemStyle: { color: "#2c3e50" }, showSymbol: x.length < 120, symbolSize: 5 },
       { name: "DA-only (100%)", type: "line", data: rows.map(([, g]) => Math.round(g.ref * 100) / 100), lineStyle: { width: 1.6, color: "#95a5a6", type: "dashed" }, itemStyle: { color: "#95a5a6" }, showSymbol: false } ] }, true);
-  summary(p, mode);
+  summary(sites, p, mode);
   sensitivity(sites, p);
 }
 
-function summary(p, mode) {
-  const one = s => store[s] ? (aggregate([s], "all", p, mode)[0] || [0, blank()])[1] : null;
-  const all = SITES.map(s => [s, one(s)]), tot = (aggregate(SITES, "all", p, mode)[0] || [0, blank()])[1];
-  const ipct = g => g.res ? g.imb / g.res * 100 : null;      // imbalance revenue / result (negative = imbalance cost as a share of the result)
-  const row = (label, g, cls = "") => !g ? `<tr><td>${label}</td><td colspan="15" style="text-align:left;color:#aaa">no data</td></tr>` : `<tr class="${cls}"><td>${label}</td>
-    <td>${nf(g.AH / 1000, 1)}</td><td>${nf(g.H / 1000, 1)}</td><td>${nf(g.D / 1000, 1)}</td><td>${nf(g.idc / 1000, 1)}</td><td>${nf(g.pos / 1000, 1)}</td>
-    <td>${eur(g.q)}</td><td>${eur(g.ae)}</td><td>${eur(g.imb)}</td><td><b>${eur(g.res)}</b></td><td>${ipct(g) == null ? "–" : sgn(ipct(g), 1) + "%"}</td><td>${eur(g.ref)}</td>
-    <td class="${g.res - g.ref >= 0 ? "neg" : "pos"}">${sgn(g.res - g.ref)}</td><td>${nf(g.AH ? g.res / g.AH * 1000 : null, 1)}</td><td>${nf(g.AH ? g.absPos / g.AH * 100 : null, 1)}%</td><td class="${g.gaps ? "" : "dim"}">${nf(g.gaps)}</td></tr>`;
-  $("sumTable").innerHTML = `<tr><th>Site</th><th>Actual MWh</th><th>DA forecast MWh</th><th>DA bid MWh</th><th>IDC net MWh</th><th>Final position MWh</th><th>DA revenue €</th><th>IDC revenue €</th>
-      <th>Imbalance revenue €</th><th title="Revenue / cost after the imbalance cost = DA revenue + IDC revenue + imbalance revenue">Result €</th><th title="Imbalance revenue / Result">Imbalance %</th><th>DA-only (100%) €</th><th>Δ vs DA-only €</th><th>Result €/MWh</th><th>Abs. imbalance volume %</th><th>Price gaps</th></tr>` +
-    all.map(([s, g]) => row(s, g)).join("") + row("Total", tot, "total");
+// Summary table: January..December of the loaded year for the selected site(s) (the site buttons above), whatever dates the chart shows.
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+function summary(sites, p, mode) {
+  const year = (dataYear || $("end").value.slice(0, 4)), name = selected === "ALL" ? "All sites" : selected;
+  const byMonth = new Map(aggregate(sites, "month", p, mode, false));
+  const tot = blank(); let any = false;
+  const cell = (g, f) => g ? eur(g[f]) : "–";
+  const before = g => g ? g.q + g.ae : null;
+  const ipct = g => g && g.res ? sgn(g.imb / g.res * 100, 1) + "%" : "–";
+  const row = (label, g, cls = "") => `<tr class="${cls}"><td>${label}</td><td>${cell(g, "q")}</td><td>${cell(g, "ae")}</td><td>${g ? eur(before(g)) : "–"}</td><td>${cell(g, "imb")}</td><td><b>${cell(g, "res")}</b></td><td>${ipct(g)}</td></tr>`;
+  const rows = MONTHS.map((m, i) => {
+    const g = byMonth.get(`${year}-${String(i + 1).padStart(2, "0")}`);
+    if (g) { any = true; FIELDS.forEach(f => { tot[f] += g[f]; }); }
+    return row(`${m} ${year}`, g);
+  });
+  $("sumTitle").textContent = `${name} · summary table`;
+  $("sumSub").textContent = `EUR per month, ${year} · ${nf(Math.round(p * 100))}% DA bid, ${mode === "idc" ? `rest closed out in IDC (lead ${$("lead").value} min)` : "rest left in imbalance"}`
+    + (loading ? " · the rest of the year is still loading" : "");
+  $("sumTable").innerHTML = `<tr><th>Month</th><th>DA revenue €</th><th>IDC revenue €</th><th>Revenue (prior to imbalance cost) €</th><th>Imbalance cost €</th>
+      <th>Total revenue (post imbalance cost) €</th><th>Imbalance %</th></tr>` + rows.join("") + row(`Total ${year}`, any ? tot : null, "total");
 }
 
-// Result of the selected sites and period for every bid share (steps of 10 points up to 150%, plus the current share), both ways of handling the rest.
+// Total revenue of the selected sites and period for every bid share (steps of 10 points up to 150%, plus the current share), both ways of handling the rest.
 function sensitivity(sites, p) {
   const cur = Math.round(p * 100), pts = [];
   for (let v = 0; v <= 150; v += 10) pts.push(v);
   if (!pts.includes(cur)) { pts.push(cur); pts.sort((a, b) => a - b); }
-  const tmp = new Array(8);
+  const tmp = new Array(8), lo = $("start").value, hi = $("end").value;
   const run = (m, v) => { const r = { n: 0, D: 0, q: 0, ae: 0, imb: 0, res: 0, ref: 0 }; sites.forEach(s => { const o = store[s]; if (!o) return;
-    for (let i = 0; i < o.t.length; i++) if (o.keep[i]) { settleSlot(o.H[i], o.AH[i], o.F[i], o.P[i], o.AA[i], o.PI[i], v / 100, m, tmp);
+    for (let i = 0; i < o.t.length; i++) if (o.keep[i] && o.t[i].slice(0, 10) >= lo && o.t[i].slice(0, 10) <= hi) { settleSlot(o.H[i], o.AH[i], o.F[i], o.P[i], o.AA[i], o.PI[i], v / 100, m, tmp);
       r.D += tmp[0]; r.q += tmp[3]; r.ae += tmp[4]; r.imb += tmp[5]; r.res += tmp[6]; r.ref += tmp[7]; } }); return r; };
   const rows = pts.map(v => ({ v, idc: run("idc", v), imb: run("imb", v) }));
   const ref = rows[0].imb.ref, at100 = rows.find(r => r.v === 100);
@@ -331,8 +364,8 @@ function sensitivity(sites, p) {
   const ip = r => r.res ? sgn(r.imb / r.res * 100, 1) + "%" : "–";
   const cells = (r, ref) => `<td class="l">${eur(r.q)}</td><td>${eur(r.ae)}</td><td>${eur(r.imb)}</td><td><b>${eur(r.res)}</b></td><td>${ip(r)}</td><td class="${r.res - ref >= 0 ? "neg" : "pos"}">${sgn(r.res - ref)}</td>`;
   $("sensTable").innerHTML = `<tr><th rowspan="2">DA bid %</th><th rowspan="2">DA bid MWh</th><th class="grp" colspan="6">Rest closed out in IDC (lead ${$("lead").value} min)</th><th class="grp" colspan="6">Rest left in imbalance</th></tr>
-    <tr><th class="l">DA revenue €</th><th>IDC revenue €</th><th>Imbalance revenue €</th><th>Result €</th><th>Imbalance %</th><th>Δ vs DA-only €</th>
-        <th class="l">DA revenue €</th><th>IDC revenue €</th><th>Imbalance revenue €</th><th>Result €</th><th>Imbalance %</th><th>Δ vs DA-only €</th></tr>` +
+    <tr><th class="l">DA revenue €</th><th>IDC revenue €</th><th>Imbalance cost €</th><th>Total revenue €</th><th>Imbalance %</th><th>Δ vs DA-only €</th>
+        <th class="l">DA revenue €</th><th>IDC revenue €</th><th>Imbalance cost €</th><th>Total revenue €</th><th>Imbalance %</th><th>Δ vs DA-only €</th></tr>` +
     rows.map(r => `<tr class="${r.v === cur ? "sel" : ""}"><td>${r.v}%${r.v === cur ? " (current)" : ""}</td><td>${nf(r.idc.D / 1000, 1)}</td>${cells(r.idc, ref)}${cells(r.imb, ref)}</tr>`).join("");
 }
 init();

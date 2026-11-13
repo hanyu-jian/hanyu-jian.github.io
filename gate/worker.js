@@ -474,8 +474,8 @@ async function handleUstRange(url, env) {
 //   H = DA 预测（vcom production forecast 的 I 列，kWh）   AH = 理论发电量（kWh）
 //   F = 提前 L 分钟的超短期预测（提前量 >= L 里最小的一档，没有则为空；live > replay > hindcast 逐单元格取）
 //   P = 日前价，AA = ID3 指数价，PI = 不平衡价（单一价格），EUR/MWh；缺失为空。只返回 AH 和 H 都有值的时段。
-// 价格来自 hu-market-data 仓库的 HU_<年>.csv（build_hu_combined.py 每天整合的 15 分钟表，福林已换算成欧元），列：
-//   "DA Price (EUR/MWh)"、"ID3 Price (EUR/MWh)"、"Imbalance Price (EUR/MWh)"。读它要用 GITHUB_TOKEN 对该仓库有读权限（env.PRICE_REPO 可改仓库）。
+// 价格来自 build_hu_combined.py 每天整合的 15 分钟表（福林已换算成欧元）：优先读 R2 的 market/prices_HU_<年>.csv，其次 hu-market-data 仓库的 HU_<年>.csv，列：
+//   "DA Price (EUR/MWh)"、"ID3 Price (EUR/MWh)"、"Imbalance Price (EUR/MWh)"。走仓库时要用 PRICE_TOKEN（没配就用 GITHUB_TOKEN）对该仓库有读权限（env.PRICE_REPO 可改仓库）。
 // 一次最多 62 天，列式 JSON（每个字段一个数组）。
 const IMB_MAX_DAYS = 62;
 const IMB_PRICE_COLS = ["DA Price (EUR/MWh)", "ID3 Price (EUR/MWh)", "Imbalance Price (EUR/MWh)"];
@@ -494,6 +494,30 @@ function sliceImbalancePrices(text, startKey, endKey, into) {
     const f = line.replace(/\r/g, "").split(",");
     into.set(f[0].slice(0, 16) + ":00", cols.map((i) => (f[i] === undefined || f[i] === "" ? null : Number(f[i]))));
   }
+}
+
+// 价格表：先读 R2 的 market/prices_HU_<年>.csv（build_combined.yml 每天从整合表里取三列传上去，Worker 不需要 token），
+// R2 里没有再退回 hu-market-data 仓库的 HU_<年>.csv（用 PRICE_TOKEN，没配就用 GITHUB_TOKEN）。
+// 注意：GitHub 对「token 没有权限的私有仓库」返回 404，所以 404 不能当成「没有数据」，否则整页会静默地没有价格。
+async function loadPriceTable(env, y) {
+  if (env.UST) {
+    const obj = await env.UST.get(`market/prices_HU_${y}.csv`);
+    if (obj) {
+      let text = await obj.text();
+      if (text.charCodeAt(0) === 0xfeff) text = text.slice(1);
+      return { text };
+    }
+  }
+  const repo = env.PRICE_REPO || "hanyu-jian/hu-market-data", token = env.PRICE_TOKEN || env.GITHUB_TOKEN;
+  const hint = `Price table for ${y} is not in R2 (market/prices_HU_${y}.csv: run the "Build HU Combined Data" workflow once, it needs the R2 secrets in the website repository)`;
+  let text;
+  try {
+    text = await loadFile(env, `HU_${y}.csv`, repo, token);
+  } catch (e) {
+    return { error: `${hint} and ${repo}/HU_${y}.csv could not be read (${e.message}). Give the token read access to that repository or set the PRICE_TOKEN secret.` };
+  }
+  if (text === null) return { error: `${hint} and ${repo}/HU_${y}.csv was not found (GitHub answers 404 when the token has no access to a private repository).` };
+  return { text };
 }
 
 async function handleImbalance(url, env) {
@@ -534,17 +558,10 @@ async function handleImbalance(url, env) {
     }
   }
   const prices = new Map();            // 时段 -> [P, AA, PI]
-  const priceRepo = env.PRICE_REPO || "hanyu-jian/hu-market-data", priceToken = env.PRICE_TOKEN || env.GITHUB_TOKEN;
   for (let y = y0; y <= y1; y++) {
-    let ptext;
-    try {
-      ptext = await loadFile(env, `HU_${y}.csv`, priceRepo, priceToken);
-    } catch (e) {
-      return json({ error: `Price table HU_${y}.csv (${priceRepo}) could not be read: ${e.message}. The token needs read access to that repository (or set the PRICE_TOKEN secret).` }, 502);
-    }
-    // GitHub 对「token 没有权限的私有仓库」也返回 404，所以 404 在这里不能当成「没有数据」，否则整页静默地没有价格
-    if (ptext === null) return json({ error: `Price table HU_${y}.csv was not found in ${priceRepo} (GitHub answers 404 when the token has no access to a private repository). Give the token read access to it or set the PRICE_TOKEN secret.` }, 502);
-    sliceImbalancePrices(ptext, startKey, endKey, prices);
+    const got = await loadPriceTable(env, y);
+    if (got.error) return json({ error: got.error }, 502);
+    sliceImbalancePrices(got.text, startKey, endKey, prices);
   }
 
   const out = { t: [], H: [], AH: [], F: [], P: [], AA: [], PI: [] };

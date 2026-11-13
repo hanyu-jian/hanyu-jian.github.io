@@ -23,18 +23,23 @@ const da = "Date,I,J,K,L,M,N\n" + fx.index.map((t, i) => (fx.I[i] === null ? nul
 // hu-market-data 的整合表：Date 没有秒，列很多，按列名取；故意把三列打乱顺序并混入其它列
 const price = "Date,IDA1 Price (HUPX) (EUR/MWh),Imbalance Price (EUR/MWh),DA Price (EUR/MWh),System direction (MWh),ID3 Price (EUR/MWh)\n"
   + fx.index.map((t, i) => `${t.slice(0, 16)},1,${num(fx.PI[i])},${num(fx.P[i])},9,${num(fx.AA[i])}`).join("\n") + "\n";
+// R2 里的价格表（build_combined.yml 上传的三列瘦身版，Worker 按列名取）
+const slimPrice = "Date,DA Price (EUR/MWh),ID3 Price (EUR/MWh),Imbalance Price (EUR/MWh)\n"
+  + fx.index.map((t, i) => `${t.slice(0, 16)},${num(fx.P[i])},${num(fx.AA[i])},${num(fx.PI[i])}`).join("\n") + "\n";
+let r2Prices = true;
 const GH = {
   "hanyu-jian/vcom/data/theoretical production/2026/15min/Putnok.csv": theo,
   "hanyu-jian/vcom/data/production forecast/2026/15min/Putnok.csv": da,
   "hanyu-jian/hu-market-data/HU_2026.csv": price,
 };
-const env = { UST: { get: async (k) => (k === "ust/view/2026-11/Putnok.csv" ? { text: async () => view } : null) }, GITHUB_TOKEN: "x" };
+const env = { UST: { get: async (k) => (k === "ust/view/2026-11/Putnok.csv" ? { text: async () => view } : k === "market/prices_HU_2026.csv" && r2Prices ? { text: async () => slimPrice } : null) }, GITHUB_TOKEN: "x" };
 const okFetch = async (u) => {
   const m = String(u).match(/repos\/(.+?)\/contents\/(.+)$/);
   const p = decodeURIComponent(m[1] + "/" + m[2]);
   return GH[p] !== undefined ? { ok: true, status: 200, text: async () => GH[p] } : { ok: false, status: 404, text: async () => "" };
 };
-globalThis.fetch = okFetch;
+const priceRepoCalls = [];
+globalThis.fetch = async (u, init) => { if (String(u).includes("hu-market-data")) priceRepoCalls.push(String(u)); return okFetch(u, init); };
 const call = async (qs) => handleImbalance(new URL("https://x/ops/api/imbalance?" + qs), env);
 
 const TOL = 0.0101;
@@ -62,23 +67,33 @@ for (const L of H) {
     }
   }
 }
-// 100% 报量 + 留在不平衡 = DA-only 参考线（页面里的参考线和它一致）
-// 价格表读不到 -> 502 且提示权限。GitHub 对没有权限的私有仓库返回 404，不能当成「没有数据」静默跳过
+assert.equal(priceRepoCalls.length, 0, "prices come from R2, the price repository is not touched");
+const okFetch2 = globalThis.fetch;
+const fromR2 = await (await call("site=Putnok&start=2026-11-02&end=2026-11-04&lead=60")).json();
+
+// R2 里没有价格表 -> 退回 hu-market-data 仓库，结果和读 R2 完全一样
+r2Prices = false;
+const fromRepo = await (await call("site=Putnok&start=2026-11-02&end=2026-11-04&lead=60")).json();
+assert.ok(priceRepoCalls.length > 0, "fallback reads the price repository");
+for (const k of ["t", "P", "AA", "PI", "H", "AH", "F"]) assert.deepEqual(fromRepo[k], fromR2[k], `R2 vs repository: ${k}`);
+
+// 两边都读不到 -> 502，提示两条路。GitHub 对没有权限的私有仓库返回 404，不能当成「没有数据」静默跳过
 for (const status of [403, 404]) {
-  globalThis.fetch = async (u) => (String(u).includes("hu-market-data") ? { ok: false, status, text: async () => "" } : okFetch(u));
+  globalThis.fetch = async (u, init) => (String(u).includes("hu-market-data") ? { ok: false, status, text: async () => "" } : okFetch2(u, init));
   const r2 = await call("site=Putnok&start=2026-11-02&end=2026-11-04");
-  assert.equal(r2.status, 502, `price table ${status}`); assert.match((await r2.json()).error, /hu-market-data/);
+  assert.equal(r2.status, 502, `price table ${status}`);
+  const msg = (await r2.json()).error; assert.match(msg, /market\/prices_HU_2026\.csv/); assert.match(msg, /hu-market-data/);
 }
 // PRICE_TOKEN 优先于 GITHUB_TOKEN，只用于价格仓库
 const auth = [];
-globalThis.fetch = async (u, init) => { auth.push([String(u).includes("hu-market-data"), init.headers.Authorization]); return okFetch(u); };
+globalThis.fetch = async (u, init) => { auth.push([String(u).includes("hu-market-data"), init.headers.Authorization]); return okFetch2(u, init); };
 env.PRICE_TOKEN = "price-token";
 assert.equal((await call("site=Putnok&start=2026-11-02&end=2026-11-04")).status, 200);
 assert.ok(auth.filter(([isPrice]) => isPrice).every(([, h]) => h === "Bearer price-token"), "price repo uses PRICE_TOKEN");
 assert.ok(auth.filter(([isPrice]) => !isPrice).every(([, h]) => h === "Bearer x"), "other repos keep GITHUB_TOKEN");
 delete env.PRICE_TOKEN;
-globalThis.fetch = okFetch;
+globalThis.fetch = okFetch2; r2Prices = true;
 // 校验
 for (const [qs, st] of [["site=Nope&start=2026-11-02", 400], ["site=Putnok&start=2026-01-01&end=2026-12-31", 400], ["site=Putnok&start=2026-11-05&end=2026-11-01", 400], ["site=Putnok&start=2026-11-02&lead=50", 400]])
   assert.equal((await call(qs)).status, st, qs);
-console.log(`全部通过（${checks} 项和 Python 结算脚本逐项一致：${slots} 个时段 × 16 档提前量 × {IDC 平仓, 留在不平衡} × 报量 100%/80%/50%；价格表 403 / 404 -> 502、PRICE_TOKEN；参数校验）`);
+console.log(`全部通过（${checks} 项和 Python 结算脚本逐项一致：${slots} 个时段 × 16 档提前量 × {IDC 平仓, 留在不平衡} × 报量 100%/80%/50%；价格表优先读 R2、退回仓库结果一致、两边都读不到 -> 502、PRICE_TOKEN；参数校验）`);

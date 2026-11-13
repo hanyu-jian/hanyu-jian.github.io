@@ -148,7 +148,7 @@ td.dim { color: #aaa; }
         <b>Imbalance revenue = &minus;(final position &minus; AH) &middot; Pimb / 1000</b> (positive = income, negative = cost) &nbsp;|&nbsp; Result = DA + IDC + imbalance<br>
         P = day-ahead price, AA = ID3 index price, Pimb = imbalance price, EUR/MWh. <b>DA-only (100%)</b> = reference with a 100% bid and nothing traded afterwards. <b>Result</b> = revenue / cost after the imbalance cost (DA + IDC + imbalance revenue); <b>Imbalance %</b> = imbalance revenue / result (negative = the imbalance cost as a share of the result); <b>Abs. imbalance volume %</b> = &Sigma;|final position &minus; AH| / &Sigma;AH.
         Only intervals with theoretical production and a DA forecast are counted. A missing price counts as 0 and is listed under &ldquo;Price gaps&rdquo; (intervals); days with no DA or no imbalance price at all (usually the last day or two) are left out.<br>
-        <b>Data:</b> DA forecast and theoretical production from the vcom repository; UST from R2 (live &gt; replay &gt; hindcast per cell); prices from the <i>hu-market-data</i> combined table (day-ahead, ID3 and imbalance price in EUR/MWh; the HUF imbalance price before 2026-10-01 is converted with the MNB rate of the previous working day).
+        <b>Data:</b> DA forecast and theoretical production from the vcom repository; UST from R2 (live &gt; replay &gt; hindcast per cell); prices from the daily combined HU market table (day-ahead, ID3 and imbalance price in EUR/MWh; the HUF imbalance price before 2026-10-01 is converted with the MNB rate of the previous working day), which the &ldquo;Build HU Combined Data&rdquo; workflow uploads to R2.
         Changing the dates or the IDC lead time reloads the data; everything else is calculated in the browser.
       </p>
     </div>
@@ -285,7 +285,7 @@ function paint() {
   const skipped = sites.reduce((n, s) => n + (store[s] ? store[s].skipDays.size : 0), 0);
   const modeTxt = mode === "idc" ? `rest closed out in IDC (lead ${lead} min)` : "rest left in imbalance";
   setStatus(rows.length ? `${name} · ${nf(Math.round(p * 100))}% DA bid, ${modeTxt}` + (skipped ? ` · ${skipped} site-days left out (no DA / imbalance price yet)` : "")
-    : skipped ? `No data to show: all ${skipped} site-days in this period have no DA / imbalance price yet. Pick an earlier period, or check that the price table (hu-market-data) is up to date.`
+    : skipped ? `No data to show: all ${skipped} site-days in this period have no DA / imbalance price yet. Pick an earlier period, or check that the price table is up to date (the &ldquo;Build HU Combined Data&rdquo; workflow runs daily at 10:30 UTC).`
     : "No data for this selection.", !rows.length);
   $("revTitle").textContent = `${name} · revenue and result`;
   $("revSub").textContent = `EUR per ${({ "15min": "15 minutes", hour: "hour", day: "day", month: "month" })[freq]} · ${nf(Math.round(p * 100))}% DA bid, ${modeTxt}`;

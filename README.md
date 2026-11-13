@@ -286,10 +286,10 @@ raw_data/<年>/  ENTSO-E 15 分钟原始数据（A44 日前价、A65 负荷、A8
 
 ## Hungary Operations 运营数据（独立权限）
 
-入口：`project.html` 里点 TOKAJ 卡片 → `/ops/overview`（文件 `ops/ops-overview.html`）。页面全英文，样式和主看板一致：共用 `html/nav.js` 的头部（运营会话通过 `/ops/nav.js` 取到同一份），`/ops` 页面的一级导航是单独的 TOKAJ 标签（`nav.js` 里的 `OPS_NAV_ITEMS`），二级导航是 Overview / Capture Price；点左上角标题 “European Electricity Dashboard” 回到看板。
+入口：`project.html` 里点 TOKAJ 卡片 → `/ops/overview`（文件 `ops/ops-overview.html`）。页面全英文，样式和主看板一致：共用 `html/nav.js` 的头部（运营会话通过 `/ops/nav.js` 取到同一份），`/ops` 页面的一级导航是单独的 TOKAJ 标签（`nav.js` 里的 `OPS_NAV_ITEMS`），二级导航是 Overview / Capture Price / Imbalance；点左上角标题 “European Electricity Dashboard” 回到看板。
 
 **新增运营页面**：① 建 `ops/ops-<name>.html`（页首加 `<script src="/ops/nav.js"></script>`，并写好二级导航 `.sub-nav`）；② 把 `<name>` 加进 `gate/worker.js` 的 `OPS_PAGE_NAMES`；
-③ 在每个运营页的 `.sub-nav` 里加一项（目前有 Overview 和 Capture Price）。对外地址是 `/ops/<name>`。
+③ 在每个运营页的 `.sub-nav` 里加一项（目前有 Overview、Capture Price 和 Imbalance）。对外地址是 `/ops/<name>`。
 
 **权限**：和看板完全分开。`gate/worker.js` 里 `/ops` 开头的一切（含大小写 / 重复斜杠 / 编码变体）只认
 `OPS_TOKENS`（Secret，`名字:token` 逗号分隔），登录页 `/ops/login`，Cookie `ops_token` 只在 `/ops` 路径下发送，`/ops/logout` 退出。
@@ -333,3 +333,41 @@ token 只在服务端，不会发给浏览器；数据不会进入本仓库，�
   Solar Capture Price post（€/MWh）/ Solar Capture Ratio post（% = Capture Price / 基荷价）、Theoretical Production（MWh）。
   每个表行 = 1–12 月 + 全年（量用 Total，价格 / 比率用 Year），列 = 2024 / 2025 / 2026；图 = 横轴 Jan–Dec，每年一组柱 / 一条线。Export CSV 导出全部面板。
   图里的 post 固定按 Price ≤ 0 限电，表里阈值可切换。
+
+**Imbalance 页面口径**（`ops/ops-imbalance.html`，`/ops/imbalance`，二级导航里排在 Capture Price 后面）
+
+页面上不放说明文字，下面是它的全部口径。
+
+*页面结构*
+- 顶部：起止日期（默认今天和前两天）、Frequency 点击按钮（15 min / Hourly / Daily / Weekly / Monthly / Quarterly / Yearly，样式同 Price Overview；只影响图表的聚合，不重新请求）。
+- Site 按钮（All sites = 五站相加，其余是单站）；它同时驱动图、Summary table 和 Sensitivity table。
+- Strategy（图表正上方）：**DA bid %**（DA 预测量按多少百分比报进日前市场，默认 100%，0–150%）、**Rest**（没报进 DA 的部分：在 IDC 里平仓 / 全部留在不平衡里）、**IDC lead time**（15–240 分钟，默认 60）。
+- 图：按所选频率画 DA revenue / IDC revenue / Imbalance cost 的堆叠柱，叠 Total revenue 线和 “DA-only (100%)” 虚线（100% 报量、之后不交易）。
+- Summary table：所选站点 1–12 月（页面载入那一年）逐月的 DA revenue、IDC revenue、Revenue (prior to imbalance cost)、Imbalance cost、Total revenue (post imbalance cost)、Imbalance %，最后一行是全年合计；没有数据的月份显示 –。表里的数字随 Strategy 变化，**不受图表日期范围影响**。
+- Sensitivity table：所选站点和图表日期范围，DA 报量 0%–150%（每 10 个点一行，外加当前值），两组列（Rest 在 IDC 平仓 / 留在不平衡）各有 DA revenue、IDC revenue、Imbalance cost、Total revenue、Imbalance %、Δ vs DA-only。收入对报量百分比是线性的，所以最优点永远在 0% 或上限；斜率 = DA 价与（ID3 价或不平衡价）按量加权的价差，正负会随月份变化，且是回看，不是可预测的规则。
+
+*加载方式*：页面一次加载一个日历年（结束日期所在的年份）的 15 分钟结算输入，每个站点按 62 天一块并发请求（和所选日期重叠的块先到，图先画出来，其余在后台继续）；年内改日期、频率、DA bid %、Rest 都在浏览器里算，不再请求；只有换年份或 IDC lead time 才重新加载（约 30 个请求）。把一个日期改到另一个年份时，另一个日期会跟着挪到同一年。
+
+*结算口径*（每 15 分钟，单一不平衡价，所以系统方向不影响总额；和 `py/analysis/tokaj_da_idc_settlement.py`、工作簿核对过的那一版一致）
+- H = DA 预测（vcom `production forecast` 的 I 列，用 POA + 我们的公式算出）；AH = 理论发电量（实测 POA 算出，含 AC 限值）；D = DA bid % × H（DA 报量）。
+- F = 提前 L 分钟的超短期预测（UST，提前量 ≥ L 里最小的一档；每个格子 live > replay > hindcast 取第一个有值的）。
+- Rest = IDC：最终仓位 = F，没有 F 的时段 = D（不交易）；Rest = imbalance：最终仓位 = D，不交易。
+- DA revenue = P·D/1000；IDC revenue = AA·(最终仓位 − D)/1000；**Imbalance cost = −(最终仓位 − AH)·Pimb/1000**（负 = 成本，正 = 收入）；Revenue (prior to imbalance cost) = DA + IDC；**Total revenue (post imbalance cost) = DA + IDC + Imbalance cost**；Imbalance % = Imbalance cost / Total revenue。
+- P = 日前价，AA = ID3 指数价，Pimb = 不平衡价，EUR/MWh。DA-only (100%) = 100% 报量、之后不交易：P·H/1000 − (H − AH)·Pimb/1000。100% 报量 + IDC 就是对过工作簿的那一版。
+- 只统计「理论发电量和 DA 预测都有值」的时段。价格缺失按 0 计；某个站点某一天完全没有日前价或没有不平衡价（通常是最近一两天）就整天不计，状态栏会写出来。
+- 注意：2026-10-29 之前的 UST 是乙方的回测（hindcast，2026-01-01 ~ 10-25）和回放（replay，10-25 起），假设每个发布时刻都有最新实测，所以这些时段 IDC 的结果是**理想条件下的上限**，不是实际运行能拿到的；live 目前实测输入有延迟，精度更差。
+
+*数据与接口*
+- `GET /ops/api/imbalance?site=&start=&end=&lead=`（≤ 62 天）：返回该站点该时段逐 15 分钟的结算输入（列式 JSON：`t, H, AH, F, P, AA, PI`），结算本身在浏览器里算。H 和 AH 来自 vcom（`GITHUB_TOKEN`），UST 来自 R2（`ust/`、`ust-replay/`、`ust-hindcast/` 三个视图），价格见下。
+- `GET /ops/api/ust-range?site=&start=&end=&resolution=15min|hourly`（≤ 62 天）：理论发电量 + DA + 16 档提前量的 UST（Overview 页的滑块 / 热力图用）。
+
+*价格表*：日前价、ID3 价、不平衡价（欧元；2026-09-30 及以前的不平衡价是福林，用 MNB 前一个工作日汇率换算）来自 `py/build/build_hu_combined.py` 每天整合的 15 分钟表。`build_combined.yml` 把它推到 `hu-market-data`（给同事用），**最后一步**再把三列（`DA Price`、`ID3 Price`、`Imbalance Price`，约 1.3 MB / 年）传到 R2 的 `market/prices_HU_<年>.csv`（`py/build/upload_prices_to_r2.py`，覆盖写，两个步骤互相独立）。Worker 先读 R2，R2 里没有再退回 `hu-market-data` 仓库（`PRICE_TOKEN`，没配就用 `GITHUB_TOKEN`，仓库可用变量 `PRICE_REPO` 改）；都读不到时页面报错并写明原因。GitHub 对没有权限的私有仓库返回 404 而不是 403，所以 404 按「读不到」处理，不当作「没有数据」。
+
+*部署清单（价格表）*
+1. 网站仓库 Settings → Secrets and variables → Actions：`R2_ACCOUNT_ID`、`R2_ACCESS_KEY_ID`、`R2_SECRET_ACCESS_KEY`、`R2_BUCKET`（和 vcom 超短期用的是同一个 R2 桶，token 要对它有读写权限）。
+2. 第一次部署后手动运行一次 **Build HU Combined Data**（Actions → Run workflow），R2 里才会有 `market/`；之后每天 10:30 UTC 自动更新。
+3. Worker 已绑定 R2（绑定名 `UST`，桶 `poa-forecast`）即可，不需要额外的 token；只有走仓库兜底时才需要 `PRICE_TOKEN`（只授权 `hu-market-data`、Contents 只读）。
+
+*测试*
+- `node gate/tests/worker_imbalance.test.mjs`（需要 python3 + pandas）：Worker 输出经页面里的 `settleSlot`（`ops-imbalance.html` 的 `<core>` 段）算出的结果，和 Python 结算脚本在 1536 个数值上逐项一致（16 档提前量 × {IDC, imbalance} × 报量 100/80/50% × 3 天，含缺失价格和缺失预测），另覆盖 R2 与仓库两条价格路径一致、两边都读不到时 502、`PRICE_TOKEN` 只用于价格仓库、参数校验。
+- `python py/tests/test_upload_prices_to_r2.py`：三列瘦身、夏令时回拨日重复的小时保留、缺列报错。

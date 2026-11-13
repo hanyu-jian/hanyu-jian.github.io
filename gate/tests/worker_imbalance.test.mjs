@@ -63,12 +63,22 @@ for (const L of H) {
   }
 }
 // 100% 报量 + 留在不平衡 = DA-only 参考线（页面里的参考线和它一致）
-// 价格表读不到（token 对 hu-market-data 没有权限）-> 502 且提示权限
-globalThis.fetch = async (u) => (String(u).includes("hu-market-data") ? { ok: false, status: 403, text: async () => "" } : okFetch(u));
-const r2 = await call("site=Putnok&start=2026-11-02&end=2026-11-04");
-assert.equal(r2.status, 502); assert.match((await r2.json()).error, /hu-market-data/);
+// 价格表读不到 -> 502 且提示权限。GitHub 对没有权限的私有仓库返回 404，不能当成「没有数据」静默跳过
+for (const status of [403, 404]) {
+  globalThis.fetch = async (u) => (String(u).includes("hu-market-data") ? { ok: false, status, text: async () => "" } : okFetch(u));
+  const r2 = await call("site=Putnok&start=2026-11-02&end=2026-11-04");
+  assert.equal(r2.status, 502, `price table ${status}`); assert.match((await r2.json()).error, /hu-market-data/);
+}
+// PRICE_TOKEN 优先于 GITHUB_TOKEN，只用于价格仓库
+const auth = [];
+globalThis.fetch = async (u, init) => { auth.push([String(u).includes("hu-market-data"), init.headers.Authorization]); return okFetch(u); };
+env.PRICE_TOKEN = "price-token";
+assert.equal((await call("site=Putnok&start=2026-11-02&end=2026-11-04")).status, 200);
+assert.ok(auth.filter(([isPrice]) => isPrice).every(([, h]) => h === "Bearer price-token"), "price repo uses PRICE_TOKEN");
+assert.ok(auth.filter(([isPrice]) => !isPrice).every(([, h]) => h === "Bearer x"), "other repos keep GITHUB_TOKEN");
+delete env.PRICE_TOKEN;
 globalThis.fetch = okFetch;
 // 校验
 for (const [qs, st] of [["site=Nope&start=2026-11-02", 400], ["site=Putnok&start=2026-01-01&end=2026-12-31", 400], ["site=Putnok&start=2026-11-05&end=2026-11-01", 400], ["site=Putnok&start=2026-11-02&lead=50", 400]])
   assert.equal((await call(qs)).status, st, qs);
-console.log(`全部通过（${checks} 项和 Python 结算脚本逐项一致：${slots} 个时段 × 16 档提前量 × {IDC 平仓, 留在不平衡} × 报量 100%/80%/50%；价格表读不到 -> 502；参数校验）`);
+console.log(`全部通过（${checks} 项和 Python 结算脚本逐项一致：${slots} 个时段 × 16 档提前量 × {IDC 平仓, 留在不平衡} × 报量 100%/80%/50%；价格表 403 / 404 -> 502、PRICE_TOKEN；参数校验）`);

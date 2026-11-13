@@ -284,7 +284,9 @@ function paint() {
   const rows = aggregate(sites, freq, p, mode);
   const skipped = sites.reduce((n, s) => n + (store[s] ? store[s].skipDays.size : 0), 0);
   const modeTxt = mode === "idc" ? `rest closed out in IDC (lead ${lead} min)` : "rest left in imbalance";
-  setStatus(`${name} · ${nf(Math.round(p * 100))}% DA bid, ${modeTxt}` + (skipped ? ` · ${skipped} site-days left out (no DA / imbalance price yet)` : ""));
+  setStatus(rows.length ? `${name} · ${nf(Math.round(p * 100))}% DA bid, ${modeTxt}` + (skipped ? ` · ${skipped} site-days left out (no DA / imbalance price yet)` : "")
+    : skipped ? `No data to show: all ${skipped} site-days in this period have no DA / imbalance price yet. Pick an earlier period, or check that the price table (hu-market-data) is up to date.`
+    : "No data for this selection.", !rows.length);
   $("revTitle").textContent = `${name} · revenue and result`;
   $("revSub").textContent = `EUR per ${({ "15min": "15 minutes", hour: "hour", day: "day", month: "month" })[freq]} · ${nf(Math.round(p * 100))}% DA bid, ${modeTxt}`;
 

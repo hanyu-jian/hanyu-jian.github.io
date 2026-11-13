@@ -128,10 +128,10 @@ function lowerBound(text, key, lo) {
   return lo;
 }
 
-async function loadFile(env, path, repo = env.GITHUB_REPO || "hanyu-jian/vcom") {
+async function loadFile(env, path, repo = env.GITHUB_REPO || "hanyu-jian/vcom", token = env.GITHUB_TOKEN) {
   const res = await fetch(`https://api.github.com/repos/${repo}/contents/${path}`, {
     headers: {
-      Authorization: `Bearer ${env.GITHUB_TOKEN}`,
+      Authorization: `Bearer ${token}`,
       Accept: "application/vnd.github.raw+json",
       "User-Agent": "energy-dashboard",
       "X-GitHub-Api-Version": "2022-11-28",
@@ -534,14 +534,17 @@ async function handleImbalance(url, env) {
     }
   }
   const prices = new Map();            // 时段 -> [P, AA, PI]
+  const priceRepo = env.PRICE_REPO || "hanyu-jian/hu-market-data", priceToken = env.PRICE_TOKEN || env.GITHUB_TOKEN;
   for (let y = y0; y <= y1; y++) {
     let ptext;
     try {
-      ptext = await loadFile(env, `HU_${y}.csv`, env.PRICE_REPO || "hanyu-jian/hu-market-data");
+      ptext = await loadFile(env, `HU_${y}.csv`, priceRepo, priceToken);
     } catch (e) {
-      return json({ error: `Price table HU_${y}.csv (hu-market-data) could not be read: ${e.message}. The GITHUB_TOKEN needs read access to that repository.` }, 502);
+      return json({ error: `Price table HU_${y}.csv (${priceRepo}) could not be read: ${e.message}. The token needs read access to that repository (or set the PRICE_TOKEN secret).` }, 502);
     }
-    if (ptext) sliceImbalancePrices(ptext, startKey, endKey, prices);
+    // GitHub 对「token 没有权限的私有仓库」也返回 404，所以 404 在这里不能当成「没有数据」，否则整页静默地没有价格
+    if (ptext === null) return json({ error: `Price table HU_${y}.csv was not found in ${priceRepo} (GitHub answers 404 when the token has no access to a private repository). Give the token read access to it or set the PRICE_TOKEN secret.` }, 502);
+    sliceImbalancePrices(ptext, startKey, endKey, prices);
   }
 
   const out = { t: [], H: [], AH: [], F: [], P: [], AA: [], PI: [] };

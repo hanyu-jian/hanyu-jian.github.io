@@ -419,6 +419,7 @@ function paintB() {
   // Issue times that have at least one forecast value: the forecast for slot T + h comes from the column "h".
   const cand = []; if (d.t.length) {
     for (let T = addMin(d.t[0], -240); T <= addMin(d.t[d.t.length - 1], -15); T = addMin(T, 15)) {
+      if (T.slice(0, 10) !== full.t[0].slice(0, 10)) continue;                 // the axis is this day only: issue times of the day before are not offered
       if (HORIZONS.some(h => { const i = idx.get(addMin(T, h)); return i != null && full.lead[h][i] != null; })) cand.push(T);
     }
   }
@@ -433,10 +434,14 @@ function paintB() {
   $("bCover").textContent = `covers ${hhmm(addMin(T, 15))} – ${hhmm(addMin(T, 240))}`;
   $("bFrom").textContent = hhmm(cand[0]); $("bTo").textContent = hhmm(cand[cand.length - 1]);
 
-  const x = d.t.map(hhmm), seg = new Array(d.t.length).fill(null), errs = [], pts = [];
+  // The axis is always the whole day, 00:00 - 23:45 in 15-minute steps (the same for every issue time).
+  const dayStr = full.t[0].slice(0, 10), lo = `${dayStr} 00:00:00`, hi = `${dayStr} 23:45:00`;
+  const grid = []; for (let g = lo; g <= hi; g = addMin(g, 15)) grid.push(g);
+  const gAct = grid.map(g => { const i = idx.get(g); return i == null ? null : full.act[i]; }), gDa = grid.map(g => { const i = idx.get(g); return i == null ? null : full.da[i]; });
+  const x = grid.map(hhmm), seg = new Array(grid.length).fill(null), errs = [], pts = [];
   HORIZONS.forEach(h => {
     const slot = addMin(T, h), i = idx.get(slot), f = i == null ? null : full.lead[h][i], a = i == null ? null : full.act[i];
-    const k = d.t.indexOf(slot);
+    const k = grid.indexOf(slot);
     if (f != null && k >= 0) seg[k] = f;
     errs.push(f != null && a != null ? Math.abs(f - a) : null);
     pts.push({ f, a, da: i == null ? null : full.da[i] });
@@ -449,14 +454,14 @@ function paintB() {
     : `<b>Issued ${hhmm(T)}</b>: first hour abs. error <b>${first == null ? "–" : nf(first, 1) + "%"}</b> &nbsp;|&nbsp; last hour abs. error <b>${last == null ? "–" : nf(last, 1) + "%"}</b> &nbsp;|&nbsp; DA over the same 4 h: abs. error ${aDA ? nf(eDA / aDA * 100, 1) + "%" : "–"}`;
 
   const lineS = (nm, data, color, extra = {}) => ({ name: nm, type: "line", data, showSymbol: false, lineStyle: { width: 1.6, color }, itemStyle: { color }, ...extra });
-  const t0 = x.indexOf(hhmm(T)), a0 = x.indexOf(hhmm(addMin(T, 15))), a1 = x.indexOf(hhmm(addMin(T, 240)));
+  const t0 = grid.indexOf(T), a0 = grid.indexOf(addMin(T, 15)), a1 = addMin(T, 240) > hi ? grid.length - 1 : grid.indexOf(addMin(T, 240));
   bChart.setOption({ animation: false, tooltip: { trigger: "axis" }, legend: { top: 0 },
     grid: { left: 60, right: 20, top: 38, bottom: 28 }, xAxis: { type: "category", data: x }, yAxis: { type: "value", name: "kWh", min: 0 },
-    series: [ lineS("Theoretical production", d.act, "#2c7fb8", { areaStyle: { color: "rgba(44,127,184,.12)" } }),
-      lineS("Production forecast (DA)", d.da, "#95a5a6", { lineStyle: { width: 1.4, color: "#95a5a6", type: "dashed" } }),
+    series: [ lineS("Theoretical production", gAct, "#2c7fb8", { areaStyle: { color: "rgba(44,127,184,.12)" } }),
+      lineS("Production forecast (DA)", gDa, "#95a5a6", { lineStyle: { width: 1.4, color: "#95a5a6", type: "dashed" } }),
       lineS(`UST forecast issued ${hhmm(T)}`, seg, "#e67e22", { showSymbol: true, symbolSize: 5, lineStyle: { width: 2.6, color: "#e67e22" }, connectNulls: true,
         markLine: { symbol: "none", silent: true, label: { formatter: `issued ${hhmm(T)}`, color: "#e67e22" }, lineStyle: { color: "#e67e22", type: "dotted" }, data: t0 >= 0 ? [{ xAxis: t0 }] : [] },
-        markArea: { silent: true, itemStyle: { color: "rgba(230,126,34,.07)" }, data: a0 >= 0 || a1 >= 0 ? [[{ xAxis: a0 >= 0 ? a0 : 0 }, { xAxis: a1 >= 0 ? a1 : x.length - 1 }]] : [] } }) ] }, true);
+        markArea: { silent: true, itemStyle: { color: "rgba(230,126,34,.07)" }, data: a0 >= 0 && a1 >= a0 ? [[{ xAxis: a0 }, { xAxis: a1 }]] : [] } }) ] }, true);
   bBars.setOption({ animation: false, tooltip: { trigger: "axis" }, legend: { top: 0, textStyle: { fontSize: 11 } },
     grid: { left: 56, right: 16, top: 62, bottom: 46 },
     xAxis: { type: "category", data: HORIZONS, name: "lead, min", nameLocation: "middle", nameGap: 28 },

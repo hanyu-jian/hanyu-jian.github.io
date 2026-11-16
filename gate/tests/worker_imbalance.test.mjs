@@ -12,7 +12,7 @@ const { handleImbalance } = await import(new URL("data:text/javascript;base64," 
 // 页面里的结算函数：从 ops-imbalance.html 的 <core> 段取出来直接跑
 const page = fs.readFileSync(new URL("../../ops/ops-imbalance.html", import.meta.url), "utf-8");
 const core = page.match(/\/\/ <core>([\s\S]*?)\/\/ <\/core>/)[1];
-const { settleSlot, imbalancePct } = new Function(core + "\nreturn { settleSlot, imbalancePct };")();
+const { settleSlot, imbalancePct, profitPct } = new Function(core + "\nreturn { settleSlot, imbalancePct, profitPct };")();
 
 const H = [15, 30, 45, 60, 75, 90, 105, 120, 135, 150, 165, 180, 195, 210, 225, 240];
 const num = (v) => (v === null ? "" : String(v));
@@ -95,6 +95,9 @@ for (const L of H) {
 {
   // 工作簿 Putnok 1–8 月：ΣAQ = −333,839，ΣAF = 2,441,198 -> −13.68%
   assert.ok(Math.abs(imbalancePct(2441198, 0, -333839) - (-13.675)) < 0.001, "workbook Putnok");
+  assert.ok(Math.abs(profitPct(200, 5) - 2.5) < 1e-9, "profit / PV revenue");
+  assert.ok(profitPct(200, -10) < 0, "negative profit -> negative ratio");
+  assert.equal(profitPct(0, 5), null, "no PV revenue -> no ratio");
   assert.equal(imbalancePct(0, 0, -5), null, "no revenue before imbalance -> no percentage");
   assert.ok(imbalancePct(100, 20, 12) > 0, "positive imbalance cost (income) is positive");
   // 和 Python 结算脚本逐日一致：不平衡费用 / (DA 收入 + IDC 收入) = imbalance_fee_EUR / rev_before_imbalance_EUR

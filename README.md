@@ -363,7 +363,8 @@ token 只在服务端，不会发给浏览器；数据不会进入本仓库，�
 
 *售电公司利润与不发电策略*
 - 站点结算款（PV revenue）= AH·P/1000，即当天实测 POA 算出的理论发电量 × 对应日前价，付给光伏场站。
-- **Profit = Total revenue (post imbalance cost) − PV revenue**（售电公司最终到手）。DA-only 的 profit 同理：(P·H − (H−AH)·Pimb)/1000 − AH·P/1000。
+- **Profit = Total revenue (post imbalance cost) − PV revenue**（售电公司最终到手）。
+- **Profit % = Profit ÷ PV revenue × 100**（每付给光伏场站 1 欧元多赚多少）：Summary table 最右一列，用橙色底色突出；月度行用当月合计相除，合计行和所选月份范围行是先合计再相除，不是各月百分比的平均；PV revenue ≤ 0 时显示 –。DA-only 的 profit 同理：(P·H − (H−AH)·Pimb)/1000 − AH·P/1000。
 - **Curtail if DA price ≤ X**：某 15 分钟日前价 P ≤ X（价格缺失不触发）则场站不发电：DA / IDC / Imbalance cost / Payment 全部为 0；状态栏写出被停发的时段数和电量。DA-only 参照线不受该策略影响。
 
 *数据与接口*

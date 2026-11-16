@@ -67,6 +67,29 @@ for (const L of H) {
     }
   }
 }
+// 付给光伏场站的钱 / 售电公司利润 / 「日前价低于阈值就不发电」
+{
+  const o = new Array(11), n = new Array(11);
+  // 手算：H=100, F=120, AH=110, P=50, AA=60, PI=70, DA 报量 100%、剩余在 IDC：DA 收入 5，IDC 收入 1.2，不平衡费用 −0.7，总收入 5.5
+  // 付给场站 = AH × P / 1000 = 110 × 50 / 1000 = 5.5，利润 = 5.5 − 5.5 = 0
+  settleSlot(100, 110, 120, 50, 60, 70, 1, "idc", o);
+  const near = (a, b, w) => assert.ok(Math.abs(a - b) < 1e-9, `${w}: ${a} vs ${b}`);
+  near(o[3], 5, "DA revenue"); near(o[4], 1.2, "IDC revenue"); near(o[5], -0.7, "imbalance cost"); near(o[6], 5.5, "total revenue");
+  near(o[8], 5.5, "payment to the plant"); near(o[6] - o[8], 0, "profit"); near(o[10], 0, "not curtailed");
+  near(o[7], (50 * 100 - (100 - 110) * 70) / 1000, "DA-only reference revenue (unchanged)"); near(o[9], o[7] - 5.5, "DA-only reference profit");
+  // 阈值关闭（不传 / null）和以前完全一样
+  settleSlot(100, 110, 120, 50, 60, 70, 1, "idc", n, null);
+  o.forEach((v, i) => near(n[i], v, `thr null, out[${i}]`));
+  // 价格 < 阈值：没有收入、没有不平衡费用、不付场站，参考线不受影响
+  settleSlot(100, 110, 120, 50, 60, 70, 1, "idc", n, 51);
+  [0, 1, 2, 3, 4, 5, 6, 8].forEach(i => near(n[i], 0, `curtailed out[${i}]`)); near(n[10], 1, "curtailed flag"); near(n[7], o[7], "reference unchanged"); near(n[9], o[9], "reference profit unchanged");
+  // 价格 = 阈值不算低于；价格为空不触发
+  settleSlot(100, 110, 120, 50, 60, 70, 1, "idc", n, 50); near(n[6], 5.5, "price equal to the threshold generates"); near(n[10], 0, "not flagged");
+  settleSlot(100, 110, 120, null, 60, 70, 1, "idc", n, 50); near(n[10], 0, "unknown price never curtails");
+  // 负电价：阈值 0 时不发电，避免「发电还倒贴」
+  settleSlot(100, 110, 120, -20, 60, 70, 1, "imb", n, 0); near(n[10], 1, "negative price below 0"); near(n[6], 0, "no revenue"); near(n[8], 0, "no payment");
+  settleSlot(100, 110, 120, -20, 60, 70, 1, "imb", n); near(n[8], -2.2, "without the strategy the plant is paid AH x P (negative price)"); near(n[10], 0, "off");
+}
 // Imbalance % = 不平衡费用 / 不平衡前收入（DA + IDC），即工作簿的 AQ / AF
 {
   // 工作簿 Putnok 1–8 月：ΣAQ = −333,839，ΣAF = 2,441,198 -> −13.68%

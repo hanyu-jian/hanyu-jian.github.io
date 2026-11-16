@@ -136,6 +136,16 @@ const SITES = ["Putnok", "Serenyfalva", "Sajokaza", "Szuhakálló 1", "Szuhakál
 const LEADS = [15, 30, 45, 60, 75, 90, 105, 120, 135, 150, 165, 180, 195, 210, 225, 240];
 const DEFAULT_LEAD = 60, MIN_TRADABLE = 45, CHUNK_DAYS = 62, CONCURRENCY = 3;
 const $ = id => document.getElementById(id);
+// The selection is mirrored into the address bar (history.replaceState: no extra history entries) and restored from it when the page opens.
+// A parameter that is missing or invalid is ignored and the default is used.
+const URLQ = new URLSearchParams(location.search);
+const qget = (k, ok) => { const v = URLQ.get(k); return v != null && ok(v) ? v : null; };
+const isDate = v => /^\d{4}-\d{2}-\d{2}$/.test(v) && !isNaN(Date.parse(v + "T00:00:00Z")) && new Date(v + "T00:00:00Z").toISOString().slice(0, 10) === v;
+function syncUrl(o) {
+  try { const p = new URLSearchParams(); for (const [k, v] of Object.entries(o)) if (v != null && v !== "") p.set(k, v);
+    const q = p.toString(); history.replaceState(null, "", location.pathname + (q ? "?" + q : "") + location.hash); } catch (e) { /* the address bar is only a convenience */ }
+}
+const syncImb = () => syncUrl({ site: selected, start: $("start").value, end: $("end").value, freq, lead: $("lead").value, pct: $("pct").value.trim(), mode: $("mode").value, thr: $("thr").value.trim(), from: $("sumFrom").value, to: $("sumTo").value });
 let freq = "15min";
 
 // <core>
@@ -183,7 +193,7 @@ const pctVal = () => { const v = parseFloat($("pct").value); return isFinite(v) 
 function defaultRange() {                                    // the three days before today (prices and theoretical production are complete)
   const t = budapestToday(); $("start").value = addDays(t, -3); $("end").value = addDays(t, -1);
 }
-function scheduleLoad(delay = 250) { clearTimeout(loadTimer); loadTimer = setTimeout(load, delay); }
+function scheduleLoad(delay = 250) { syncImb(); clearTimeout(loadTimer); loadTimer = setTimeout(load, delay); }
 // The page works on one calendar year (the year of the end date), loaded once: changing the dates inside that year only repaints.
 function scheduleRefresh(delay = 250) {
   clearTimeout(loadTimer);
@@ -227,7 +237,18 @@ function init() {
   $("pct").oninput = paint;
   chRev = echarts.init($("chartRev"));
   window.addEventListener("resize", () => chRev.resize());
-  defaultRange(); load();
+  const qs = qget("site", v => v === "ALL" || SITES.includes(v)); if (qs) selected = qs;
+  const qf = qget("freq", v => [...document.querySelectorAll("#freqGroup button[data-f]")].some(b => b.dataset.f === v));
+  if (qf) { freq = qf; document.querySelectorAll("#freqGroup button").forEach(x => x.classList.toggle("active", x.dataset.f === qf)); }
+  const ql = qget("lead", v => [...$("lead").options].some(o => o.value === v)); if (ql) $("lead").value = ql;
+  const qm = qget("mode", v => [...$("mode").options].some(o => o.value === v)); if (qm) $("mode").value = qm;
+  const qp = qget("pct", v => v.trim() !== "" && isFinite(+v)); if (qp) $("pct").value = qp;
+  const qt = qget("thr", v => v.trim() !== "" && isFinite(+v)); if (qt) $("thr").value = qt;
+  const qa = qget("from", v => /^\d{1,2}$/.test(v) && +v >= 1 && +v <= 12), qb = qget("to", v => /^\d{1,2}$/.test(v) && +v >= 1 && +v <= 12);
+  if (qa && qb && +qa <= +qb) { $("sumFrom").value = qa; $("sumTo").value = qb; }
+  const sd = qget("start", isDate), ed = qget("end", isDate);
+  if (sd && ed && sd <= ed) { $("start").value = sd; $("end").value = ed; } else defaultRange();
+  load();
 }
 
 // ───────────── loading: 62-day chunks per site, at most CONCURRENCY requests at a time ─────────────
@@ -245,7 +266,7 @@ async function fetchChunk(site, a, b, lead, signal) {
     const timer = setTimeout(() => ctl.abort(), FETCH_TIMEOUT_MS);
     try {
       const r = await fetch(url, { credentials: "same-origin", signal: ctl.signal });
-      if (r.status === 401) { location.href = "/ops/login?next=" + encodeURIComponent(location.pathname); throw new Error("Session expired"); }
+      if (r.status === 401) { location.href = "/ops/login?next=" + encodeURIComponent(location.pathname + location.search); throw new Error("Session expired"); }
       const j = await r.json().catch(() => ({}));
       if (r.ok) return j;
       lastErr = new Error(`${site}: ${j.error || r.status}`);
@@ -334,6 +355,7 @@ function aggregate(sites, freq, p, mode, ranged = true) {
 
 // ───────────── painting ─────────────
 function paint() {
+  syncImb();
   document.querySelectorAll("#sites button").forEach(b => b.classList.toggle("active", b.dataset.s === selected));
   if (!Object.keys(store).length) return;
   const sites = selected === "ALL" ? SITES : [selected], p = pctVal(), mode = $("mode").value;
@@ -365,7 +387,7 @@ function paint() {
 
 // Summary table: January..December of the loaded year for the selected site(s) (the site buttons above), whatever dates the chart shows.
 let lastSummary = null;
-const redrawSummary = () => { if (lastSummary) summary(...lastSummary); };
+const redrawSummary = () => { syncImb(); if (lastSummary) summary(...lastSummary); };
 function summary(sites, p, mode) {
   lastSummary = [sites, p, mode];
   const year = (dataYear || $("end").value.slice(0, 4)), name = selected === "ALL" ? "All sites" : selected;

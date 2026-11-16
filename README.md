@@ -334,6 +334,11 @@ token 只在服务端，不会发给浏览器；数据不会进入本仓库，�
   每个表行 = 1–12 月 + 全年（量用 Total，价格 / 比率用 Year），列 = 2024 / 2025 / 2026；图 = 横轴 Jan–Dec，每年一组柱 / 一条线。Export CSV 导出全部面板。
   图里的 post 固定按 Price ≤ 0 限电，表里阈值可切换。
 
+**Ops 页面的网址参数**（Overview / Capture Price / Imbalance 三个页面）：页面上的选择会同步写进地址栏（`history.replaceState`，不增加浏览器历史记录），打开带参数的链接时按参数恢复；缺少或不合法的参数忽略，用默认值。链接里只有选择，没有数据，打开仍要登录 ops。
+- `/ops/overview?site=&start=&end=&res=15min|hourly&lead=&bdate=`（`site` = ALL 或站点名，`lead` = 提前量分钟数，`bdate` = 第二张卡片的日期）
+- `/ops/imbalance?site=&start=&end=&freq=&lead=&pct=&mode=idc|imb&thr=&from=&to=`（`freq` = 15min / hour / day / week / month / quarter / year，`from`、`to` = Summary table 的月份 1–12）
+- `/ops/capture-price?site=&year=&mode=price|ratio&ssite=&thresh=negative|nonpositive`
+
 **Imbalance 页面口径**（`ops/ops-imbalance.html`，`/ops/imbalance`，二级导航里排在 Capture Price 后面）
 
 页面上不放说明文字，下面是它的全部口径。

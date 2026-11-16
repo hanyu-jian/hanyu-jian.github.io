@@ -130,7 +130,7 @@ function lowerBound(text, key, lo) {
 
 // 同一个 isolate 里缓存读过的文本 5 分钟（env.MEMO_TTL_MS 可改，0 = 不缓存）：页面一次会发约 30 个 /imbalance 请求，
 // 它们读的是同样的几个文件（整年的理论发电量 / DA 预测、R2 的价格表和 UST 视图），不缓存的话每个请求都重新取、重新解码。
-// 缓存的是 Promise（同时到达的相同请求只取一次）；失败不缓存；「没有这个文件」（null）只缓存 1 分钟（新文件很快会出现）；总量超过 40M 个字符就丢最旧的。
+// 缓存的是 Promise（同时到达的相同请求只取一次）；失败不缓存；「没有这个文件」（null）只缓存 1 分钟（新文件很快会出现）；总量超过 12M 个字符就丢最旧的。
 const MEMO = new Map();
 let memoChars = 0;
 function memo(env, key, loader) {
@@ -143,7 +143,7 @@ function memo(env, key, loader) {
     if (v === null || v === undefined) { entry.ttl = Math.min(ttl, 60000); return v; }
     entry.size = typeof v === "string" ? v.length : 0;
     memoChars += entry.size;
-    for (const [k, e] of MEMO) { if (memoChars <= 40000000) break; if (e !== entry) { MEMO.delete(k); memoChars -= e.size; } }
+    for (const [k, e] of MEMO) { if (memoChars <= 12000000) break; if (e !== entry) { MEMO.delete(k); memoChars -= e.size; } }
     return v;
   }, (e) => { MEMO.delete(key); throw e; });
   MEMO.set(key, entry);

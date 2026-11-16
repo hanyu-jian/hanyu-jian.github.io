@@ -67,6 +67,8 @@ tr.total td { font-weight: 700; background: #fafbfc; }
 td.dim { color: #aaa; }
 
 .control-group input[type=number] { font-family: inherit; height: 36px; width: 110px; padding: 0 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 14px; color: #2c3e50; }
+tr.sel td { background: #f1f4ff; }
+tr.out td { color: #aaa; }
 .strategy { display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-end; }
 </style>
 </head>
@@ -116,8 +118,12 @@ td.dim { color: #aaa; }
     </div>
 
     <div class="chart-card">
-      <div class="chart-card-header">
+      <div class="chart-card-header" style="align-items:flex-end;">
         <div><h3 id="sumTitle">Summary table</h3><div class="subtitle" id="sumSub">EUR per month</div></div>
+        <div class="strategy">
+          <div class="control-group"><label>From month</label><select id="sumFrom" style="min-width:80px"></select></div>
+          <div class="control-group"><label>To month</label><select id="sumTo" style="min-width:80px"></select></div>
+        </div>
       </div>
       <div class="scroll"><table id="sumTable"></table></div>
     </div>
@@ -203,6 +209,11 @@ function init() {
     scheduleRefresh();
   };
   $("mode").onchange = paint;
+  // Summary table: total of a range of months (1–12)
+  const monthOpts = Array.from({ length: 12 }, (_, i) => `<option value="${i + 1}">${i + 1}</option>`).join("");
+  $("sumFrom").innerHTML = monthOpts; $("sumTo").innerHTML = monthOpts; $("sumFrom").value = "1"; $("sumTo").value = "12";
+  $("sumFrom").onchange = () => { if (+$("sumTo").value < +$("sumFrom").value) $("sumTo").value = $("sumFrom").value; redrawSummary(); };
+  $("sumTo").onchange = () => { if (+$("sumFrom").value > +$("sumTo").value) $("sumFrom").value = $("sumTo").value; redrawSummary(); };
   $("pct").oninput = paint;
   chRev = echarts.init($("chartRev"));
   window.addEventListener("resize", () => chRev.resize());
@@ -317,27 +328,30 @@ function paint() {
 }
 
 // Summary table: January..December of the loaded year for the selected site(s) (the site buttons above), whatever dates the chart shows.
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+let lastSummary = null;
+const redrawSummary = () => { if (lastSummary) summary(...lastSummary); };
 function summary(sites, p, mode) {
+  lastSummary = [sites, p, mode];
   const year = (dataYear || $("end").value.slice(0, 4)), name = selected === "ALL" ? "All sites" : selected;
   const byMonth = new Map(aggregate(sites, "month", p, mode, false));
-  const tot = blank(); let any = false;
+  const from = +$("sumFrom").value || 1, to = +$("sumTo").value || 12, full = from === 1 && to === 12;
+  const picked = blank(), whole = blank(); let anyPicked = false, anyWhole = false;
   const cell = (g, f) => g ? eur(g[f]) : "–";
-  const before = g => g ? g.q + g.ae : null;
   const ipct = g => { const v = g ? imbalancePct(g.q, g.ae, g.imb) : null; return v == null ? "–" : sgn(v, 1) + "%"; };
-  const row = (label, g, cls = "") => `<tr class="${cls}"><td>${label}</td><td>${cell(g, "q")}</td><td>${cell(g, "ae")}</td><td>${g ? eur(before(g)) : "–"}</td><td>${cell(g, "imb")}</td><td><b>${cell(g, "res")}</b></td><td>${ipct(g)}</td></tr>`;
-  const rows = MONTHS.map((m, i) => {
-    const g = byMonth.get(`${year}-${String(i + 1).padStart(2, "0")}`);
-    if (g) { any = true; FIELDS.forEach(f => { tot[f] += g[f]; }); }
-    return row(`${m} ${year}`, g);
+  const row = (label, g, cls = "") => `<tr class="${cls}"><td>${label}</td><td>${cell(g, "q")}</td><td>${cell(g, "ae")}</td><td>${g ? eur(g.q + g.ae) : "–"}</td><td>${cell(g, "imb")}</td><td><b>${cell(g, "res")}</b></td><td>${ipct(g)}</td></tr>`;
+  const rows = Array.from({ length: 12 }, (_, i) => {
+    const m = i + 1, g = byMonth.get(`${year}-${String(m).padStart(2, "0")}`), inRange = m >= from && m <= to;
+    if (g) { anyWhole = true; FIELDS.forEach(f => { whole[f] += g[f]; }); if (inRange) { anyPicked = true; FIELDS.forEach(f => { picked[f] += g[f]; }); } }
+    return row(String(m), g, full ? "" : inRange ? "sel" : "out");
   });
+  rows.push(row(full ? "Total 1–12" : from === to ? `Total ${from}` : `Total ${from}–${to}`, anyPicked ? picked : null, "total"));
+  if (!full) rows.push(row("Total 1–12", anyWhole ? whole : null, "total"));
   $("sumTitle").textContent = `${name} · summary table`;
   $("sumSub").textContent = `EUR per month, ${year} · ${nf(Math.round(p * 100))}% DA bid, ${mode === "idc" ? `rest closed out in IDC (lead ${$("lead").value} min)` : "rest left in imbalance"}`
     + (loading ? " · the rest of the year is still loading" : "");
   $("sumTable").innerHTML = `<tr><th>Month</th><th>DA revenue €</th><th>IDC revenue €</th><th>Revenue (prior to imbalance cost) €</th><th>Imbalance cost €</th>
-      <th>Total revenue (post imbalance cost) €</th><th>Imbalance %</th></tr>` + rows.join("") + row(`Total ${year}`, any ? tot : null, "total");
+      <th>Total revenue (post imbalance cost) €</th><th>Imbalance %</th></tr>` + rows.join("");
 }
-
 init();
 </script>
 </body>

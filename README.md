@@ -343,7 +343,7 @@ token 只在服务端，不会发给浏览器；数据不会进入本仓库，�
 - Site 按钮（All sites = 五站相加，其余是单站）；它同时驱动图和 Summary table。
 - Strategy（图表正上方）：**DA bid %**（DA 预测量按多少百分比报进日前市场，默认 100%，0–150%）、**Rest**（没报进 DA 的部分：在 IDC 里平仓 / 全部留在不平衡里）、**IDC lead time**（15–240 分钟，默认 60）。
 - 图：按所选频率画 DA revenue / IDC revenue / Imbalance cost 的堆叠柱，叠 Total revenue 线和 “DA-only (100%)” 虚线（100% 报量、之后不交易）。
-- Summary table：所选站点 1–12 月（页面载入那一年）逐月的 DA revenue、IDC revenue、Revenue (prior to imbalance cost)、Imbalance cost、Total revenue (post imbalance cost)、Imbalance %，最后一行是全年合计；没有数据的月份显示 –。表里的数字随 Strategy 变化，**不受图表日期范围影响**。
+- Summary table：所选站点 1–12 月（页面载入那一年；Month 列只标 1–12）逐月的 DA revenue、IDC revenue、Revenue (prior to imbalance cost)、Imbalance cost、Total revenue (post imbalance cost)、Imbalance %，最后是合计行；没有数据的月份显示 –。右上角的 **From month / To month**（1–12）选一段月份，合计行就变成这一段的合计（如 “Total 3–6”，选中的月份高亮、其余变灰），同时多出一行 “Total 1–12” 保留全年合计；选择只在浏览器里重算，不重新请求。表里的数字随 Strategy 变化，**不受图表日期范围影响**。
 
 *加载方式*：页面一次加载一个日历年（结束日期所在的年份）的 15 分钟结算输入，每个站点按 62 天一块并发请求（和所选日期重叠的块先到，图先画出来，其余在后台继续）；年内改日期、频率、DA bid %、Rest 都在浏览器里算，不再请求；只有换年份或 IDC lead time 才重新加载（约 30 个请求）。把一个日期改到另一个年份时，另一个日期会跟着挪到同一年。
 

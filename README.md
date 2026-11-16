@@ -351,7 +351,7 @@ token 只在服务端，不会发给浏览器；数据不会进入本仓库，�
 - H = DA 预测（vcom `production forecast` 的 I 列，用 POA + 我们的公式算出）；AH = 理论发电量（实测 POA 算出，含 AC 限值）；D = DA bid % × H（DA 报量）。
 - F = 提前 L 分钟的超短期预测（UST，提前量 ≥ L 里最小的一档；每个格子 live > replay > hindcast 取第一个有值的）。
 - Rest = IDC：最终仓位 = F，没有 F 的时段 = D（不交易）；Rest = imbalance：最终仓位 = D，不交易。
-- DA revenue = P·D/1000；IDC revenue = AA·(最终仓位 − D)/1000；**Imbalance cost = −(最终仓位 − AH)·Pimb/1000**（负 = 成本，正 = 收入）；Revenue (prior to imbalance cost) = DA + IDC；**Total revenue (post imbalance cost) = DA + IDC + Imbalance cost**；Imbalance % = Imbalance cost / Total revenue。
+- DA revenue = P·D/1000；IDC revenue = AA·(最终仓位 − D)/1000；**Imbalance cost = −(最终仓位 − AH)·Pimb/1000**（负 = 成本，正 = 收入）；Revenue (prior to imbalance cost) = DA + IDC；**Total revenue (post imbalance cost) = DA + IDC + Imbalance cost**；**Imbalance % = Imbalance cost / Revenue (prior to imbalance cost)**，即工作簿汇总区的 AQ ÷ AF（不平衡费用合计 ÷ 不平衡前收入合计，月度行用当月合计相除，全年行是先合计再相除，不是各月百分比的平均）；负数表示不平衡侵蚀了这个比例的收入，核对过 Putnok 1–8 月 = −333,839 / 2,441,198 = −13.68%。
 - P = 日前价，AA = ID3 指数价，Pimb = 不平衡价，EUR/MWh。DA-only (100%) = 100% 报量、之后不交易：P·H/1000 − (H − AH)·Pimb/1000。100% 报量 + IDC 就是对过工作簿的那一版。
 - 只统计「理论发电量和 DA 预测都有值」的时段。价格缺失按 0 计；某个站点某一天完全没有日前价或没有不平衡价（通常是最近一两天）就整天不计，状态栏会写出来。
 - 注意：2026-10-29 之前的 UST 是乙方的回测（hindcast，2026-01-01 ~ 10-25）和回放（replay，10-25 起），假设每个发布时刻都有最新实测，所以这些时段 IDC 的结果是**理想条件下的上限**，不是实际运行能拿到的；live 目前实测输入有延迟，精度更差。

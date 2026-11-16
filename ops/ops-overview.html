@@ -181,6 +181,16 @@ const DEFAULT_H = 60;
 const MAX_DAYS = 62;
 const DEFAULT_SPAN = 30;                       // picking a start date sets the end date to start + 29 days
 const $ = id => document.getElementById(id);
+// The selection is mirrored into the address bar (history.replaceState: no extra history entries) and restored from it when the page opens.
+// A parameter that is missing or invalid is ignored and the default is used.
+const URLQ = new URLSearchParams(location.search);
+const qget = (k, ok) => { const v = URLQ.get(k); return v != null && ok(v) ? v : null; };
+const isDate = v => /^\d{4}-\d{2}-\d{2}$/.test(v) && !isNaN(Date.parse(v + "T00:00:00Z")) && new Date(v + "T00:00:00Z").toISOString().slice(0, 10) === v;
+function syncUrl(o) {
+  try { const p = new URLSearchParams(); for (const [k, v] of Object.entries(o)) if (v != null && v !== "") p.set(k, v);
+    const q = p.toString(); history.replaceState(null, "", location.pathname + (q ? "?" + q : "") + location.hash); } catch (e) { /* the address bar is only a convenience */ }
+}
+const syncOv = () => syncUrl({ site: selected, start: $("start").value, end: $("end").value, res: $("res").value, lead: lead(), bdate: $("bDate").value });
 let selected = "ALL", store = {}, chart, heat, loadSeq = 0, loadTimer = null;
 let bStore = {}, bChart, bBars, bSeq = 0, bTimer = null, bMsg = "", bIssue = null, bCand = [];   // second card: one issue time
 const lead = () => STEPS[+$("slider").value];
@@ -207,7 +217,7 @@ const nf = (v, d = 0) => v == null || isNaN(v) ? "–" : v.toLocaleString("en-US
 const pc = v => v == null ? "–" : (v >= 0 ? "+" : "") + nf(v, 1) + "%";
 
 // Every control reloads automatically (short debounce so typing a date does not fire several requests).
-function scheduleLoad(delay = 250) { clearTimeout(loadTimer); loadTimer = setTimeout(load, delay); }
+function scheduleLoad(delay = 250) { syncOv(); clearTimeout(loadTimer); loadTimer = setTimeout(load, delay); }
 
 function init() {
   $("slider").value = STEPS.indexOf(DEFAULT_H);
@@ -231,12 +241,18 @@ function init() {
   bChart = echarts.init($("bChart")); bBars = echarts.init($("bBars"));
   window.addEventListener("resize", () => { chart.resize(); heat.resize(); bChart.resize(); bBars.resize(); });
   initB();
-  setRange(7, 0); load();
+  const qs = qget("site", v => v === "ALL" || SITES.includes(v)); if (qs) selected = qs;
+  const qr = qget("res", v => [...$("res").options].some(o => o.value === v)); if (qr) $("res").value = qr;
+  const ql = qget("lead", v => STEPS.includes(+v)); if (ql) $("slider").value = STEPS.indexOf(+ql);
+  const sd = qget("start", isDate), ed = qget("end", isDate);
+  if (sd && ed && sd <= ed) { $("start").value = sd; $("end").value = ed; capRange(); } else setRange(7, 0);
+  const bd = qget("bdate", isDate); if (bd) $("bDate").value = bd;
+  load();
 }
 
 async function fetchRange(s, start, end, res) {
   const r = await fetch(`/ops/api/ust-range?site=${encodeURIComponent(s)}&start=${start}&end=${end}&resolution=${res}`, { credentials: "same-origin" });
-  if (r.status === 401) { location.href = "/ops/login?next=" + encodeURIComponent(location.pathname); throw new Error("Session expired"); }
+  if (r.status === 401) { location.href = "/ops/login?next=" + encodeURIComponent(location.pathname + location.search); throw new Error("Session expired"); }
   if (r.status === 404) return null;
   const j = await r.json().catch(() => ({}));
   if (!r.ok) throw new Error(`${s}: ${j.error || r.status}`);
@@ -298,6 +314,7 @@ function stats(t, act, da, fc) {
 
 // ───────────── card 1: slider + line chart + heat map + summary ─────────────
 function paint() {
+  syncOv();
   document.querySelectorAll("#sites button").forEach(b => b.classList.toggle("active", b.dataset.s === selected));
   const h = lead();
   $("lead").textContent = `${h} min ahead`;
@@ -374,7 +391,7 @@ function initB() {
   $("bSlider").oninput = () => { bIssue = bCand[+$("bSlider").value] || bIssue; paintB(); };
   scheduleB(0);
 }
-function scheduleB(delay = 250) { clearTimeout(bTimer); bTimer = setTimeout(loadB, delay); }
+function scheduleB(delay = 250) { syncOv(); clearTimeout(bTimer); bTimer = setTimeout(loadB, delay); }
 async function loadB() {
   const seq = ++bSeq, day = $("bDate").value;
   if (!day) return;
@@ -391,6 +408,7 @@ async function loadB() {
   paintB();
 }
 function paintB() {
+  syncOv();
   if (!bChart) return;
   const name = selected === "ALL" ? "All sites" : selected, day = $("bDate").value || "";
   $("bTitle").textContent = `${name} · ${day} · one forecast issue, accuracy by lead time`;

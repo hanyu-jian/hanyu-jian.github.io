@@ -52,6 +52,8 @@ th:first-child, td:first-child { text-align: left; }
 th { background: #f3f5f7; font-size: 12px; color: #4a5560; }
 tr.total td { font-weight: 700; background: #fafbfc; }
 .pos { color: #c0392b; } .neg { color: #27ae60; }
+th.hl { background: #ffe2b0; color: #7a4300; }
+td.hl, tr.total td.hl, tr.sel td.hl, tr.out td.hl { background: #fff1d6; color: #9a4f00; font-weight: 700; }
 
 @media (max-width: 900px) { .row2 { grid-template-columns: 1fr; } }
 @media (max-width: 700px) {
@@ -170,6 +172,9 @@ function settleSlot(H, AH, F, P, AA, PI, p, mode, out, thr) {
   return out;
 }
 // Imbalance % = imbalance cost / revenue prior to imbalance cost (DA + IDC revenue): the workbook's AQ / AF (negative = the imbalance eats that share of the revenue).
+function profitPct(pay, profit) {                           // Profit / PV revenue (what the trading company earns per euro paid to the plants)
+  return pay > 0 ? profit / pay * 100 : null;
+}
 function imbalancePct(daRevenue, idcRevenue, imbalanceCost) {
   const base = daRevenue + idcRevenue;
   return base ? imbalanceCost / base * 100 : null;
@@ -374,7 +379,8 @@ function summary(sites, p, mode) {
   const picked = blank(), whole = blank(); let anyPicked = false, anyWhole = false;
   const cell = (g, f) => g ? eur(g[f]) : "–";
   const ipct = g => { const v = g ? imbalancePct(g.q, g.ae, g.imb) : null; return v == null ? "–" : sgn(v, 1) + "%"; };
-  const row = (label, g, cls = "") => `<tr class="${cls}"><td>${label}</td><td>${cell(g, "q")}</td><td>${cell(g, "ae")}</td><td>${g ? eur(g.q + g.ae) : "–"}</td><td>${cell(g, "imb")}</td><td><b>${cell(g, "res")}</b></td><td>${ipct(g)}</td><td>${cell(g, "pay")}</td><td><b>${g ? eur(g.res - g.pay) : "–"}</b></td></tr>`;
+  const ppct = g => { const v = g ? profitPct(g.pay, g.res - g.pay) : null; return v == null ? "–" : sgn(v, 1) + "%"; };
+  const row = (label, g, cls = "") => `<tr class="${cls}"><td>${label}</td><td>${cell(g, "q")}</td><td>${cell(g, "ae")}</td><td>${g ? eur(g.q + g.ae) : "–"}</td><td>${cell(g, "imb")}</td><td><b>${cell(g, "res")}</b></td><td>${ipct(g)}</td><td>${cell(g, "pay")}</td><td><b>${g ? eur(g.res - g.pay) : "–"}</b></td><td class="hl">${ppct(g)}</td></tr>`;
   const rows = Array.from({ length: 12 }, (_, i) => {
     const m = i + 1, g = byMonth.get(`${year}-${String(m).padStart(2, "0")}`), inRange = m >= from && m <= to;
     if (g) { anyWhole = true; FIELDS.forEach(f => { whole[f] += g[f]; }); if (inRange) { anyPicked = true; FIELDS.forEach(f => { picked[f] += g[f]; }); } }
@@ -387,7 +393,7 @@ function summary(sites, p, mode) {
   $("sumSub").textContent = `EUR per month, ${year} · ${nf(Math.round(p * 100))}% DA bid, ${mode === "idc" ? `rest closed out in IDC (lead ${$("lead").value} min)` : "rest left in imbalance"}${thr == null ? "" : `, curtailed when DA price ≤ ${thr}`}`
     + (loading ? " · the rest of the year is still loading" : "");
   $("sumTable").innerHTML = `<tr><th>Month</th><th>DA revenue €</th><th>IDC revenue €</th><th>Revenue (prior to imbalance cost) €</th><th>Imbalance cost €</th>
-      <th>Total revenue (post imbalance cost) €</th><th>Imbalance %</th><th>PV revenue €</th><th>Profit (total revenue − PV revenue) €</th></tr>` + rows.join("");
+      <th>Total revenue (post imbalance cost) €</th><th>Imbalance %</th><th>PV revenue €</th><th>Profit (total revenue − PV revenue) €</th><th class="hl">Profit %</th></tr>` + rows.join("");
 }
 init();
 </script>

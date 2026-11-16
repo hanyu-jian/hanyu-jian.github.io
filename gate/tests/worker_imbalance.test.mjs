@@ -83,8 +83,9 @@ for (const L of H) {
   // 价格 < 阈值：没有收入、没有不平衡费用、不付场站，参考线不受影响
   settleSlot(100, 110, 120, 50, 60, 70, 1, "idc", n, 51);
   [0, 1, 2, 3, 4, 5, 6, 8].forEach(i => near(n[i], 0, `curtailed out[${i}]`)); near(n[10], 1, "curtailed flag"); near(n[7], o[7], "reference unchanged"); near(n[9], o[9], "reference profit unchanged");
-  // 价格 = 阈值不算低于；价格为空不触发
-  settleSlot(100, 110, 120, 50, 60, 70, 1, "idc", n, 50); near(n[6], 5.5, "price equal to the threshold generates"); near(n[10], 0, "not flagged");
+  // 价格 = 阈值也停发（≤）；价格为空不触发
+  settleSlot(100, 110, 120, 50, 60, 70, 1, "idc", n, 50); near(n[6], 0, "price equal to the threshold is curtailed"); near(n[10], 1, "flagged");
+  settleSlot(100, 110, 120, 50.01, 60, 70, 1, "idc", n, 50); near(n[10], 0, "price just above the threshold generates");
   settleSlot(100, 110, 120, null, 60, 70, 1, "idc", n, 50); near(n[10], 0, "unknown price never curtails");
   // 负电价：阈值 0 时不发电，避免「发电还倒贴」
   settleSlot(100, 110, 120, -20, 60, 70, 1, "imb", n, 0); near(n[10], 1, "negative price below 0"); near(n[6], 0, "no revenue"); near(n[8], 0, "no payment");

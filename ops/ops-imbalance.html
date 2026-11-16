@@ -66,7 +66,7 @@ tr.total td { font-weight: 700; background: #fafbfc; }
 .banner { margin: 14px 30px 0; padding: 10px 14px; background: #fff8e6; border: 1px solid #f3dfa2; border-radius: 6px; font-size: 12.5px; color: #7a5c00; line-height: 1.6; }
 td.dim { color: #aaa; }
 
-.control-group input[type=number] { font-family: inherit; height: 36px; width: 110px; padding: 0 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 14px; color: #2c3e50; }
+.control-group input[type=text] { font-family: inherit; height: 36px; width: 110px; padding: 0 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 14px; color: #2c3e50; }
 tr.sel td { background: #f1f4ff; }
 tr.out td { color: #aaa; }
 .strategy { display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-end; }
@@ -102,11 +102,11 @@ tr.out td { color: #aaa; }
       <div class="chart-card-header" style="margin-bottom:0;align-items:flex-end;">
         <div><h3>Strategy</h3></div>
         <div class="strategy">
-          <div class="control-group"><label>DA bid, % of DA forecast</label><input type="number" id="pct" min="0" max="150" step="5" value="100"></div>
+          <div class="control-group"><label>DA bid, % of DA forecast</label><input type="text" inputmode="decimal" id="pct" value="100" autocomplete="off"></div>
           <div class="control-group"><label>Rest (not bid in DA)</label>
             <select id="mode"><option value="idc">Close out in IDC (rolling forecast)</option><option value="imb">Leave in imbalance</option></select></div>
           <div class="control-group"><label>IDC lead time</label><select id="lead"></select></div>
-          <div class="control-group"><label>Curtail when DA price &lt; (EUR/MWh)</label><input type="number" id="thr" step="1" placeholder="off"></div>
+          <div class="control-group"><label>Curtail when DA price &le; (EUR/MWh)</label><input type="text" inputmode="decimal" id="thr" placeholder="off" autocomplete="off"></div>
         </div>
       </div>
     </div>
@@ -150,7 +150,7 @@ function settleSlot(H, AH, F, P, AA, PI, p, mode, out, thr) {
   P = P == null ? 0 : P; AA = AA == null ? 0 : AA; PI = PI == null ? 0 : PI;
   const ref = (P * H - (H - AH) * PI) / 1000;            // reference: 100% DA bid, nothing traded afterwards, no curtailment strategy
   out[7] = ref; out[9] = ref - AH * P / 1000;
-  if (thr != null && priceKnown && P < thr) { out[0] = out[1] = out[2] = out[3] = out[4] = out[5] = out[6] = out[8] = 0; out[10] = 1; return out; }
+  if (thr != null && priceKnown && P <= thr) { out[0] = out[1] = out[2] = out[3] = out[4] = out[5] = out[6] = out[8] = 0; out[10] = 1; return out; }
   const D = p * H;
   const pos = mode === "idc" && F != null ? F : D;      // no UST forecast -> nothing is traded after the DA
   const idc = pos - D;
@@ -319,7 +319,7 @@ function paint() {
   const rows = aggregate(sites, freq, p, mode);
   const lo = $("start").value, hi = $("end").value;
   const skipped = sites.reduce((n, s) => n + (store[s] ? [...store[s].skipDays].filter(d => d >= lo && d <= hi).length : 0), 0);
-  const thr = thrVal(), thrTxt = thr == null ? "" : `, curtailed when DA price < ${thr}`;
+  const thr = thrVal(), thrTxt = thr == null ? "" : `, curtailed when DA price ≤ ${thr}`;
   const curt = rows.reduce((n, [, g]) => n + g.curt, 0), curtMWh = rows.reduce((n, [, g]) => n + g.curtAH, 0) / 1000;
   const modeTxt = (mode === "idc" ? `rest closed out in IDC (lead ${lead} min)` : "rest left in imbalance") + thrTxt;
   setStatus(rows.length ? `${name} · ${nf(Math.round(p * 100))}% DA bid, ${modeTxt}` + (thr != null ? ` · ${nf(curt)} intervals (${nf(curtMWh, 0)} MWh) not generated` : "") + (skipped ? ` · ${skipped} site-days left out (no DA / imbalance price yet)` : "") + (loading ? ` · ${loading} (the rest of the year is still loading)` : "")
@@ -330,15 +330,14 @@ function paint() {
 
   const x = rows.map(([k]) => k), many = x.length > 60;
   const bar = (nm, f, color) => ({ name: nm, type: "bar", stack: "rev", data: rows.map(([, g]) => Math.round(g[f] * 100) / 100), itemStyle: { color }, barMaxWidth: 28 });
-  chRev.setOption({ animation: false, tooltip: { trigger: "axis", valueFormatter: v => v == null ? "–" : nf(v, 2) + " EUR" }, legend: { top: 4, selected: { "PV revenue": false, "DA-only (100%) revenue": false, "DA-only (100%) profit": false } },
+  chRev.setOption({ animation: false, tooltip: { trigger: "axis", valueFormatter: v => v == null ? "–" : nf(v, 2) + " EUR" }, legend: { top: 4, selected: { "PV revenue": false } },
     grid: { left: 80, right: 24, top: 44, bottom: many ? 64 : 34 }, dataZoom: many ? [{ type: "inside" }, { type: "slider", height: 18, bottom: 6 }] : [{ type: "inside" }],
     xAxis: { type: "category", data: x, axisLabel: { formatter: v => freq === "15min" || freq === "hour" ? v.slice(5) : v } }, yAxis: { type: "value", name: "EUR", nameLocation: "end" },
     series: [ bar("DA revenue", "q", "#2c7fb8"), bar("IDC revenue", "ae", "#e67e22"), bar("Imbalance cost", "imb", "#d98b84"),
       { name: "PV revenue", type: "bar", stack: "rev", data: rows.map(([, g]) => -Math.round(g.pay * 100) / 100), itemStyle: { color: "#b9a37e" }, barMaxWidth: 28 },
       { name: "Total revenue", type: "line", data: rows.map(([, g]) => Math.round(g.res * 100) / 100), lineStyle: { width: 2.2, color: "#2c3e50" }, itemStyle: { color: "#2c3e50" }, showSymbol: x.length < 120, symbolSize: 5 },
       { name: "Profit", type: "line", data: rows.map(([, g]) => Math.round((g.res - g.pay) * 100) / 100), lineStyle: { width: 2.8, color: "#27ae60" }, itemStyle: { color: "#27ae60" }, showSymbol: x.length < 120, symbolSize: 5 },
-      { name: "DA-only (100%) revenue", type: "line", data: rows.map(([, g]) => Math.round(g.ref * 100) / 100), lineStyle: { width: 1.6, color: "#95a5a6", type: "dashed" }, itemStyle: { color: "#95a5a6" }, showSymbol: false },
-      { name: "DA-only (100%) profit", type: "line", data: rows.map(([, g]) => Math.round(g.refProfit * 100) / 100), lineStyle: { width: 1.6, color: "#7fb99a", type: "dashed" }, itemStyle: { color: "#7fb99a" }, showSymbol: false } ] }, true);
+    ] });
   summary(sites, p, mode);
 }
 
@@ -363,7 +362,7 @@ function summary(sites, p, mode) {
   if (!full) rows.push(row("Total 1–12", anyWhole ? whole : null, "total"));
   $("sumTitle").textContent = `${name} · summary table`;
   const thr = thrVal();
-  $("sumSub").textContent = `EUR per month, ${year} · ${nf(Math.round(p * 100))}% DA bid, ${mode === "idc" ? `rest closed out in IDC (lead ${$("lead").value} min)` : "rest left in imbalance"}${thr == null ? "" : `, curtailed when DA price < ${thr}`}`
+  $("sumSub").textContent = `EUR per month, ${year} · ${nf(Math.round(p * 100))}% DA bid, ${mode === "idc" ? `rest closed out in IDC (lead ${$("lead").value} min)` : "rest left in imbalance"}${thr == null ? "" : `, curtailed when DA price ≤ ${thr}`}`
     + (loading ? " · the rest of the year is still loading" : "");
   $("sumTable").innerHTML = `<tr><th>Month</th><th>DA revenue €</th><th>IDC revenue €</th><th>Revenue (prior to imbalance cost) €</th><th>Imbalance cost €</th>
       <th>Total revenue (post imbalance cost) €</th><th>Imbalance %</th><th>PV revenue €</th><th>Profit (total revenue − PV revenue) €</th></tr>` + rows.join("");

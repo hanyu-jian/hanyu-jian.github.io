@@ -765,6 +765,16 @@ async function handleOps(request, env, url, path) {
     });
   }
 
+  // 云量（Open-Meteo，小时值，Budapest 本地时间）：和日前价一样原样转发静态文件，不在 Worker 里解析，几乎不占 CPU
+  if (path === "/ops/api/cloud") {
+    if (request.method !== "GET") return new Response("Method not allowed", { status: 405 });
+    const res = await env.ASSETS.fetch(new Request(new URL("/data/weather/tokaj_cloud_cover.csv", url)));
+    if (!res.ok) return json({ error: "Cloud cover data unavailable" }, 404);
+    return new Response(res.body, {
+      headers: { "content-type": "text/csv; charset=utf-8", "Cache-Control": "private, max-age=3600", "X-Robots-Tag": "noindex" },
+    });
+  }
+
   const clean = path.replace(/\/+$/, "");
   if (clean === "/ops" || clean === "/ops/hungary") return redirect(OPS_HOME + url.search); // 旧地址
   const m = clean.match(/^\/ops\/([a-z-]+)$/);

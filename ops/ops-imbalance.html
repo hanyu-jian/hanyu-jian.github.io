@@ -109,6 +109,8 @@ tr.out td { color: #aaa; }
             <select id="mode"><option value="idc">Close out in IDC (rolling forecast)</option><option value="imb">Leave in imbalance</option></select></div>
           <div class="control-group"><label>IDC lead time</label><select id="lead"></select></div>
           <div class="control-group"><label>Curtail when DA price &le; (EUR/MWh)</label><input type="text" inputmode="decimal" id="thr" placeholder="off" autocomplete="off"></div>
+          <div class="control-group"><label>Cloud cover &gt; (%)</label><input type="text" inputmode="decimal" id="cc" placeholder="off" autocomplete="off"></div>
+          <div class="control-group"><label>Bid % when cloudy</label><input type="text" inputmode="decimal" id="ccbid" value="50" autocomplete="off"></div>
         </div>
       </div>
     </div>
@@ -147,7 +149,7 @@ function syncUrl(o) {
   try { const p = new URLSearchParams(); for (const [k, v] of Object.entries(o)) if (v != null && v !== "") p.set(k, v);
     const q = p.toString(); history.replaceState(null, "", location.pathname + (q ? "?" + q : "") + location.hash); } catch (e) { /* the address bar is only a convenience */ }
 }
-const syncImb = () => syncUrl({ site: selected, start: $("start").value, end: $("end").value, freq, lead: $("lead").value, pct: $("pct").value.trim(), mode: $("mode").value, thr: $("thr").value.trim(), from: $("sumFrom").value, to: $("sumTo").value });
+const syncImb = () => syncUrl({ site: selected, start: $("start").value, end: $("end").value, freq, lead: $("lead").value, pct: $("pct").value.trim(), mode: $("mode").value, thr: $("thr").value.trim(), cc: $("cc").value.trim(), ccbid: $("ccbid").value.trim(), from: $("sumFrom").value, to: $("sumTo").value });
 let freq = "15min";
 
 // <core>
@@ -157,14 +159,15 @@ let freq = "15min";
 // no imbalance cost and no payment to the PV plant for that interval.
 // Fills out = [D, position, idc, daRevenue, idcRevenue, imbalanceRevenue, result, daOnlyRef, paymentToPlant, daOnlyProfit, curtailed(0/1)].
 // paymentToPlant = AH * P / 1000 (energy generated x day-ahead price); profit of the trading company = result - paymentToPlant.
-function settleSlot(H, AH, F, P, AA, PI, p, mode, out, thr) {
+// kf = bid factor of a cloudy interval (1 = normal): both the DA bid and the final (IDC) position are scaled by it.
+function settleSlot(H, AH, F, P, AA, PI, p, mode, out, thr, kf = 1) {
   const priceKnown = P != null;
   P = P == null ? 0 : P; AA = AA == null ? 0 : AA; PI = PI == null ? 0 : PI;
   const ref = (P * H - (H - AH) * PI) / 1000;            // reference: 100% DA bid, nothing traded afterwards, no curtailment strategy
   out[7] = ref; out[9] = ref - AH * P / 1000;
   if (thr != null && priceKnown && P <= thr) { out[0] = out[1] = out[2] = out[3] = out[4] = out[5] = out[6] = out[8] = 0; out[10] = 1; return out; }
-  const D = p * H;
-  const pos = mode === "idc" && F != null ? F : D;      // no UST forecast -> nothing is traded after the DA
+  const D = p * H * kf;
+  const pos = mode === "idc" && F != null ? F * kf : D;  // no UST forecast -> nothing is traded after the DA
   const idc = pos - D;
   const q = P * D / 1000, ae = AA * idc / 1000, imb = -(pos - AH) * PI / 1000;
   out[0] = D; out[1] = pos; out[2] = idc; out[3] = q; out[4] = ae; out[5] = imb; out[6] = q + ae + imb;
@@ -192,6 +195,19 @@ const nf = (v, d = 0) => v == null || !isFinite(v) ? "–" : v.toLocaleString("e
 const eur = v => v == null || !isFinite(v) ? "–" : (v < 0 ? "−" : "") + Math.abs(Math.round(v)).toLocaleString("en-US");
 const sgn = (v, d = 0) => v == null || !isFinite(v) ? "–" : (v >= 0 ? "+" : "−") + Math.abs(v).toLocaleString("en-US", { maximumFractionDigits: d, minimumFractionDigits: d });
 function setStatus(t, err = false) { $("status").className = err ? "status err" : "status"; $("status").textContent = t; }
+const ccVal = () => { const v = $("cc").value; return v === "" || !isFinite(+v) ? null : +v; };
+const ccBidVal = () => { const v = parseFloat($("ccbid").value); return isFinite(v) ? Math.min(Math.max(v, 0), 150) / 100 : 0.5; };
+// Hourly cloud cover (%) of the Tokaj area, Budapest local time: "YYYY-MM-DD HH" -> %
+let cloud = new Map(), cloudMsg = "";
+async function loadCloud() {
+  try {
+    const r = await fetch("/ops/api/cloud", { credentials: "same-origin" });
+    if (!r.ok) throw new Error(r.status);
+    const m = new Map();
+    (await r.text()).split("\n").slice(1).forEach(l => { const [t, v] = l.split(","); if (t && v !== undefined && v.trim() !== "" && isFinite(+v)) m.set(t.slice(0, 13), +v); });
+    cloud = m; cloudMsg = "";
+  } catch (e) { cloud = new Map(); cloudMsg = "cloud cover data unavailable"; }
+}
 const thrVal = () => { const v = $("thr").value; return v === "" || !isFinite(+v) ? null : +v; };
 const pctVal = () => { const v = parseFloat($("pct").value); return isFinite(v) ? Math.min(Math.max(v, 0), 150) / 100 : 1; };
 
@@ -233,7 +249,7 @@ function init() {
     scheduleRefresh();
   };
   $("mode").onchange = paint;
-  $("thr").oninput = paint;
+  $("thr").oninput = paint; $("cc").oninput = paint; $("ccbid").oninput = paint;
   // Summary table: total of a range of months (1–12)
   const monthOpts = Array.from({ length: 12 }, (_, i) => `<option value="${i + 1}">${i + 1}</option>`).join("");
   $("sumFrom").innerHTML = monthOpts; $("sumTo").innerHTML = monthOpts; $("sumFrom").value = "1"; $("sumTo").value = "12";
@@ -249,10 +265,13 @@ function init() {
   const qm = qget("mode", v => [...$("mode").options].some(o => o.value === v)); if (qm) $("mode").value = qm;
   const qp = qget("pct", v => v.trim() !== "" && isFinite(+v)); if (qp) $("pct").value = qp;
   const qt = qget("thr", v => v.trim() !== "" && isFinite(+v)); if (qt) $("thr").value = qt;
+  const qc = qget("cc", v => v.trim() !== "" && isFinite(+v)); if (qc) $("cc").value = qc;
+  const qcb = qget("ccbid", v => v.trim() !== "" && isFinite(+v)); if (qcb) $("ccbid").value = qcb;
   const qa = qget("from", v => /^\d{1,2}$/.test(v) && +v >= 1 && +v <= 12), qb = qget("to", v => /^\d{1,2}$/.test(v) && +v >= 1 && +v <= 12);
   if (qa && qb && +qa <= +qb) { $("sumFrom").value = qa; $("sumTo").value = qb; }
   const sd = qget("start", isDate), ed = qget("end", isDate);
   if (sd && ed && sd <= ed) { $("start").value = sd; $("end").value = ed; } else defaultRange();
+  loadCloud().then(() => { if (ccVal() != null) paint(); });          // one small file for the whole page, only matters when the cloud strategy is on
   load();
 }
 
@@ -319,17 +338,18 @@ function isoWeek(d) {                                         // "YYYY-Www" (ISO
 }
 const keyFn = f => f === "15min" ? t => t : f === "hour" ? t => t.slice(0, 13) + ":00" : f === "day" ? t => t.slice(0, 10) : f === "week" ? t => isoWeek(t.slice(0, 10))
   : f === "month" ? t => t.slice(0, 7) : f === "quarter" ? t => `${t.slice(0, 4)}-Q${Math.ceil(+t.slice(5, 7) / 3)}` : f === "year" ? t => t.slice(0, 4) : () => "all";
-const FIELDS = ["n", "AH", "H", "D", "idc", "pos", "q", "ae", "imb", "res", "ref", "pay", "refProfit", "curt", "curtAH", "absPos", "absH", "gaps"];
+const FIELDS = ["n", "AH", "H", "D", "idc", "pos", "q", "ae", "imb", "res", "ref", "pay", "refProfit", "curt", "curtAH", "cloudN", "absPos", "absH", "gaps"];
 const blank = () => Object.fromEntries(FIELDS.map(k => [k, 0]));
 function aggregate(sites, freq, p, mode, ranged = true) {
-  const key = keyFn(freq), groups = new Map(), tmp = new Array(11), lo = $("start").value, hi = $("end").value, thr = thrVal();
+  const key = keyFn(freq), groups = new Map(), tmp = new Array(11), lo = $("start").value, hi = $("end").value, thr = thrVal(), cc = ccVal(), ccb = ccBidVal();
   sites.forEach(s => { const o = store[s]; if (!o) return;
     for (let i = 0; i < o.t.length; i++) {
       if (!o.keep[i]) continue;
       if (ranged) { const d = o.t[i].slice(0, 10); if (d < lo || d > hi) continue; }
-      const H = o.H[i], AH = o.AH[i]; settleSlot(H, AH, o.F[i], o.P[i], o.AA[i], o.PI[i], p, mode, tmp, thr);
+      const H = o.H[i], AH = o.AH[i], cv = cc == null ? undefined : cloud.get(o.t[i].slice(0, 13)), cloudy = cv != null && cv > cc;
+      settleSlot(H, AH, o.F[i], o.P[i], o.AA[i], o.PI[i], p, mode, tmp, thr, cloudy ? ccb : 1);
       const k = key(o.t[i]); let g = groups.get(k); if (!g) { g = blank(); groups.set(k, g); }
-      g.n++; g.AH += AH; g.H += H; g.D += tmp[0]; g.pos += tmp[1]; g.idc += tmp[2]; g.q += tmp[3]; g.ae += tmp[4]; g.imb += tmp[5]; g.res += tmp[6]; g.ref += tmp[7]; g.pay += tmp[8]; g.refProfit += tmp[9]; if (tmp[10]) { g.curt++; g.curtAH += AH; }
+      g.n++; g.AH += AH; g.H += H; g.D += tmp[0]; g.pos += tmp[1]; g.idc += tmp[2]; g.q += tmp[3]; g.ae += tmp[4]; g.imb += tmp[5]; g.res += tmp[6]; g.ref += tmp[7]; g.pay += tmp[8]; g.refProfit += tmp[9]; if (tmp[10]) { g.curt++; g.curtAH += AH; } else if (cloudy) g.cloudN++;
       g.absPos += Math.abs(tmp[1] - AH); g.absH += Math.abs(H - AH);
       g.gaps += (o.P[i] == null) + (o.AA[i] == null && mode === "idc" && o.F[i] != null && tmp[2] !== 0) + (o.PI[i] == null);
     } });
@@ -348,8 +368,10 @@ function paint() {
   const skipped = sites.reduce((n, s) => n + (store[s] ? [...store[s].skipDays].filter(d => d >= lo && d <= hi).length : 0), 0);
   const thr = thrVal(), thrTxt = thr == null ? "" : `, curtailed when DA price ≤ ${thr}`;
   const curt = rows.reduce((n, [, g]) => n + g.curt, 0), curtMWh = rows.reduce((n, [, g]) => n + g.curtAH, 0) / 1000;
-  const modeTxt = (mode === "idc" ? `rest closed out in IDC (lead ${lead} min)` : "rest left in imbalance") + thrTxt;
-  setStatus(rows.length ? `${name} · ${nf(Math.round(p * 100))}% DA bid, ${modeTxt}` + (thr != null ? ` · ${nf(curt)} intervals (${nf(curtMWh, 0)} MWh) not generated` : "") + (skipped ? ` · ${skipped} site-days left out (no DA / imbalance price yet)` : "") + (loading ? ` · ${loading} (the rest of the year is still loading)` : "")
+  const cc = ccVal(), ccTxt = cc == null ? "" : `, ${nf(Math.round(ccBidVal() * 100))}% bid when cloud cover > ${cc}%`;
+  const cloudN = rows.reduce((n, [, g]) => n + g.cloudN, 0);
+  const modeTxt = (mode === "idc" ? `rest closed out in IDC (lead ${lead} min)` : "rest left in imbalance") + thrTxt + ccTxt;
+  setStatus(rows.length ? `${name} · ${nf(Math.round(p * 100))}% DA bid, ${modeTxt}` + (thr != null ? ` · ${nf(curt)} intervals (${nf(curtMWh, 0)} MWh) curtailed` : "") + (cc != null ? (cloudMsg ? ` · ${cloudMsg}` : ` · ${nf(cloudN)} cloudy intervals`) : "") + (skipped ? ` · ${skipped} site-days left out (no DA / imbalance price yet)` : "") + (loading ? ` · ${loading} (the rest of the year is still loading)` : "")
     : skipped ? `No data to show: all ${skipped} site-days in this period have no DA / imbalance price yet. Pick an earlier period, or check that the price table is up to date (the &ldquo;Build HU Combined Data&rdquo; workflow runs daily at 10:30 UTC).`
     : "No data for this selection.", !rows.length);
   $("revTitle").textContent = `${name} · revenue and total revenue`;
@@ -390,7 +412,7 @@ function summary(sites, p, mode) {
   if (!full) rows.push(row("Total 1–12", anyWhole ? whole : null, "total"));
   $("sumTitle").textContent = `${name} · summary table`;
   const thr = thrVal();
-  $("sumSub").textContent = `EUR per month, ${year} · ${nf(Math.round(p * 100))}% DA bid, ${mode === "idc" ? `rest closed out in IDC (lead ${$("lead").value} min)` : "rest left in imbalance"}${thr == null ? "" : `, curtailed when DA price ≤ ${thr}`}`
+  $("sumSub").textContent = `EUR per month, ${year} · ${nf(Math.round(p * 100))}% DA bid, ${mode === "idc" ? `rest closed out in IDC (lead ${$("lead").value} min)` : "rest left in imbalance"}${thr == null ? "" : `, curtailed when DA price ≤ ${thr}`}${ccVal() == null ? "" : `, ${nf(Math.round(ccBidVal() * 100))}% bid when cloud cover > ${ccVal()}%`}`
     + (loading ? " · the rest of the year is still loading" : "");
   $("sumTable").innerHTML = `<tr><th>Month</th><th>DA revenue €</th><th>IDC revenue €</th><th>Revenue (prior to imbalance cost) €</th><th>Imbalance cost €</th>
       <th>Total revenue (post imbalance cost) €</th><th>Imbalance %</th><th>PV revenue €</th><th>Profit (total revenue − PV revenue) €</th><th class="hl">Profit %</th></tr>` + rows.join("");

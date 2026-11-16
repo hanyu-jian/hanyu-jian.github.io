@@ -338,7 +338,7 @@ token 只在服务端，不会发给浏览器；数据不会进入本仓库，�
 
 **Ops 页面的网址参数**（Overview / Capture Price / Imbalance 三个页面）：页面上的选择会同步写进地址栏（`history.replaceState`，不增加浏览器历史记录），打开带参数的链接时按参数恢复；缺少或不合法的参数忽略，用默认值。链接里只有选择，没有数据，打开仍要登录 ops。
 - `/ops/overview?site=&start=&end=&res=15min|hourly&lead=&bdate=`（`site` = ALL 或站点名，`lead` = 提前量分钟数，`bdate` = 第二张卡片的日期）
-- `/ops/imbalance?site=&start=&end=&freq=&lead=&pct=&mode=idc|imb&thr=&from=&to=`（`freq` = 15min / hour / day / week / month / quarter / year，`from`、`to` = Summary table 的月份 1–12）
+- `/ops/imbalance?site=&start=&end=&freq=&lead=&pct=&mode=idc|imb&thr=&cc=&ccbid=&from=&to=`（`freq` = 15min / hour / day / week / month / quarter / year，`from`、`to` = Summary table 的月份 1–12）
 - `/ops/capture-price?site=&year=&mode=price|ratio&ssite=&thresh=negative|nonpositive`
 
 **Imbalance 页面口径**（`ops/ops-imbalance.html`，`/ops/imbalance`，二级导航里排在 Capture Price 后面）
@@ -368,6 +368,13 @@ token 只在服务端，不会发给浏览器；数据不会进入本仓库，�
 - **Profit = Total revenue (post imbalance cost) − PV revenue**（售电公司最终到手）。
 - **Profit % = Profit ÷ PV revenue × 100**（每付给光伏场站 1 欧元多赚多少）：Summary table 最右一列，用橙色底色突出；月度行用当月合计相除，合计行和所选月份范围行是先合计再相除，不是各月百分比的平均；PV revenue ≤ 0 时显示 –。DA-only 的 profit 同理：(P·H − (H−AH)·Pimb)/1000 − AH·P/1000。
 - **Curtail if DA price ≤ X**：某 15 分钟日前价 P ≤ X（价格缺失不触发）则场站不发电：DA / IDC / Imbalance cost / Payment 全部为 0；状态栏写出被停发的时段数和电量。DA-only 参照线不受该策略影响。
+
+*云量策略*
+- Strategy 里两个框：**Cloud cover > (%)**（留空 = 关闭）和 **Bid % when cloudy**（默认 50）。某个 15 分钟所在小时的云量**严格大于**阈值时，这个时段的 **DA 报量和 IDC 最终仓位都乘以** Bid % when cloudy：D = DA bid % × H × k，最终仓位 = F × k（Rest 选 “Leave in imbalance” 或没有 UST 时 = D）。其余时段和以前完全一样。
+- PV revenue 不变（场站仍按实际发电量 × 日前价结算），Curtail 优先于云量策略（被停发的时段不算云量时段）。DA-only 参照线（已不显示）不受影响。
+- 云量数据：Open-Meteo 的小时总云量（`cloud_cover`，%，Tokaj 一个点，五个站共用），Budapest 本地时间的小时值，每个 15 分钟用它所在小时的值。文件 `data/weather/tokaj_cloud_cover.csv`（`time,cloud_cover`），由 `py/build/convert_open_meteo_cloud.py <Open-Meteo 导出的 CSV>` 转换（UTC → Budapest 本地时间；夏令时重复的那个小时取平均；再次运行会把新数据合并进去，同一小时以新的为准）。目前只有 2026-01-01 ~ 2026-11-17，之后需要手动追加；某小时没有云量就按没有云处理。
+- Worker 的 `GET /ops/api/cloud` 把这个文件原样转发（不解析，不占 CPU），页面只在打开时读一次。
+- 网址参数：`cc`（阈值）、`ccbid`（Bid % when cloudy）。
 
 *数据与接口*
 - `GET /ops/api/imbalance?site=&start=&end=&lead=`（≤ 62 天）：返回该站点该时段逐 15 分钟的结算输入（列式 JSON：`t, H, AH, F, P, AA, PI`），结算本身在浏览器里算。H 和 AH 来自 vcom（`GITHUB_TOKEN`），UST 来自 R2（`ust/`、`ust-replay/`、`ust-hindcast/` 三个视图），价格见下。

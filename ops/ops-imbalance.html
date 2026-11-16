@@ -106,7 +106,7 @@ tr.out td { color: #aaa; }
           <div class="control-group"><label>Rest (not bid in DA)</label>
             <select id="mode"><option value="idc">Close out in IDC (rolling forecast)</option><option value="imb">Leave in imbalance</option></select></div>
           <div class="control-group"><label>IDC lead time</label><select id="lead"></select></div>
-          <div class="control-group"><label>No generation when DA price &lt; (EUR/MWh)</label><input type="number" id="thr" step="1" placeholder="off"></div>
+          <div class="control-group"><label>Curtail when DA price &lt; (EUR/MWh)</label><input type="number" id="thr" step="1" placeholder="off"></div>
         </div>
       </div>
     </div>
@@ -148,7 +148,7 @@ let freq = "15min";
 function settleSlot(H, AH, F, P, AA, PI, p, mode, out, thr) {
   const priceKnown = P != null;
   P = P == null ? 0 : P; AA = AA == null ? 0 : AA; PI = PI == null ? 0 : PI;
-  const ref = (P * H - (H - AH) * PI) / 1000;            // reference: 100% DA bid, nothing traded afterwards, no "no generation" strategy
+  const ref = (P * H - (H - AH) * PI) / 1000;            // reference: 100% DA bid, nothing traded afterwards, no curtailment strategy
   out[7] = ref; out[9] = ref - AH * P / 1000;
   if (thr != null && priceKnown && P < thr) { out[0] = out[1] = out[2] = out[3] = out[4] = out[5] = out[6] = out[8] = 0; out[10] = 1; return out; }
   const D = p * H;
@@ -319,7 +319,7 @@ function paint() {
   const rows = aggregate(sites, freq, p, mode);
   const lo = $("start").value, hi = $("end").value;
   const skipped = sites.reduce((n, s) => n + (store[s] ? [...store[s].skipDays].filter(d => d >= lo && d <= hi).length : 0), 0);
-  const thr = thrVal(), thrTxt = thr == null ? "" : `, no generation when DA price < ${thr}`;
+  const thr = thrVal(), thrTxt = thr == null ? "" : `, curtailed when DA price < ${thr}`;
   const curt = rows.reduce((n, [, g]) => n + g.curt, 0), curtMWh = rows.reduce((n, [, g]) => n + g.curtAH, 0) / 1000;
   const modeTxt = (mode === "idc" ? `rest closed out in IDC (lead ${lead} min)` : "rest left in imbalance") + thrTxt;
   setStatus(rows.length ? `${name} · ${nf(Math.round(p * 100))}% DA bid, ${modeTxt}` + (thr != null ? ` · ${nf(curt)} intervals (${nf(curtMWh, 0)} MWh) not generated` : "") + (skipped ? ` · ${skipped} site-days left out (no DA / imbalance price yet)` : "") + (loading ? ` · ${loading} (the rest of the year is still loading)` : "")
@@ -363,7 +363,7 @@ function summary(sites, p, mode) {
   if (!full) rows.push(row("Total 1–12", anyWhole ? whole : null, "total"));
   $("sumTitle").textContent = `${name} · summary table`;
   const thr = thrVal();
-  $("sumSub").textContent = `EUR per month, ${year} · ${nf(Math.round(p * 100))}% DA bid, ${mode === "idc" ? `rest closed out in IDC (lead ${$("lead").value} min)` : "rest left in imbalance"}${thr == null ? "" : `, no generation when DA price < ${thr}`}`
+  $("sumSub").textContent = `EUR per month, ${year} · ${nf(Math.round(p * 100))}% DA bid, ${mode === "idc" ? `rest closed out in IDC (lead ${$("lead").value} min)` : "rest left in imbalance"}${thr == null ? "" : `, curtailed when DA price < ${thr}`}`
     + (loading ? " · the rest of the year is still loading" : "");
   $("sumTable").innerHTML = `<tr><th>Month</th><th>DA revenue €</th><th>IDC revenue €</th><th>Revenue (prior to imbalance cost) €</th><th>Imbalance cost €</th>
       <th>Total revenue (post imbalance cost) €</th><th>Imbalance %</th><th>Payment to PV plants €</th><th>Profit (total revenue − payment) €</th></tr>` + rows.join("");

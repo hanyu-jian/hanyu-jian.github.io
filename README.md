@@ -342,8 +342,8 @@ token 只在服务端，不会发给浏览器；数据不会进入本仓库，�
 - 顶部：起止日期（默认前三天，不含今天，因为今天的价格和理论发电量还不完整）、Frequency 点击按钮（15 min / Hourly / Daily / Weekly / Monthly / Quarterly / Yearly，样式同 Price Overview；只影响图表的聚合，不重新请求）。
 - Site 按钮（All sites = 五站相加，其余是单站）；它同时驱动图和 Summary table。
 - Strategy（图表正上方）：**DA bid %**（DA 预测量按多少百分比报进日前市场，默认 100%，0–150%）、**Rest**（没报进 DA 的部分：在 IDC 里平仓 / 全部留在不平衡里）、**IDC lead time**（15–240 分钟，默认 60）、**Curtail if DA price <**（€/MWh，留空 = 关闭；日前价低于该值的 15 分钟不发电，见下）。
-- 图：按所选频率画 DA revenue / IDC revenue / Imbalance cost 的堆叠柱，再叠 **Payment to PV plants**（向下的堆叠柱）、Total revenue 线、**Profit** 线，以及 “DA-only (100%)” revenue（默认隐藏，点图例打开）和 profit 虚线（100% 报量、之后不交易）。
-- Summary table：所选站点 1–12 月（页面载入那一年；Month 列只标 1–12）逐月的 DA revenue、IDC revenue、Revenue (prior to imbalance cost)、Imbalance cost、Total revenue (post imbalance cost)、Imbalance %、**Payment to PV plants**、**Profit**，最后是合计行；没有数据的月份显示 –。右上角的 **From month / To month**（1–12）选一段月份，合计行就变成这一段的合计（如 “Total 3–6”，选中的月份高亮、其余变灰），同时多出一行 “Total 1–12” 保留全年合计；选择只在浏览器里重算，不重新请求。表里的数字随 Strategy 变化，**不受图表日期范围影响**。
+- 图：按所选频率画 DA revenue / IDC revenue / Imbalance cost 的堆叠柱，再叠 **PV revenue**（向下的堆叠柱，默认隐藏）、Total revenue 线、**Profit** 线，以及 “DA-only (100%)” revenue 和 profit 虚线（默认隐藏，点图例打开）（100% 报量、之后不交易）。
+- Summary table：所选站点 1–12 月（页面载入那一年；Month 列只标 1–12）逐月的 DA revenue、IDC revenue、Revenue (prior to imbalance cost)、Imbalance cost、Total revenue (post imbalance cost)、Imbalance %、**PV revenue**、**Profit**，最后是合计行；没有数据的月份显示 –。右上角的 **From month / To month**（1–12）选一段月份，合计行就变成这一段的合计（如 “Total 3–6”，选中的月份高亮、其余变灰），同时多出一行 “Total 1–12” 保留全年合计；选择只在浏览器里重算，不重新请求。表里的数字随 Strategy 变化，**不受图表日期范围影响**。
 
 *加载方式*：页面一次加载一个日历年（结束日期所在的年份）的 15 分钟结算输入，每个站点按 62 天一块并发请求（和所选日期重叠的块先到，图先画出来，其余在后台继续）；年内改日期、频率、DA bid %、Rest 都在浏览器里算，不再请求；只有换年份或 IDC lead time 才重新加载（约 30 个请求）。把一个日期改到另一个年份时，另一个日期会跟着挪到同一年。
 
@@ -357,8 +357,8 @@ token 只在服务端，不会发给浏览器；数据不会进入本仓库，�
 - 注意：2026-10-29 之前的 UST 是乙方的回测（hindcast，2026-01-01 ~ 10-25）和回放（replay，10-25 起），假设每个发布时刻都有最新实测，所以这些时段 IDC 的结果是**理想条件下的上限**，不是实际运行能拿到的；live 目前实测输入有延迟，精度更差。
 
 *售电公司利润与不发电策略*
-- 站点结算款（Payment to PV plants）= AH·P/1000，即当天实测 POA 算出的理论发电量 × 对应日前价，付给光伏场站。
-- **Profit = Total revenue (post imbalance cost) − Payment to PV plants**（售电公司最终到手）。DA-only 的 profit 同理：(P·H − (H−AH)·Pimb)/1000 − AH·P/1000。
+- 站点结算款（PV revenue）= AH·P/1000，即当天实测 POA 算出的理论发电量 × 对应日前价，付给光伏场站。
+- **Profit = Total revenue (post imbalance cost) − PV revenue**（售电公司最终到手）。DA-only 的 profit 同理：(P·H − (H−AH)·Pimb)/1000 − AH·P/1000。
 - **Curtail if DA price < X**：某 15 分钟日前价 P < X（严格小于，价格缺失不触发）则场站不发电：DA / IDC / Imbalance cost / Payment 全部为 0；状态栏写出被停发的时段数和电量。DA-only 参照线不受该策略影响。
 
 *数据与接口*

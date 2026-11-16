@@ -330,13 +330,13 @@ function paint() {
 
   const x = rows.map(([k]) => k), many = x.length > 60;
   const bar = (nm, f, color) => ({ name: nm, type: "bar", stack: "rev", data: rows.map(([, g]) => Math.round(g[f] * 100) / 100), itemStyle: { color }, barMaxWidth: 28 });
-  chRev.setOption({ animation: false, tooltip: { trigger: "axis", valueFormatter: v => v == null ? "–" : nf(v, 2) + " EUR" }, legend: { top: 4, selected: { "DA-only (100%) revenue": false } },
+  chRev.setOption({ animation: false, tooltip: { trigger: "axis", valueFormatter: v => v == null ? "–" : nf(v, 2) + " EUR" }, legend: { top: 4, selected: { "PV revenue": false, "DA-only (100%) revenue": false, "DA-only (100%) profit": false } },
     grid: { left: 80, right: 24, top: 44, bottom: many ? 64 : 34 }, dataZoom: many ? [{ type: "inside" }, { type: "slider", height: 18, bottom: 6 }] : [{ type: "inside" }],
     xAxis: { type: "category", data: x, axisLabel: { formatter: v => freq === "15min" || freq === "hour" ? v.slice(5) : v } }, yAxis: { type: "value", name: "EUR", nameLocation: "end" },
     series: [ bar("DA revenue", "q", "#2c7fb8"), bar("IDC revenue", "ae", "#e67e22"), bar("Imbalance cost", "imb", "#d98b84"),
-      { name: "Payment to PV plants", type: "bar", stack: "rev", data: rows.map(([, g]) => -Math.round(g.pay * 100) / 100), itemStyle: { color: "#b9a37e" }, barMaxWidth: 28 },
+      { name: "PV revenue", type: "bar", stack: "rev", data: rows.map(([, g]) => -Math.round(g.pay * 100) / 100), itemStyle: { color: "#b9a37e" }, barMaxWidth: 28 },
       { name: "Total revenue", type: "line", data: rows.map(([, g]) => Math.round(g.res * 100) / 100), lineStyle: { width: 2.2, color: "#2c3e50" }, itemStyle: { color: "#2c3e50" }, showSymbol: x.length < 120, symbolSize: 5 },
-      { name: "Profit (after payment to PV plants)", type: "line", data: rows.map(([, g]) => Math.round((g.res - g.pay) * 100) / 100), lineStyle: { width: 2.8, color: "#27ae60" }, itemStyle: { color: "#27ae60" }, showSymbol: x.length < 120, symbolSize: 5 },
+      { name: "Profit", type: "line", data: rows.map(([, g]) => Math.round((g.res - g.pay) * 100) / 100), lineStyle: { width: 2.8, color: "#27ae60" }, itemStyle: { color: "#27ae60" }, showSymbol: x.length < 120, symbolSize: 5 },
       { name: "DA-only (100%) revenue", type: "line", data: rows.map(([, g]) => Math.round(g.ref * 100) / 100), lineStyle: { width: 1.6, color: "#95a5a6", type: "dashed" }, itemStyle: { color: "#95a5a6" }, showSymbol: false },
       { name: "DA-only (100%) profit", type: "line", data: rows.map(([, g]) => Math.round(g.refProfit * 100) / 100), lineStyle: { width: 1.6, color: "#7fb99a", type: "dashed" }, itemStyle: { color: "#7fb99a" }, showSymbol: false } ] }, true);
   summary(sites, p, mode);
@@ -366,7 +366,7 @@ function summary(sites, p, mode) {
   $("sumSub").textContent = `EUR per month, ${year} · ${nf(Math.round(p * 100))}% DA bid, ${mode === "idc" ? `rest closed out in IDC (lead ${$("lead").value} min)` : "rest left in imbalance"}${thr == null ? "" : `, curtailed when DA price < ${thr}`}`
     + (loading ? " · the rest of the year is still loading" : "");
   $("sumTable").innerHTML = `<tr><th>Month</th><th>DA revenue €</th><th>IDC revenue €</th><th>Revenue (prior to imbalance cost) €</th><th>Imbalance cost €</th>
-      <th>Total revenue (post imbalance cost) €</th><th>Imbalance %</th><th>Payment to PV plants €</th><th>Profit (total revenue − payment) €</th></tr>` + rows.join("");
+      <th>Total revenue (post imbalance cost) €</th><th>Imbalance %</th><th>PV revenue €</th><th>Profit (total revenue − PV revenue) €</th></tr>` + rows.join("");
 }
 init();
 </script>

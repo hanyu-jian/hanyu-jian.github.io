@@ -18,7 +18,7 @@ const R2 = {
   "ust-hindcast/view/2026-01/Putnok.csv": view([["2026-01-15 12:00:00", 555]]),
 };
 const reads = [];
-const env = { UST: { get: async (k) => { reads.push(k); return R2[k] ? { text: async () => R2[k] } : null; } }, GITHUB_TOKEN: "x" };
+const env = { UST: { get: async (k) => { reads.push(k); return R2[k] ? { text: async () => R2[k] } : null; } }, GITHUB_TOKEN: "x", MEMO_TTL_MS: 0 };
 globalThis.fetch = async () => ({ ok: false, status: 404, text: async () => "" });
 
 async function run(start, end, source = "") {

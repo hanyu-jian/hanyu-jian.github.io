@@ -28,7 +28,7 @@ const GH = {
   "data/production forecast/2026/hourly/Putnok.csv": "Date,I,J,K,L,M,N\n2026-11-07 10:00:00,450,,,,,\n",
 };
 const reads = [];
-const env = { UST: { get: async (k) => { reads.push(k); return R2[k] ? { text: async () => R2[k] } : null; } }, GITHUB_TOKEN: "x" };
+const env = { UST: { get: async (k) => { reads.push(k); return R2[k] ? { text: async () => R2[k] } : null; } }, GITHUB_TOKEN: "x", MEMO_TTL_MS: 0 };
 globalThis.fetch = async (u) => {
   const p = decodeURIComponent(String(u).split("/contents/")[1]);
   return GH[p] ? { ok: true, status: 200, text: async () => GH[p] } : { ok: false, status: 404, text: async () => "" };

@@ -346,6 +346,8 @@ token 只在服务端，不会发给浏览器；数据不会进入本仓库，�
 - Summary table：所选站点 1–12 月（页面载入那一年）逐月的 DA revenue、IDC revenue、Revenue (prior to imbalance cost)、Imbalance cost、Total revenue (post imbalance cost)、Imbalance %，最后一行是全年合计；没有数据的月份显示 –。表里的数字随 Strategy 变化，**不受图表日期范围影响**。
 
 *加载方式*：页面一次加载一个日历年（结束日期所在的年份）的 15 分钟结算输入，每个站点按 62 天一块并发请求（和所选日期重叠的块先到，图先画出来，其余在后台继续）；年内改日期、频率、DA bid %、Rest 都在浏览器里算，不再请求；只有换年份或 IDC lead time 才重新加载（约 30 个请求）。把一个日期改到另一个年份时，另一个日期会跟着挪到同一年。
+  - 稳健性：每个请求有 40 秒超时，网络错误 / 超时 / HTTP 5xx / 429 最多重试 3 次（4xx 不重试）；和所选日期重叠的 5 个请求（每站一个）先并发发出，其余的整年请求并发 3 个；超过 15 秒没回来的请求会在状态栏写出是哪个站点哪段日期；换年份 / 换 IDC 提前量会取消还在进行的旧请求。图表需要的请求失败时直接报错并给出 Retry；整年里个别后台请求失败时页面照常显示，但状态栏会写 “N requests failed, the summary table may be incomplete” 并给出 Retry。
+  - Worker 侧：同一个 isolate 里缓存读过的文件 5 分钟（整年的理论发电量 / DA 预测、R2 的价格表和 UST 视图；不存在的对象只缓存 1 分钟，失败不缓存，`MEMO_TTL_MS=0` 可关闭），各来源并发读取；响应带 `Cache-Control: private, max-age=300`（同一范围 5 分钟内刷新直接用浏览器缓存）和 `Server-Timing: files;dur=…, ust;dur=…, price;dur=…, total;dur=…`（浏览器开发者工具 Network → Timing 里能看到各段耗时，慢的时候先看这个）。
 
 *结算口径*（每 15 分钟，单一不平衡价，所以系统方向不影响总额；和 `py/analysis/tokaj_da_idc_settlement.py`、工作簿核对过的那一版一致）
 - H = DA 预测（vcom `production forecast` 的 I 列，用 POA + 我们的公式算出）；AH = 理论发电量（实测 POA 算出，含 AC 限值）；D = DA bid % × H（DA 报量）。

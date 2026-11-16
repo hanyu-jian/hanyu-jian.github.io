@@ -67,6 +67,8 @@ tr.total td { font-weight: 700; background: #fafbfc; }
 td.dim { color: #aaa; }
 
 .control-group input[type=number] { font-family: inherit; height: 36px; width: 110px; padding: 0 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 14px; color: #2c3e50; }
+#retry { margin-left: 8px; height: 24px; padding: 0 12px; border: 1px solid #ccc; border-radius: 6px; background: #fff; color: #2c3e50; font-size: 12px; cursor: pointer; }
+#retry:hover { background: #f0f2f5; }
 .strategy { display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-end; }
 </style>
 </head>
@@ -87,7 +89,7 @@ td.dim { color: #aaa; }
         <button data-f="15min" class="active">15 min</button><button data-f="hour">Hourly</button><button data-f="day">Daily</button><button data-f="week">Weekly</button><button data-f="month">Monthly</button><button data-f="quarter">Quarterly</button><button data-f="year">Yearly</button>
       </div></div>
   </div>
-  <div class="status" id="status"></div>
+  <div class="status" id="status"><span id="statusText"></span> <button id="retry" type="button" hidden>Retry</button></div>
   <div class="chart-grid">
     <div class="chart-card">
       <div class="chart-card-header" style="margin-bottom:0;align-items:center;">
@@ -127,7 +129,7 @@ td.dim { color: #aaa; }
 <script>
 const SITES = ["Putnok", "Serenyfalva", "Sajokaza", "Szuhakálló 1", "Szuhakálló 2"];
 const LEADS = [15, 30, 45, 60, 75, 90, 105, 120, 135, 150, 165, 180, 195, 210, 225, 240];
-const DEFAULT_LEAD = 60, MIN_TRADABLE = 45, CHUNK_DAYS = 62, CONCURRENCY = 6;
+const DEFAULT_LEAD = 60, MIN_TRADABLE = 45, CHUNK_DAYS = 62, NEAR_CONCURRENCY = 5, REST_CONCURRENCY = 3, FETCH_TIMEOUT_MS = 40000, MAX_TRIES = 3, SLOW_AFTER_MS = 15000;
 const $ = id => document.getElementById(id);
 let freq = "15min";
 
@@ -162,7 +164,8 @@ function budapestToday() {
 const nf = (v, d = 0) => v == null || !isFinite(v) ? "–" : v.toLocaleString("en-US", { maximumFractionDigits: d, minimumFractionDigits: d });
 const eur = v => v == null || !isFinite(v) ? "–" : (v < 0 ? "−" : "") + Math.abs(Math.round(v)).toLocaleString("en-US");
 const sgn = (v, d = 0) => v == null || !isFinite(v) ? "–" : (v >= 0 ? "+" : "−") + Math.abs(v).toLocaleString("en-US", { maximumFractionDigits: d, minimumFractionDigits: d });
-function setStatus(t, err = false) { $("status").className = err ? "status err" : "status"; $("status").textContent = t; }
+let lastStatus = "";
+function setStatus(t, err = false, retry = false) { lastStatus = t; $("status").className = err ? "status err" : "status"; $("statusText").textContent = t; $("retry").hidden = !retry; }
 const pctVal = () => { const v = parseFloat($("pct").value); return isFinite(v) ? Math.min(Math.max(v, 0), 150) / 100 : 1; };
 
 function defaultRange() {                                    // the three days before today (prices and theoretical production are complete)
@@ -203,6 +206,7 @@ function init() {
     scheduleRefresh();
   };
   $("mode").onchange = paint;
+  $("retry").onclick = () => load();
   $("pct").oninput = paint;
   chRev = echarts.init($("chartRev"));
   window.addEventListener("resize", () => chRev.resize());
@@ -210,27 +214,53 @@ function init() {
 }
 
 // ───────────── loading: 62-day chunks per site, at most CONCURRENCY requests at a time ─────────────
-async function fetchChunk(site, a, b, lead) {
-  const r = await fetch(`/ops/api/imbalance?site=${encodeURIComponent(site)}&start=${a}&end=${b}&lead=${lead}`, { credentials: "same-origin" });
-  if (r.status === 401) { location.href = "/ops/login?next=" + encodeURIComponent(location.pathname); throw new Error("Session expired"); }
-  const j = await r.json().catch(() => ({}));
-  if (!r.ok) throw new Error(`${site}: ${j.error || r.status}`);
-  return j;
+// One chunk: a timeout and up to MAX_TRIES attempts for network errors, timeouts, HTTP 5xx and 429 (4xx answers are final); `signal` aborts it when a newer load starts.
+const inflight = new Map();
+const sleep = (ms, signal) => new Promise((res, rej) => { const t = setTimeout(res, ms); signal.addEventListener("abort", () => { clearTimeout(t); rej(new DOMException("superseded", "AbortError")); }, { once: true }); });
+async function fetchChunk(site, a, b, lead, signal) {
+  const label = `${site} ${a} … ${b}`, key = {}; let lastErr;
+  for (let k = 1; k <= MAX_TRIES; k++) {
+    if (signal.aborted) throw new DOMException("superseded", "AbortError");
+    const c = new AbortController(), onAbort = () => c.abort("superseded"), timer = setTimeout(() => c.abort("timeout"), FETCH_TIMEOUT_MS);
+    signal.addEventListener("abort", onAbort); inflight.set(key, { label, t0: Date.now() });
+    try {
+      const r = await fetch(`/ops/api/imbalance?site=${encodeURIComponent(site)}&start=${a}&end=${b}&lead=${lead}`, { credentials: "same-origin", signal: c.signal });
+      if (r.status === 401) { location.href = "/ops/login?next=" + encodeURIComponent(location.pathname); throw Object.assign(new Error("Session expired"), { fatal: true }); }
+      const j = await r.json().catch(() => ({}));
+      if (r.ok) return j;
+      lastErr = new Error(`${site}: ${j.error || "HTTP " + r.status}`);
+      if (r.status < 500 && r.status !== 429) throw Object.assign(lastErr, { fatal: true });
+    } catch (e) {
+      if (signal.aborted || e.fatal) throw e;
+      if (e !== lastErr) lastErr = new Error(c.signal.reason === "timeout" ? `${label}: no answer within ${FETCH_TIMEOUT_MS / 1000} s` : `${label}: ${e.message || "network error"}`);
+    } finally { clearTimeout(timer); signal.removeEventListener("abort", onAbort); inflight.delete(key); }
+    if (k < MAX_TRIES) await sleep(800 * k, signal);
+  }
+  throw lastErr;
 }
-let dataYear = null, loading = "";
+let dataYear = null, loading = "", incomplete = 0, loadCtrl = null, ticker = null;
+// While loading, say which request has been waiting for a long time (otherwise a stuck request looks like an endless "Loading…").
+function startTicker() {
+  clearInterval(ticker);
+  ticker = setInterval(() => {
+    const slow = [...inflight.values()].filter(v => Date.now() - v.t0 > SLOW_AFTER_MS).sort((x, y) => x.t0 - y.t0)[0];
+    if (loading && slow) $("statusText").textContent = lastStatus.replace(/ · still waiting.*$/, "") + ` · still waiting for ${slow.label} (${Math.round((Date.now() - slow.t0) / 1000)} s)`;
+  }, 2000);
+}
 async function load() {
-  const seq = ++loadSeq, lead = $("lead").value;
   if (!checkRange()) return;
+  if (loadCtrl) loadCtrl.abort();                          // requests of an older load must not keep the connections busy
+  loadCtrl = new AbortController(); const signal = loadCtrl.signal;
+  const seq = ++loadSeq, lead = $("lead").value;
   const s = $("start").value, e = $("end").value, year = e.slice(0, 4);
   const from = year + "-01-01", to = [year + "-12-31", budapestToday()].sort()[0];
   const jobs = [];
   for (const site of SITES) for (let a = from; a <= to; a = addDays(a, CHUNK_DAYS)) { const b = addDays(a, CHUNK_DAYS - 1); jobs.push({ site, a, b: b > to ? to : b }); }
-  // the chunks that overlap the selected dates come first, so the chart can be drawn before the rest of the year has arrived
-  const near = j => j.a <= e && j.b >= s;
-  jobs.sort((x, y) => (near(y) - near(x)) || (x.a < y.a ? -1 : x.a > y.a ? 1 : 0));
-  const firstBatch = jobs.filter(near).length;
-  dataYear = null; loading = `Loading ${year}: 0 / ${jobs.length}…`; setStatus(loading);
-  let next = 0, done = 0; const results = [];
+  // the chunks that overlap the selected dates go first (one per site, so every site reads its files once), the rest of the year follows with fewer parallel requests
+  jobs.forEach(j => { j.near = j.a <= e && j.b >= s; });
+  const nearJobs = jobs.filter(j => j.near), restJobs = jobs.filter(j => !j.near).sort((x, y) => x.a < y.a ? -1 : x.a > y.a ? 1 : 0);
+  dataYear = null; incomplete = 0; loading = `Loading ${year}: 0 / ${jobs.length}…`; setStatus(loading); startTicker();
+  let done = 0; const results = [], failed = [];
   const build = () => {
     store = {};
     results.slice().sort((x, y) => x.job.site === y.job.site ? (x.job.a < y.job.a ? -1 : 1) : 0).forEach(({ job, j }) => {
@@ -239,21 +269,29 @@ async function load() {
     });
     Object.values(store).forEach(markSkipped);
   };
-  try {
-    await Promise.all(Array.from({ length: Math.min(CONCURRENCY, jobs.length) }, async () => {
-      while (next < jobs.length) {
-        const job = jobs[next++]; const j = await fetchChunk(job.site, job.a, job.b, lead);
-        if (seq !== loadSeq) return;
-        results.push({ job, j }); done++;
-        loading = `Loading ${year}: ${done} / ${jobs.length}…`;
-        if (done === firstBatch && done < jobs.length) { build(); paint(); }       // the selected period is complete: draw it now
-        else if (done < jobs.length) setStatus(loading + " (the rest of the year is still loading)");
+  const pool = async (list, concurrency) => {
+    let i = 0;
+    await Promise.all(Array.from({ length: Math.min(concurrency, list.length) }, async () => {
+      while (i < list.length && !signal.aborted) {
+        const job = list[i++];
+        try { results.push({ job, j: await fetchChunk(job.site, job.a, job.b, lead, signal) }); }
+        catch (err) { if (signal.aborted) return; if (job.near) throw err; failed.push({ job, err }); }
+        done++; loading = `Loading ${year}: ${done} / ${jobs.length}…`;
+        if (seq === loadSeq) setStatus(loading + (restJobs.length && done >= nearJobs.length ? " (the rest of the year is still loading)" : ""));
       }
     }));
+  };
+  try {
+    await pool(nearJobs, NEAR_CONCURRENCY);
     if (seq !== loadSeq) return;
-    build(); dataYear = year; loading = ""; paint();
+    if (restJobs.length) { build(); paint(); }              // the selected period is complete: draw it now
+    await pool(restJobs, REST_CONCURRENCY);
+    if (seq !== loadSeq) return;
+    build(); dataYear = year; loading = ""; incomplete = failed.length; paint();
   } catch (err) {
-    if (seq === loadSeq) { loading = ""; setStatus("Failed to load: " + err.message, true); }
+    if (seq === loadSeq) { loadCtrl.abort(); loading = ""; setStatus("Failed to load: " + err.message, true, true); }
+  } finally {
+    if (seq === loadSeq) clearInterval(ticker);
   }
 }
 // Days without any DA price or without any imbalance price (usually the newest days) are left out of every figure.
@@ -299,9 +337,9 @@ function paint() {
   const lo = $("start").value, hi = $("end").value;
   const skipped = sites.reduce((n, s) => n + (store[s] ? [...store[s].skipDays].filter(d => d >= lo && d <= hi).length : 0), 0);
   const modeTxt = mode === "idc" ? `rest closed out in IDC (lead ${lead} min)` : "rest left in imbalance";
-  setStatus(rows.length ? `${name} · ${nf(Math.round(p * 100))}% DA bid, ${modeTxt}` + (skipped ? ` · ${skipped} site-days left out (no DA / imbalance price yet)` : "") + (loading ? ` · ${loading} (the rest of the year is still loading)` : "")
+  setStatus(rows.length ? `${name} · ${nf(Math.round(p * 100))}% DA bid, ${modeTxt}` + (skipped ? ` · ${skipped} site-days left out (no DA / imbalance price yet)` : "") + (loading ? ` · ${loading} (the rest of the year is still loading)` : "") + (incomplete ? ` · ${incomplete} requests failed, the summary table may be incomplete` : "")
     : skipped ? `No data to show: all ${skipped} site-days in this period have no DA / imbalance price yet. Pick an earlier period, or check that the price table is up to date (the &ldquo;Build HU Combined Data&rdquo; workflow runs daily at 10:30 UTC).`
-    : "No data for this selection.", !rows.length);
+    : "No data for this selection.", !rows.length || incomplete > 0, incomplete > 0);
   $("revTitle").textContent = `${name} · revenue and total revenue`;
   $("revSub").textContent = `EUR per ${({ "15min": "15 minutes", hour: "hour", day: "day", week: "week", month: "month", quarter: "quarter", year: "year" })[freq]} · ${nf(Math.round(p * 100))}% DA bid, ${modeTxt}`;
 

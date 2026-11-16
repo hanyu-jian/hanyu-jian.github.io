@@ -32,7 +32,7 @@ const GH = {
   "hanyu-jian/vcom/data/production forecast/2026/15min/Putnok.csv": da,
   "hanyu-jian/hu-market-data/HU_2026.csv": price,
 };
-const env = { UST: { get: async (k) => (k === "ust/view/2026-11/Putnok.csv" ? { text: async () => view } : k === "market/prices_HU_2026.csv" && r2Prices ? { text: async () => slimPrice } : null) }, GITHUB_TOKEN: "x" };
+const env = { UST: { get: async (k) => (k === "ust/view/2026-11/Putnok.csv" ? { text: async () => view } : k === "market/prices_HU_2026.csv" && r2Prices ? { text: async () => slimPrice } : null) }, GITHUB_TOKEN: "x", MEMO_TTL_MS: 0 };
 const okFetch = async (u) => {
   const m = String(u).match(/repos\/(.+?)\/contents\/(.+)$/);
   const p = decodeURIComponent(m[1] + "/" + m[2]);
@@ -105,6 +105,27 @@ assert.ok(auth.filter(([isPrice]) => isPrice).every(([, h]) => h === "Bearer pri
 assert.ok(auth.filter(([isPrice]) => !isPrice).every(([, h]) => h === "Bearer x"), "other repos keep GITHUB_TOKEN");
 delete env.PRICE_TOKEN;
 globalThis.fetch = okFetch2; r2Prices = true;
+// 同一个 isolate 里的缓存：一个页面会连发约 30 个请求，读的是同样的文件，缓存打开时只读一次；关掉（0）每次都读
+{
+  const countCalls = async (memoTtl, times) => {
+    let gh = 0, r2 = 0;
+    const e = { ...env, MEMO_TTL_MS: memoTtl, UST: { get: async (k) => { r2++; return env.UST.get(k); } } };
+    globalThis.fetch = async (u, init) => { gh++; return okFetch2(u, init); };
+    for (let i = 0; i < times; i++) assert.equal((await handleImbalance(new URL(`https://x/ops/api/imbalance?site=Putnok&start=2026-11-02&end=2026-11-04&lead=${i ? 120 : 60}`), e)).status, 200);
+    globalThis.fetch = okFetch2;
+    return { gh, r2 };
+  };
+  r2Prices = true;
+  const once = await countCalls(0, 1), twiceOff = await countCalls(0, 2), twiceOn = await countCalls(60000, 2);
+  assert.deepEqual(twiceOff, { gh: once.gh * 2, r2: once.r2 * 2 }, "no memo: every request reads everything again");
+  assert.deepEqual(twiceOn, once, "memo: the second request (even with another lead) reuses the files already read");
+}
+// 响应头：浏览器缓存 5 分钟，Server-Timing 给出各段耗时
+{
+  const r = await call("site=Putnok&start=2026-11-02&end=2026-11-04&lead=60");
+  assert.equal(r.headers.get("Cache-Control"), "private, max-age=300");
+  assert.match(r.headers.get("Server-Timing"), /^files;dur=\d+, ust;dur=\d+, price;dur=\d+, total;dur=\d+$/);
+}
 // 校验
 for (const [qs, st] of [["site=Nope&start=2026-11-02", 400], ["site=Putnok&start=2026-01-01&end=2026-12-31", 400], ["site=Putnok&start=2026-11-05&end=2026-11-01", 400], ["site=Putnok&start=2026-11-02&lead=50", 400]])
   assert.equal((await call(qs)).status, st, qs);

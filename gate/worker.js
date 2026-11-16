@@ -128,7 +128,32 @@ function lowerBound(text, key, lo) {
   return lo;
 }
 
+// 同一个 isolate 里缓存读过的文本 5 分钟（env.MEMO_TTL_MS 可改，0 = 不缓存）：页面一次会发约 30 个 /imbalance 请求，
+// 它们读的是同样的几个文件（整年的理论发电量 / DA 预测、R2 的价格表和 UST 视图），不缓存的话每个请求都重新取、重新解码。
+// 缓存的是 Promise（同时到达的相同请求只取一次）；失败不缓存；「没有这个文件」（null）只缓存 1 分钟（新文件很快会出现）；总量超过 40M 个字符就丢最旧的。
+const MEMO = new Map();
+let memoChars = 0;
+function memo(env, key, loader) {
+  const ttl = env.MEMO_TTL_MS === undefined ? 300000 : Number(env.MEMO_TTL_MS);
+  if (!ttl) return loader();
+  const hit = MEMO.get(key);
+  if (hit && Date.now() - hit.at < hit.ttl) return hit.promise;
+  const entry = { at: Date.now(), ttl, promise: null, size: 0 };
+  entry.promise = loader().then((v) => {
+    if (v === null || v === undefined) { entry.ttl = Math.min(ttl, 60000); return v; }
+    entry.size = typeof v === "string" ? v.length : 0;
+    memoChars += entry.size;
+    for (const [k, e] of MEMO) { if (memoChars <= 40000000) break; if (e !== entry) { MEMO.delete(k); memoChars -= e.size; } }
+    return v;
+  }, (e) => { MEMO.delete(key); throw e; });
+  MEMO.set(key, entry);
+  return entry.promise;
+}
+
 async function loadFile(env, path, repo = env.GITHUB_REPO || "hanyu-jian/vcom", token = env.GITHUB_TOKEN) {
+  return memo(env, `gh:${repo}:${path}`, () => loadFileRaw(path, repo, token));
+}
+async function loadFileRaw(path, repo, token) {
   const res = await fetch(`https://api.github.com/repos/${repo}/contents/${path}`, {
     headers: {
       Authorization: `Bearer ${token}`,
@@ -244,11 +269,13 @@ const UST_SOURCES = {
 const UST_SOURCE_ORDER = ["live", "replay", "hindcast"];
 
 async function loadUstView(env, month, site, prefix = "ust") {
-  const obj = await env.UST.get(`${prefix}/view/${month}/${site}.csv`);
-  if (!obj) return null;
-  let text = await obj.text();
-  if (text.charCodeAt(0) === 0xfeff) text = text.slice(1);
-  return text;
+  return memo(env, `r2:${prefix}/view/${month}/${site}.csv`, async () => {
+    const obj = await env.UST.get(`${prefix}/view/${month}/${site}.csv`);
+    if (!obj) return null;
+    let text = await obj.text();
+    if (text.charCodeAt(0) === 0xfeff) text = text.slice(1);
+    return text;
+  });
 }
 
 // 宽表 -> into: Map<时间戳, [theoretical, ust_kwh, 实际用到的提前量]>，只填 ust 两个槽
@@ -501,12 +528,14 @@ function sliceImbalancePrices(text, startKey, endKey, into) {
 // 注意：GitHub 对「token 没有权限的私有仓库」返回 404，所以 404 不能当成「没有数据」，否则整页会静默地没有价格。
 async function loadPriceTable(env, y) {
   if (env.UST) {
-    const obj = await env.UST.get(`market/prices_HU_${y}.csv`);
-    if (obj) {
-      let text = await obj.text();
-      if (text.charCodeAt(0) === 0xfeff) text = text.slice(1);
-      return { text };
-    }
+    const text = await memo(env, `r2:market/prices_HU_${y}.csv`, async () => {
+      const obj = await env.UST.get(`market/prices_HU_${y}.csv`);
+      if (!obj) return null;
+      let t = await obj.text();
+      if (t.charCodeAt(0) === 0xfeff) t = t.slice(1);
+      return t;
+    });
+    if (text !== null) return { text };
   }
   const repo = env.PRICE_REPO || "hanyu-jian/hu-market-data", token = env.PRICE_TOKEN || env.GITHUB_TOKEN;
   const hint = `Price table for ${y} is not in R2 (market/prices_HU_${y}.csv: run the "Build HU Combined Data" workflow once, it needs the R2 secrets in the website repository)`;
@@ -540,26 +569,26 @@ async function handleImbalance(url, env) {
   const name = encodeURIComponent(site);
   const nl = UST_HORIZONS.length, width = 2 + nl;
 
+  const t0 = Date.now(), tm = {};
   const merged = new Map();            // 时段 -> [理论, DA, h15..h240]
-  for (let y = y0; y <= y1; y++) {
-    const [theo, fc] = await Promise.all([
-      loadFile(env, `data/theoretical production/${y}/15min/${name}.csv`),
-      loadFile(env, `data/production forecast/${y}/15min/${name}.csv`),
-    ]);
+  // 要读的东西都是互相独立的：整年的 GitHub 文件、各月各来源的 UST 视图、价格表，一起并发读，再按固定顺序合并
+  const years = []; for (let y = y0; y <= y1; y++) years.push(y);
+  const ustJobs = []; for (const month of monthsBetween(start, end)) for (const src of UST_SOURCE_ORDER) {
+    const cfg = UST_SOURCES[src];
+    if (month >= cfg.from && month <= cfg.to) ustJobs.push([month, cfg.prefix]);
+  }
+  const [files, views, priceTables] = await Promise.all([
+    Promise.all(years.map(async (y) => [await loadFile(env, `data/theoretical production/${y}/15min/${name}.csv`), await loadFile(env, `data/production forecast/${y}/15min/${name}.csv`)])).then((r) => (tm.files = Date.now() - t0, r)),
+    Promise.all(ustJobs.map(([month, prefix]) => loadUstView(env, month, site, prefix))).then((r) => (tm.ust = Date.now() - t0, r)),
+    Promise.all(years.map((y) => loadPriceTable(env, y))).then((r) => (tm.price = Date.now() - t0, r)),
+  ]);
+  files.forEach(([theo, fc]) => {
     if (theo) sliceRows(theo, startKey, endKey, [3], merged, 0, width);
     if (fc) sliceRows(fc, startKey, endKey, [1], merged, 1, width);
-  }
-  for (const month of monthsBetween(start, end)) {
-    for (const src of UST_SOURCE_ORDER) {
-      const cfg = UST_SOURCES[src];
-      if (month < cfg.from || month > cfg.to) continue;
-      const text = await loadUstView(env, month, site, cfg.prefix);
-      if (text) ustRangeFill(text, startKey, endKey, merged);
-    }
-  }
+  });
+  views.forEach((text) => { if (text) ustRangeFill(text, startKey, endKey, merged); });
   const prices = new Map();            // 时段 -> [P, AA, PI]
-  for (let y = y0; y <= y1; y++) {
-    const got = await loadPriceTable(env, y);
+  for (const got of priceTables) {
     if (got.error) return json({ error: got.error }, 502);
     sliceImbalancePrices(got.text, startKey, endKey, prices);
   }
@@ -575,7 +604,10 @@ async function handleImbalance(url, env) {
     out.t.push(t.slice(0, 16)); out.AH.push(r3(v[0])); out.H.push(r3(v[1])); out.F.push(r3(F));
     out.P.push(pr[0]); out.AA.push(pr[1]); out.PI.push(pr[2] === null ? null : r3(pr[2]));
   }
-  return json({ site, start, end, lead, unit: "kWh per 15 min (H, AH, F); EUR/MWh (P, AA, PI); t = Budapest local time, interval start", ...out });
+  const res = json({ site, start, end, lead, unit: "kWh per 15 min (H, AH, F); EUR/MWh (P, AA, PI); t = Budapest local time, interval start", ...out });
+  res.headers.set("Cache-Control", "private, max-age=300");          // 同一个范围 5 分钟内刷新页面直接用浏览器缓存
+  res.headers.set("Server-Timing", `files;dur=${tm.files || 0}, ust;dur=${tm.ust || 0}, price;dur=${tm.price || 0}, total;dur=${Date.now() - t0}`);
+  return res;
 }
 
 // ── /theoretical：整年的 15 分钟理论发电量 CSV（原样转发，不解析，省 CPU）──────────────

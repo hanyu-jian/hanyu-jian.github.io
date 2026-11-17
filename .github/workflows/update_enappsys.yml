@@ -81,7 +81,8 @@ jobs:
           python py/fetch/enappsys/fetch_enappsys_id3.py "${args[@]}"
 
       - name: Fetch HU aFRR capacity (up/down)
-        if: ${{ inputs.afrr_capacity_only == true || !(inputs.ida_only == true || inputs.id3_only == true) }}
+        # 已改由 update_entsoe_afrr.yml 从 ENTSOE 抓（data/entsoe/afrr/HU）；这里只在手动勾选 afrr_capacity_only 时才跑，历史数据保留
+        if: ${{ inputs.afrr_capacity_only == true }}
         env:
           ENAPPSYS_USER: ${{ secrets.ENAPPSYS_USER }}
           ENAPPSYS_PASS: ${{ secrets.ENAPPSYS_PASS }}

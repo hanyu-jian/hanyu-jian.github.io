@@ -370,10 +370,12 @@ token 只在服务端，不会发给浏览器；数据不会进入本仓库，�
 - **Curtail if DA price ≤ X**：某 15 分钟日前价 P ≤ X（价格缺失不触发）则场站不发电：DA / IDC / Imbalance cost / Payment 全部为 0；状态栏写出被停发的时段数和电量。DA-only 参照线不受该策略影响。
 
 *云量策略*（Strategy 卡片分成 Cloud / Bid / Curtailment 三块）
-- **Bid**：`DA bid, % of DA forecast`（D = DA bid % × H）、`IDC: position %`（Rest 选 “Close out in IDC” 时，最终仓位 = IDC position % × F；没报的那部分自动留在不平衡里，所以 IDC position 100% = 全部平到 F，0% = 一点不平、全留不平衡）、`Rest (not bid in DA)`（Close out in IDC / Leave in imbalance；选后者时没有 IDC，IDC 相关的框置灰）、`IDC lead time`。
+- **Bid**：`DA bid, % of DA forecast`（D = DA bid % × H）、`IDC: position %`（**留空 = 没调整**）、`Rest (not bid in DA)`、`IDC lead time`。
+  - 只调整 DA %（IDC: position % 留空）：没报进 DA 的部分由 **Rest** 决定，Close out in IDC = 平到 UST 预测 F，Leave in imbalance = 留在不平衡里。
+  - DA % 和 IDC: position % 都调整：最终仓位 = IDC position % × F，没报的部分**自动全部留在不平衡里**（100% = 全部平到 F，0% = 一点不平），这时 Rest 不起作用，置灰。
 - **Cloud**：先有一个开关 `Adjust the bids by cloud cover`。
   - **关**：DA bid % 和 IDC position % 对所有时段生效（云量框置灰）。
-  - **开**：DA bid % 和 IDC position % **只在云多的时段**生效，其它时段 DA 报 100%、IDC 全部平到 F。云多的判断：`DA: cloud cover > (%)`（所在小时的**提前一天预报总云量**严格大于阈值，决定 DA）；`IDC: cloud forecast`（Latest forecast = Historical Forecast，默认；Day-ahead forecast = 提前一天预报）、`IDC: cloud layer`（Total / Low / Mid / High；提前一天预报只有 Total）、`IDC: cloud cover > (%)`（所选云量严格大于阈值，决定 IDC）。某个阈值框留空 = 那一边没有云多的时段，那一边按 100% 报。
+  - **开**：DA bid % 和 IDC position % **只在云多的时段**生效，其它时段 DA 报 100%、没报的部分按 Rest 的设置处理（IDC position % 留空时 IDC 这边不调整，IDC 的云量框置灰）。云多的判断：`DA: cloud cover > (%)`（所在小时的**提前一天预报总云量**严格大于阈值，决定 DA）；`IDC: cloud forecast`（Latest forecast = Historical Forecast，默认；Day-ahead forecast = 提前一天预报）、`IDC: cloud layer`（Total / Low / Mid / High；提前一天预报只有 Total）、`IDC: cloud cover > (%)`（所选云量严格大于阈值，决定 IDC）。某个阈值框留空 = 那一边没有云多的时段。
   - 这样不用单独再填“云多时的比例”，只有一个 DA bid % 和一个 IDC position %，开关决定它们对所有时段还是只对云多的时段生效。
 - **Curtailment**：`Curtail when DA price ≤ (EUR/MWh)`（见上）。
 - PV revenue 不变（场站仍按实际发电量 × 日前价结算），Curtail 优先于云量策略。状态栏写出两边各有多少个云量时段；云量文件读不到时写 “cloud forecast data unavailable”。

@@ -87,6 +87,17 @@ for (const L of H) {
   settleSlot(100, 110, 120, 50, 60, 70, 1, "idc", n, 50); near(n[6], 0, "price equal to the threshold is curtailed"); near(n[10], 1, "flagged");
   settleSlot(100, 110, 120, 50.01, 60, 70, 1, "idc", n, 50); near(n[10], 0, "price just above the threshold generates");
   settleSlot(100, 110, 120, null, 60, 70, 1, "idc", n, 50); near(n[10], 0, "unknown price never curtails");
+  // 云量策略：DA 报量乘 kfDA，IDC 最终仓位乘 kfIDC（两个云量来源分开判断）；都不传 / 都是 1 和以前完全一样
+  settleSlot(100, 110, 120, 50, 60, 70, 1, "idc", n, null, 0.5, 0.5);
+  near(n[0], 50, "cloudy DA bid halves"); near(n[1], 60, "cloudy IDC position = 0.5 x F"); near(n[2], 10, "idc volume"); near(n[3], 2.5, "DA revenue"); near(n[4], 0.6, "IDC revenue"); near(n[5], 3.5, "imbalance (cheaper to be short)"); near(n[6], 6.6, "total"); near(n[7], o[7], "reference unchanged"); near(n[8], o[8], "plant is still paid for what it generates");
+  settleSlot(100, 110, 120, 50, 60, 70, 1, "idc", n, null, 0.5, 1);                    // only the DA bid is cut: the IDC position is still F
+  near(n[0], 50, "DA only: D"); near(n[1], 120, "DA only: position = F"); near(n[2], 70, "DA only: IDC buys the difference"); near(n[3], 2.5, "DA only: DA revenue"); near(n[4], 4.2, "DA only: IDC revenue"); near(n[5], -0.7, "DA only: imbalance"); near(n[6], 6, "DA only: total");
+  settleSlot(100, 110, 120, 50, 60, 70, 1, "idc", n, null, 1, 0.5);                    // only the IDC position is cut: DA bid is normal
+  near(n[0], 100, "IDC only: D"); near(n[1], 60, "IDC only: position = 0.5 x F"); near(n[2], -40, "IDC only: IDC sells down"); near(n[3], 5, "IDC only: DA revenue"); near(n[4], -2.4, "IDC only: IDC revenue"); near(n[5], 3.5, "IDC only: imbalance"); near(n[6], 6.1, "IDC only: total");
+  settleSlot(100, 110, 120, 50, 60, 70, 1, "imb", n, null, 0.5, 0.1); near(n[1], 50, "leave-in-imbalance: position = scaled DA bid, kfIDC is not used"); near(n[6], 6.7, "imbalance mode total");
+  settleSlot(100, 110, null, 50, 60, 70, 1, "idc", n, null, 0.5, 0.1); near(n[1], 50, "no UST: position = scaled DA bid"); near(n[2], 0, "nothing traded in IDC");
+  settleSlot(100, 110, 120, 50, 60, 70, 1, "idc", n, 50, 0.5, 0.5); near(n[6], 0, "curtailment wins over the cloud factors"); near(n[10], 1, "flagged curtailed");
+  settleSlot(100, 110, 120, 50, 60, 70, 1, "idc", n, null, 1, 1); o.forEach((v, i) => near(n[i], v, `k = 1, out[${i}]`));
   // 负电价：阈值 0 时不发电，避免「发电还倒贴」
   settleSlot(100, 110, 120, -20, 60, 70, 1, "imb", n, 0); near(n[10], 1, "negative price below 0"); near(n[6], 0, "no revenue"); near(n[8], 0, "no payment");
   settleSlot(100, 110, 120, -20, 60, 70, 1, "imb", n); near(n[8], -2.2, "without the strategy the plant is paid AH x P (negative price)"); near(n[10], 0, "off");

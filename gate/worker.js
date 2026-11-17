@@ -765,6 +765,19 @@ async function handleOps(request, env, url, path) {
     });
   }
 
+  // 云量预报（Open-Meteo ECMWF IFS HRES 9km，小时值，Budapest 本地时间）：src=day1（提前 24 小时的预报，DA 用）或 hist（Historical Forecast，IDC 用）。
+  // 和日前价一样原样转发静态文件，不在 Worker 里解析，几乎不占 CPU
+  if (path === "/ops/api/cloud") {
+    if (request.method !== "GET") return new Response("Method not allowed", { status: 405 });
+    const src = url.searchParams.get("src");
+    if (src !== "day1" && src !== "hist") return json({ error: "src must be day1 or hist" }, 400);
+    const res = await env.ASSETS.fetch(new Request(new URL(`/data/weather/cloud_${src}.csv`, url)));
+    if (!res.ok) return json({ error: "Cloud cover data unavailable" }, 404);
+    return new Response(res.body, {
+      headers: { "content-type": "text/csv; charset=utf-8", "Cache-Control": "private, max-age=3600", "X-Robots-Tag": "noindex" },
+    });
+  }
+
   const clean = path.replace(/\/+$/, "");
   if (clean === "/ops" || clean === "/ops/hungary") return redirect(OPS_HOME + url.search); // 旧地址
   const m = clean.match(/^\/ops\/([a-z-]+)$/);

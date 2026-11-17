@@ -479,6 +479,7 @@ async function handleUstRange(url, env) {
 // 一次最多 62 天，列式 JSON（每个字段一个数组）。
 const IMB_MAX_DAYS = 62;
 const IMB_PRICE_COLS = ["DA Price (EUR/MWh)", "ID3 Price (EUR/MWh)", "Imbalance Price (EUR/MWh)"];
+const IMB_DIRECTION_COL = "System direction (MWh)";      // 可选：R2 里的价格表重新上传之前还没有这一列，没有就是 null
 
 // 价格表是「YYYY-MM-DD HH:MM」（没有秒），按字符串二分查找后只解析需要的那一段；夏令时回拨日重复的小时，后出现的覆盖先出现的（和理论发电量 / 预测文件的 96 行一致）。
 function sliceImbalancePrices(text, startKey, endKey, into) {
@@ -486,13 +487,14 @@ function sliceImbalancePrices(text, startKey, endKey, into) {
   const header = text.slice(0, nl).replace(/\r/g, "").split(",");
   const cols = IMB_PRICE_COLS.map((c) => header.indexOf(c));
   if (cols.some((i) => i < 0)) throw new Error(`price table is missing a column (${IMB_PRICE_COLS.filter((c, k) => cols[k] < 0).join(", ")})`);
+  cols.push(header.indexOf(IMB_DIRECTION_COL));            // 第 4 个：系统方向，-1 = 没有这一列
   const a = lowerBound(text, startKey.slice(0, 16), nl + 1);
   const b = lowerBound(text, endKey.slice(0, 16), nl + 1);
   if (b <= a) return;
   for (const line of text.slice(a, b).split("\n")) {
     if (!line) continue;
     const f = line.replace(/\r/g, "").split(",");
-    into.set(f[0].slice(0, 16) + ":00", cols.map((i) => (f[i] === undefined || f[i] === "" ? null : Number(f[i]))));
+    into.set(f[0].slice(0, 16) + ":00", cols.map((i) => (i < 0 || f[i] === undefined || f[i] === "" ? null : Number(f[i]))));
   }
 }
 
@@ -564,18 +566,18 @@ async function handleImbalance(url, env) {
     sliceImbalancePrices(got.text, startKey, endKey, prices);
   }
 
-  const out = { t: [], H: [], AH: [], F: [], P: [], AA: [], PI: [] };
+  const out = { t: [], H: [], AH: [], F: [], P: [], AA: [], PI: [], SD: [] };
   const li = UST_HORIZONS.indexOf(lead);
   const r3 = (x) => (x === null ? null : Math.round(x * 1000) / 1000);
   for (const [t, v] of [...merged.entries()].sort((a, b) => (a[0] < b[0] ? -1 : 1))) {
     if (v[0] === null || v[1] === null) continue;            // 只返回理论发电量和 DA 都有值的时段
     let F = null;                                             // 提前量 >= L 里最小的一档
     for (let j = li; j < nl; j++) if (v[2 + j] !== null) { F = v[2 + j]; break; }
-    const pr = prices.get(t) || [null, null, null];
+    const pr = prices.get(t) || [null, null, null, null];
     out.t.push(t.slice(0, 16)); out.AH.push(r3(v[0])); out.H.push(r3(v[1])); out.F.push(r3(F));
-    out.P.push(pr[0]); out.AA.push(pr[1]); out.PI.push(pr[2] === null ? null : r3(pr[2]));
+    out.P.push(pr[0]); out.AA.push(pr[1]); out.PI.push(pr[2] === null ? null : r3(pr[2])); out.SD.push(pr[3] === null ? null : r3(pr[3]));
   }
-  return json({ site, start, end, lead, unit: "kWh per 15 min (H, AH, F); EUR/MWh (P, AA, PI); t = Budapest local time, interval start", ...out });
+  return json({ site, start, end, lead, unit: "kWh per 15 min (H, AH, F); EUR/MWh (P, AA, PI); MWh (SD = system direction); t = Budapest local time, interval start", ...out });
 }
 
 // ── /theoretical：整年的 15 分钟理论发电量 CSV（原样转发，不解析，省 CPU）──────────────

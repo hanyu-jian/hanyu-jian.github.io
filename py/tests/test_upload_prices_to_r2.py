@@ -1,4 +1,4 @@
-"""py/build/upload_prices_to_r2.py 的 slim()：只留三列价格、原样保留行（含夏令时回拨日重复的小时）、缺列直接报错。
+"""py/build/upload_prices_to_r2.py 的 slim()：只留三列价格和系统方向、原样保留行（含夏令时回拨日重复的小时）、缺列直接报错。
     python py/tests/test_upload_prices_to_r2.py
 """
 import sys
@@ -17,11 +17,11 @@ def write(text):
     return f
 
 
-def test_keeps_only_the_three_price_columns_in_order():
+def test_keeps_only_the_price_columns_and_the_system_direction_in_order():
     out = U.slim(write(HEADER + "2026-01-01 00:00,104.33,96.05,108.9,-4.69,180.733497665\n2026-01-01 00:15,98.99,,108.23,-2.37,\n")).splitlines()
-    assert out[0] == "Date,DA Price (EUR/MWh),ID3 Price (EUR/MWh),Imbalance Price (EUR/MWh)"
-    assert out[1] == "2026-01-01 00:00,104.33,108.9,180.733497665"
-    assert out[2] == "2026-01-01 00:15,98.99,108.23,"          # 缺失保持为空
+    assert out[0] == "Date,DA Price (EUR/MWh),ID3 Price (EUR/MWh),Imbalance Price (EUR/MWh),System direction (MWh)"
+    assert out[1] == "2026-01-01 00:00,104.33,108.9,180.733497665,-4.69"
+    assert out[2] == "2026-01-01 00:15,98.99,108.23,,-2.37"          # 缺失保持为空
 
 
 def test_keeps_the_repeated_hour_of_the_fall_back_day():

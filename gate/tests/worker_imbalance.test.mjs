@@ -26,13 +26,16 @@ const price = "Date,IDA1 Price (HUPX) (EUR/MWh),Imbalance Price (EUR/MWh),DA Pri
 // R2 里的价格表（build_combined.yml 上传的三列瘦身版，Worker 按列名取）
 const slimPrice = "Date,DA Price (EUR/MWh),ID3 Price (EUR/MWh),Imbalance Price (EUR/MWh)\n"
   + fx.index.map((t, i) => `${t.slice(0, 16)},${num(fx.P[i])},${num(fx.AA[i])},${num(fx.PI[i])}`).join("\n") + "\n";
-let r2Prices = true;
+const sdOf = (i) => (i % 3 === 0 ? "" : String(i % 2 ? -12.5 - i : 8.25 + i));          // 系统方向：有正、有负，每隔 3 行为空
+const slimPriceSd = "Date,DA Price (EUR/MWh),ID3 Price (EUR/MWh),Imbalance Price (EUR/MWh),System direction (MWh)\n"
+  + fx.index.map((t, i) => `${t.slice(0, 16)},${num(fx.P[i])},${num(fx.AA[i])},${num(fx.PI[i])},${sdOf(i)}`).join("\n") + "\n";
+let r2Prices = true, r2WithSd = false;
 const GH = {
   "hanyu-jian/vcom/data/theoretical production/2026/15min/Putnok.csv": theo,
   "hanyu-jian/vcom/data/production forecast/2026/15min/Putnok.csv": da,
   "hanyu-jian/hu-market-data/HU_2026.csv": price,
 };
-const env = { UST: { get: async (k) => (k === "ust/view/2026-11/Putnok.csv" ? { text: async () => view } : k === "market/prices_HU_2026.csv" && r2Prices ? { text: async () => slimPrice } : null) }, GITHUB_TOKEN: "x" };
+const env = { UST: { get: async (k) => (k === "ust/view/2026-11/Putnok.csv" ? { text: async () => view } : k === "market/prices_HU_2026.csv" && r2Prices ? { text: async () => (r2WithSd ? slimPriceSd : slimPrice) } : null) }, GITHUB_TOKEN: "x" };
 const okFetch = async (u) => {
   const m = String(u).match(/repos\/(.+?)\/contents\/(.+)$/);
   const p = decodeURIComponent(m[1] + "/" + m[2]);
@@ -121,11 +124,21 @@ assert.equal(priceRepoCalls.length, 0, "prices come from R2, the price repositor
 const okFetch2 = globalThis.fetch;
 const fromR2 = await (await call("site=Putnok&start=2026-11-02&end=2026-11-04&lead=60")).json();
 
+// 系统方向（SD）：旧的三列 R2 价格表没有这一列 -> 全是 null，其余照常；新的带这一列 -> 逐时段取值
+assert.ok(Array.isArray(fromR2.SD) && fromR2.SD.length === fromR2.t.length && fromR2.SD.every((v) => v === null), "no System direction column in the old R2 file -> null");
+r2WithSd = true;
+const withSd = await (await call("site=Putnok&start=2026-11-02&end=2026-11-04&lead=60")).json();
+for (const k of ["t", "P", "AA", "PI", "H", "AH", "F"]) assert.deepEqual(withSd[k], fromR2[k], `with System direction: ${k} unchanged`);
+const idxOf = new Map(fx.index.map((t, i) => [t.slice(0, 16), i]));
+withSd.t.forEach((t, k) => { const i = idxOf.get(t); const want = sdOf(i) === "" ? null : Number(sdOf(i)); assert.equal(withSd.SD[k], want, `SD at ${t}`); checks++; });
+assert.ok(withSd.SD.some((v) => v !== null && v > 0) && withSd.SD.some((v) => v !== null && v < 0), "the fixture has both signs");
+r2WithSd = false;
 // R2 里没有价格表 -> 退回 hu-market-data 仓库，结果和读 R2 完全一样
 r2Prices = false;
 const fromRepo = await (await call("site=Putnok&start=2026-11-02&end=2026-11-04&lead=60")).json();
 assert.ok(priceRepoCalls.length > 0, "fallback reads the price repository");
 for (const k of ["t", "P", "AA", "PI", "H", "AH", "F"]) assert.deepEqual(fromRepo[k], fromR2[k], `R2 vs repository: ${k}`);
+assert.ok(fromRepo.SD.every((v) => v === 9), "the combined table in the repository has System direction (9 in the fixture)");
 
 // 两边都读不到 -> 502，提示两条路。GitHub 对没有权限的私有仓库返回 404，不能当成「没有数据」静默跳过
 for (const status of [403, 404]) {

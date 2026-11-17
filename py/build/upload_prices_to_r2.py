@@ -7,7 +7,8 @@
     DA Price (EUR/MWh)                   日前价
     ID3 Price (EUR/MWh)                  ID3 指数价
     Imbalance Price (EUR/MWh)            不平衡价（单一价格）
-比整合表（16 列、几 MB）小得多，Worker 解析更省 CPU。上传是覆盖写，幂等。
+    System direction (MWh)               系统方向（MAVIR；2025 年以前、或 MAVIR 还没有数据的时段为空）
+比整合表（十几列、几 MB）小得多，Worker 解析更省 CPU。上传是覆盖写，幂等。
 
 环境变量：R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET；R2_PRICE_PREFIX（可选，默认 market）。
 用法：
@@ -23,7 +24,7 @@ from pathlib import Path
 
 import pandas as pd
 
-COLUMNS = ["Date", "DA Price (EUR/MWh)", "ID3 Price (EUR/MWh)", "Imbalance Price (EUR/MWh)"]
+COLUMNS = ["Date", "DA Price (EUR/MWh)", "ID3 Price (EUR/MWh)", "Imbalance Price (EUR/MWh)", "System direction (MWh)"]
 
 
 def slim(csv_path):

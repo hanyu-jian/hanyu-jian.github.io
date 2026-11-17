@@ -6,7 +6,7 @@ ENTSOE API 数据更新脚本 — aFRR 容量（Contracted reserves，A81 / B95�
     DE  4 个 TSO：50Hertz、Amprion、TenneT GER、TransnetBW 各自请求，再按时间合并——
         容量相加、价格按容量加权平均；15min 数据，写 15min；交付日按 Europe/Berlin；价格本来就是 EUR
         （价格数值就是 ENTSOE 给的 EUR/MW/ISP，不再乘系数）
-    HU  MAVIR（10YHU-MAVIR----U），交付日按 Europe/Budapest；价格币种是 HUF 的按 MNB（EUR 牌价）折成 EUR，EUR 不变；分辨率自动判断
+    HU  MAVIR（10YHU-MAVIR----U），交付日按 Europe/Budapest；EUR，15min；历史由 EnAppSys CSV 拷贝而来，接着往下更新
     BG  ESO（10YCA-BULGARIA-R），交付日按 Europe/Sofia；币种 EUR，2026 年之前的 BGN 按固定汇率 1 EUR = 1.95583 BGN 折成 EUR
     GR  IPTO（10YGR-HTSO-----Y），交付日按 Europe/Athens；币种 EUR
     BG / GR 的原始分辨率事先不确定：数据里最细的点是 1h 就写 hourly，更细（30 / 15min）就写 15min
@@ -60,8 +60,9 @@ COUNTRIES = {
     "DE": {"delivery_tz": "Europe/Berlin", "step": 15, "folder": "15min", "areas": {
         "50Hertz": "10YDE-VE-------2", "Amprion": "10YDE-RWENET---I",
         "TenneT GER": "10YDE-EON------1", "TransnetBW": "10YDE-ENBW-----N"}},
-    # HU：MAVIR（10YHU-MAVIR----U），交付日按 Europe/Budapest；币种若是 HUF 按 MNB 的 EUR 牌价折成 EUR，EUR 不变；分辨率按数据自动判断
-    "HU": {"delivery_tz": "Europe/Budapest", "step": None, "folder": None, "areas": {"MAVIR": "10YHU-MAVIR----U"}},
+    # HU：MAVIR（10YHU-MAVIR----U），交付日按 Europe/Budapest；2026-10-01 加入 PICASSO 后币种是 EUR，15min；
+    # 之前的历史是从 EnAppSys 的 HU CSV 拷贝过来的（只取 DAILY 两列），接着往下更新
+    "HU": {"delivery_tz": "Europe/Budapest", "step": 15, "folder": "15min", "areas": {"MAVIR": "10YHU-MAVIR----U"}},
     "BG": {"delivery_tz": "Europe/Sofia", "step": None, "folder": None, "areas": {"ESO": "10YCA-BULGARIA-R"}},
     "GR": {"delivery_tz": "Europe/Athens", "step": None, "folder": None, "areas": {"IPTO": "10YGR-HTSO-----Y"}},
 }
@@ -93,15 +94,6 @@ def load_ron_per_eur(path):
     fx = pd.read_csv(path)
     fx["Date"] = pd.to_datetime(fx["Date"], format="%Y/%m/%d")
     rate = (fx["RON"] / fx["EUR"]).set_axis(fx["Date"]).sort_index()
-    rate = rate[~rate.index.duplicated(keep="last")]
-    return rate.reindex(pd.date_range(rate.index.min(), date.today() + timedelta(days=2), freq="D")).ffill()
-
-
-def load_huf_per_eur(path):
-    """MNB.csv 的 EUR 列是 HUF/EUR，HUF→EUR 的系数 = 1 / EUR；按自然日向后填充。"""
-    fx = pd.read_csv(path)
-    fx["Date"] = pd.to_datetime(fx["Date"], format="%Y/%m/%d")
-    rate = (1 / fx["EUR"]).set_axis(fx["Date"]).sort_index()
     rate = rate[~rate.index.duplicated(keep="last")]
     return rate.reindex(pd.date_range(rate.index.min(), date.today() + timedelta(days=2), freq="D")).ffill()
 
@@ -220,7 +212,7 @@ def fetch_area_rows(start, end, area, eic, tz):
 
 # ── 整理成小时、折算欧元 ──────────────────────────────────
 
-def build_frames(rows, ron_per_eur, delivery_tz, step=60, huf_per_eur=None):
+def build_frames(rows, ron_per_eur, delivery_tz, step=60):
     """rows → {direction: DataFrame[Date, price col, volume col, _utc]}，每个真实时间段（UTC，step 分钟）一行、Date 是 CET/CEST 墙钟。
     回拨日 02:00~02:59 的两遍是不同的 UTC 时间段，各占一行，不合并。"""
     if not rows:
@@ -234,15 +226,11 @@ def build_frames(rows, ron_per_eur, delivery_tz, step=60, huf_per_eur=None):
     # RON → EUR：交付日（该国当地）当天或之前最近一个 MNB 牌价
     deliv = utc.tz_convert(delivery_tz).tz_localize(None).normalize()
     factor = ron_per_eur.reindex(pd.DatetimeIndex(deliv), method="ffill").to_numpy()
-    if huf_per_eur is not None:
-        hfactor = huf_per_eur.reindex(pd.DatetimeIndex(deliv), method="ffill").to_numpy()
-        factor = pd.Series(factor).where(df["currency"].ne("HUF").to_numpy(), hfactor).to_numpy()   # HUF 行用 1/EUR，RON 行用 RON/EUR
     peg = df["currency"].map({"EUR": 1.0, "BGN": 1 / BGN_PER_EUR})           # EUR 不变，BGN 按固定汇率
-    df["price_eur"] = df["price"] * peg.where(peg.notna(), pd.Series(factor, index=df.index))   # 其余（RON / HUF）按 MNB
-    fx_mask = df["currency"].isin(["RON", "HUF"]).to_numpy()
-    if df.loc[fx_mask, "price"].notna().any() and pd.isna(factor[fx_mask]).any():
-        sys.exit("MNB.csv 缺少部分交付日的 RON / HUF 对 EUR 牌价")
-    unknown = set(df["currency"]) - {"RON", "EUR", "BGN", "HUF"}
+    df["price_eur"] = df["price"] * peg.where(peg.notna(), pd.Series(factor, index=df.index))   # 其余（RON）按 MNB
+    if df.loc[df["currency"] == "RON", "price"].notna().any() and pd.isna(factor[(df["currency"] == "RON").to_numpy()]).any():
+        sys.exit("MNB.csv 缺少部分交付日的 RON / EUR 牌价")
+    unknown = set(df["currency"]) - {"RON", "EUR", "BGN"}
     if unknown:
         sys.exit(f"未知币种 {unknown}，不会折算")
     df["slot"] = df["start"]
@@ -300,7 +288,7 @@ def main(argv=None):
     step = cfg["step"] or (60 if min(r["res"] for r in rows) >= 60 else 15)   # 自动判断：最细的点是 1h 就按小时，否则 15min
     folder = cfg["folder"] or ("hourly" if step == 60 else "15min")
     print(f"output resolution: {step} min -> {folder}")
-    frames = build_frames(rows, load_ron_per_eur(a.mnb), tz, step, load_huf_per_eur(a.mnb))
+    frames = build_frames(rows, load_ron_per_eur(a.mnb), tz, step)
     if not frames:
         sys.exit("no data rows returned")
 

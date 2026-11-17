@@ -338,7 +338,7 @@ token 只在服务端，不会发给浏览器；数据不会进入本仓库，�
 
 **Ops 页面的网址参数**（Overview / Capture Price / Imbalance 三个页面）：页面上的选择会同步写进地址栏（`history.replaceState`，不增加浏览器历史记录），打开带参数的链接时按参数恢复；缺少或不合法的参数忽略，用默认值。链接里只有选择，没有数据，打开仍要登录 ops。
 - `/ops/overview?site=&start=&end=&res=15min|hourly&lead=&bdate=`（`site` = ALL 或站点名，`lead` = 提前量分钟数，`bdate` = 第二张卡片的日期）
-- `/ops/imbalance?site=&start=&end=&freq=&lead=&pct=&mode=idc|imb&thr=&cl=&cc=&ccbid=&from=&to=`（`freq` = 15min / hour / day / week / month / quarter / year，`from`、`to` = Summary table 的月份 1–12）
+- `/ops/imbalance?site=&start=&end=&freq=&lead=&pct=&mode=idc|imb&thr=&dacc=&dabid=&isrc=&il=&icc=&ibid=&from=&to=`（`freq` = 15min / hour / day / week / month / quarter / year，`from`、`to` = Summary table 的月份 1–12）
 - `/ops/capture-price?site=&year=&mode=price|ratio&ssite=&thresh=negative|nonpositive`
 
 **Imbalance 页面口径**（`ops/ops-imbalance.html`，`/ops/imbalance`，二级导航里排在 Capture Price 后面）
@@ -369,12 +369,18 @@ token 只在服务端，不会发给浏览器；数据不会进入本仓库，�
 - **Profit % = Profit ÷ PV revenue × 100**（每付给光伏场站 1 欧元多赚多少）：Summary table 最右一列，用橙色底色突出；月度行用当月合计相除，合计行和所选月份范围行是先合计再相除，不是各月百分比的平均；PV revenue ≤ 0 时显示 –。DA-only 的 profit 同理：(P·H − (H−AH)·Pimb)/1000 − AH·P/1000。
 - **Curtail if DA price ≤ X**：某 15 分钟日前价 P ≤ X（价格缺失不触发）则场站不发电：DA / IDC / Imbalance cost / Payment 全部为 0；状态栏写出被停发的时段数和电量。DA-only 参照线不受该策略影响。
 
-*云量策略*
-- Strategy 里三个控件：**Cloud layer**（Total / Low / Mid / High，默认 Total）、**Cloud cover > (%)**（留空 = 关闭）和 **Bid % when cloudy**（默认 50）。某个 15 分钟所在小时、所选那一层的云量**严格大于**阈值时，这个时段的 **DA 报量和 IDC 最终仓位都乘以** Bid % when cloudy：D = DA bid % × H × k，最终仓位 = F × k（Rest 选 “Leave in imbalance” 或没有 UST 时 = D）。其余时段和以前完全一样。
-- PV revenue 不变（场站仍按实际发电量 × 日前价结算），Curtail 优先于云量策略（被停发的时段不算云量时段）。DA-only 参照线（已不显示）不受影响。
-- 云量数据：Open-Meteo 的小时云量（总云量 `cloud_cover` 和低 / 中 / 高云量，%，Tokaj 一个点，五个站共用），Budapest 本地时间的小时值，每个 15 分钟用它所在小时的值。文件 `data/weather/tokaj_cloud_cover.csv`（`time,cloud_cover,cloud_cover_low,cloud_cover_mid,cloud_cover_high`，按表头名字取列，不按位置），由 `py/build/convert_open_meteo_cloud.py <Open-Meteo 导出的 CSV>` 转换（UTC → Budapest 本地时间；夏令时重复的那个小时取平均；再次运行会把新数据合并进去，同一小时以新的为准）。目前只有 2026-01-01 ~ 2026-11-17，之后需要手动追加；某小时没有云量就按没有云处理。
-- Worker 的 `GET /ops/api/cloud` 把这个文件原样转发（不解析，不占 CPU），页面只在打开时读一次。
-- 网址参数：`cl`（total / low / mid / high）、`cc`（阈值）、`ccbid`（Bid % when cloudy）。
+*云量策略*（DA 和 IDC 两组，各自独立，留空 = 关闭）
+- **DA 组**：`DA: cloud cover > (%)`、`DA: bid % when cloudy`（默认 50）。某个 15 分钟所在小时的**提前一天预报总云量**（`day1`）严格大于阈值时，这个时段的 DA 报量乘以该比例：D = DA bid % × H × k_DA。
+- **IDC 组**：`IDC: cloud forecast`（`Latest forecast` = Historical Forecast，默认；`Day-ahead forecast` = 提前一天预报）、`IDC: cloud layer`（Total / Low / Mid / High；提前一天预报只有 Total）、`IDC: cloud cover > (%)`、`IDC: position % when cloudy`（默认 50）。所选云量严格大于阈值时，IDC 最终仓位乘以该比例：最终仓位 = F × k_IDC（Rest 选 “Leave in imbalance” 或没有 UST 时 = D，不受 IDC 组影响）。IDC 收入 = AA × (最终仓位 − D) ÷ 1000，所以 DA 少报时 IDC 只补差额。
+- PV revenue 不变（场站仍按实际发电量 × 日前价结算），Curtail 优先于云量策略。状态栏写出两组各有多少个云量时段；云量文件读不到时写 “cloud forecast data unavailable”。
+- **云量数据**（ECMWF IFS HRES 9km，Open-Meteo，GMT，转成 Budapest 本地时间，每小时一行，`data/weather/`）：
+  - `cloud_day1.csv`：Previous Runs API 的 `cloud_cover_previous_day1`（有效时刻前约 24 小时发布的预报）。只有总云量。HRES 每 6 小时更新一次，`previous_day1` 对下午和傍晚的小时用到的那次运行是 DA 截止（前一天 12:00）之后才发布的，所以对这些小时**略微偏乐观**。
+  - `cloud_hist.csv`：Historical Forecast API（每次模型运行最前面几小时拼成的序列）。有总 / 低 / 中 / 高云量。它非常接近事后实际，而且每次运行要在起始时间之后几个小时才发布，所以用它回测 IDC 会**明显偏乐观**（比真实 IDC 时刻能拿到的预报新得多）；`Day-ahead forecast` 则偏保守（比真实 IDC 时刻能拿到的更旧）。真实收益大概率在两者之间，只在乐观版有收益的结果不能当真。
+  - 两个区域（IFS 9km 的网格下四个坐标只落在两个格子里）：`west` = Putnok、Serenyfalva（坐标 48.29831, 20.42644），`east` = Sajokaza、Szuhakálló 1、Szuhakálló 2（坐标 48.27581, 20.64581）。列名是 `<层>_<区域>`，层 = `cloud_cover` / `cloud_cover_low` / `cloud_cover_mid` / `cloud_cover_high`。
+  - 转换脚本：`python3 py/build/convert_open_meteo_cloud.py <day1|hist> <Open-Meteo 多位置导出 CSV>`（`location_id` 0 = west、1 = east，其余位置忽略；UTC → Budapest 本地时间；夏令时重复的那个小时取平均；层按列名匹配，不按位置；再次运行会把新数据合并进去，同一小时以新的为准）。目前覆盖 2026-01-01 ~ 2026-11-17，新日期需要重新导出并运行脚本；某小时没有云量就按没有云处理。
+  - 想要更精确（每个决策时刻只用已经发布的最新一次运行）可以以后用 Single Runs API 做，目前没做。
+- Worker 的 `GET /ops/api/cloud?src=day1|hist` 把对应文件原样转发（不解析，几乎不占 CPU）；页面只在对应的阈值框有值时才读，每个文件读一次。
+- 网址参数：`dacc`、`dabid`（DA 组），`isrc`（hist / day1）、`il`（total / low / mid / high）、`icc`、`ibid`（IDC 组）。
 
 *数据与接口*
 - `GET /ops/api/imbalance?site=&start=&end=&lead=`（≤ 62 天）：返回该站点该时段逐 15 分钟的结算输入（列式 JSON：`t, H, AH, F, P, AA, PI`），结算本身在浏览器里算。H 和 AH 来自 vcom（`GITHUB_TOKEN`），UST 来自 R2（`ust/`、`ust-replay/`、`ust-hindcast/` 三个视图），价格见下。

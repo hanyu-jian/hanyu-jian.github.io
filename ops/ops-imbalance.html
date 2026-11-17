@@ -64,7 +64,7 @@ td.hl, tr.total td.hl, tr.sel td.hl, tr.out td.hl { background: #fff1d6; color: 
   .sub-nav-link { padding: 14px 14px; font-size: 13px; }
 }
 
-#chartRev { height: 740px; }
+#chartRev { height: 540px; }
 .banner { margin: 14px 30px 0; padding: 10px 14px; background: #fff8e6; border: 1px solid #f3dfa2; border-radius: 6px; font-size: 12.5px; color: #7a5c00; line-height: 1.6; }
 td.dim { color: #aaa; }
 
@@ -73,13 +73,16 @@ tr.sel td { background: #f1f4ff; }
 tr.out td { color: #aaa; }
 .strategy { display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-end; }
 /* Strategy on the left of the chart: the controls are stacked and fill the card */
-.work { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 24px; align-items: start; }
+.work { display: grid; grid-template-columns: 400px minmax(0, 1fr); gap: 24px; align-items: start; }
 .work .strategy-card .chart-card-header { flex-direction: column; align-items: stretch; gap: 14px; margin-bottom: 0; }
-.work .strategy { flex-direction: column; flex-wrap: nowrap; align-items: stretch; gap: 14px; }
+.work .strategy { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px 12px; align-items: end; }
+.work .strategy .span2 { grid-column: 1 / -1; }
 .work .strategy .control-group select, .work .strategy .control-group input[type=text] { width: 100%; min-width: 0; box-sizing: border-box; }
 .work .strategy .control-group label { white-space: normal; }
 .work .strategy .sep { border-top: 1px solid #eef0f3; padding-top: 14px; }
+.work .strategy .control-group select { padding: 0 8px; }
 @media (max-width: 1000px) { .work { grid-template-columns: minmax(0, 1fr); } #chartRev { height: 420px; } }
+@media (max-width: 420px) { .work .strategy { grid-template-columns: minmax(0, 1fr); } }
 </style>
 </head>
 <body>
@@ -114,14 +117,14 @@ tr.out td { color: #aaa; }
         <div><h3>Strategy</h3></div>
         <div class="strategy">
           <div class="control-group"><label>DA bid, % of DA forecast</label><input type="text" inputmode="decimal" id="pct" value="100" autocomplete="off"></div>
-          <div class="control-group"><label>Rest (not bid in DA)</label>
-            <select id="mode"><option value="idc">Close out in IDC (rolling forecast)</option><option value="imb">Leave in imbalance</option></select></div>
           <div class="control-group"><label>IDC lead time</label><select id="lead"></select></div>
-          <div class="control-group sep"><label>Curtail when DA price &le; (EUR/MWh)</label><input type="text" inputmode="decimal" id="thr" placeholder="off" autocomplete="off"></div>
+          <div class="control-group span2"><label>Rest (not bid in DA)</label>
+            <select id="mode"><option value="idc">Close out in IDC (rolling forecast)</option><option value="imb">Leave in imbalance</option></select></div>
+          <div class="control-group span2 sep"><label>Curtail when DA price &le; (EUR/MWh)</label><input type="text" inputmode="decimal" id="thr" placeholder="off" autocomplete="off"></div>
           <div class="control-group sep"><label>DA: cloud cover &gt; (%)</label><input type="text" inputmode="decimal" id="dacc" placeholder="off" autocomplete="off"></div>
-          <div class="control-group"><label>DA: bid % when cloudy</label><input type="text" inputmode="decimal" id="dabid" value="50" autocomplete="off"></div>
+          <div class="control-group sep"><label>DA: bid % when cloudy</label><input type="text" inputmode="decimal" id="dabid" value="50" autocomplete="off"></div>
           <div class="control-group sep"><label>IDC: cloud forecast</label><select id="ids"><option value="hist">Latest forecast</option><option value="day1">Day-ahead forecast</option></select></div>
-          <div class="control-group"><label>IDC: cloud layer</label><select id="idl"></select></div>
+          <div class="control-group sep"><label>IDC: cloud layer</label><select id="idl"></select></div>
           <div class="control-group"><label>IDC: cloud cover &gt; (%)</label><input type="text" inputmode="decimal" id="idcc" placeholder="off" autocomplete="off"></div>
           <div class="control-group"><label>IDC: position % when cloudy</label><input type="text" inputmode="decimal" id="idbid" value="50" autocomplete="off"></div>
         </div>

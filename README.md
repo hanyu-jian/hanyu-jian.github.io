@@ -348,7 +348,7 @@ token 只在服务端，不会发给浏览器；数据不会进入本仓库，�
 *页面结构*
 - 顶部：起止日期（默认前三天，不含今天，因为今天的价格和理论发电量还不完整）、Frequency 点击按钮（15 min / Hourly / Daily / Weekly / Monthly / Quarterly / Yearly，样式同 Price Overview；只影响图表的聚合，不重新请求）。
 - Site 按钮（All sites = 五站相加，其余是单站）；它同时驱动图和 Summary table。
-- Strategy（图表左边，控件竖排，按 DA / Curtail / 云量分组；窄屏时移到图表上方）：**DA bid %**（DA 预测量按多少百分比报进日前市场，默认 100%，0–150%；两个数字框都是纯手动输入，没有上下调节箭头）、**Rest**（没报进 DA 的部分：在 IDC 里平仓 / 全部留在不平衡里）、**IDC lead time**（15–240 分钟，默认 60）、**Curtail if DA price ≤**（€/MWh，留空 = 关闭；日前价小于等于该值的 15 分钟不发电，见下）。
+- Strategy（图表左边，控件两个一行，按 DA / Curtail / 云量分组；窄屏时移到图表上方）：**DA bid %**（DA 预测量按多少百分比报进日前市场，默认 100%，0–150%；两个数字框都是纯手动输入，没有上下调节箭头）、**Rest**（没报进 DA 的部分：在 IDC 里平仓 / 全部留在不平衡里）、**IDC lead time**（15–240 分钟，默认 60）、**Curtail if DA price ≤**（€/MWh，留空 = 关闭；日前价小于等于该值的 15 分钟不发电，见下）。
 - 图：按所选频率画 DA revenue / IDC revenue / Imbalance cost 的堆叠柱，再叠 **PV revenue**（向下的堆叠柱，默认隐藏）、Total revenue 线、**Profit** 线（100% 报量、之后不交易）。
 - Summary table：所选站点 1–12 月（页面载入那一年；Month 列只标 1–12）逐月的 DA revenue、IDC revenue、Revenue (prior to imbalance cost)、Imbalance cost、Total revenue (post imbalance cost)、Imbalance %、**PV revenue**、**Profit**，最后是合计行；没有数据的月份显示 –。右上角的 **From month / To month**（1–12）选一段月份，合计行就变成这一段的合计（如 “Total 3–6”，选中的月份高亮、其余变灰），同时多出一行 “Total 1–12” 保留全年合计；选择只在浏览器里重算，不重新请求。表里的数字随 Strategy 变化，**不受图表日期范围影响**。
 

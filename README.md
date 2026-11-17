@@ -373,9 +373,9 @@ token 只在服务端，不会发给浏览器；数据不会进入本仓库，�
 - **Bid**（平时 / 晴天的策略）：`DA bid, % of DA forecast`（D = DA bid % × H）、`IDC: position %`（**留空 = 没调整**）、`Rest (not bid in DA)`、`IDC lead time`。
   - 只调整 DA %（IDC: position % 留空）：没报进 DA 的部分由 **Rest** 决定，Close out in IDC = 平到 UST 预测 F，Leave in imbalance = 留在不平衡里。
   - DA % 和 IDC: position % 都调整：最终仓位 = IDC position % × F，没报的部分**自动全部留在不平衡里**（100% = 全部平到 F，0% = 一点不平），这时 Rest 不起作用，置灰。
-- **Cloud**：开关 `Use different bids when it is cloudy`。
-  - **关**：只用 Bid 里的值，对所有时段生效（云量框置灰）。
-  - **开**：云量**不超过**阈值的时段（晴天）仍然用 Bid 里的值；云多的时段改用云天的值：`DA: bid % when cloudy`（所在小时的**提前一天预报总云量**严格大于 `DA: cloud cover > (%)` 时，替换 DA bid %）、`IDC: position % when cloudy`（所选云量严格大于 `IDC: cloud cover > (%)` 时，替换 IDC position %，没报的部分留在不平衡里）。云天的值留空 = 云多时也和 Bid 一样；阈值留空 = 那一边没有云多的时段。
+- **Cloud**：标题旁边一个 On / Off 开关（默认 Off）。
+  - **Off**：Bid 里的值对所有时段生效（云量框置灰）。
+  - **On**：云量时段按 Cloud 里的值调整，其它（非多云）时段仍然按 Bid 调整：云量**不超过**阈值的时段（晴天）用 Bid 里的值；云多的时段改用云天的值：`DA: bid % when cloudy`（所在小时的**提前一天预报总云量**严格大于 `DA: cloud cover > (%)` 时，替换 DA bid %）、`IDC: position % when cloudy`（所选云量严格大于 `IDC: cloud cover > (%)` 时，替换 IDC position %，没报的部分留在不平衡里）。云天的值留空 = 云多时也和 Bid 一样；阈值留空 = 那一边没有云多的时段。
   - `IDC: cloud forecast`：Latest forecast = Historical Forecast（默认），Day-ahead forecast = 提前一天预报；`IDC: cloud layer`：Total / Low / Mid / High（提前一天预报只有 Total）。
   - DA 和 IDC 两边各自独立判断云多（DA 用提前一天预报总云量，IDC 用所选来源和云层）。
 - **Curtailment**：`Curtail when DA price ≤ (EUR/MWh)`（见上）。

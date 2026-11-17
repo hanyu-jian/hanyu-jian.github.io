@@ -82,8 +82,15 @@ tr.out td { color: #aaa; }
 .work .strategy .sec { grid-column: 1 / -1; font-size: 13px; font-weight: 700; color: #2c3e50; border-left: 3px solid #2c3e50; padding-left: 8px; line-height: 1.2; }
 .work .strategy .sec:not(:first-child) { border-top: 1px solid #eef0f3; margin-top: 4px; padding-top: 14px; border-left: none; padding-left: 0; }
 .work .strategy .sec:not(:first-child)::before { content: ""; display: inline-block; width: 3px; height: 13px; background: #2c3e50; margin-right: 8px; vertical-align: -2px; }
-.work .strategy .switch { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: #2c3e50; cursor: pointer; }
-.work .strategy .switch input { width: 16px; height: 16px; accent-color: #2c3e50; cursor: pointer; }
+.work .strategy .secrow { display: flex; align-items: center; justify-content: space-between; }
+.tog { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; font-size: 12px; font-weight: 600; color: #7b8794; }
+.tog input { position: absolute; opacity: 0; pointer-events: none; }
+.tog .track { position: relative; width: 36px; height: 20px; border-radius: 10px; background: #c9cfd6; transition: background .15s; }
+.tog .track::after { content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.3); transition: left .15s; }
+.tog input:checked + .track { background: #2c3e50; }
+.tog input:checked + .track::after { left: 18px; }
+.tog input:checked ~ .tl { color: #2c3e50; }
+.tog input:focus-visible + .track { outline: 2px solid #2c7fb8; outline-offset: 2px; }
 .work .strategy .control-group.off { opacity: .45; }
 .work .strategy .control-group select { padding: 0 8px; }
 @media (max-width: 1000px) { .work { grid-template-columns: minmax(0, 1fr); } #chartRev { height: 420px; } }
@@ -121,8 +128,9 @@ tr.out td { color: #aaa; }
       <div class="chart-card-header">
         <div><h3>Strategy</h3></div>
         <div class="strategy">
-          <div class="sec">Cloud</div>
-          <label class="switch span2"><input type="checkbox" id="cloudOn"> Use different bids when it is cloudy</label>
+          <div class="sec secrow">Cloud
+            <label class="tog" title="Off: the Bid values apply to every interval. On: cloudy intervals use the Cloud values, the others use Bid."><input type="checkbox" id="cloudOn"><span class="track"></span><span class="tl" id="cloudTl">Off</span></label>
+          </div>
           <div class="control-group" id="gDaCc"><label>DA: cloud cover &gt; (%)</label><input type="text" inputmode="decimal" id="dacc" placeholder="off" autocomplete="off"></div>
           <div class="control-group" id="gDaBc"><label>DA: bid % when cloudy</label><input type="text" inputmode="decimal" id="dabc" placeholder="as Bid" autocomplete="off"></div>
           <div class="control-group" id="gIds"><label>IDC: cloud forecast</label><select id="ids"><option value="hist">Latest forecast</option><option value="day1">Day-ahead forecast</option></select></div>
@@ -230,6 +238,7 @@ const idPosVal = () => numVal("idbid") == null ? null : Math.min(Math.max(numVal
 const daCcVal = () => cloudOn() ? numVal("dacc") : null, idCcVal = () => cloudOn() ? numVal("idcc") : null;   // null = this cloud rule is not used
 function syncEnabled() {                                      // grey out what has no effect: the cloud inputs while the switch is off, Rest while a normal IDC position is set
   const on = cloudOn(), pos = idPosVal() != null;
+  $("cloudTl").textContent = on ? "On" : "Off";
   [["gDaCc", on], ["gDaBc", on], ["gIds", on], ["gIdl", on], ["gIdcc", on], ["gIdBc", on], ["gMode", !pos]].forEach(([g, act]) => { $(g).classList.toggle("off", !act); $(g).querySelectorAll("input,select").forEach(e => { e.disabled = !act; }); });
 }
 // Hourly cloud forecasts (%) of ECMWF IFS HRES 9 km, Budapest local time. Two sources (see the README):

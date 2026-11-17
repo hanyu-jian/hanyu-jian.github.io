@@ -499,7 +499,7 @@ function paintDrill(sites, p, mode) {
   const top = days.slice().sort((a, b) => Math.abs(b[1].imb) - Math.abs(a[1].imb)).slice(0, 10);
   $("ddRankSub").textContent = `Top ${top.length} days by |imbalance cost|, months ${from}–${to} (set in the summary table)`;
   $("ddRank").innerHTML = `<tr><th>Day</th><th>Imbalance cost €</th><th>Imbalance kWh</th><th>Cost when SD ≤ 0 €</th><th>Cost when SD &gt; 0 €</th></tr>` + (top.length ? top.map(([k, g]) =>
-    `<tr class="pick${k === ddDay ? " on" : ""}" data-d="${k}"><td>${k}</td><td><b>${eur(g.imb)}</b></td><td>${eur(g.pos - g.AH)}</td><td>${eur(g.impNeg)}</td><td>${eur(g.impPos)}</td></tr>`).join("") : `<tr><td colspan="5" style="text-align:center;color:#aaa">No data</td></tr>`);
+    `<tr class="pick${k === ddDay ? " on" : ""}" data-d="${k}"><td>${k}</td><td><b>${eur(g.imb)}</b></td><td>${eur(g.pos - g.AH)}</td>${g.impNeg === 0 && g.impPos === 0 && g.impNa !== 0 ? `<td>–</td><td>–</td>` : `<td>${eur(g.impNeg)}</td><td>${eur(g.impPos)}</td>`}</tr>`).join("") : `<tr><td colspan="5" style="text-align:center;color:#aaa">No data</td></tr>`);
   // the selected day: the one the user picked, otherwise the day with the largest cost
   const allDays = new Set(aggregate(sites, "day", p, mode, false).map(([k]) => k));
   if (!ddPickedByUser || !ddDay || !allDays.has(ddDay)) { ddDay = top.length ? top[0][0] : null; ddPickedByUser = false; }     // not picked: follow the day with the largest cost

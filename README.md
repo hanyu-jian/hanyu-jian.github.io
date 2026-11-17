@@ -338,7 +338,7 @@ token 只在服务端，不会发给浏览器；数据不会进入本仓库，�
 
 **Ops 页面的网址参数**（Overview / Capture Price / Imbalance 三个页面）：页面上的选择会同步写进地址栏（`history.replaceState`，不增加浏览器历史记录），打开带参数的链接时按参数恢复；缺少或不合法的参数忽略，用默认值。链接里只有选择，没有数据，打开仍要登录 ops。
 - `/ops/overview?site=&start=&end=&res=15min|hourly&lead=&bdate=`（`site` = ALL 或站点名，`lead` = 提前量分钟数，`bdate` = 第二张卡片的日期）
-- `/ops/imbalance?site=&start=&end=&freq=&lead=&pct=&mode=idc|imb&thr=&cloud=&dacc=&isrc=&il=&icc=&ibid=&from=&to=`（`freq` = 15min / hour / day / week / month / quarter / year，`from`、`to` = Summary table 的月份 1–12）
+- `/ops/imbalance?site=&start=&end=&freq=&lead=&pct=&mode=idc|imb&thr=&cloud=&dacc=&dabc=&isrc=&il=&icc=&ibc=&ibid=&from=&to=`（`freq` = 15min / hour / day / week / month / quarter / year，`from`、`to` = Summary table 的月份 1–12）
 - `/ops/capture-price?site=&year=&mode=price|ratio&ssite=&thresh=negative|nonpositive`
 
 **Imbalance 页面口径**（`ops/ops-imbalance.html`，`/ops/imbalance`，二级导航里排在 Capture Price 后面）
@@ -370,13 +370,14 @@ token 只在服务端，不会发给浏览器；数据不会进入本仓库，�
 - **Curtail if DA price ≤ X**：某 15 分钟日前价 P ≤ X（价格缺失不触发）则场站不发电：DA / IDC / Imbalance cost / Payment 全部为 0；状态栏写出被停发的时段数和电量。DA-only 参照线不受该策略影响。
 
 *云量策略*（Strategy 卡片分成 Cloud / Bid / Curtailment 三块）
-- **Bid**：`DA bid, % of DA forecast`（D = DA bid % × H）、`IDC: position %`（**留空 = 没调整**）、`Rest (not bid in DA)`、`IDC lead time`。
+- **Bid**（平时 / 晴天的策略）：`DA bid, % of DA forecast`（D = DA bid % × H）、`IDC: position %`（**留空 = 没调整**）、`Rest (not bid in DA)`、`IDC lead time`。
   - 只调整 DA %（IDC: position % 留空）：没报进 DA 的部分由 **Rest** 决定，Close out in IDC = 平到 UST 预测 F，Leave in imbalance = 留在不平衡里。
   - DA % 和 IDC: position % 都调整：最终仓位 = IDC position % × F，没报的部分**自动全部留在不平衡里**（100% = 全部平到 F，0% = 一点不平），这时 Rest 不起作用，置灰。
-- **Cloud**：先有一个开关 `Adjust the bids by cloud cover`。
-  - **关**：DA bid % 和 IDC position % 对所有时段生效（云量框置灰）。
-  - **开**：DA bid % 和 IDC position % **只在云多的时段**生效，其它时段 DA 报 100%、没报的部分按 Rest 的设置处理（IDC position % 留空时 IDC 这边不调整，IDC 的云量框置灰）。云多的判断：`DA: cloud cover > (%)`（所在小时的**提前一天预报总云量**严格大于阈值，决定 DA）；`IDC: cloud forecast`（Latest forecast = Historical Forecast，默认；Day-ahead forecast = 提前一天预报）、`IDC: cloud layer`（Total / Low / Mid / High；提前一天预报只有 Total）、`IDC: cloud cover > (%)`（所选云量严格大于阈值，决定 IDC）。某个阈值框留空 = 那一边没有云多的时段。
-  - 这样不用单独再填“云多时的比例”，只有一个 DA bid % 和一个 IDC position %，开关决定它们对所有时段还是只对云多的时段生效。
+- **Cloud**：开关 `Use different bids when it is cloudy`。
+  - **关**：只用 Bid 里的值，对所有时段生效（云量框置灰）。
+  - **开**：云量**不超过**阈值的时段（晴天）仍然用 Bid 里的值；云多的时段改用云天的值：`DA: bid % when cloudy`（所在小时的**提前一天预报总云量**严格大于 `DA: cloud cover > (%)` 时，替换 DA bid %）、`IDC: position % when cloudy`（所选云量严格大于 `IDC: cloud cover > (%)` 时，替换 IDC position %，没报的部分留在不平衡里）。云天的值留空 = 云多时也和 Bid 一样；阈值留空 = 那一边没有云多的时段。
+  - `IDC: cloud forecast`：Latest forecast = Historical Forecast（默认），Day-ahead forecast = 提前一天预报；`IDC: cloud layer`：Total / Low / Mid / High（提前一天预报只有 Total）。
+  - DA 和 IDC 两边各自独立判断云多（DA 用提前一天预报总云量，IDC 用所选来源和云层）。
 - **Curtailment**：`Curtail when DA price ≤ (EUR/MWh)`（见上）。
 - PV revenue 不变（场站仍按实际发电量 × 日前价结算），Curtail 优先于云量策略。状态栏写出两边各有多少个云量时段；云量文件读不到时写 “cloud forecast data unavailable”。
 - **云量数据**（ECMWF IFS HRES 9km，Open-Meteo，GMT，转成 Budapest 本地时间，每小时一行，`data/weather/`）：
@@ -386,7 +387,7 @@ token 只在服务端，不会发给浏览器；数据不会进入本仓库，�
   - 转换脚本：`python3 py/build/convert_open_meteo_cloud.py <day1|hist> <Open-Meteo 多位置导出 CSV>`（`location_id` 0 = west、1 = east，其余位置忽略；UTC → Budapest 本地时间；夏令时重复的那个小时取平均；层按列名匹配，不按位置；再次运行会把新数据合并进去，同一小时以新的为准）。目前覆盖 2026-01-01 ~ 2026-11-17，新日期需要重新导出并运行脚本；某小时没有云量就按没有云处理。
   - 想要更精确（每个决策时刻只用已经发布的最新一次运行）可以以后用 Single Runs API 做，目前没做。
 - Worker 的 `GET /ops/api/cloud?src=day1|hist` 把对应文件原样转发（不解析，几乎不占 CPU）；页面只在对应的阈值框有值时才读，每个文件读一次。
-- 网址参数：`cloud`（1 = 开关打开）、`dacc`、`isrc`（hist / day1）、`il`（total / low / mid / high）、`icc`、`ibid`（IDC position %），其余同上。
+- 网址参数：`cloud`（1 = 开关打开）、`dacc`、`dabc`（DA 云天比例）、`isrc`（hist / day1）、`il`（total / low / mid / high）、`icc`、`ibc`（IDC 云天比例）、`ibid`（Bid 里的 IDC position %），其余同上。
 
 *数据与接口*
 - `GET /ops/api/imbalance?site=&start=&end=&lead=`（≤ 62 天）：返回该站点该时段逐 15 分钟的结算输入（列式 JSON：`t, H, AH, F, P, AA, PI`），结算本身在浏览器里算。H 和 AH 来自 vcom（`GITHUB_TOKEN`），UST 来自 R2（`ust/`、`ust-replay/`、`ust-hindcast/` 三个视图），价格见下。

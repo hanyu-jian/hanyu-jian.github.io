@@ -484,6 +484,19 @@ const pc0 = v => nf(Math.round(v * 100));
 // ───────────── drill-down: why was the imbalance cost of a day high? ─────────────
 let chDay = null, ddDay = null, ddPickedByUser = false;
 const sdTxt = v => v == null ? "–" : sgn(v, 1);
+// Two value axes (left: price, right: system direction) with the zero line at the same height and the ticks of both axes on the same lines:
+// k intervals above zero and l below zero on both axes, each axis with its own "nice" interval.
+function alignedZero(a, b) {
+  const rng = v => { const f = v.filter(x => x != null && isFinite(x)); return [Math.min(0, ...f), Math.max(0, ...f)]; };
+  const [aMin, aMax] = rng(a), [bMin, bMax] = rng(b);
+  const nice = x => { if (!(x > 0)) return 1; const p = Math.pow(10, Math.floor(Math.log10(x))), f = x / p; return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 2.5 ? 2.5 : f <= 5 ? 5 : 10) * p; };
+  let k = 3, l = 0;
+  const ratio = (neg, pos) => (neg <= 0 ? 0 : pos <= 0 ? Infinity : neg / pos);
+  const r = Math.max(ratio(-aMin, aMax), ratio(-bMin, bMax));
+  if (aMax <= 0 && bMax <= 0) { k = 0; l = 3; } else l = r === Infinity ? 6 : Math.min(6, Math.ceil(r * k - 1e-9));
+  const axis = (mn, mx) => { const i = nice(Math.max(k > 0 ? mx / k : 0, l > 0 ? -mn / l : 0)); return { min: -l * i, max: k * i, interval: i }; };
+  return [axis(aMin, aMax), axis(bMin, bMax)];
+}
 // The intervals of one day, summed over the selected sites (prices and the system direction are the same for every site).
 function dayDetail(sites, day, c) {
   const m = new Map(), tmp = new Array(13);
@@ -537,13 +550,14 @@ function paintDrill(sites, p, mode) {
   // bars split by sign into two stacked series, so that each colour has its own legend entry
   const bars = (xi, yi, stack, defs) => defs.map(([name, color, f]) => ({ name, type: "bar", stack, xAxisIndex: xi, yAxisIndex: yi, data: rows.map(r => { const v = f(r); return v == null ? null : num(v); }), itemStyle: { color }, barMaxWidth: 8 }));
   const RED = "#d98880", GREEN = "#82c99b", BLUE = "#7fb3d5";
+  const zeroAx = alignedZero(rows.flatMap(r => [r.PI, r.P]), rows.map(r => r.SD));
   chDay.setOption({ animation: false,
     legend: [legend(0, ["Theoretical production", "DA bid", "Final position", OVER, UNDER]), legend(1, ["Bid more than produced", "Bid less than produced"]), legend(2, ["Imbalance price", "DA price", "System direction ≤ 0", "System direction > 0"]), legend(3, ["Imbalance cost", "Imbalance income"])],
     axisPointer: { link: [{ xAxisIndex: "all" }] },
     tooltip: { trigger: "axis", axisPointer: { type: "line" }, formatter: ps => { const r = rows[ps[0].dataIndex]; return `<b>${r.t.slice(11, 16)}</b><br>Theoretical ${nf(r.AH, 0)} kWh · DA bid ${nf(r.D, 0)} · final position ${nf(r.pos, 0)}<br>Imbalance <b>${sgn(r.pos - r.AH, 0)} kWh</b><br>DA price ${nf(r.P, 1)} · imbalance price ${nf(r.PI, 1)} EUR/MWh<br>System direction ${sdTxt(r.SD)} MWh<br>Imbalance cost <b>${eur(r.imb)} €</b>${r.curt ? "<br>(curtailed)" : ""}`; } },
     grid: PANELS.map((_, k) => grid(k)),
     xAxis: [xa(0, false), xa(1, false), xa(2, false), xa(3, true)],
-    yAxis: [ya(0, "kWh per 15 min", { min: 0 }), ya(1, "Imbalance, kWh"), ya(2, "EUR/MWh"), ya(2, "System direction, MWh", { position: "right", splitLine: { show: false }, nameTextStyle: { align: "right" } }), ya(3, "Cost, EUR")],
+    yAxis: [ya(0, "kWh per 15 min", { min: 0 }), ya(1, "Imbalance, kWh"), ya(2, "EUR/MWh", { splitNumber: undefined, ...zeroAx[0] }), ya(2, "System direction, MWh", { position: "right", splitLine: { show: false }, nameTextStyle: { align: "right" }, splitNumber: undefined, ...zeroAx[1] }), ya(3, "Cost, EUR")],
     series: [
       stackLine("base", baseV, null), stackLine(OVER, overV, "rgba(217,83,79,.40)"), stackLine(UNDER, underV, "rgba(76,175,110,.40)"),
       { name: "Theoretical production", type: "line", xAxisIndex: 0, yAxisIndex: 0, data: rows.map(r => num(r.AH)), showSymbol: false, lineStyle: { width: 2.2, color: "#2c7fb8" }, itemStyle: { color: "#2c7fb8" }, z: 3 },

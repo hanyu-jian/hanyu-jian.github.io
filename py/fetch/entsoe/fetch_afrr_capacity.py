@@ -61,6 +61,8 @@ COUNTRIES = {
         "50Hertz": "10YDE-VE-------2", "Amprion": "10YDE-RWENET---I",
         "TenneT GER": "10YDE-EON------1", "TransnetBW": "10YDE-ENBW-----N"}},
     # HU：MAVIR（10YHU-MAVIR----U），交付日按 Europe/Budapest；2026-10-01 加入 PICASSO 后币种是 EUR，15min；
+    # 请求不带 psrType：HU 每个时间点有 A03 Mixed 和 A04 Generation 两个 TimeSeries，会一起返回，
+    # build_frames 里和德国一样按时间合并（容量相加、价格按容量加权）
     # 之前的历史是从 EnAppSys 的 HU CSV 拷贝过来的（只取 DAILY 两列），接着往下更新
     "HU": {"delivery_tz": "Europe/Budapest", "step": 15, "folder": "15min", "areas": {"MAVIR": "10YHU-MAVIR----U"}},
     "BG": {"delivery_tz": "Europe/Sofia", "step": None, "folder": None, "areas": {"ESO": "10YCA-BULGARIA-R"}},

@@ -96,13 +96,16 @@ tr.out td { color: #aaa; }
 @media (max-width: 1000px) { .work { grid-template-columns: minmax(0, 1fr); } #chartRev { height: 420px; } }
 /* drill-down */
 .dd-grid { display: grid; grid-template-columns: 470px minmax(0, 1fr); gap: 24px; align-items: start; }
-#chartDay { height: 640px; }
+#chartDay { height: 780px; }
+.dd-nav { height: 36px; width: 34px; border: 1px solid #ccc; border-radius: 6px; background: #fff; color: #2c3e50; font-size: 16px; cursor: pointer; }
+.dd-nav:hover { background: #f0f2f5; }
+.dd-day { display: flex; gap: 6px; align-items: center; }
 .dd-sum { font-size: 13px; color: #2c3e50; line-height: 1.7; margin: 14px 0 10px; }
 .dd-sum b { font-weight: 700; }
 #ddRank tr.pick { cursor: pointer; } #ddRank tr.pick:hover td { background: #f6f8fa; } #ddRank tr.on td { background: #fff1d6; font-weight: 600; }
 #ddRank th, #ddRank td, #ddTop th, #ddTop td { padding: 6px 8px; font-size: 12.5px; }
 #ddRank th { white-space: normal; vertical-align: bottom; line-height: 1.25; }
-@media (max-width: 1000px) { .dd-grid { grid-template-columns: minmax(0, 1fr); } #chartDay { height: 560px; } }
+@media (max-width: 1000px) { .dd-grid { grid-template-columns: minmax(0, 1fr); } #chartDay { height: 640px; } }
 @media (max-width: 420px) { .work .strategy { grid-template-columns: minmax(0, 1fr); } }
 </style>
 </head>
@@ -170,7 +173,7 @@ tr.out td { color: #aaa; }
       <div class="chart-card-header" style="align-items:flex-end;">
         <div><h3 id="ddTitle">Imbalance cost drill-down</h3><div class="subtitle" id="ddSub">The days with the largest imbalance cost, and what happened in the intervals of one day</div></div>
         <div class="strategy">
-          <div class="control-group"><label>Day</label><input type="date" id="ddDay"></div>
+          <div class="control-group"><label>Day (any day of the year)</label><div class="dd-day"><button class="dd-nav" id="ddPrev" title="Previous day">‹</button><input type="date" id="ddDay"><button class="dd-nav" id="ddNext" title="Next day">›</button></div></div>
         </div>
       </div>
       <div class="dd-grid">
@@ -339,7 +342,9 @@ function init() {
   $("sumFrom").onchange = () => { if (+$("sumTo").value < +$("sumFrom").value) $("sumTo").value = $("sumFrom").value; redrawSummary(); };
   $("sumTo").onchange = () => { if (+$("sumFrom").value > +$("sumTo").value) $("sumFrom").value = $("sumTo").value; redrawSummary(); };
   $("pct").oninput = paint;
-  $("ddDay").onchange = () => { ddDay = $("ddDay").value || null; ddPickedByUser = !!ddDay; paint(); };
+  $("ddDay").onchange = () => pickDay($("ddDay").value || null);
+  $("ddPrev").onclick = () => { if (ddDay) pickDay(addDays(ddDay, -1)); };
+  $("ddNext").onclick = () => { if (ddDay) pickDay(addDays(ddDay, 1)); };
   chRev = echarts.init($("chartRev"));
   window.addEventListener("resize", () => chRev.resize());
   const qs = qget("site", v => v === "ALL" || SITES.includes(v)); if (qs) selected = qs;
@@ -363,6 +368,7 @@ function init() {
   if (qa && qb && +qa <= +qb) { $("sumFrom").value = qa; $("sumTo").value = qb; }
   const sd = qget("start", isDate), ed = qget("end", isDate);
   if (sd && ed && sd <= ed) { $("start").value = sd; $("end").value = ed; } else defaultRange();
+  if (ddDay && ddDay.slice(0, 4) !== $("end").value.slice(0, 4)) { $("start").value = ddDay; $("end").value = ddDay; }          // dd in another year: load that year
   load();
 }
 
@@ -501,12 +507,11 @@ function paintDrill(sites, p, mode) {
   $("ddRank").innerHTML = `<tr><th>Day</th><th>Imbalance cost €</th><th>Imbalance kWh</th><th>Cost when SD ≤ 0 €</th><th>Cost when SD &gt; 0 €</th></tr>` + (top.length ? top.map(([k, g]) =>
     `<tr class="pick${k === ddDay ? " on" : ""}" data-d="${k}"><td>${k}</td><td><b>${eur(g.imb)}</b></td><td>${eur(g.pos - g.AH)}</td>${g.impNeg === 0 && g.impPos === 0 && g.impNa !== 0 ? `<td>–</td><td>–</td>` : `<td>${eur(g.impNeg)}</td><td>${eur(g.impPos)}</td>`}</tr>`).join("") : `<tr><td colspan="5" style="text-align:center;color:#aaa">No data</td></tr>`);
   // the selected day: the one the user picked, otherwise the day with the largest cost
-  const allDays = new Set(aggregate(sites, "day", p, mode, false).map(([k]) => k));
-  if (!ddPickedByUser || !ddDay || !allDays.has(ddDay)) { ddDay = top.length ? top[0][0] : null; ddPickedByUser = false; }     // not picked: follow the day with the largest cost
+  if (!ddPickedByUser || !ddDay) { ddDay = top.length ? top[0][0] : null; ddPickedByUser = false; }     // not picked: follow the day with the largest cost
   if (ddDay) $("ddDay").value = ddDay;
   syncImb();
   const rows = ddDay ? dayDetail(sites, ddDay, stratCtx(p, mode)) : [];
-  if (!rows.length) { $("ddSub").textContent = "No data for this day"; $("ddSum").innerHTML = ""; $("ddTop").innerHTML = ""; if (chDay) chDay.clear(); return; }
+  if (!rows.length) { $("ddSub").textContent = ddDay ? `${ddDay} · no data for this day (no theoretical production / DA forecast, or no prices yet)` : "No data"; $("ddSum").innerHTML = ""; $("ddTop").innerHTML = ""; if (chDay) chDay.clear(); return; }
   const x = rows.map(r => r.t.slice(11, 16)), tot = rows.reduce((a, r) => a + r.imb, 0), dev = rows.reduce((a, r) => a + (r.pos - r.AH), 0);
   const byDir = { neg: [0, 0], pos: [0, 0], na: [0, 0] };
   rows.forEach(r => { const k = r.SD == null ? "na" : r.SD <= 0 ? "neg" : "pos"; byDir[k][0]++; byDir[k][1] += r.imb; });
@@ -520,26 +525,39 @@ function paintDrill(sites, p, mode) {
     + topI.map(r => `<tr><td>${r.t.slice(11, 16)}</td><td>${nf(r.AH, 0)}</td><td>${nf(r.D, 0)}</td><td>${nf(r.pos, 0)}</td><td>${sgn(r.pos - r.AH, 0)}</td><td>${nf(r.P, 1)}</td><td>${nf(r.PI, 1)}</td><td>${r.P == null || r.PI == null ? "–" : sgn(r.PI - r.P, 1)}</td><td>${sdTxt(r.SD)}</td><td><b>${eur(r.imb)}</b></td></tr>`).join("");
   if (!chDay) { chDay = echarts.init($("chartDay")); window.addEventListener("resize", () => chDay.resize()); }
   const num = v => v == null ? null : Math.round(v * 100) / 100;
-  const grid = (top, h, last = false) => ({ left: 64, right: 24, top: top + "%", height: h + "%" });
+  const grid = (top, h) => ({ left: 64, right: 24, top: top + "%", height: h + "%" });
   const xa = (i, show) => ({ type: "category", gridIndex: i, data: x, axisLabel: { show }, axisTick: { show }, axisPointer: { show: true } });
   const ya = (i, name, extra = {}) => ({ type: "value", gridIndex: i, name, nameGap: 8, nameTextStyle: { align: "left" }, splitNumber: 3, ...extra });
+  // the imbalance volume shaded between the final position and the theoretical production: stacked areas on top of min(position, theoretical)
+  const baseV = rows.map(r => Math.min(r.pos, r.AH)), overV = rows.map(r => Math.max(r.pos - r.AH, 0)), underV = rows.map(r => Math.max(r.AH - r.pos, 0));
+  const stackLine = (name, data, color) => ({ name, type: "line", stack: "imb", xAxisIndex: 0, yAxisIndex: 0, data: data.map(num), symbol: "none", lineStyle: { width: 0, opacity: 0 }, itemStyle: { color }, areaStyle: color ? { color } : { opacity: 0 }, silent: true, z: 1 });
+  const OVER = "Imbalance: bid more than produced", UNDER = "Imbalance: bid less than produced";
   chDay.setOption({ animation: false,
-    legend: { top: 0, data: ["Theoretical production", "DA bid", "Final position", "Imbalance price", "DA price"] },
+    legend: { top: 0, data: ["Theoretical production", "DA bid", "Final position", OVER, UNDER, "Imbalance price", "DA price"] },
     axisPointer: { link: [{ xAxisIndex: "all" }] },
-    tooltip: { trigger: "axis", axisPointer: { type: "line" }, formatter: ps => { const r = rows[ps[0].dataIndex]; return `<b>${r.t.slice(11, 16)}</b><br>Theoretical ${nf(r.AH, 0)} kWh · DA bid ${nf(r.D, 0)} · final position ${nf(r.pos, 0)}<br>Imbalance ${sgn(r.pos - r.AH, 0)} kWh<br>DA price ${nf(r.P, 1)} · imbalance price ${nf(r.PI, 1)} EUR/MWh<br>System direction ${sdTxt(r.SD)} MWh<br>Imbalance cost <b>${eur(r.imb)} €</b>${r.curt ? "<br>(curtailed)" : ""}`; } },
-    grid: [grid(7, 26), grid(38, 17), grid(60, 11), grid(76, 15)],
-    xAxis: [xa(0, false), xa(1, false), xa(2, false), xa(3, true)],
-    yAxis: [ya(0, "kWh per 15 min", { min: 0 }), ya(1, "EUR/MWh"), ya(2, "SD, MWh"), ya(3, "Imbalance cost, EUR")],
+    tooltip: { trigger: "axis", axisPointer: { type: "line" }, formatter: ps => { const r = rows[ps[0].dataIndex]; return `<b>${r.t.slice(11, 16)}</b><br>Theoretical ${nf(r.AH, 0)} kWh · DA bid ${nf(r.D, 0)} · final position ${nf(r.pos, 0)}<br>Imbalance <b>${sgn(r.pos - r.AH, 0)} kWh</b><br>DA price ${nf(r.P, 1)} · imbalance price ${nf(r.PI, 1)} EUR/MWh<br>System direction ${sdTxt(r.SD)} MWh<br>Imbalance cost <b>${eur(r.imb)} €</b>${r.curt ? "<br>(curtailed)" : ""}`; } },
+    grid: [grid(9, 25), grid(37, 11), grid(52, 14), grid(70, 9), grid(83, 11)],
+    xAxis: [xa(0, false), xa(1, false), xa(2, false), xa(3, false), xa(4, true)],
+    yAxis: [ya(0, "kWh per 15 min", { min: 0 }), ya(1, "Imbalance, kWh"), ya(2, "EUR/MWh"), ya(3, "SD, MWh"), ya(4, "Cost, EUR")],
     series: [
-      { name: "Theoretical production", type: "line", xAxisIndex: 0, yAxisIndex: 0, data: rows.map(r => num(r.AH)), showSymbol: false, lineStyle: { width: 2, color: "#2c7fb8" }, itemStyle: { color: "#2c7fb8" }, areaStyle: { color: "rgba(44,127,184,.10)" } },
-      { name: "DA bid", type: "line", xAxisIndex: 0, yAxisIndex: 0, data: rows.map(r => num(r.D)), showSymbol: false, lineStyle: { width: 1.6, color: "#95a5a6", type: "dashed" }, itemStyle: { color: "#95a5a6" } },
-      { name: "Final position", type: "line", xAxisIndex: 0, yAxisIndex: 0, data: rows.map(r => num(r.pos)), showSymbol: false, lineStyle: { width: 2, color: "#e67e22" }, itemStyle: { color: "#e67e22" } },
-      { name: "Imbalance price", type: "line", xAxisIndex: 1, yAxisIndex: 1, data: rows.map(r => num(r.PI)), showSymbol: false, lineStyle: { width: 2, color: "#2c3e50" }, itemStyle: { color: "#2c3e50" } },
-      { name: "DA price", type: "line", xAxisIndex: 1, yAxisIndex: 1, data: rows.map(r => num(r.P)), showSymbol: false, lineStyle: { width: 1.4, color: "#95a5a6", type: "dashed" }, itemStyle: { color: "#95a5a6" } },
-      { name: "System direction", type: "bar", xAxisIndex: 2, yAxisIndex: 2, data: rows.map(r => r.SD == null ? null : { value: num(r.SD), itemStyle: { color: r.SD <= 0 ? "#d98880" : "#7fb3d5" } }), barMaxWidth: 8 },
-      { name: "Imbalance cost", type: "bar", xAxisIndex: 3, yAxisIndex: 3, data: rows.map(r => ({ value: num(r.imb), itemStyle: { color: r.imb < 0 ? "#d98880" : "#82c99b" } })), barMaxWidth: 8 }] }, true);
+      stackLine("base", baseV, null), stackLine(OVER, overV, "rgba(217,83,79,.40)"), stackLine(UNDER, underV, "rgba(76,175,110,.40)"),
+      { name: "Theoretical production", type: "line", xAxisIndex: 0, yAxisIndex: 0, data: rows.map(r => num(r.AH)), showSymbol: false, lineStyle: { width: 2.2, color: "#2c7fb8" }, itemStyle: { color: "#2c7fb8" }, z: 3 },
+      { name: "DA bid", type: "line", xAxisIndex: 0, yAxisIndex: 0, data: rows.map(r => num(r.D)), showSymbol: false, lineStyle: { width: 1.6, color: "#95a5a6", type: "dashed" }, itemStyle: { color: "#95a5a6" }, z: 3 },
+      { name: "Final position", type: "line", xAxisIndex: 0, yAxisIndex: 0, data: rows.map(r => num(r.pos)), showSymbol: false, lineStyle: { width: 2.2, color: "#e67e22" }, itemStyle: { color: "#e67e22" }, z: 3 },
+      { name: "Imbalance kWh", type: "bar", xAxisIndex: 1, yAxisIndex: 1, data: rows.map(r => ({ value: num(r.pos - r.AH), itemStyle: { color: r.pos - r.AH > 0 ? "rgba(217,83,79,.75)" : "rgba(76,175,110,.75)" } })), barMaxWidth: 8 },
+      { name: "Imbalance price", type: "line", xAxisIndex: 2, yAxisIndex: 2, data: rows.map(r => num(r.PI)), showSymbol: false, lineStyle: { width: 2, color: "#2c3e50" }, itemStyle: { color: "#2c3e50" } },
+      { name: "DA price", type: "line", xAxisIndex: 2, yAxisIndex: 2, data: rows.map(r => num(r.P)), showSymbol: false, lineStyle: { width: 1.4, color: "#95a5a6", type: "dashed" }, itemStyle: { color: "#95a5a6" } },
+      { name: "System direction", type: "bar", xAxisIndex: 3, yAxisIndex: 3, data: rows.map(r => r.SD == null ? null : { value: num(r.SD), itemStyle: { color: r.SD <= 0 ? "#d98880" : "#7fb3d5" } }), barMaxWidth: 8 },
+      { name: "Imbalance cost", type: "bar", xAxisIndex: 4, yAxisIndex: 4, data: rows.map(r => ({ value: num(r.imb), itemStyle: { color: r.imb < 0 ? "#d98880" : "#82c99b" } })), barMaxWidth: 8 }] }, true);
 }
-$("ddRank").addEventListener("click", e => { const tr = e.target.closest("tr[data-d]"); if (!tr) return; ddDay = tr.dataset.d; ddPickedByUser = true; paint(); });
+// Any day can be picked. A day of another year: the page works on one calendar year, so it loads that year (the chart range moves to that day).
+function pickDay(day) {
+  if (!day || !isDate(day)) return;
+  ddDay = day; ddPickedByUser = true;
+  if (day.slice(0, 4) !== (dataYear || $("end").value.slice(0, 4))) { $("start").value = day; $("end").value = day; load(); return; }
+  paint();
+}
+$("ddRank").addEventListener("click", e => { const tr = e.target.closest("tr[data-d]"); if (!tr) return; pickDay(tr.dataset.d); });
 
 // ───────────── painting ─────────────
 function paint() {

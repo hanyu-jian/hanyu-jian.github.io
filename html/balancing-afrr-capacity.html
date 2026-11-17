@@ -169,16 +169,12 @@
                     </div>
                     <label>Product</label>
                     <div class="btn-group-inline" id="afrrSel">
-                        <button class="active" data-sel="total">Total</button>
-                        <button data-sel="0">Hourly</button>
-                        <button data-sel="1">Daily</button>
-                        <button data-sel="2">Monthly</button>
+                        <button class="active" data-sel="1">Daily</button>
                     </div>
                 </div>
                 <div class="no-data" id="afrrNoData" style="display:none"><p>No aFRR capacity data for this selection.</p></div>
                 <div id="afrrChart" style="width:100%; height:460px;"></div>
                 <div class="chart-note" id="afrrEntsoeNote" style="display:none"></div>
-                <div class="chart-note" id="afrrHuNote">Product selects the capacity product: Total = hourly + daily + monthly products (stacked volume, one price line per product); otherwise that product's volume and weighted average price. Period value = simple mean of the 15-min points that have a value (volume in MW is average power). Empty where there is no data.</div>
             </div>
         </div>
 
@@ -200,9 +196,7 @@
                     </div>
                     <label>Product</label>
                     <div class="btn-group-inline" id="hmProd">
-                        <button data-prod="0">Hourly</button>
                         <button class="active" data-prod="1">Daily</button>
-                        <button data-prod="2">Monthly</button>
                     </div>
                 </div>
                 <div class="spinner-wrap show" id="hmSpinner"><div class="spinner"></div> Loading data…</div>
@@ -214,8 +208,7 @@
     </div>
 
     <div class="info">
-        <span id="afrrSource">Data source: <a href="https://app.enappsys.com/" target="_blank">EnAppSys</a>
-        &nbsp;|&nbsp; aFRR capacity (HU)</span> &nbsp;|&nbsp; Volume: MW &nbsp;|&nbsp; Price: €/MW/h &nbsp;|&nbsp; Author: Hanyu Jian
+        <span id="afrrSource">Data source: <a href="https://transparency.entsoe.eu/" target="_blank">ENTSO-E Transparency Platform</a></span> &nbsp;|&nbsp; Volume: MW &nbsp;|&nbsp; Price: €/MW/h &nbsp;|&nbsp; Author: Hanyu Jian
     </div>
 </div>
 
@@ -266,32 +259,13 @@ function periodKey(r, freq) {
     return r.date;
 }
 
-// columns: datetime, WAP hourly/daily/monthly, Volume hourly/daily/monthly, Total volume
 async function loadAfrr(dir) {
     const country = afrrCountry(), key = country + ':' + dir;
     if (afrrData[key]) return afrrData[key];
-    if (ENTSOE[country]) return (afrrData[key] = await loadAfrrEntsoe(country, dir));
-    const years = Array.from({ length: new Date().getFullYear() - 2023 }, (_, i) => 2024 + i);
-    const texts = await Promise.all(years.map(y =>
-        fetch(`/data/enappsys/afrr/capacity/${dir}/15min/HU_${y}.csv`).then(r => r.ok ? r.text() : null).catch(() => null)));
-    const f = x => { const n = parseFloat(x); return isNaN(n) ? null : n; };
-    const rows = [];
-    texts.filter(Boolean).forEach(t => {
-        const lines = t.trim().split(/\r?\n/);
-        for (let i = 1; i < lines.length; i++) {
-            const c = lines[i].split(',');
-            if (c.length < 8 || !c[0]) continue;
-            // "-" in the CSV = recorded but nothing traded: null for the series math, flagged in d (price x3, volume x3) for the heatmap
-            const dash = x => x.trim() === '-';
-            rows.push({ date: c[0].slice(0, 10), ts: c[0].slice(0, 16).replace('T', ' '),
-                        p: [f(c[1]), f(c[2]), f(c[3])], v: [f(c[4]), f(c[5]), f(c[6])], t: f(c[7]),
-                        dp: [dash(c[1]), dash(c[2]), dash(c[3])], dv: [dash(c[4]), dash(c[5]), dash(c[6])] });
-        }
-    });
-    return (afrrData[key] = rows);
+    return (afrrData[key] = await loadAfrrEntsoe(country, dir));
 }
 
-// ENTSO-E countries: Date "YYYY/M/D H:MM" (CET/CEST period start), daily-product price (EUR) and volume (MW).
+// Date "YYYY/M/D H:MM" (CET/CEST period start), daily-product price (EUR) and volume (MW).
 // Mapped onto the HU row shape: only the Daily product (index 1) is filled. BG / GR publish at an a-priori unknown
 // resolution (the fetch script writes hourly/ or 15min/ by what it finds), so every folder listed is tried and merged.
 const ENTSOE_NOTE_TAIL = 'Time = CET/CEST (start of the period), same as the other ENTSO-E pages. On the clock-change day the repeated 02:00 hour is averaged in the views of hourly and longer.';
@@ -341,19 +315,12 @@ function applyCountryUI() {
     const show = (sel, on) => document.querySelectorAll(sel).forEach(b => b.style.display = on ? '' : 'none');
     const click = sel => { const b = document.querySelector(sel); if (b && !b.classList.contains('active')) b.click(); };
     show('#afrrFreq button[data-freq="15min"]', !(cfg && cfg.hourlyOnly));
-    show('#afrrSel button[data-sel="total"], #afrrSel button[data-sel="0"], #afrrSel button[data-sel="2"]', !entsoe);
-    show('#hmProd button[data-prod="0"], #hmProd button[data-prod="2"]', !entsoe);
     const note = document.getElementById('afrrEntsoeNote');
     note.style.display = entsoe ? '' : 'none';
     note.textContent = entsoe ? cfg.note : '';
-    document.getElementById('afrrHuNote').style.display = entsoe ? 'none' : '';
-    document.getElementById('afrrSource').innerHTML = entsoe
-        ? `Data source: <a href="https://transparency.entsoe.eu/" target="_blank">ENTSO-E Transparency Platform</a> &nbsp;|&nbsp; ${cfg.src}`
-        : 'Data source: <a href="https://app.enappsys.com/" target="_blank">EnAppSys</a> &nbsp;|&nbsp; aFRR capacity (HU)';
+    document.getElementById('afrrSource').innerHTML = `Data source: <a href="https://transparency.entsoe.eu/" target="_blank">ENTSO-E Transparency Platform</a> &nbsp;|&nbsp; ${cfg.src}`;
     // ENTSO-E countries only have the Daily product; HU goes back to the page defaults
-    click(`#afrrFreq button[data-freq="${entsoe ? cfg.freq : '15min'}"]`);
-    click(entsoe ? '#afrrSel button[data-sel="1"]' : '#afrrSel button[data-sel="total"]');
-    click('#hmProd button[data-prod="1"]');
+    click(`#afrrFreq button[data-freq="${cfg.freq}"]`);
 }
 
 async function renderAfrr() {

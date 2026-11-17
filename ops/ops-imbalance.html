@@ -520,8 +520,8 @@ function paintDrill(sites, p, mode) {
   $("ddSum").innerHTML = `Imbalance cost of the day <b class="${tot < 0 ? "pos" : "neg"}">${eur(tot)} €</b> · imbalance <b>${eur(dev)} kWh</b> (${dev > 0 ? "bid more than produced" : dev < 0 ? "bid less than produced" : "even"})`
     + ` · system direction ≤ 0: ${byDir.neg[0]} intervals, <b>${eur(byDir.neg[1])} €</b> · system direction &gt; 0: ${byDir.pos[0]} intervals, <b>${eur(byDir.pos[1])} €</b>` + (byDir.na[0] ? ` · no direction: ${byDir.na[0]} intervals, ${eur(byDir.na[1])} €` : "")
     + (topShare == null ? "" : ` · the 5 largest intervals are ${nf(topShare, 0)}% of the day`);
-  $("ddTop").innerHTML = `<tr><th>Interval</th><th>Theoretical kWh</th><th>DA bid kWh</th><th>Final position kWh</th><th>Imbalance kWh</th><th>DA price</th><th>Imbalance price</th><th>Imbalance − DA price</th><th>System direction MWh</th><th>Imbalance cost €</th></tr>`
-    + topI.map(r => `<tr><td>${r.t.slice(11, 16)}</td><td>${nf(r.AH, 0)}</td><td>${nf(r.D, 0)}</td><td>${nf(r.pos, 0)}</td><td>${sgn(r.pos - r.AH, 0)}</td><td>${nf(r.P, 1)}</td><td>${nf(r.PI, 1)}</td><td>${r.P == null || r.PI == null ? "–" : sgn(r.PI - r.P, 1)}</td><td>${sdTxt(r.SD)}</td><td><b>${eur(r.imb)}</b></td></tr>`).join("");
+  $("ddTop").innerHTML = `<tr><th>Interval</th><th>Theoretical kWh</th><th>DA bid kWh</th><th>Final position kWh</th><th>Imbalance kWh</th><th>DA price</th><th>Imbalance price</th><th>System direction MWh</th><th>Imbalance cost €</th></tr>`
+    + topI.map(r => `<tr><td>${r.t.slice(11, 16)}</td><td>${nf(r.AH, 0)}</td><td>${nf(r.D, 0)}</td><td>${nf(r.pos, 0)}</td><td>${sgn(r.pos - r.AH, 0)}</td><td>${nf(r.P, 1)}</td><td>${nf(r.PI, 1)}</td><td>${sdTxt(r.SD)}</td><td><b>${eur(r.imb)}</b></td></tr>`).join("");
   if (!chDay) { chDay = echarts.init($("chartDay")); window.addEventListener("resize", () => chDay.resize()); }
   const num = v => v == null ? null : Math.round(v * 100) / 100;
   // four panels with a shared x axis; every panel has its own legend just above it

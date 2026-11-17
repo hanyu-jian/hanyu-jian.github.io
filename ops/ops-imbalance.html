@@ -498,7 +498,7 @@ function paintDrill(sites, p, mode) {
   const days = aggregate(sites, "day", p, mode, false).filter(([k, g]) => g.n > 0 && +k.slice(5, 7) >= from && +k.slice(5, 7) <= to);
   const top = days.slice().sort((a, b) => Math.abs(b[1].imb) - Math.abs(a[1].imb)).slice(0, 10);
   $("ddRankSub").textContent = `Top ${top.length} days by |imbalance cost|, months ${from}–${to} (set in the summary table)`;
-  $("ddRank").innerHTML = `<tr><th>Day</th><th>Imbalance cost €</th><th>Position − theoretical kWh</th><th>Cost when SD ≤ 0 €</th><th>Cost when SD &gt; 0 €</th></tr>` + (top.length ? top.map(([k, g]) =>
+  $("ddRank").innerHTML = `<tr><th>Day</th><th>Imbalance cost €</th><th>Imbalance kWh</th><th>Cost when SD ≤ 0 €</th><th>Cost when SD &gt; 0 €</th></tr>` + (top.length ? top.map(([k, g]) =>
     `<tr class="pick${k === ddDay ? " on" : ""}" data-d="${k}"><td>${k}</td><td><b>${eur(g.imb)}</b></td><td>${eur(g.pos - g.AH)}</td><td>${eur(g.impNeg)}</td><td>${eur(g.impPos)}</td></tr>`).join("") : `<tr><td colspan="5" style="text-align:center;color:#aaa">No data</td></tr>`);
   // the selected day: the one the user picked, otherwise the day with the largest cost
   const allDays = new Set(aggregate(sites, "day", p, mode, false).map(([k]) => k));
@@ -513,10 +513,10 @@ function paintDrill(sites, p, mode) {
   const topI = rows.filter(r => r.imb !== 0).sort((a, b) => Math.abs(b.imb) - Math.abs(a.imb)).slice(0, 8);
   const topShare = tot ? topI.slice(0, 5).reduce((a, r) => a + r.imb, 0) / tot * 100 : null;
   $("ddSub").textContent = `${ddDay} · ${strategyText(p, mode, $("lead").value)}` + (byDir.na[0] === rows.length ? " · no system direction for this day (MAVIR data / price table)" : "");
-  $("ddSum").innerHTML = `Imbalance cost of the day <b class="${tot < 0 ? "pos" : "neg"}">${eur(tot)} €</b> · position − theoretical <b>${eur(dev)} kWh</b> (${dev > 0 ? "bid more than produced" : dev < 0 ? "bid less than produced" : "even"})`
+  $("ddSum").innerHTML = `Imbalance cost of the day <b class="${tot < 0 ? "pos" : "neg"}">${eur(tot)} €</b> · imbalance <b>${eur(dev)} kWh</b> (${dev > 0 ? "bid more than produced" : dev < 0 ? "bid less than produced" : "even"})`
     + ` · system direction ≤ 0: ${byDir.neg[0]} intervals, <b>${eur(byDir.neg[1])} €</b> · system direction &gt; 0: ${byDir.pos[0]} intervals, <b>${eur(byDir.pos[1])} €</b>` + (byDir.na[0] ? ` · no direction: ${byDir.na[0]} intervals, ${eur(byDir.na[1])} €` : "")
     + (topShare == null ? "" : ` · the 5 largest intervals are ${nf(topShare, 0)}% of the day`);
-  $("ddTop").innerHTML = `<tr><th>Interval</th><th>Theoretical kWh</th><th>DA bid kWh</th><th>Final position kWh</th><th>Position − theoretical kWh</th><th>DA price</th><th>Imbalance price</th><th>Imbalance − DA price</th><th>System direction MWh</th><th>Imbalance cost €</th></tr>`
+  $("ddTop").innerHTML = `<tr><th>Interval</th><th>Theoretical kWh</th><th>DA bid kWh</th><th>Final position kWh</th><th>Imbalance kWh</th><th>DA price</th><th>Imbalance price</th><th>Imbalance − DA price</th><th>System direction MWh</th><th>Imbalance cost €</th></tr>`
     + topI.map(r => `<tr><td>${r.t.slice(11, 16)}</td><td>${nf(r.AH, 0)}</td><td>${nf(r.D, 0)}</td><td>${nf(r.pos, 0)}</td><td>${sgn(r.pos - r.AH, 0)}</td><td>${nf(r.P, 1)}</td><td>${nf(r.PI, 1)}</td><td>${r.P == null || r.PI == null ? "–" : sgn(r.PI - r.P, 1)}</td><td>${sdTxt(r.SD)}</td><td><b>${eur(r.imb)}</b></td></tr>`).join("");
   if (!chDay) { chDay = echarts.init($("chartDay")); window.addEventListener("resize", () => chDay.resize()); }
   const num = v => v == null ? null : Math.round(v * 100) / 100;
@@ -526,7 +526,7 @@ function paintDrill(sites, p, mode) {
   chDay.setOption({ animation: false,
     legend: { top: 0, data: ["Theoretical production", "DA bid", "Final position", "Imbalance price", "DA price"] },
     axisPointer: { link: [{ xAxisIndex: "all" }] },
-    tooltip: { trigger: "axis", axisPointer: { type: "line" }, formatter: ps => { const r = rows[ps[0].dataIndex]; return `<b>${r.t.slice(11, 16)}</b><br>Theoretical ${nf(r.AH, 0)} kWh · DA bid ${nf(r.D, 0)} · final position ${nf(r.pos, 0)}<br>Position − theoretical ${sgn(r.pos - r.AH, 0)} kWh<br>DA price ${nf(r.P, 1)} · imbalance price ${nf(r.PI, 1)} EUR/MWh<br>System direction ${sdTxt(r.SD)} MWh<br>Imbalance cost <b>${eur(r.imb)} €</b>${r.curt ? "<br>(curtailed)" : ""}`; } },
+    tooltip: { trigger: "axis", axisPointer: { type: "line" }, formatter: ps => { const r = rows[ps[0].dataIndex]; return `<b>${r.t.slice(11, 16)}</b><br>Theoretical ${nf(r.AH, 0)} kWh · DA bid ${nf(r.D, 0)} · final position ${nf(r.pos, 0)}<br>Imbalance ${sgn(r.pos - r.AH, 0)} kWh<br>DA price ${nf(r.P, 1)} · imbalance price ${nf(r.PI, 1)} EUR/MWh<br>System direction ${sdTxt(r.SD)} MWh<br>Imbalance cost <b>${eur(r.imb)} €</b>${r.curt ? "<br>(curtailed)" : ""}`; } },
     grid: [grid(7, 26), grid(38, 17), grid(60, 11), grid(76, 15)],
     xAxis: [xa(0, false), xa(1, false), xa(2, false), xa(3, true)],
     yAxis: [ya(0, "kWh per 15 min", { min: 0 }), ya(1, "EUR/MWh"), ya(2, "SD, MWh"), ya(3, "Imbalance cost, EUR")],

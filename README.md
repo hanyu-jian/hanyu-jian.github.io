@@ -34,8 +34,7 @@ data/
     15min/{price,solar,wind}.csv  由 raw_data 生成的 15 分钟宽表（py/build/build_15min.py）
   enappsys/  Montel / EnAppSys 数据（按年份拆分，避免单文件过大）
     IDA/HU_<年>.csv   HUPX 日内拍卖 IDA1/2/3 价格、成交量，15 分钟
-    ID3/HU_<年>.csv   ID3 指数，列 Date, ID3, Vol（制表符分隔，日/月/年）；每天由 py/fetch/enappsys/fetch_enappsys_id3.py 接着往下更新（`update_enappsys.yml` 手动运行时可勾选 `ida_only` / `id3_only` / `afrr_capacity_only` 只更新其中一个）
-    afrr/capacity/<up|down>/15min/HU_<年>.csv   匈牙利 aFRR 容量，7 列：WAP(hourly/daily/monthly)、Volume(hourly/daily/monthly)、Total volume（无成交 / 无数据写 "-"）；由 py/fetch/enappsys/fetch_enappsys_afrr_capacity.py 更新
+    ID3/HU_<年>.csv   ID3 指数，列 Date, ID3, Vol（制表符分隔，日/月/年）；每天由 py/fetch/enappsys/fetch_enappsys_id3.py 接着往下更新（`update_enappsys.yml` 手动运行时可勾选 `ida_only` / `id3_only` 只更新其中一个）
   fx/MNB.csv  匈牙利央行汇率（HUF per EUR / RON / PLN，工作日）
   mavir/imbalance/HU_<年>.csv  MAVIR System direction（及 10 月起的 preliminary 全部列），15 分钟；每天由 `update_mavir_imbalance.yml` 更新；文件按天从 MAVIR 的 Liferay 目录取（`Pos_ImbalancePrice_ENG_preliminary_<数据日>_<发布日>.xlsx`），目录号会换（10 月的在 `358398864`，11 月起在 `360748237`），脚本依次试 `fetch_mavir_imbalance.py` 里 `FOLDERS` 列表里的目录（最新的在前），MAVIR 再换目录时在列表最前面加一个目录号即可
   （HU 整合表不放在本仓库：`py/build/build_hu_combined.py` 生成，`build_combined.yml` 在上面几个数据 workflow 跑完后重建并推送到只含这一个文件的私有仓库 `hanyu-jian/hu-market-data`。同事用只授权该仓库的只读 token 通过 GitHub contents API 取：
@@ -274,7 +273,7 @@ raw_data/<年>/  ENTSO-E 15 分钟原始数据（A44 日前价、A65 负荷、A8
 
 ## balancing-afrr-capacity.html
 
-匈牙利 aFRR 容量（Balancing 下，Imbalance Prices 后面的 aFRR Capacity 页）。数据：`enappsys/afrr/capacity/<up|down>/15min/HU_<年>.csv`（15 分钟，来源 EnAppSys，每天由 `update_enappsys.yml` 更新）。
+aFRR 容量（Balancing 下，Imbalance Prices 后面的 aFRR Capacity 页）。HU 现在读 `entsoe/afrr/HU/<up|down>/15min/HU_<年>.csv`（只有 Daily 产品，EUR，15 分钟）：历史由 EnAppSys 的 HU CSV 拷贝而来（只取 DAILY 两列），之后由 `update_entsoe_afrr.yml` 从 ENTSOE（MAVIR）接着更新；原 EnAppSys 的 afrr 文件已删除（仍在 git 历史里）。
 
 - 控件：Year、Direction（Up / Down）、Frequency（15min / Hourly / Daily / Weekly / Monthly，周以周一为起点）、Product（Total / Hourly / Daily / Monthly）。默认 15min，年份默认数据中最新的一年，图上默认显示该年最近一个月，拖动下方缩放条可看更早的数据。
 - 图：柱 = 容量（MW，左轴），线 = 加权平均价 WAP（€/MW/h，右轴）。Product = Total 时，柱为 hourly / daily / monthly 三个产品的堆叠（顶部即 Total volume），并画三条 WAP 线；选单个产品时只画该产品的容量和 WAP。

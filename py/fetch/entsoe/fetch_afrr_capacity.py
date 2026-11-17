@@ -14,7 +14,7 @@ ENTSOE API 数据更新脚本 — aFRR 容量（Contracted reserves，A81 / B95�
   controlArea_Domain=各 TSO 的 EIC；按 offset 每 100 个 TimeSeries 翻页，单次请求不超过 1 年
 - 方向：flowDirection.direction A01 = up，A02 = down，分别写
     data/entsoe/afrr/<国家>/<up|down>/<hourly|15min>/<国家>_<年>.csv（按 CET/CEST 的年份分文件）
-- 列名和匈牙利 data/enappsys/afrr/capacity/<up|down>/15min/HU_<年>.csv 里的 DAILY 两列一致：
+- 列名和匈牙利 原 EnAppSys 匈牙利 aFRR CSV（已删除）里的 DAILY 两列一致：
     Date（CET/CEST 墙钟，时间段起点，格式 "YYYY/M/D H:MM"，和 data/entsoe/imbalance_price.csv 等其他 ENTSOE 小时表一致）、
     WEIGHTED AVERAGE PRICE <UP|DOWN> (DAILY) (EUR/MW/h)、VOLUME <UP|DOWN> (DAILY) (MW)
 - 价格：XML 里币种是 RON 的（罗马尼亚）按 MNB 汇率（data/fx/MNB.csv，HUF/EUR 和 HUF/RON）折成 EUR：

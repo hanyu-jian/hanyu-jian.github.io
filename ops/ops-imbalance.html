@@ -549,25 +549,28 @@ function paintDrill(sites, p, mode) {
   const COL = { red: "rgba(217,83,79,.40)", grn: "rgba(76,175,110,.40)" };
   const band = (name, stack, data, color) => ({ name, type: "line", stack, xAxisIndex: 0, yAxisIndex: 0, data: data.map(num), symbol: "none", lineStyle: { width: 0, opacity: 0 }, itemStyle: { color: color || "#999" }, areaStyle: color ? { color } : { opacity: 0 }, silent: true, z: 1 });
   const AHs = rows.map(r => r.AH);
+  // the split of "DA bid − theoretical": corrected by the IDC (signed like the DA error) and the rest = final position − theoretical (the imbalance)
+  const split = rows.map(r => { const e = r.D - r.AH, rr = r.pos - r.AH; return { cor: e >= 0 ? Math.max(e - Math.max(rr, 0), 0) : -Math.max(-e - Math.max(-rr, 0), 0), rr }; });
   // bars split by sign into two stacked series, so that each colour has its own legend entry
   const bars = (xi, yi, stack, defs) => defs.map(([name, color, f]) => ({ name, type: "bar", stack, xAxisIndex: xi, yAxisIndex: yi, data: rows.map(r => { const v = f(r); return v == null ? null : num(v); }), itemStyle: { color }, barMaxWidth: 8 }));
   const RED = "#d98880", GREEN = "#82c99b", BLUE = "#7fb3d5";
   const zeroAx = alignedZero(rows.map(r => r.PI), rows.map(r => r.SD));
   chDay.setOption({ animation: false,
-    legend: [legend(0, ["Theoretical production", "DA bid", "Final position", OVER]), legend(1, ["Imbalance: bid more", "Imbalance: bid less", "IDC correction"]), legend(2, ["Imbalance price", "System direction ≤ 0", "System direction > 0"]), legend(3, ["Imbalance cost", "Imbalance income"])],
+    legend: [legend(0, ["Theoretical production", "DA bid", "Final position", OVER]), legend(1, ["IDC corrected", "Imbalance"]), legend(2, ["Imbalance price", "System direction ≤ 0", "System direction > 0"]), legend(3, ["Imbalance cost", "Imbalance income"])],
     axisPointer: { link: [{ xAxisIndex: "all" }] },
     tooltip: { trigger: "axis", axisPointer: { type: "line" }, formatter: ps => { const r = rows[ps[0].dataIndex]; return `<b>${r.t.slice(11, 16)}</b><br>Theoretical ${nf(r.AH, 0)} kWh · DA bid ${nf(r.D, 0)} · final position ${nf(r.pos, 0)}<br>Imbalance <b>${sgn(r.pos - r.AH, 0)} kWh</b><br>Imbalance price ${nf(r.PI, 1)} EUR/MWh<br>System direction ${sdTxt(r.SD)} MWh<br>Imbalance cost <b>${eur(r.imb)} €</b>${r.curt ? "<br>(curtailed)" : ""}`; } },
     grid: PANELS.map((_, k) => grid(k)),
     xAxis: [xa(0, false), xa(1, false), xa(2, false), xa(3, true)],
-    yAxis: [ya(0, "kWh per 15 min", { min: 0 }), ya(1, "Imbalance, kWh"), ya(2, "EUR/MWh", { splitNumber: undefined, ...zeroAx[0] }), ya(2, "System direction, MWh", { position: "right", splitLine: { show: false }, nameTextStyle: { align: "right" }, splitNumber: undefined, ...zeroAx[1] }), ya(3, "Cost, EUR")],
+    yAxis: [ya(0, "kWh per 15 min", { min: 0 }), ya(1, "DA bid − theoretical, kWh"), ya(2, "EUR/MWh", { splitNumber: undefined, ...zeroAx[0] }), ya(2, "System direction, MWh", { position: "right", splitLine: { show: false }, nameTextStyle: { align: "right" }, splitNumber: undefined, ...zeroAx[1] }), ya(3, "Cost, EUR")],
     series: [
       band("baseUp", "up", AHs, null), band(OVER, "up", redV, COL.red),
       band("baseDn", "dn", AHs, null), band(UNDER, "dn", grnV, COL.grn),
       { name: "Theoretical production", type: "line", xAxisIndex: 0, yAxisIndex: 0, data: rows.map(r => num(r.AH)), showSymbol: false, lineStyle: { width: 2.2, color: "#2c7fb8" }, itemStyle: { color: "#2c7fb8" }, z: 3 },
       { name: "DA bid", type: "line", xAxisIndex: 0, yAxisIndex: 0, data: rows.map(r => num(r.D)), showSymbol: false, lineStyle: { width: 1.6, color: "#95a5a6", type: "dashed" }, itemStyle: { color: "#95a5a6" }, z: 3 },
       { name: "Final position", type: "line", xAxisIndex: 0, yAxisIndex: 0, data: rows.map(r => num(r.pos)), showSymbol: false, lineStyle: { width: 2.2, color: "#e67e22" }, itemStyle: { color: "#e67e22" }, z: 3 },
-      ...bars(1, 1, "imbkwh", [["Imbalance: bid more", RED, r => (r.pos - r.AH > 0 ? r.pos - r.AH : null)], ["Imbalance: bid less", GREEN, r => (r.pos - r.AH <= 0 ? r.pos - r.AH : null)]]),
-      { name: "IDC correction", type: "bar", stack: "idc", xAxisIndex: 1, yAxisIndex: 1, data: rows.map(r => num(r.D - r.pos)), itemStyle: { color: "#e67e22" }, barMaxWidth: 6 },     // DA bid − final position: what the IDC bought back (> 0) or sold (< 0); next to the Imbalance bars
+      // Panel 2: DA bid − theoretical production per interval, stacked: what the IDC corrected (orange) + what is left in imbalance (red = bid more than produced, green = bid less)
+      ...[["IDC corrected", "#e6a15a", (r, i) => split[i].cor], ["Imbalance", RED, (r, i) => Math.max(split[i].rr, 0)], ["Imbalance", GREEN, (r, i) => Math.min(split[i].rr, 0)]]          // red / green share one legend entry
+        .map(([name, color, f]) => ({ name, type: "bar", stack: "split", xAxisIndex: 1, yAxisIndex: 1, data: rows.map((r, i) => num(f(r, i))), itemStyle: { color }, barMaxWidth: 8 })),
       ...bars(2, 3, "sd", [["System direction ≤ 0", RED, r => (r.SD != null && r.SD <= 0 ? r.SD : null)], ["System direction > 0", BLUE, r => (r.SD != null && r.SD > 0 ? r.SD : null)]]),
       { name: "Imbalance price", type: "line", xAxisIndex: 2, yAxisIndex: 2, data: rows.map(r => num(r.PI)), showSymbol: false, lineStyle: { width: 2, color: "#2c3e50" }, itemStyle: { color: "#2c3e50" }, z: 3 },
       ...bars(3, 4, "cost", [["Imbalance cost", RED, r => (r.imb < 0 ? r.imb : null)], ["Imbalance income", GREEN, r => (r.imb >= 0 ? r.imb : null)]])] }, true);

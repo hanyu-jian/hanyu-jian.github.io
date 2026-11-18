@@ -343,7 +343,7 @@ token 只在服务端，不会发给浏览器；数据不会进入本仓库，�
 - 成交明细在私有 vcom 仓库的 `data/go/tokaj_go_sales.csv`（含价格和买家，所以不放本仓库），Worker 的 `/ops/api/go-sales` 原样转发；新增或修改交易改这个 CSV 即可。
 - 站点对应（用 2024、2025 年表计量核对过）：ASTROPUT = Putnok，ASTROSER = Serenyfalva，ASTROKAZ = Sajokaza，ASTROSZU = Szuhakálló 1，ASTROSZELES = Szuhakálló 2。
 - 发电量用 `/ops/api/metered?resolution=hourly`（小时文件，页面按月求和）。
-- 网址参数：`/ops/go?site=`。
+- 页面上方站点按钮旁有年份下拉（All years / 2024–2027），三块都按所选年份显示。网址参数：`/ops/go?site=&year=`。
 
 **Ops 页面的网址参数**（Overview / Capture Price / Imbalance 三个页面）：页面上的选择会同步写进地址栏（`history.replaceState`，不增加浏览器历史记录），打开带参数的链接时按参数恢复；缺少或不合法的参数忽略，用默认值。链接里只有选择，没有数据，打开仍要登录 ops。
 - `/ops/overview?site=&start=&end=&res=15min|hourly&lead=&bdate=`（`site` = ALL 或站点名，`lead` = 提前量分钟数，`bdate` = 第二张卡片的日期）

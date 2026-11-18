@@ -27,6 +27,7 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background:
 .btn-group-inline button:hover { background: #f0f2f5; color: #2c3e50; }
 .btn-group-inline button.active { background: #2c3e50; color: #fff; }
 .scroll { overflow-x: auto; }
+select { font-family: inherit; height: 36px; padding: 0 12px; border: 1px solid #ccc; border-radius: 6px; font-size: 14px; color: #2c3e50; background: #fff; cursor: pointer; }
 table { border-collapse: collapse; width: 100%; font-size: 13px; }
 th, td { padding: 8px 10px; text-align: right; border-bottom: 1px solid #eef0f3; white-space: nowrap; }
 th, td.l { text-align: left; } th.r { text-align: right; }
@@ -60,7 +61,8 @@ td.blue input { width: 120px; text-align: right; border: 1px solid #9ec3ea; back
 
   <div class="chart-grid">
     <div class="chart-card">
-      <div class="chart-card-header" style="margin-bottom:0"><div class="btn-group-inline" id="sites"></div></div>
+      <div class="chart-card-header" style="margin-bottom:0;justify-content:flex-start"><div class="btn-group-inline" id="sites"></div>
+        <select id="year"></select></div>
     </div>
 
     <div class="chart-card">
@@ -96,7 +98,8 @@ function budapestToday() {
   return `${p.year}-${p.month}-${p.day}`;
 }
 const THIS_YEAR = +budapestToday().slice(0, 4);
-let sales = [], prod = {}, lastTs = {}, site = "Putnok";
+let sales = [], prod = {}, lastTs = {}, site = "Putnok", year = "ALL";
+const shownYears = () => year === "ALL" ? YEARS : [+year];
 
 function parseCSV(text) {
   const rows = []; let row = [], cur = "", q = false;
@@ -167,7 +170,7 @@ const stored = (s, y) => { try { const v = localStorage.getItem(key(s, y)); retu
 const store = (s, y, v) => { try { v === "" ? localStorage.removeItem(key(s, y)) : localStorage.setItem(key(s, y), v); } catch (e) {} };
 
 function renderLedger() {
-  const rows = sales.filter(r => r.site === site);
+  const rows = sales.filter(r => r.site === site && (year === "ALL" || r.y === +year));
   $("titleA").textContent = `${site} · ${CODE[site]}`;
   $("ledTable").innerHTML = `<tr><th>Year</th><th>Production period</th><th>Buyer</th><th class="r">Volume (MWh)</th><th class="r">Price (EUR/MWh)</th><th class="r">Amount (EUR)</th><th>Delivery date</th><th>Delivery to be amended</th><th>Note</th></tr>`
     + rows.map(r => `<tr><td class="l">${r.y}</td><td class="l">${r.period}</td><td class="l">${r.buyer || ""}</td><td>${nf(r.vol, 2)}</td><td>${nf(r.price, 4)}</td><td>${nf(r.vol * r.price, 2)}</td>
@@ -176,7 +179,7 @@ function renderLedger() {
 
 function renderSummary() {
   let tS = 0, tA = 0, tP = 0, tR = 0, anyP = false;
-  const body = YEARS.map(y => {
+  const body = shownYears().map(y => {
     const rs = rowsOf(site, y), sold = rs.reduce((a, r) => a + r.vol, 0), amt = rs.reduce((a, r) => a + r.vol * r.price, 0);
     const auto = y <= THIS_YEAR ? yearProd(site, y) : null, ed = stored(site, y), p = ed != null ? ed : auto;
     tS += sold; tA += amt;
@@ -185,22 +188,22 @@ function renderSummary() {
       <td class="blue"><input type="number" step="any" data-y="${y}" value="${p == null ? "" : Math.round(p * 100) / 100}" placeholder="–"></td><td class="${cls(rem)}">${sgn(rem)}</td></tr>`;
   }).join("");
   $("sumTable").innerHTML = `<tr><th>Year</th><th class="r">Sold (MWh)</th><th class="r">Amount (EUR)</th><th class="r">Avg price (EUR/MWh)</th><th class="r">Production (MWh)</th><th class="r">Remaining (MWh)</th></tr>` + body
-    + `<tr class="total"><td class="l">Total</td><td>${nf(tS, 2)}</td><td>${nf(tA, 2)}</td><td>${nf(tS ? tA / tS : null, 4)}</td><td>${anyP ? nf(tP, 2) : "–"}</td><td class="${cls(anyP ? tR : null)}">${anyP ? sgn(tR) : "–"}</td></tr>`;
+    + (year !== "ALL" ? "" : `<tr class="total"><td class="l">Total</td><td>${nf(tS, 2)}</td><td>${nf(tA, 2)}</td><td>${nf(tS ? tA / tS : null, 4)}</td><td>${anyP ? nf(tP, 2) : "–"}</td><td class="${cls(anyP ? tR : null)}">${anyP ? sgn(tR) : "–"}</td></tr>`);
   $("sumTable").querySelectorAll("input").forEach(inp => inp.onchange = () => { store(site, +inp.dataset.y, inp.value); renderSummary(); });
 }
 
 // month rows 1–12: the sold volume sits on the month for monthly sales, and is merged over Jan–Jun / Jul–Dec for half-year contracts
 function renderMonths() {
   $("titleB").textContent = `${site} · monthly balance`;
-  const per = YEARS.map(y => {
+  const per = shownYears().map(y => {
     const rs = rowsOf(site, y), seg = {}, fy = rs.filter(r => r.m0 === 1 && r.m1 === 12).reduce((a, r) => a + r.vol, 0);
     rs.filter(r => !(r.m0 === 1 && r.m1 === 12)).forEach(r => { const k = r.m0 + "-" + r.m1; (seg[k] = seg[k] || { m0: r.m0, m1: r.m1, sold: 0 }).sold += r.vol; });
     const at = {}; Object.values(seg).forEach(g => { at[g.m0] = g; });
     const covered = new Set(); Object.values(seg).forEach(g => { for (let m = g.m0 + 1; m <= g.m1; m++) covered.add(m); });
     return { y, at, covered, fy, sold: rs.reduce((a, r) => a + r.vol, 0) };
   });
-  const head = `<tr><th rowspan="2">Month</th>${YEARS.map(y => `<th class="grp" colspan="3">${y}</th>`).join("")}</tr>
-    <tr>${YEARS.map(() => `<th class="r sep">Production</th><th class="r">Sold</th><th class="r">Remaining</th>`).join("")}</tr>`;
+  const head = `<tr><th rowspan="2">Month</th>${per.map(P => `<th class="grp" colspan="3">${P.y}</th>`).join("")}</tr>
+    <tr>${per.map(() => `<th class="r sep">Production</th><th class="r">Sold</th><th class="r">Remaining</th>`).join("")}</tr>`;
   const body = MON.map((mn, i) => {
     const m = i + 1;
     return `<tr><td class="m">${mn}</td>` + per.map(P => {
@@ -222,7 +225,8 @@ function renderMonths() {
 }
 
 function renderAll() {
-  syncUrl({ site: site === "Putnok" ? "" : site });
+  syncUrl({ site: site === "Putnok" ? "" : site, year: year === "ALL" ? "" : year });
+  $("year").value = year;
   [...$("sites").children].forEach(b => b.classList.toggle("active", b.dataset.v === site));
   renderLedger(); renderSummary(); renderMonths();
 }
@@ -230,6 +234,9 @@ async function init() {
   try { await loadAll(); } catch (e) { $("status").textContent = "Failed to load: " + e.message; return; }
   const q = URLQ.get("site"); if (SITES.includes(q)) site = q;
   $("sites").innerHTML = SITES.map(s => `<button data-v="${s}">${s}</button>`).join("");
+  const qy = URLQ.get("year"); if (YEARS.includes(+qy)) year = qy;
+  $("year").innerHTML = `<option value="ALL">All years</option>` + YEARS.map(y => `<option value="${y}">${y}</option>`).join("");
+  $("year").onchange = () => { year = $("year").value; renderAll(); };
   $("sites").onclick = e => { const b = e.target.closest("button"); if (b) { site = b.dataset.v; renderAll(); } };
   renderAll();
 }

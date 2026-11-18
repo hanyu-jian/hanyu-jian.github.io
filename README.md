@@ -336,12 +336,14 @@ token 只在服务端，不会发给浏览器；数据不会进入本仓库，�
 **Overview 第二张卡片（一个发布时刻的 16 档预测）**：横坐标固定为当天 00:00–23:45（96 格，每 15 分钟），橙色区域 = 发布时刻 +15 到 +240 分钟（跨过午夜的画到 23:45）；发布时刻只提供当天的。
 
 **GO 页面口径**（`ops/ops-go.html`，`/ops/go`，二级导航最后一项）
-- 目的：看 Tokaj 五站还剩多少 GO。剩余 = 表计发电量（MWh，1 GO = 1 MWh）− 已卖出 GO（合同量），按生产年份和上/下半年（Q1–Q2 / Q3–Q4 / 全年 Q1–Q4 合同）汇总；负数 = 已预售、还没发出来。
-- 成交明细来自 GO 交易工作簿（2024–2027 四张表），整理成私有 vcom 仓库的 `data/go/tokaj_go_sales.csv`（含价格、买家，所以不放本仓库）；Worker 的 `/ops/api/go-sales` 原样转发。新增或修改交易时改这个 CSV 即可。
+- 内容全部来自 GO 交易工作簿（2024–2027 四张表），只加了表计发电量。点上面的站点按钮切换场站，页面里一个场站三块：
+  ① Transactions：交易明细，一笔合同（或一个月）一行，每站 22 行（2024 年 8–12 月逐月、2025 年 1–6 月逐月 + 3 月第二笔 + 7–12 月合并、2026 年 6 笔合同、2027 年 3 笔合同），金额 = 销售量 × 单价；
+  ② Annual summary：2024–2027 每年的已售量、金额、平均单价、发电量（蓝色格子）和余量 = 发电量 − 已售量。发电量预填表计读数（2024 年只算 8–12 月，当年只算读满的月份），可以直接改，改动只记在本浏览器里；
+  ③ Monthly balance：1–12 月逐行，按年列出发电量 / 已售 / 余量；只有季度或半年合同的，已售和余量合并成 Jan–Jun / Jul–Dec 一格，全年合同（Q1–Q4）单列一行。
+- 成交明细在私有 vcom 仓库的 `data/go/tokaj_go_sales.csv`（含价格和买家，所以不放本仓库），Worker 的 `/ops/api/go-sales` 原样转发；新增或修改交易改这个 CSV 即可。
 - 站点对应（用 2024、2025 年表计量核对过）：ASTROPUT = Putnok，ASTROSER = Serenyfalva，ASTROKAZ = Sajokaza，ASTROSZU = Szuhakálló 1，ASTROSZELES = Szuhakálló 2。
-- 发电量用 `/ops/api/metered?resolution=hourly`（小时文件，页面按月求和）。当年未读满的月份用去年同月估算（紫色斜体）；2024 年默认只算 8–12 月（有勾选框可加上 Putnok、Serenyfalva 的 3–7 月）。
-- 2025 年 3 月第二笔用实际成交量（工作簿 G 列“实际交易电量”），和工作簿自己的合计一致。AXPO 2026 Q1–Q2 合同共 64,000 MWh，其中只有 9,000 MWh 留在 2026-11-30，55,000 MWh 改到 2027-11-30，工作簿没给分站点拆分，页面每行显示整份合同量。
-- 网址参数：`/ops/go?site=&year=&incl24=1`。
+- 发电量用 `/ops/api/metered?resolution=hourly`（小时文件，页面按月求和）。
+- 网址参数：`/ops/go?site=`。
 
 **Ops 页面的网址参数**（Overview / Capture Price / Imbalance 三个页面）：页面上的选择会同步写进地址栏（`history.replaceState`，不增加浏览器历史记录），打开带参数的链接时按参数恢复；缺少或不合法的参数忽略，用默认值。链接里只有选择，没有数据，打开仍要登录 ops。
 - `/ops/overview?site=&start=&end=&res=15min|hourly&lead=&bdate=`（`site` = ALL 或站点名，`lead` = 提前量分钟数，`bdate` = 第二张卡片的日期）

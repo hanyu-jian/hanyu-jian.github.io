@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex">
+<title>Operations GO</title>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+<script src="/ops/nav.js"></script>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f2f5; padding: 20px; }
+.container { max-width: 1600px; margin: 0 auto; background: white; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,.1); overflow: hidden; }
+
+.sub-nav { background: #f8f9fa; border-bottom: 2px solid #e6e9ed; padding: 0 30px; display: flex; }
+.sub-nav-link { display: inline-block; padding: 14px 22px; font-size: 14px; font-weight: 600; color: #6c757d; text-decoration: none;
+  border-bottom: 3px solid transparent; margin-bottom: -2px; transition: color .2s, border-color .2s; white-space: nowrap; cursor: pointer; }
+.sub-nav-link:hover { color: #2c3e50; }
+.sub-nav-link.active { color: #2c3e50; border-bottom-color: #2c3e50; }
+
+.status { padding: 14px 30px 0; font-size: 13px; color: #888; min-height: 28px; }
+.status.err { color: #e74c3c; }
+
+.chart-grid { display: grid; grid-template-columns: 1fr; gap: 24px; padding: 14px 30px 30px; }
+.chart-card { background: #fff; border-radius: 8px; border: 1px solid #e6e9ed; padding: 16px; }
+.chart-card-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 14px; }
+.chart-card-header h3 { font-size: 18px; font-weight: 500; color: #2c3e50; border-left: 4px solid #2c3e50; padding-left: 12px; margin: 0; line-height: 1.3; }
+.chart-card-header .subtitle { font-size: 12px; color: #888; margin-top: 4px; padding-left: 16px; }
+.btn-group-inline { display: flex; border: 1px solid #ccc; border-radius: 6px; overflow: hidden; height: 36px; }
+.btn-group-inline button { padding: 0 13px; font-size: 13px; font-family: inherit; font-weight: 500; background: #fff; border: none; border-right: 1px solid #ccc; cursor: pointer; color: #555; transition: background .15s, color .15s; white-space: nowrap; }
+.btn-group-inline button:last-child { border-right: none; }
+.btn-group-inline button:hover { background: #f0f2f5; color: #2c3e50; }
+.btn-group-inline button.active { background: #2c3e50; color: #fff; }
+.pick { display: flex; flex-wrap: wrap; gap: 18px; align-items: center; }
+.pick .lbl { font-size: 13px; font-weight: 600; color: #2c3e50; margin-right: 8px; }
+.check { font-size: 13px; color: #2c3e50; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+
+.kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+.kpi { border: 1px solid #e6e9ed; border-radius: 8px; padding: 14px 16px; background: #fafbfc; }
+.kpi .k { font-size: 12px; color: #6c757d; font-weight: 600; }
+.kpi .v { font-size: 26px; font-weight: 600; color: #2c3e50; margin: 4px 0 2px; }
+.kpi .s { font-size: 12px; color: #888; line-height: 1.4; }
+.kpi .v.pos { color: #1e8449; } .kpi .v.neg { color: #d35400; }
+
+#chartA, #chartB { height: 340px; }
+.row2 { display: grid; grid-template-columns: 1fr 1.3fr; gap: 16px; }
+.note { font-size: 12px; color: #888; line-height: 1.6; margin-top: 10px; }
+.scroll { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 13px; }
+th, td { padding: 8px 10px; text-align: right; border-bottom: 1px solid #eef0f3; white-space: nowrap; }
+th:first-child, td:first-child { text-align: left; }
+th { background: #f3f5f7; font-size: 12px; color: #4a5560; }
+th.grp { text-align: center; border-left: 1px solid #e0e4e8; background: #eaeef2; }
+td.sep, th.sep { border-left: 1px solid #e0e4e8; }
+tr.total td { font-weight: 700; background: #fafbfc; }
+td.l, th.l { text-align: left; }
+.pos { color: #1e8449; font-weight: 600; } .neg { color: #d35400; font-weight: 600; } .zero { color: #888; }
+.tag { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+.tag.done { background: #e8f6ee; color: #1e8449; } .tag.redate { background: #fdf0e1; color: #b9610b; } .tag.due { background: #e8f0fa; color: #2c6cb0; }
+.est { color: #8e6bbf; font-style: italic; }
+
+@media (max-width: 900px) { .row2 { grid-template-columns: 1fr; } .kpis { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 700px) {
+  body { padding: 8px; }
+  .chart-grid { padding: 14px 16px 16px; }
+  .sub-nav { padding: 0 10px; overflow-x: auto; }
+  .sub-nav-link { padding: 14px 14px; font-size: 13px; }
+  .kpis { grid-template-columns: 1fr 1fr; }
+}
+</style>
+</head>
+<body>
+<div class="container">
+
+  <div class="sub-nav">
+    <a class="sub-nav-link" href="/ops/overview">Overview</a>
+    <a class="sub-nav-link" href="/ops/capture-price">Capture Price</a>
+    <a class="sub-nav-link" href="/ops/imbalance">Imbalance</a>
+    <a class="sub-nav-link active" href="/ops/go">GO</a>
+  </div>
+
+  <div class="status" id="status">Loading…</div>
+
+  <div class="chart-grid">
+
+    <div class="chart-card">
+      <div class="chart-card-header"><div><h3>Remaining GO</h3>
+        <div class="subtitle">Metered production minus GO sold (contracted), all sites · MWh · 1 GO = 1 MWh</div></div></div>
+      <div class="kpis" id="kpis"></div>
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-card-header" style="margin-bottom:0;align-items:center;">
+        <div class="pick">
+          <span><span class="lbl">Site</span><span class="btn-group-inline" id="sites"></span></span>
+          <span><span class="lbl">Year</span><span class="btn-group-inline" id="years"></span></span>
+          <label class="check"><input type="checkbox" id="incl24"> Count Mar–Jul 2024 production (Putnok, Serenyfalva)</label>
+        </div>
+      </div>
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-card-header"><div><h3>GO balance by site and year</h3>
+        <div class="subtitle">Produced = meter readings, sold = all contracts of that production year · remaining = produced − sold</div></div></div>
+      <div class="scroll"><table id="balTable"></table></div>
+      <p class="note">
+        <span class="pos">Green</span> = produced GO that are still unsold. <span class="neg">Orange (negative)</span> = sold ahead of production: those MWh still have to be produced before they can be delivered.
+        <b>Net to date</b> = metered production so far minus the GO sold for the same years (estimates and forward years excluded), the same number as the first tile above.
+        <span class="est">Purple italic</span> = estimate for the current year: months without a complete meter reading are filled with the same month of last year.
+      </p>
+    </div>
+
+    <div class="row2">
+      <div class="chart-card">
+        <div class="chart-card-header"><div><h3 id="titleA">Remaining by site</h3><div class="subtitle">MWh · selected year</div></div></div>
+        <div id="chartA"></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-card-header"><div><h3 id="titleB">Cumulative production vs GO sold</h3><div class="subtitle">MWh · selected site and year</div></div></div>
+        <div id="chartB"></div>
+      </div>
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-card-header"><div><h3 id="titleC">Balance by production period</h3><div class="subtitle">Selected year · MWh</div></div></div>
+      <div class="scroll"><table id="perTable"></table></div>
+      <p class="note">
+        Contracts name the production period they cover: <b>Q1–Q2</b> (Jan–Jun), <b>Q3–Q4</b> (Jul–Dec) or <b>Q1–Q4</b> (whole year, shown in the “Full-year” column and counted against the whole year).
+        The last column nets everything for the year, so a shortage in one half can be covered by the other half or by the full-year contracts.
+      </p>
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-card-header"><div><h3>Transactions</h3><div class="subtitle" id="subD">Selected site and year</div></div></div>
+      <div class="scroll"><table id="ledTable"></table></div>
+      <p class="note">
+        Source: the GO trading workbook (sheets 2024–2027), kept in the private vcom repository (<code>data/go/tokaj_go_sales.csv</code>). The workbook calls the sites
+        ASTROPUT = Putnok, ASTROSER = Serenyfalva, ASTROKAZ = Sajokaza, ASTROSZU = Szuhakálló 1, ASTROSZELES = Szuhakálló 2 (checked against the metered volumes of 2024 and 2025).
+        <b>Status</b>: <i>Delivered</i> = delivery date is in the past and the contract was not re-dated (assumed, the workbook has no delivery confirmation);
+        <i>Re-dated</i> = the workbook has a “Delivery to be amended” date.
+        The AXPO contract for Q1–Q2 2026 is 64,000 MWh in total; only 9,000 MWh of it stays on 2026-11-30 and 55,000 MWh moved to 2027-11-30 (the per-site split is not in the workbook, so each row shows the whole contract volume).
+        The 2nd March 2025 tranche uses the actually traded volume (column “实际交易电量”), as the workbook’s own totals do.
+      </p>
+    </div>
+
+    <div class="chart-card">
+      <p class="note" style="margin-top:0">
+        <b>Produced</b> comes from the meter readings (<code>/ops/api/metered</code>, hourly files, summed per month) and includes grid curtailment. The GO actually issued by the registry can differ slightly (it is based on the registry’s own settled meter data).
+        2024 counts August–December only, because that is what was sold in 2024; use the checkbox to include Putnok’s and Serenyfalva’s earlier months (Mar–Jul 2024).
+        Meter data ends at the date shown in the status line; later months of the current year are only estimates.
+      </p>
+    </div>
+  </div>
+</div>
+
+<script>
+const SITES = ["Putnok", "Serenyfalva", "Sajokaza", "Szuhakálló 1", "Szuhakálló 2"];
+const CODE = { "Putnok": "ASTROPUT", "Serenyfalva": "ASTROSER", "Sajokaza": "ASTROKAZ", "Szuhakálló 1": "ASTROSZU", "Szuhakálló 2": "ASTROSZELES" };
+const FIRST_YEAR = 2024;
+const $ = id => document.getElementById(id);
+const nf = (v, d = 0) => v == null || isNaN(v) ? "–" : v.toLocaleString("en-US", { maximumFractionDigits: d, minimumFractionDigits: d });
+const MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const URLQ = new URLSearchParams(location.search);
+function syncUrl(o) {
+  try { const p = new URLSearchParams(); for (const [k, v] of Object.entries(o)) if (v != null && v !== "") p.set(k, v);
+    const q = p.toString(); history.replaceState(null, "", location.pathname + (q ? "?" + q : "") + location.hash); } catch (e) { /* the address bar is only a convenience */ }
+}
+function budapestToday() {
+  const p = Object.fromEntries(new Intl.DateTimeFormat("en-US", { timeZone: "Europe/Budapest", year: "numeric", month: "2-digit", day: "2-digit" })
+    .formatToParts(new Date()).map(x => [x.type, x.value]));
+  return `${p.year}-${p.month}-${p.day}`;
+}
+const TODAY = budapestToday(), THIS_YEAR = +TODAY.slice(0, 4);
+
+let sales = [], prod = {}, lastTs = {}, years = [], selSite = "ALL", selYear = null, incl24 = false, chartA, chartB;
+
+// ───────────── loading ─────────────
+function parseCSV(text) {
+  const rows = []; let row = [], cur = "", q = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (q) { if (c === '"') { if (text[i + 1] === '"') { cur += '"'; i++; } else q = false; } else cur += c; }
+    else if (c === '"') q = true;
+    else if (c === ",") { row.push(cur); cur = ""; }
+    else if (c === "\n") { row.push(cur); rows.push(row); row = []; cur = ""; }
+    else if (c !== "\r") cur += c;
+  }
+  if (cur || row.length) { row.push(cur); rows.push(row); }
+  const head = rows.shift();
+  return rows.filter(r => r.length === head.length).map(r => Object.fromEntries(head.map((h, i) => [h, r[i]])));
+}
+async function getText(url) {
+  const r = await fetch(url, { credentials: "same-origin" });
+  if (r.status === 404) return null;
+  if (!r.ok) { let m = r.status; try { m = (await r.json()).error || m; } catch (e) {} throw new Error(m); }
+  return r.text();
+}
+// hourly meter CSV (Date, Meter [MWh], Meter [kWh]) → MWh per month; also remembers the last timestamp with a reading
+function sumMonths(text, into, site) {
+  const lines = text.split("\n");
+  for (let i = 1; i < lines.length; i++) {
+    const l = lines[i]; if (l.length < 20) continue;
+    const c = l.split(","); if (c[1] === "" || c[1] === undefined) continue;
+    const v = parseFloat(c[1]); if (isNaN(v)) continue;
+    const m = +c[0].slice(5, 7) - 1;
+    into[m] = (into[m] || 0) + v;
+    if (c[0] > (lastTs[site] || "")) lastTs[site] = c[0];
+  }
+}
+async function loadAll() {
+  const yrs = []; for (let y = FIRST_YEAR; y <= THIS_YEAR; y++) yrs.push(y);
+  const [salesText, ...meters] = await Promise.all([
+    getText("/ops/api/go-sales"),
+    ...SITES.flatMap(s => yrs.map(y => getText(`/ops/api/metered?site=${encodeURIComponent(s)}&year=${y}&resolution=hourly`).catch(e => { throw new Error(`${s} ${y}: ${e.message}`); }))),
+  ]);
+  if (salesText == null) throw new Error("GO sales file not found");
+  sales = parseCSV(salesText).map(r => ({ ...r, id: +r.id, production_year: +r.production_year, volume_mwh: +r.volume_mwh, price: +r.price_eur_mwh, amount: +r.amount_eur }));
+  prod = {}; lastTs = {};
+  let k = 0;
+  for (const s of SITES) { prod[s] = {}; for (const y of yrs) { const t = meters[k++]; if (t) { prod[s][y] = {}; sumMonths(t, prod[s][y], s); } } }
+  years = [...new Set([...yrs, ...sales.map(r => r.production_year)])].sort();
+}
+
+// ───────────── numbers ─────────────
+// months (0-based) of year y at site s that have a complete meter reading
+function doneMonths(s, y) {
+  const m = prod[s] && prod[s][y]; if (!m) return 0;
+  if (y < THIS_YEAR) return 12;
+  const t = lastTs[s]; if (!t || +t.slice(0, 4) !== y) return Object.keys(m).length;
+  const mo = +t.slice(5, 7) - 1, day = +t.slice(8, 10), hr = +t.slice(11, 13);
+  const lastDay = new Date(Date.UTC(y, mo + 1, 0)).getUTCDate();
+  return day === lastDay && hr >= 23 ? mo + 1 : mo;     // a partly read month is not counted
+}
+const firstMonth = (s, y) => (y === 2024 && !incl24 ? 7 : 0);   // GO sold in 2024 cover Aug–Dec
+// monthly production: actual for complete months, estimate (same month of last year) for the rest of the current year
+function monthly(s, y) {
+  const m = (prod[s] && prod[s][y]) || {}, n = doneMonths(s, y), prev = (prod[s] && prod[s][y - 1]) || {};
+  return MON.map((_, i) => {
+    if (i < firstMonth(s, y)) return { v: 0, est: false, has: true };
+    if (y > THIS_YEAR) return { v: null, est: false, has: false };
+    if (i < n) return { v: m[i] || 0, est: false, has: true };
+    if (y === THIS_YEAR && prev[i] != null) return { v: prev[i], est: true, has: true };
+    return { v: null, est: false, has: false };
+  });
+}
+function produced(s, y, from = 0, to = 11) {
+  const mm = monthly(s, y); let a = 0, e = 0, any = false;
+  for (let i = from; i <= to; i++) { const c = mm[i]; if (!c.has || c.v == null) continue; any = true; if (c.est) e += c.v; else a += c.v; }
+  return { actual: a, est: e, any };
+}
+const soldOf = (s, y, half) => sales.filter(r => r.site === s && r.production_year === y && (!half || r.half === half)).reduce((a, r) => a + r.volume_mwh, 0);
+const hasProd = (s, y) => y <= THIS_YEAR && !!(prod[s] && prod[s][y]);
+const siteList = () => selSite === "ALL" ? SITES : [selSite];
+const cls = v => v == null ? "" : Math.round(v) > 0 ? "pos" : Math.round(v) < 0 ? "neg" : "zero";
+const sgn = v => v == null ? "–" : (Math.round(v) > 0 ? "+" : "") + nf(v);
+
+// ───────────── render ─────────────
+function renderKpis() {
+  let rem = 0, ytdP = 0, ytdE = 0, ytdS = 0, fwd = 0;
+  for (const s of SITES) for (const y of years) {
+    const sold = soldOf(s, y);
+    if (y <= THIS_YEAR) { const p = produced(s, y); rem += p.actual - sold; if (y === THIS_YEAR) { ytdP += p.actual; ytdE += p.est; ytdS += sold; } }
+    else fwd += sold;
+  }
+  $("kpis").innerHTML = [
+    ["Remaining GO to date (all years)", sgn(rem), cls(rem), "produced − sold, " + FIRST_YEAR + "–" + THIS_YEAR + " production"],
+    [`${THIS_YEAR} produced so far`, nf(ytdP), "", `${nf(ytdS)} MWh sold for ${THIS_YEAR} → ${sgn(ytdP - ytdS)} MWh`],
+    [`${THIS_YEAR} remaining at year-end (est.)`, sgn(ytdP + ytdE - ytdS), cls(ytdP + ytdE - ytdS), "est. production for the unread months = same months of last year"],
+    [`Sold for ${years.filter(y => y > THIS_YEAR).join(", ") || "later years"}`, nf(fwd), "", "forward sales, not produced yet"],
+  ].map(([k, v, c, s]) => `<div class="kpi"><div class="k">${k}</div><div class="v ${c}">${v}</div><div class="s">${s}</div></div>`).join("");
+}
+
+function renderBalance() {
+  const th1 = `<tr><th rowspan="2">Site</th>${years.map(y => `<th class="grp" colspan="3">${y}${y === 2024 && !incl24 ? " (Aug–Dec)" : ""}${y === THIS_YEAR ? " (YTD + est.)" : ""}</th>`).join("")}<th class="grp" rowspan="2">Net to date<br>${FIRST_YEAR}–${THIS_YEAR}</th></tr>`;
+  const th2 = `<tr>${years.map(() => `<th class="sep">Produced</th><th>Sold</th><th>Remaining</th>`).join("")}</tr>`;
+  const tot = { all: 0 }, rows = SITES.map(s => {
+    let all = 0;
+    const cells = years.map(y => {
+      const sold = soldOf(s, y), t = tot[y] || (tot[y] = { p: 0, e: 0, s: 0, any: false });
+      t.s += sold;
+      if (y > THIS_YEAR || !hasProd(s, y)) { if (y <= THIS_YEAR) all -= sold; return `<td class="sep">–</td><td>${nf(sold)}</td><td class="${cls(-sold)}">${sgn(-sold)}</td>`; }
+      const p = produced(s, y), rem = p.actual + p.est - sold; all += p.actual - sold;
+      t.p += p.actual; t.e += p.est; t.any = true;
+      const pc = p.est ? `${nf(p.actual + p.est)}<br><span class="est" style="font-size:11px">est. ${nf(p.est)}</span>` : nf(p.actual);
+      return `<td class="sep">${pc}</td><td>${nf(sold)}</td><td class="${cls(rem)}">${sgn(rem)}</td>`;
+    }).join("");
+    tot.all += all;
+    return `<tr><td>${s} <span style="color:#aaa;font-size:11px">${CODE[s]}</span></td>${cells}<td class="${cls(all)}">${sgn(all)}</td></tr>`;
+  });
+  const totCells = years.map(y => { const t = tot[y]; const rem = t.p + t.e - t.s;
+    return t.any ? `<td class="sep">${nf(t.p + t.e)}</td><td>${nf(t.s)}</td><td class="${cls(rem)}">${sgn(rem)}</td>` : `<td class="sep">–</td><td>${nf(t.s)}</td><td class="${cls(-t.s)}">${sgn(-t.s)}</td>`; }).join("");
+  rows.push(`<tr class="total"><td>Total</td>${totCells}<td class="${cls(tot.all)}">${sgn(tot.all)}</td></tr>`);
+  $("balTable").innerHTML = th1 + th2 + rows.join("");
+}
+
+function renderChartA() {
+  $("titleA").textContent = `Remaining GO by site · ${selYear}`;
+  const isF = selYear > THIS_YEAR;
+  const data = SITES.map(s => { const sold = soldOf(s, selYear); if (isF || !hasProd(s, selYear)) return -sold; const p = produced(s, selYear); return Math.round(p.actual + p.est - sold); });
+  chartA.setOption({ animation: false, tooltip: { trigger: "axis", axisPointer: { type: "shadow" }, valueFormatter: v => nf(v) + " MWh" },
+    grid: { left: 64, right: 20, top: 20, bottom: 50 },
+    xAxis: { type: "category", data: SITES, axisLabel: { interval: 0, fontSize: 11 } },
+    yAxis: { type: "value", name: "MWh" },
+    series: [{ name: "Remaining GO", type: "bar", barMaxWidth: 48,
+      data: data.map(v => ({ value: v, itemStyle: { color: v >= 0 ? "#27ae60" : "#e67e22" } })),
+      label: { show: true, position: "top", formatter: p => sgn(p.value), fontSize: 11, color: "#2c3e50" } }] }, true);
+}
+
+function renderChartB() {
+  const name = selSite === "ALL" ? "All sites" : selSite;
+  $("titleB").textContent = `${name} · ${selYear} · cumulative production vs GO sold`;
+  const list = siteList(), act = new Array(12).fill(null), est = new Array(12).fill(null);
+  let run = 0, any = false, lastAct = -1;
+  const mm = list.map(s => monthly(s, selYear));
+  for (let i = 0; i < 12; i++) {
+    if (!mm.every(m => m[i].has && m[i].v != null)) break;
+    run += mm.reduce((a, m) => a + m[i].v, 0); any = true;
+    if (mm.some(m => m[i].est)) est[i] = Math.round(run); else { act[i] = Math.round(run); lastAct = i; }
+  }
+  if (lastAct >= 0 && est.some(v => v != null) && lastAct < 11) est[lastAct] = act[lastAct];   // join the dashed part to the solid line
+  const sold = list.reduce((a, s) => a + soldOf(s, selYear), 0);
+  const h = (half) => list.reduce((a, s) => a + soldOf(s, selYear, half), 0);
+  const line = (v, label, color) => ({ name: label, type: "line", data: new Array(12).fill(v), showSymbol: false, lineStyle: { width: 1.6, type: "dashed", color }, itemStyle: { color }, endLabel: { show: false } });
+  const series = [
+    { name: "Cumulative production (meter)", type: "line", data: act, showSymbol: true, symbolSize: 5, lineStyle: { width: 2.6, color: "#2c7fb8" }, itemStyle: { color: "#2c7fb8" }, areaStyle: { color: "rgba(44,127,184,.10)" } },
+    { name: "Estimate (same months last year)", type: "line", data: est, showSymbol: false, lineStyle: { width: 2, type: "dotted", color: "#8e6bbf" }, itemStyle: { color: "#8e6bbf" } },
+    line(sold, `GO sold for ${selYear}: ${nf(sold)}`, "#c0392b"),
+  ];
+  chartB.setOption({ animation: false, tooltip: { trigger: "axis", valueFormatter: v => v == null ? "–" : nf(v) + " MWh" }, legend: { top: 0, textStyle: { fontSize: 11 } },
+    grid: { left: 64, right: 20, top: 42, bottom: 30 }, xAxis: { type: "category", data: MON }, yAxis: { type: "value", name: "MWh", min: 0 },
+    series: any || sold ? series : [] }, true);
+}
+
+function renderPeriods() {
+  $("titleC").textContent = `Balance by production period · ${selYear}`;
+  const y = selYear, list = SITES, noProd = y > THIS_YEAR;
+  const T = { p1: 0, s1: 0, p2: 0, s2: 0, sf: 0, soldAll: 0, prodAll: 0, e1: 0, e2: 0, eAll: 0 };
+  const rows = list.map(s => {
+    const p1 = noProd ? null : produced(s, y, 0, 5), p2 = noProd ? null : produced(s, y, 6, 11);
+    const s1 = soldOf(s, y, "H1"), s2 = soldOf(s, y, "H2"), sf = soldOf(s, y, "FY"), sold = s1 + s2 + sf;
+    const P1 = p1 ? p1.actual + p1.est : null, P2 = p2 ? p2.actual + p2.est : null;
+    const all = noProd ? -sold : P1 + P2 - sold;
+    if (!noProd) { T.p1 += P1; T.p2 += P2; T.e1 += p1.est; T.e2 += p2.est; }
+    T.s1 += s1; T.s2 += s2; T.sf += sf; T.soldAll += sold;
+    const pc = (P, p) => P == null ? "–" : p.est ? `${nf(P)} <span class="est">(est. ${nf(p.est)})</span>` : nf(P);
+    return `<tr${selSite === s ? ' style="background:#f6f9fc"' : ""}><td>${s}</td>
+      <td class="sep">${pc(P1, p1)}</td><td>${nf(s1)}</td><td class="${cls(P1 == null ? -s1 : P1 - s1)}">${sgn(P1 == null ? -s1 : P1 - s1)}</td>
+      <td class="sep">${pc(P2, p2)}</td><td>${nf(s2)}</td><td class="${cls(P2 == null ? -s2 : P2 - s2)}">${sgn(P2 == null ? -s2 : P2 - s2)}</td>
+      <td class="sep">${nf(sf)}</td><td class="sep">${nf(sold)}</td><td class="${cls(all)}">${sgn(all)}</td></tr>`;
+  });
+  const r1 = noProd ? -T.s1 : T.p1 - T.s1, r2 = noProd ? -T.s2 : T.p2 - T.s2, rAll = noProd ? -T.soldAll : T.p1 + T.p2 - T.soldAll;
+  rows.push(`<tr class="total"><td>Total</td><td class="sep">${noProd ? "–" : nf(T.p1)}</td><td>${nf(T.s1)}</td><td class="${cls(r1)}">${sgn(r1)}</td>
+    <td class="sep">${noProd ? "–" : nf(T.p2)}</td><td>${nf(T.s2)}</td><td class="${cls(r2)}">${sgn(r2)}</td>
+    <td class="sep">${nf(T.sf)}</td><td class="sep">${nf(T.soldAll)}</td><td class="${cls(rAll)}">${sgn(rAll)}</td></tr>`);
+  $("perTable").innerHTML = `<tr><th rowspan="2">Site</th><th class="grp" colspan="3">Q1–Q2 (Jan–Jun)</th><th class="grp" colspan="3">Q3–Q4 (Jul–Dec)</th><th class="grp" colspan="1">Full-year</th><th class="grp" colspan="2">Whole year</th></tr>
+    <tr><th class="sep">Produced</th><th>Sold</th><th>Remaining</th><th class="sep">Produced</th><th>Sold</th><th>Remaining</th><th class="sep">Sold (Q1–Q4)</th><th class="sep">Sold total</th><th>Remaining</th></tr>` + rows.join("");
+}
+
+function statusTag(r) {
+  if (r.amended_delivery) return `<span class="tag redate">Re-dated → ${r.amended_delivery}</span>`;
+  if (r.delivery_date && r.delivery_date <= TODAY) return `<span class="tag done">Delivered</span>`;
+  return `<span class="tag due">Due ${r.delivery_date}</span>`;
+}
+function renderLedger() {
+  const rows = sales.filter(r => (selSite === "ALL" || r.site === selSite) && r.production_year === selYear)
+    .sort((a, b) => a.delivery_date < b.delivery_date ? -1 : a.delivery_date > b.delivery_date ? 1 : a.site < b.site ? -1 : 1);
+  $("subD").textContent = `${selSite === "ALL" ? "All sites" : selSite} · production year ${selYear} · ${rows.length} rows`;
+  const vol = rows.reduce((a, r) => a + r.volume_mwh, 0), amt = rows.reduce((a, r) => a + r.amount, 0);
+  const body = rows.map(r => `<tr><td class="l">${r.period}</td><td class="l">${r.site} <span style="color:#aaa;font-size:11px">${CODE[r.site]}</span></td><td>${nf(r.volume_mwh)}</td><td>${nf(r.price, 3)}</td><td>${nf(r.amount, 0)}</td>
+    <td class="l">${r.buyer || "–"}</td><td class="l">${r.delivery_date || "–"}</td><td class="l">${statusTag(r)}</td><td class="l" style="white-space:normal;min-width:200px;color:#888;font-size:12px">${r.note || ""}</td></tr>`).join("");
+  $("ledTable").innerHTML = `<tr><th class="l">Production period</th><th class="l">Site</th><th>Volume (MWh)</th><th>Price (EUR/MWh)</th><th>Amount (EUR)</th><th class="l">Buyer</th><th class="l">Delivery date</th><th class="l">Status</th><th class="l">Note</th></tr>`
+    + (body || `<tr><td colspan="9" class="l" style="color:#aaa">No transactions.</td></tr>`)
+    + (rows.length ? `<tr class="total"><td class="l">Total</td><td></td><td>${nf(vol)}</td><td>${nf(vol ? amt / vol : null, 3)}</td><td>${nf(amt)}</td><td colspan="4"></td></tr>` : "");
+}
+
+function renderAll() {
+  syncUrl({ site: selSite === "ALL" ? "" : selSite, year: selYear, incl24: incl24 ? 1 : "" });
+  [...$("sites").children].forEach(b => b.classList.toggle("active", b.dataset.v === selSite));
+  [...$("years").children].forEach(b => b.classList.toggle("active", +b.dataset.v === selYear));
+  renderKpis(); renderBalance(); renderChartA(); renderChartB(); renderPeriods(); renderLedger();
+}
+
+async function init() {
+  chartA = echarts.init($("chartA")); chartB = echarts.init($("chartB"));
+  addEventListener("resize", () => { chartA.resize(); chartB.resize(); });
+  try { await loadAll(); } catch (e) { $("status").textContent = "Failed to load: " + e.message; $("status").className = "status err"; return; }
+  const qs = URLQ.get("site"), qy = +URLQ.get("year");
+  selSite = SITES.includes(qs) ? qs : "ALL";
+  selYear = years.includes(qy) ? qy : THIS_YEAR;
+  incl24 = URLQ.get("incl24") === "1"; $("incl24").checked = incl24;
+  $("sites").innerHTML = ["ALL", ...SITES].map(s => `<button data-v="${s}">${s === "ALL" ? "All sites" : s}</button>`).join("");
+  $("years").innerHTML = years.map(y => `<button data-v="${y}">${y}</button>`).join("");
+  $("sites").onclick = e => { const b = e.target.closest("button"); if (b) { selSite = b.dataset.v; renderAll(); } };
+  $("years").onclick = e => { const b = e.target.closest("button"); if (b) { selYear = +b.dataset.v; renderAll(); } };
+  $("incl24").onchange = () => { incl24 = $("incl24").checked; renderAll(); };
+  const last = SITES.map(s => `${s} ${(lastTs[s] || "").slice(0, 10)}`).join(" · ");
+  $("status").textContent = `Meter data through: ${last}`;
+  renderAll();
+}
+init();
+</script>
+</body>
+</html>

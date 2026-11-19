@@ -294,7 +294,8 @@ async function ensureCloud(src) {
   paint();
 }
 function fillModels(pick) {                                   // the Cloud model dropdown
-  $("cmodel").innerHTML = MODELS.map(m => `<option value="${m.id}">${m.label}</option>`).join("");
+  const order = ["ifs025", "arpege_europe", "icon_eu", "avg"], rank = m => (order.includes(m.id) ? order.indexOf(m.id) : 99);
+  $("cmodel").innerHTML = [...MODELS].sort((a, b) => rank(a) - rank(b) || a.label.localeCompare(b.label)).map(m => `<option value="${m.id}">${m.label}</option>`).join("");
   const want = [pick, $("cmodel").dataset.cur, "ifs025"].find(v => v && MODELS.some(m => m.id === v));
   $("cmodel").value = want || (MODELS[0] && MODELS[0].id) || "";
 }

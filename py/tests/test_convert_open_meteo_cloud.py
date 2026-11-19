@@ -135,3 +135,22 @@ def test_committed_index_matches_the_committed_files():
         for source in ("day1", "hist"):
             if source in m:
                 assert (root / f"cloud_{m['id']}_{source}.csv").exists(), m["id"]
+
+
+def test_average_of_models(tmp_path):
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("avg", Path(__file__).resolve().parents[1] / "build" / "average_cloud_models.py")
+    avg = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(avg)
+    (tmp_path / "cloud_a_day1.csv").write_text("time,cloud_cover_west,cloud_cover_east\n2026-01-01 01:00,10,20\n2026-01-01 02:00,30,40\n2026-01-01 03:00,50,60\n", encoding="utf-8")
+    (tmp_path / "cloud_b_day1.csv").write_text("time,cloud_cover_west,cloud_cover_east\n2026-01-01 02:00,50,\n2026-01-01 03:00,70,80\n2026-01-01 04:00,90,90\n", encoding="utf-8")
+    (tmp_path / "cloud_c_day1.csv").write_text("time,cloud_cover_west,cloud_cover_east\n2026-01-01 02:00,10,10\n2026-01-01 03:00,60,100\n", encoding="utf-8")
+    (tmp_path / "cloud_a_hist.csv").write_text("time,cloud_cover_west,cloud_cover_east\n2026-01-01 01:00,1,2\n", encoding="utf-8")        # one model only: no hist average
+    avg.main(["--models", "a", "b", "c", "--dir", str(tmp_path), "--label", "Avg"])
+    got = (tmp_path / "cloud_avg_day1.csv").read_text(encoding="utf-8").splitlines()
+    # only the hours every model has (02:00, 03:00); the empty cell of b at 02:00 (east) makes that average empty
+    assert got == ["time,cloud_cover_west,cloud_cover_east", "2026-01-01 02:00,30,", "2026-01-01 03:00,60,80"]
+    assert not (tmp_path / "cloud_avg_hist.csv").exists()
+    import json
+    models = json.loads((tmp_path / "models.json").read_text(encoding="utf-8"))["models"]
+    assert [m["id"] for m in models] == ["avg"] and models[0]["label"] == "Avg" and "day1" in models[0] and "hist" not in models[0]

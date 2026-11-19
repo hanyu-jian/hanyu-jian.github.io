@@ -35,7 +35,7 @@ const GH = {
   "hanyu-jian/vcom/data/production forecast/2026/15min/Putnok.csv": da,
   "hanyu-jian/hu-market-data/HU_2026.csv": price,
 };
-const env = { UST: { get: async (k) => (k === "ust/view/2026-11/Putnok.csv" ? { text: async () => view } : k === "market/prices_HU_2026.csv" && r2Prices ? { text: async () => (r2WithSd ? slimPriceSd : slimPrice) } : null) }, GITHUB_TOKEN: "x" };
+const env = { UST: { get: async (k) => (k === "ust/view/2026-11/Putnok.csv" ? { text: async () => view } : k === "market/prices_HU_2025.csv" ? { text: async () => slimPrice } : k === "market/prices_HU_2026.csv" && r2Prices ? { text: async () => (r2WithSd ? slimPriceSd : slimPrice) } : null) }, GITHUB_TOKEN: "x" };
 const okFetch = async (u) => {
   const m = String(u).match(/repos\/(.+?)\/contents\/(.+)$/);
   const p = decodeURIComponent(m[1] + "/" + m[2]);
@@ -156,6 +156,14 @@ assert.ok(auth.filter(([isPrice]) => isPrice).every(([, h]) => h === "Bearer pri
 assert.ok(auth.filter(([isPrice]) => !isPrice).every(([, h]) => h === "Bearer x"), "other repos keep GITHUB_TOKEN");
 delete env.PRICE_TOKEN;
 globalThis.fetch = okFetch2; r2Prices = true;
+// 有理论发电量、没有 DA 预测（2025 年：乙方的预测从 2026-01-02 才有）-> 没有时段，并说明原因；有 DA 预测时没有 note
+GH["hanyu-jian/vcom/data/theoretical production/2025/15min/Putnok.csv"] = "Date,POA avg [W/m²],Theoretical production [MWh],Theoretical production [kWh]\n2025-06-15 12:00:00,0,0,500\n2025-06-15 12:15:00,0,0,520\n";
+const noDa = await (await call("site=Putnok&start=2025-06-15&end=2025-06-15&lead=60")).json();
+assert.equal(noDa.t.length, 0, "no DA forecast -> nothing to settle"); assert.match(noDa.note, /no DA production forecast/);
+delete GH["hanyu-jian/vcom/data/theoretical production/2025/15min/Putnok.csv"];
+const noAny = await (await call("site=Putnok&start=2025-06-15&end=2025-06-15&lead=60")).json();
+assert.equal(noAny.note, undefined, "nothing at all -> no note");
+assert.equal(fromR2.note, undefined, "normal data has no note");
 // 校验
 for (const [qs, st] of [["site=Nope&start=2026-11-02", 400], ["site=Putnok&start=2026-01-01&end=2026-12-31", 400], ["site=Putnok&start=2026-11-05&end=2026-11-01", 400], ["site=Putnok&start=2026-11-02&lead=50", 400]])
   assert.equal((await call(qs)).status, st, qs);

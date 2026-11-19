@@ -380,7 +380,7 @@ async function fetchChunk(site, a, b, lead) {
   if (!r.ok) throw new Error(`${site}: ${j.error || r.status}`);
   return j;
 }
-let dataYear = null, loading = "";
+let dataYear = null, loading = "", loadNote = "";
 async function load() {
   const seq = ++loadSeq, lead = $("lead").value;
   if (!checkRange()) return;
@@ -393,7 +393,7 @@ async function load() {
   jobs.sort((x, y) => (near(y) - near(x)) || (x.a < y.a ? -1 : x.a > y.a ? 1 : 0));
   const firstBatch = jobs.filter(near).length;
   dataYear = null; loading = `Loading ${year}: 0 / ${jobs.length}…`; setStatus(loading);
-  let next = 0, done = 0; const results = [];
+  let next = 0, done = 0; const results = []; loadNote = "";
   const build = () => {
     store = {};
     results.slice().sort((x, y) => x.job.site === y.job.site ? (x.job.a < y.job.a ? -1 : 1) : 0).forEach(({ job, j }) => {
@@ -407,7 +407,7 @@ async function load() {
       while (next < jobs.length) {
         const job = jobs[next++]; const j = await fetchChunk(job.site, job.a, job.b, lead);
         if (seq !== loadSeq) return;
-        results.push({ job, j }); done++;
+        results.push({ job, j }); done++; if (j.note) loadNote = j.note;
         loading = `Loading ${year}: ${done} / ${jobs.length}…`;
         if (done === firstBatch && done < jobs.length) { build(); paint(); }       // the selected period is complete: draw it now
         else if (done < jobs.length) setStatus(loading + " (the rest of the year is still loading)");
@@ -610,7 +610,7 @@ function paint() {
   const modeTxt = strategyText(p, mode, lead) + thrTxt;
   setStatus(rows.length ? `${name} · ${modeTxt}` + (thr != null ? ` · ${nf(curt)} intervals (${nf(curtMWh, 0)} MWh) curtailed` : "") + (cloudNote ? ` · ${cloudNote}` : "") + (skipped ? ` · ${skipped} site-days left out (no DA / imbalance price yet)` : "") + (loading ? ` · ${loading} (the rest of the year is still loading)` : "")
     : skipped ? `No data to show: all ${skipped} site-days in this period have no DA / imbalance price yet. Pick an earlier period, or check that the price table is up to date (the &ldquo;Build HU Combined Data&rdquo; workflow runs daily at 10:30 UTC).`
-    : "No data for this selection.", !rows.length);
+    : loadNote ? `No data to show: ${loadNote}.` : "No data for this selection.", !rows.length);
   $("revTitle").textContent = `${name} · revenue and total revenue`;
   $("revSub").textContent = `EUR per ${({ "15min": "15 minutes", hour: "hour", day: "day", week: "week", month: "month", quarter: "quarter", year: "year" })[freq]} · ${modeTxt}`;
 

@@ -569,9 +569,7 @@ async function handleImbalance(url, env) {
   const out = { t: [], H: [], AH: [], F: [], P: [], AA: [], PI: [], SD: [] };
   const li = UST_HORIZONS.indexOf(lead);
   const r3 = (x) => (x === null ? null : Math.round(x * 1000) / 1000);
-  let nAH = 0, nDA = 0;
   for (const [t, v] of [...merged.entries()].sort((a, b) => (a[0] < b[0] ? -1 : 1))) {
-    if (v[0] !== null) nAH++; if (v[1] !== null) nDA++;
     if (v[0] === null || v[1] === null) continue;            // 只返回理论发电量和 DA 都有值的时段
     let F = null;                                             // 提前量 >= L 里最小的一档
     for (let j = li; j < nl; j++) if (v[2 + j] !== null) { F = v[2 + j]; break; }
@@ -579,9 +577,7 @@ async function handleImbalance(url, env) {
     out.t.push(t.slice(0, 16)); out.AH.push(r3(v[0])); out.H.push(r3(v[1])); out.F.push(r3(F));
     out.P.push(pr[0]); out.AA.push(pr[1]); out.PI.push(pr[2] === null ? null : r3(pr[2])); out.SD.push(pr[3] === null ? null : r3(pr[3]));
   }
-  // 有理论发电量、却一个 DA 预测都没有（乙方的 DA 预测从 2026-01-02 才有）：结算没有输入，告诉页面原因，不要让它只显示「没有数据」
-  const note = !out.t.length && nAH > 0 && nDA === 0 ? `no DA production forecast for ${site} in ${start} ~ ${end} (vcom data/production forecast has no values there; the supplier's forecasts start on 2026-01-02), so there is nothing to settle` : undefined;
-  return json({ site, start, end, lead, unit: "kWh per 15 min (H, AH, F); EUR/MWh (P, AA, PI); MWh (SD = system direction); t = Budapest local time, interval start", ...(note ? { note } : {}), ...out });
+  return json({ site, start, end, lead, unit: "kWh per 15 min (H, AH, F); EUR/MWh (P, AA, PI); MWh (SD = system direction); t = Budapest local time, interval start", ...out });
 }
 
 // ── /theoretical：整年的 15 分钟理论发电量 CSV（原样转发，不解析，省 CPU）──────────────

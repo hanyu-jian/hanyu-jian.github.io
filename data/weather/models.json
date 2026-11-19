@@ -1,0 +1,88 @@
+{
+ "models": [
+  {
+   "id": "arpege_europe",
+   "label": "Météo-France ARPEGE Europe",
+   "day1": {
+    "layers": [
+     "cloud_cover"
+    ],
+    "from": "2024-12-31",
+    "to": "2026-11-19"
+   },
+   "hist": {
+    "layers": [
+     "cloud_cover",
+     "cloud_cover_low",
+     "cloud_cover_mid",
+     "cloud_cover_high"
+    ],
+    "from": "2024-12-31",
+    "to": "2026-11-18"
+   }
+  },
+  {
+   "id": "avg",
+   "label": "Average of the 3 models",
+   "day1": {
+    "layers": [
+     "cloud_cover"
+    ],
+    "from": "2024-12-31",
+    "to": "2026-11-19"
+   },
+   "hist": {
+    "layers": [
+     "cloud_cover",
+     "cloud_cover_low",
+     "cloud_cover_mid",
+     "cloud_cover_high"
+    ],
+    "from": "2024-12-31",
+    "to": "2026-11-18"
+   }
+  },
+  {
+   "id": "icon_eu",
+   "label": "DWD ICON EU",
+   "day1": {
+    "layers": [
+     "cloud_cover"
+    ],
+    "from": "2024-12-31",
+    "to": "2026-11-19"
+   },
+   "hist": {
+    "layers": [
+     "cloud_cover",
+     "cloud_cover_low",
+     "cloud_cover_mid",
+     "cloud_cover_high"
+    ],
+    "from": "2024-12-31",
+    "to": "2026-11-18"
+   }
+  },
+  {
+   "id": "ifs025",
+   "label": "ECMWF IFS 0.25°",
+   "day1": {
+    "layers": [
+     "cloud_cover"
+    ],
+    "from": "2024-12-31",
+    "to": "2026-11-19"
+   },
+   "hist": {
+    "layers": [
+     "cloud_cover",
+     "cloud_cover_low",
+     "cloud_cover_mid",
+     "cloud_cover_high"
+    ],
+    "from": "2024-12-31",
+    "to": "2026-11-18"
+   }
+  }
+ ]
+}

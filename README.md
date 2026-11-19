@@ -346,7 +346,7 @@ token 只在服务端，不会发给浏览器；数据不会进入本仓库，�
 
 **Ops 页面的网址参数**（Overview / Capture Price / Imbalance 三个页面）：页面上的选择会同步写进地址栏（`history.replaceState`，不增加浏览器历史记录），打开带参数的链接时按参数恢复；缺少或不合法的参数忽略，用默认值。链接里只有选择，没有数据，打开仍要登录 ops。
 - `/ops/overview?site=&start=&end=&res=15min|hourly&lead=&bdate=`（`site` = ALL 或站点名，`lead` = 提前量分钟数，`bdate` = 第二张卡片的日期）
-- `/ops/imbalance?site=&start=&end=&freq=&lead=&pct=&mode=idc|imb&thr=&cloud=&dacc=&dabc=&isrc=&il=&icc=&ibc=&ibid=&from=&to=`（`freq` = 15min / hour / day / week / month / quarter / year，`from`、`to` = Summary table 的月份 1–12）
+- `/ops/imbalance?site=&start=&end=&freq=&lead=&pct=&mode=idc|imb&thr=&cloud=&cm=&dacc=&dabc=&isrc=&il=&icc=&ibc=&ibid=&from=&to=`（`freq` = 15min / hour / day / week / month / quarter / year，`from`、`to` = Summary table 的月份 1–12）
 - `/ops/capture-price?site=&year=&mode=price|ratio&ssite=&thresh=negative|nonpositive`
 
 **Imbalance 页面口径**（`ops/ops-imbalance.html`，`/ops/imbalance`，二级导航里排在 Capture Price 后面）
@@ -397,14 +397,15 @@ token 只在服务端，不会发给浏览器；数据不会进入本仓库，�
   - DA 和 IDC 两边各自独立判断云多（DA 用提前一天预报总云量，IDC 用所选来源和云层）。
 - **Curtailment**：`Curtail when DA price ≤ (EUR/MWh)`（见上）。
 - PV revenue 不变（场站仍按实际发电量 × 日前价结算），Curtail 优先于云量策略。状态栏写出两边各有多少个云量时段；云量文件读不到时写 “cloud forecast data unavailable”。
-- **云量数据**（ECMWF IFS HRES 9km，Open-Meteo，GMT，转成 Budapest 本地时间，每小时一行，`data/weather/`）：
-  - `cloud_day1.csv`：Previous Runs API 的 `cloud_cover_previous_day1`（有效时刻前约 24 小时发布的预报）。只有总云量。HRES 每 6 小时更新一次，`previous_day1` 对下午和傍晚的小时用到的那次运行是 DA 截止（前一天 12:00）之后才发布的，所以对这些小时**略微偏乐观**。
-  - `cloud_hist.csv`：Historical Forecast API（每次模型运行最前面几小时拼成的序列）。有总 / 低 / 中 / 高云量。它非常接近事后实际，而且每次运行要在起始时间之后几个小时才发布，所以用它回测 IDC 会**明显偏乐观**（比真实 IDC 时刻能拿到的预报新得多）；`Day-ahead forecast` 则偏保守（比真实 IDC 时刻能拿到的更旧）。真实收益大概率在两者之间，只在乐观版有收益的结果不能当真。
-  - 两个区域（IFS 9km 的网格下四个坐标只落在两个格子里）：`west` = Putnok、Serenyfalva（坐标 48.29831, 20.42644），`east` = Sajokaza、Szuhakálló 1、Szuhakálló 2（坐标 48.27581, 20.64581）。列名是 `<层>_<区域>`，层 = `cloud_cover` / `cloud_cover_low` / `cloud_cover_mid` / `cloud_cover_high`。
-  - 转换脚本：`python3 py/build/convert_open_meteo_cloud.py <day1|hist> <Open-Meteo 多位置导出 CSV>`（`location_id` 0 = west、1 = east，其余位置忽略；UTC → Budapest 本地时间；夏令时重复的那个小时取平均；层按列名匹配，不按位置；再次运行会把新数据合并进去，同一小时以新的为准）。目前覆盖 2026-01-01 ~ 2026-11-17，新日期需要重新导出并运行脚本；某小时没有云量就按没有云处理。
+- **云量数据**（Open-Meteo，GMT 转成 Budapest 本地时间，每小时一行，在 `data/weather/`）：每个天气模型两份文件 `cloud_<模型>_day1.csv`、`cloud_<模型>_hist.csv`，`models.json` 列出有哪些模型、每个来源有哪些云层、数据从哪天到哪天。页面 Cloud 区的 **Cloud model** 下拉选哪个模型，DA 和 IDC 的云量判断就用哪个模型的数据（想比较不同模型：换一个模型，其他设置不变，看结果）。目前有三个模型，各有 `day1` 和 `hist` 两个来源（2024-12-31 起，到 2026-11 中）：`ifs025`（ECMWF IFS 0.25°，默认）、`arpege_europe`（Météo-France ARPEGE Europe）、`icon_eu`（DWD ICON EU；这个旧版在 2026-11-30 停用，之后的数据要换 Native 版）。之前的 IFS HRES 9km 数据已经去掉（它在 2025 年 2–7 月没有数据，不能和 2025 年连起来）。另外有一项 `avg`（**Average of the 3 models**，三个模型的平均）：每个小时、每个云层取三个模型的平均数（只用三个模型都有值的小时），由 `python3 py/build/average_cloud_models.py` 生成，新增或更新了模型数据后重新运行一次。平均数不是真实云量，是几个模型的“共识分数”，但按 2025–2026 年的对比，它和遮光程度（用理论发电量估的代理指标，粗略）的相关性比任何单个模型都高：`day1` 总云量 0.603（IFS 0.525、ARPEGE 0.544、ICON EU 0.546），`hist` 总云量 0.618（0.557 / 0.543 / 0.573）。某个模型只有一种来源时，IDC 的云量来源里另一个选项会置灰。**不同模型云量的平均水平不一样**（2025–2026 年白天小时平均：IFS 0.25° 44%，ARPEGE 54%，ICON EU 64%，同期用理论发电量估出的遮光程度平均 45%），所以阈值不能直接互相套用，比如 60% 在 ICON EU 里比在 IFS 里常见得多。
+  - `day1`：Previous Runs API 的 `cloud_cover_previous_day1`（有效时刻前约 24 小时发布的预报）。只有总云量。模型每 6 小时更新一次，`previous_day1` 对下午和傍晚的小时用到的那次运行是 DA 截止（前一天 12:00）之后才发布的，所以对这些小时**略微偏乐观**。
+  - `hist`：Historical Forecast API（每次模型运行最前面几小时拼成的序列）。有总 / 低 / 中 / 高云量。它非常接近事后实际，而且每次运行要在起始时间之后几个小时才发布，所以用它回测 IDC 会**明显偏乐观**（比真实 IDC 时刻能拿到的预报新得多）；`Day-ahead forecast` 则偏保守（比真实 IDC 时刻能拿到的更旧）。真实收益大概率在两者之间，只在乐观版有收益的结果不能当真。
+  - 两个区域：`west` = Putnok、Serenyfalva（坐标 48.29831, 20.42644），`east` = Sajokaza、Szuhakálló 1、Szuhakálló 2（坐标 48.27581, 20.64581）。列名是 `<层>_<区域>`，层 = `cloud_cover` / `cloud_cover_low` / `cloud_cover_mid` / `cloud_cover_high`。**换模型时请核对这两个坐标落在两个不同的格子里**（网格太粗时两个坐标会落进同一个格子，west 和 east 就没有区别了）。
+  - **一个模型的所有数据要用同一个模型导出**（Open-Meteo 页面 Weather models 只勾一个，导出时不要选 Best match，它是自动混合、不固定）；不同年份缺数据（比如 IFS HRES 9km 在 2025 年 2–7 月没有）就换成同一家的另一个版本，整年统一，并在这里写明。
+  - 转换脚本：`python3 py/build/convert_open_meteo_cloud.py <模型 id> <day1|hist> <Open-Meteo 多位置导出 CSV> [--label "显示名"]`（模型 id 如 `ifs9km`、`ifs025`、`aifs025`、`gfs`、`icon_eu`、`arpege_europe`……，见脚本里的 KNOWN_MODELS；`location_id` 0 = west、1 = east，其余位置忽略；UTC → Budapest 本地时间；夏令时重复的那个小时取平均；层按列名匹配，列名带模型后缀也认；一份导出里有多个模型会报错；再次运行会把新数据合并进去，同一小时以新的为准；同时更新 `models.json`）。某小时没有云量就按没有云处理。
   - 想要更精确（每个决策时刻只用已经发布的最新一次运行）可以以后用 Single Runs API 做，目前没做。
 - Worker 的 `GET /ops/api/cloud?src=day1|hist` 把对应文件原样转发（不解析，几乎不占 CPU）；页面只在对应的阈值框有值时才读，每个文件读一次。
-- 网址参数：`cloud`（1 = 开关打开）、`dacc`、`dabc`（DA 云天比例）、`isrc`（hist / day1）、`il`（total / low / mid / high）、`icc`、`ibc`（IDC 云天比例）、`ibid`（Bid 里的 IDC position %），其余同上。
+- 网址参数：`cloud`（1 = 开关打开）、`cm`（Cloud model 的 id）、`dacc`、`dabc`（DA 云天比例）、`isrc`（hist / day1）、`il`（total / low / mid / high）、`icc`、`ibc`（IDC 云天比例）、`ibid`（Bid 里的 IDC position %），其余同上。
 
 *数据与接口*
 - `GET /ops/api/imbalance?site=&start=&end=&lead=`（≤ 62 天）：返回该站点该时段逐 15 分钟的结算输入（列式 JSON：`t, H, AH, F, P, AA, PI`），结算本身在浏览器里算。H 和 AH 来自 vcom（`GITHUB_TOKEN`），UST 来自 R2（`ust/`、`ust-replay/`、`ust-hindcast/` 三个视图），价格见下。

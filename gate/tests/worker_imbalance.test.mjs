@@ -98,6 +98,9 @@ for (const L of H) {
   settleSlot(100, 110, 120, 50, 60, 70, 1, "idc", n, null, 1, 0.5);                    // only the IDC share is cut: DA bid is normal
   near(n[0], 100, "IDC only: D"); near(n[1], 110, "IDC only: position = D + 0.5 x (F − D)"); near(n[2], 10, "IDC only: IDC volume traded"); near(n[3], 5, "IDC only: DA revenue"); near(n[4], 0.6, "IDC only: IDC revenue"); near(n[5], 0, "IDC only: imbalance"); near(n[6], 5.6, "IDC only: total");
   settleSlot(100, 110, 120, 50, 60, 70, 1, "idc", n, null, 0.5, 0); near(n[1], 50, "IDC share 0: nothing traded in the IDC, position = D"); near(n[2], 0, "IDC share 0: idc volume"); near(n[4], 0, "IDC share 0: IDC revenue"); near(n[6], 6.7, "IDC share 0: the whole volume stays in imbalance (= Rest left in imbalance)");
+  // DA bid 20%, IDC bid 0%: the final position is the DA bid (20% of H), not 0 (it used to be 0 when the IDC % was a share of the final position)
+  settleSlot(100, 110, 120, 50, 60, 70, 0.2, "idc", n, null, 1, 0); near(n[0], 20, "DA 20%: D"); near(n[1], 20, "DA 20%, IDC 0%: final position = D, not 0"); near(n[2], 0, "nothing traded in the IDC");
+  settleSlot(100, 110, 120, 50, 60, 70, 0.2, "idc", n, null, 1, 0.2); near(n[1], 20 + 0.2 * (120 - 20), "DA 20%, IDC 20%: D + 20% of (F − D)");
   settleSlot(100, 110, 120, 50, 60, 70, 1, "imb", n, null, 0.5, 0.1); near(n[1], 50, "leave-in-imbalance: position = scaled DA bid, kfIDC is not used"); near(n[6], 6.7, "imbalance mode total");
   settleSlot(100, 110, null, 50, 60, 70, 1, "idc", n, null, 0.5, 0.1); near(n[1], 50, "no UST: position = scaled DA bid"); near(n[2], 0, "nothing traded in IDC");
   settleSlot(100, 110, 120, 50, 60, 70, 1, "idc", n, 50, 0.5, 0.5); near(n[6], 0, "curtailment wins over the cloud factors"); near(n[10], 1, "flagged curtailed");

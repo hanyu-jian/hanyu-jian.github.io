@@ -336,10 +336,9 @@ token 只在服务端，不会发给浏览器；数据不会进入本仓库，�
 **Overview 第二张卡片（一个发布时刻的 16 档预测）**：横坐标固定为当天 00:00–23:45（96 格，每 15 分钟），橙色区域 = 发布时刻 +15 到 +240 分钟（跨过午夜的画到 23:45）；发布时刻只提供当天的。
 
 **GO 页面口径**（`ops/ops-go.html`，`/ops/go`，二级导航最后一项）
-- 内容来自 GO 交易工作簿（每个场站一张明细表 + 2024–2027 四张年度表），只加了表计发电量。上方是站点按钮（All sites 在最前）和年份下拉（All years / 2024–2027），三块：
-  ⓪ GO summary：五站各一行，发电量（表计）/ 已签 GO / 剩余未交易 GO（= 发电量 − 已签），和工作簿 2025 表的“全年电量 / 已交易 / 剩余未交易”同一口径，随年份下拉变化（All years = 2024 到当年）；已签量 3 月第二笔取备注里的“实际交易量”，月度余量表同样；
+- 内容来自 GO 交易工作簿（每个场站一张明细表 + 2024–2027 四张年度表），只加了表计发电量。上方是站点按钮（All sites 在最前）和年份下拉（All years / 2024–2027），两块：
   ① 交易明细：一笔合同（或一个月）一行，每站 22 行（2024 年 8–12 月逐月、2025 年 1–6 月逐月 + 3 月第二笔 + 7–12 月合并、2026 年 6 笔合同、2027 年 3 笔合同），金额 = 销售量 × 单价，最后一行 Total（销售量、加权平均单价、金额）。备注列直接用工作簿里的备注；All sites 时按合同把五站相加，备注不同的（如 3 月第二笔各站实际交易量不同）只留共同的前半句；
-  ② 月度余量：1–12 月逐行，按年列出发电量 / 已售 / 余量；只有季度或半年合同的，已售和余量合并成 Jan–Jun / Jul–Dec 一格，全年合同（Q1–Q4）单列一行。All sites 时某月只有五站都读满才显示发电量。
+  ② GO balance（余量，只有这一张表）：选 All sites 时一行一个场站，按年列出发电量（表计）/ 已售 GO / 剩余 GO（= 发电量 − 已售），All years 时最后多一组 2024 到当年的合计，和工作簿 2025 表的“全年电量 / 已交易 / 剩余未交易”同一口径；选单个场站时 1–12 月逐行，只有季度或半年合同的，已售和余量合并成 Jan–Jun / Jul–Dec 一格，全年合同（Q1–Q4）单列一行。已售量 3 月第二笔取备注里的“实际交易量”，某月五站没有都读满时 All sites 不显示该月发电量。
 - 成交明细在私有 vcom 仓库的 `data/go/tokaj_go_sales.csv`（含价格、买家和备注，所以不放本仓库），Worker 的 `/ops/api/go-sales` 原样转发；新增或修改交易改这个 CSV 即可（行顺序和工作簿站点表一致）。
 - 站点对应（用 2024、2025 年表计量核对过）：ASTROPUT = Putnok，ASTROSER = Serenyfalva，ASTROKAZ = Sajokaza，ASTROSZU = Szuhakálló 1，ASTROSZELES = Szuhakálló 2。
 - 发电量用 `/ops/api/metered?resolution=hourly`（小时文件，页面按月求和）。2024 年只算 8–12 月，当年只算读满的月份。
@@ -357,7 +356,7 @@ token 只在服务端，不会发给浏览器；数据不会进入本仓库，�
 *页面结构*
 - 顶部：起止日期（默认前三天，不含今天，因为今天的价格和理论发电量还不完整）、Frequency 点击按钮（15 min / Hourly / Daily / Weekly / Monthly / Quarterly / Yearly，样式同 Price Overview；只影响图表的聚合，不重新请求）。
 - Site 按钮（All sites = 五站相加，其余是单站）；它同时驱动图和 Summary table。
-- Strategy（图表左边，控件两个一行，分 Cloud / Bid / Curtailment 三块；窄屏时移到图表上方）：**DA bid %**（DA 预测量按多少百分比报进日前市场，默认 100%，0–150%；两个数字框都是纯手动输入，没有上下调节箭头）、**Rest**（没报进 DA 的部分：在 IDC 里平仓 / 全部留在不平衡里）、**IDC lead time**（15–240 分钟，默认 60）、**Curtail if DA price ≤**（€/MWh，留空 = 关闭；日前价小于等于该值的 15 分钟不发电，见下）。
+- Strategy（图表左边，控件两个一行，分 Cloud / Bid / Curtailment 两块；窄屏时移到图表上方）：**DA bid %**（DA 预测量按多少百分比报进日前市场，默认 100%，0–150%；两个数字框都是纯手动输入，没有上下调节箭头）、**Rest**（没报进 DA 的部分：在 IDC 里平仓 / 全部留在不平衡里）、**IDC lead time**（15–240 分钟，默认 60）、**Curtail if DA price ≤**（€/MWh，留空 = 关闭；日前价小于等于该值的 15 分钟不发电，见下）。
 - 图：按所选频率画 DA revenue / IDC revenue / Imbalance cost 的堆叠柱，再叠 **PV revenue**（向下的堆叠柱，默认隐藏）、Total revenue 线、**Profit** 线（100% 报量、之后不交易）。
 - Summary table：所选站点 1–12 月（页面载入那一年；Month 列只标 1–12）逐月的 DA revenue、IDC revenue、Revenue (prior to imbalance cost)、Imbalance cost、Total revenue (post imbalance cost)、Imbalance %、**PV revenue**、**Profit**，最后是合计行；没有数据的月份显示 –。右上角的 **From month / To month**（1–12）选一段月份，合计行就变成这一段的合计（如 “Total 3–6”，选中的月份高亮、其余变灰），同时多出一行 “Total 1–12” 保留全年合计；选择只在浏览器里重算，不重新请求。表里的数字随 Strategy 变化，**不受图表日期范围影响**。
 
@@ -387,7 +386,7 @@ token 只在服务端，不会发给浏览器；数据不会进入本仓库，�
 - **部署后要做一次**：运行 **Build HU Combined Data**（Actions → Run workflow），R2 里的价格表才会带上 System direction 这一列；在那之前页面照常工作，只是系统方向显示 “–”。
 - 网址参数：`dd`（手动选的那一天；不在当前年份时会加载那一年）。
 
-*云量策略*（Strategy 卡片分成 Cloud / Bid / Curtailment 三块）
+*云量策略*（Strategy 卡片分成 Cloud / Bid / Curtailment 两块）
 - **Bid**（平时 / 晴天的策略）：`DA bid, % of DA forecast`（D = DA bid % × H）、`IDC: position %`（**留空 = 没调整**）、`Rest (not bid in DA)`、`IDC lead time`。
   - 只调整 DA %（IDC: position % 留空）：没报进 DA 的部分由 **Rest** 决定，Close out in IDC = 平到 UST 预测 F，Leave in imbalance = 留在不平衡里。
   - DA % 和 IDC: position % 都调整：最终仓位 = IDC position % × F，没报的部分**自动全部留在不平衡里**（100% = 全部平到 F，0% = 一点不平），这时 Rest 不起作用，置灰。

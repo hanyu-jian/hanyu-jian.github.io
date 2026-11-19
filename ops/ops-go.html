@@ -66,11 +66,6 @@ td.blue input { width: 120px; text-align: right; border: 1px solid #9ec3ea; back
     </div>
 
     <div class="chart-card">
-      <div class="chart-card-header"><h3 id="titleS">GO summary</h3></div>
-      <div class="scroll"><table id="sumTable"></table></div>
-    </div>
-
-    <div class="chart-card">
       <div class="chart-card-header"><h3 id="titleA">GO sales</h3></div>
       <div class="scroll"><table id="ledTable"></table></div>
     </div>
@@ -181,32 +176,33 @@ function renderLedger() {
   }
   $("titleA").textContent = site === "ALL" ? "All sites" : `${site} · ${CODE[site]}`;
   const vol = rows.reduce((a, r) => a + r.vol, 0), amt = rows.reduce((a, r) => a + r.vol * r.price, 0);
-  $("ledTable").innerHTML = `<tr><th>Year</th><th>Production period</th><th>Buyer</th><th class="r">Volume (MWh)</th><th class="r">Price (EUR/MWh)</th><th class="r">Amount (EUR)</th><th>Delivery date</th><th>Delivery to be amended</th><th>Note</th></tr>`
-    + rows.map(r => `<tr><td class="l">${r.y}</td><td class="l">${r.period}</td><td class="l">${r.buyer || ""}</td><td>${nf(r.vol, 2)}</td><td>${nf(r.price, 4)}</td><td>${nf(r.vol * r.price, 2)}</td>
-      <td class="l">${r.delivery_date}</td><td class="l">${r.amended_delivery}</td><td class="l" style="white-space:normal;min-width:240px;color:#888;font-size:12px">${r.note}</td></tr>`).join("")
-    + `<tr class="total"><td class="l">Total</td><td></td><td></td><td>${nf(vol, 2)}</td><td>${nf(vol ? amt / vol : null, 4)}</td><td>${nf(amt, 2)}</td><td colspan="3"></td></tr>`;
-}
-
-// one line per site: production, signed GO and what is left; All years = 2024 up to the current year
-function renderSummary() {
-  const yrs = year === "ALL" ? YEARS.filter(y => y <= THIS_YEAR) : [+year];
-  $("titleS").textContent = `GO summary · ${year === "ALL" ? `${yrs[0]}–${yrs[yrs.length - 1]}` : year}`;
-  let tp = 0, ts = 0, anyP = false;
-  const body = SITES.map(s => {
-    let p = 0, any = false;
-    yrs.forEach(y => { const v = y <= THIS_YEAR ? yearProd(s, y) : null; if (v != null) { p += v; any = true; } });
-    const sold = yrs.reduce((a, y) => a + rowsOf(s, y).reduce((b, r) => b + traded(r), 0), 0), rem = any ? p - sold : null;
-    ts += sold; if (any) { tp += p; anyP = true; }
-    return `<tr><td class="l">${s}</td><td>${any ? nf(p, 2) : "–"}</td><td>${nf(sold, 0)}</td><td class="${cls(rem)}">${sgn(rem)}</td></tr>`;
-  }).join("");
-  const tr = anyP ? tp - ts : null;
-  $("sumTable").innerHTML = `<tr><th>Site</th><th class="r">Production (MWh)</th><th class="r">Signed GO (MWh)</th><th class="r">Remaining unsold GO (MWh)</th></tr>` + body
-    + `<tr class="total"><td class="l">Total</td><td>${anyP ? nf(tp, 2) : "–"}</td><td>${nf(ts, 0)}</td><td class="${cls(tr)}">${sgn(tr)}</td></tr>`;
+  $("ledTable").innerHTML = `<tr><th>Year</th><th>Production period</th><th class="r">Sold GO volume (MWh)</th><th class="r">Unit price (EUR/MWh)</th><th class="r">Amount (EUR)</th><th>Delivery date</th><th>Delivery to be amended</th><th>Buyer</th><th>Note</th></tr>`
+    + rows.map(r => `<tr><td class="l">${r.y}</td><td class="l">${r.period.replace(/ ?\d{4}/, "")}</td><td>${nf(r.vol, 2)}</td><td>${nf(r.price, 4)}</td><td>${nf(r.vol * r.price, 2)}</td>
+      <td class="l">${r.delivery_date}</td><td class="l">${r.amended_delivery}</td><td class="l">${r.buyer || ""}</td><td class="l" style="white-space:normal;min-width:240px;color:#888;font-size:12px">${r.note}</td></tr>`).join("")
+    + `<tr class="total"><td class="l">Total</td><td></td><td>${nf(vol, 2)}</td><td>${nf(vol ? amt / vol : null, 4)}</td><td>${nf(amt, 2)}</td><td colspan="4"></td></tr>`;
 }
 
 // month rows 1–12: the sold volume sits on the month for monthly sales, and is merged over Jan–Jun / Jul–Dec for half-year contracts
-function renderMonths() {
-  $("titleB").textContent = `${site === "ALL" ? "All sites" : site} · monthly balance`;
+// All sites: one row per site, one column group per year (+ a total over 2024 … current year); one site: one row per month
+function renderBySite() {
+  $("titleB").textContent = "All sites · GO balance";
+  const yrs = shownYears(), pastYrs = YEARS.filter(y => y <= THIS_YEAR), cell = (p, sold) => { const r = p == null ? null : p - sold;
+    return `<td class="sep">${nf(p, 0)}</td><td>${nf(sold, 0)}</td><td class="${cls(r)}">${sgn(r)}</td>`; };
+  const calc = (s, ys) => { let p = 0, any = false, sold = 0;
+    ys.forEach(y => { const v = y <= THIS_YEAR ? yearProd(s, y) : null; if (v != null) { p += v; any = true; } sold += rowsOf(s, y).reduce((a, r) => a + traded(r), 0); });
+    return { p: any ? p : null, sold }; };
+  const groups = yrs.map(y => ({ label: y, ys: [y] })); if (year === "ALL") groups.push({ label: `Total ${pastYrs[0]}–${pastYrs[pastYrs.length - 1]}`, ys: pastYrs });
+  const head = `<tr><th rowspan="2">Site</th>${groups.map(g => `<th class="grp" colspan="3">${g.label}</th>`).join("")}</tr>
+    <tr>${groups.map(() => `<th class="r sep">Production (MWh)</th><th class="r">Sold GO (MWh)</th><th class="r">Remaining GO (MWh)</th>`).join("")}</tr>`;
+  const body = SITES.map(s => `<tr><td class="l">${s}</td>${groups.map(g => { const c = calc(s, g.ys); return cell(c.p, c.sold); }).join("")}</tr>`).join("");
+  const tot = `<tr class="total"><td class="l">Total</td>${groups.map(g => { let p = 0, any = false, sold = 0;
+    SITES.forEach(s => { const c = calc(s, g.ys); if (c.p != null) { p += c.p; any = true; } sold += c.sold; }); return cell(any ? p : null, sold); }).join("")}</tr>`;
+  $("monTable").innerHTML = head + body + tot;
+}
+
+function renderBalance() {
+  if (site === "ALL") return renderBySite();
+  $("titleB").textContent = `${site} · GO balance by month`;
   const per = shownYears().map(y => {
     const rs = rowsOf(site, y), seg = {}, fy = rs.filter(r => r.m0 === 1 && r.m1 === 12).reduce((a, r) => a + traded(r), 0);
     rs.filter(r => !(r.m0 === 1 && r.m1 === 12)).forEach(r => { const k = r.m0 + "-" + r.m1; (seg[k] = seg[k] || { m0: r.m0, m1: r.m1, sold: 0 }).sold += traded(r); });
@@ -240,7 +236,7 @@ function renderAll() {
   syncUrl({ site: site === "ALL" ? "" : site, year: year === "ALL" ? "" : year });
   $("year").value = year;
   [...$("sites").children].forEach(b => b.classList.toggle("active", b.dataset.v === site));
-  renderSummary(); renderLedger(); renderMonths();
+  renderLedger(); renderBalance();
 }
 async function init() {
   try { await loadAll(); } catch (e) { $("status").textContent = "Failed to load: " + e.message; return; }

@@ -18,6 +18,7 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background:
 .sub-nav-link.active { color: #2c3e50; border-bottom-color: #2c3e50; }
 .status { padding: 14px 30px 0; font-size: 13px; color: #e74c3c; min-height: 8px; }
 .chart-grid { display: grid; grid-template-columns: 1fr; gap: 24px; padding: 14px 30px 30px; }
+.chart-grid > * { min-width: 0; }
 .chart-card { background: #fff; border-radius: 8px; border: 1px solid #e6e9ed; padding: 16px; }
 .chart-card-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 14px; }
 .chart-card-header h3 { font-size: 18px; font-weight: 500; color: #2c3e50; border-left: 4px solid #2c3e50; padding-left: 12px; margin: 0; line-height: 1.3; }
@@ -74,6 +75,11 @@ td.blue input { width: 120px; text-align: right; border: 1px solid #9ec3ea; back
       <div class="chart-card-header"><h3 id="titleB">Monthly balance</h3></div>
       <div class="scroll"><table id="monTable"></table></div>
     </div>
+
+    <div class="chart-card">
+      <div class="chart-card-header"><h3 id="titleT">GO timeline</h3></div>
+      <div id="chartT" style="height:560px"></div>
+    </div>
   </div>
 </div>
 
@@ -94,8 +100,10 @@ function budapestToday() {
     .formatToParts(new Date()).map(x => [x.type, x.value]));
   return `${p.year}-${p.month}-${p.day}`;
 }
-const THIS_YEAR = +budapestToday().slice(0, 4);
-let sales = [], prod = {}, lastTs = {}, site = "ALL", year = "ALL";
+const TODAY = budapestToday(), THIS_YEAR = +TODAY.slice(0, 4);
+const EXPIRY_MONTHS = 12;      // a GO expires this many months after the end of its production month (assumption, check with the registry)
+const AXPO_STAY = 9000, AXPO_TOTAL = 64000;   // of the 64,000 MWh AXPO contract only 9,000 MWh stays on its original delivery date (the workbook note)
+let chartT, sales = [], prod = {}, lastTs = {}, site = "ALL", year = "ALL";
 const shownYears = () => year === "ALL" ? YEARS : [+year];
 
 function parseCSV(text) {
@@ -232,14 +240,78 @@ function renderBalance() {
   $("monTable").innerHTML = head + body + fyRow + tot;
 }
 
+
+// ───────────── timeline: unsold GO by expiry month (top) and deliveries by delivery month (bottom) ─────────────
+const ym = (y, m0) => `${y}-${String(m0 + 1).padStart(2, "0")}`;
+const lastDay = (y, m0) => new Date(Date.UTC(y, m0 + 1, 0)).getUTCDate();
+function renderTimeline() {
+  const list = site === "ALL" ? SITES : [site], yrs = shownYears(), todayM = TODAY.slice(0, 7);
+  $("titleT").textContent = `${site === "ALL" ? "All sites" : site} · unsold GO by expiry month · deliveries by delivery month`;
+  // unsold GO per production month: production minus the sold volume. Monthly sales are taken as they are, half-year / full-year contracts are spread over their months in proportion to production.
+  const exp = {};                       // expiry month → { vol, parts: [production month, MWh] }
+  list.forEach(s => yrs.forEach(y => {
+    if (y > THIS_YEAR) return;
+    const p = MON.map((_, i) => monthProd(s, y, i) || 0), a = new Array(12).fill(0);
+    rowsOf(s, y).forEach(r => { const v = traded(r);
+      if (r.m0 === r.m1) a[r.m0 - 1] += v;
+      else { let w = 0; for (let i = r.m0 - 1; i < r.m1; i++) w += p[i]; if (w > 0) for (let i = r.m0 - 1; i < r.m1; i++) a[i] += v * p[i] / w; } });
+    p.forEach((pv, i) => { const u = Math.max(0, pv - a[i]); if (u < 0.5) return;
+      const e = new Date(Date.UTC(y, i + EXPIRY_MONTHS, 1)), key = ym(e.getUTCFullYear(), e.getUTCMonth());
+      const o = exp[key] || (exp[key] = { vol: 0, parts: [], date: `${key}-${String(lastDay(e.getUTCFullYear(), e.getUTCMonth())).padStart(2, "0")}` });
+      o.vol += u; o.parts.push([`${MON[i]} ${y}`, u]); });
+  }));
+  // deliveries: original date, or the amended date when the workbook has one
+  const del = {};                       // delivery month → { delivered, due, redated, items }
+  const addDel = (date, vol, kind, orig) => { const k = date.slice(0, 7), o = del[k] || (del[k] = { delivered: 0, due: 0, redated: 0, items: [] }); o[kind] += vol; o.items.push([date, vol, kind, orig]); };
+  list.forEach(s => yrs.forEach(y => rowsOf(s, y).forEach(r => {
+    const v = traded(r), d = r.delivery_date; if (!d) return;
+    if (r.amended_delivery) {
+      let stay = 0; if (r.buyer === "AXPO" && r.y === 2026 && r.m1 === 6) stay = v * AXPO_STAY / AXPO_TOTAL;
+      if (stay) addDel(d, stay, d <= TODAY ? "delivered" : "due", "");
+      addDel(r.amended_delivery, v - stay, "redated", d);
+    } else addDel(d, v, d <= TODAY ? "delivered" : "due", "");
+  })));
+  const keys = [...Object.keys(exp), ...Object.keys(del), todayM].sort();
+  if (!keys.length) { chartT.clear(); return; }
+  const months = []; for (let [y, m] = [+keys[0].slice(0, 4), +keys[0].slice(5) - 1]; ym(y, m) <= keys[keys.length - 1]; m++ >= 11 && (m = 0, y++)) months.push(ym(y, m));
+  const soon = new Date(Date.parse(TODAY + "T00:00:00Z") + 90 * 86400000).toISOString().slice(0, 10);
+  const status = k => { const e = exp[k]; if (!e) return null; return e.date < TODAY ? "expired" : e.date <= soon ? "soon" : "valid"; };
+  const ux = st => months.map(k => status(k) === st ? Math.round(exp[k].vol) : null);
+  const dx = kind => months.map(k => del[k] && del[k][kind] > 0.5 ? Math.round(del[k][kind]) : null);
+  const today = { symbol: "none", silent: true, label: { formatter: "Today", position: "insideEndTop", color: "#c0392b" }, lineStyle: { color: "#c0392b", type: "dashed" }, data: [{ xAxis: todayM }] };
+  const bar = (name, data, color, stack, gx, extra = {}) => ({ name, type: "bar", stack, data, xAxisIndex: gx, yAxisIndex: gx, itemStyle: { color }, barMaxWidth: 26, ...extra });
+  const fmt = v => nf(v, 0);
+  chartT.setOption({
+    animation: false, legend: { top: 0, data: ["Expired (unsold)", "Expires within 90 days", "Valid, unsold", "Delivered", "Delivery due", "Delivery re-dated (new date)"], textStyle: { fontSize: 11 } },
+    tooltip: { trigger: "axis", axisPointer: { type: "shadow" }, confine: true, formatter: ps => {
+      const k = ps[0].axisValue, e = exp[k], d = del[k]; let h = `<b>${k}</b>`;
+      if (e) h += `<br>Unsold GO expiring ${e.date}: <b>${fmt(e.vol)} MWh</b>` + e.parts.map(([m, v]) => `<br>&nbsp;&nbsp;${m}: ${fmt(v)}`).join("");
+      if (d) h += `<br>Deliveries:` + d.items.map(([dt, v, kind, orig]) => `<br>&nbsp;&nbsp;${dt}${orig ? ` (was ${orig})` : ""}: ${fmt(v)} MWh`).join("");
+      return h; } },
+    grid: [{ left: 84, right: 20, top: 52, height: 220 }, { left: 84, right: 20, top: 350, height: 130 }],
+    xAxis: [{ type: "category", data: months, gridIndex: 0, axisLabel: { show: false }, axisTick: { show: false } },
+            { type: "category", data: months, gridIndex: 1, axisLabel: { fontSize: 10, rotate: 45 } }],
+    yAxis: [{ type: "value", gridIndex: 0, name: "Unsold GO (MWh), by expiry month", nameLocation: "middle", nameGap: 62, nameTextStyle: { fontSize: 11 } },
+            { type: "value", gridIndex: 1, name: "Deliveries (MWh)", nameLocation: "middle", nameGap: 62, nameTextStyle: { fontSize: 11 } }],
+    series: [
+      bar("Expired (unsold)", ux("expired"), "#b0b7bf", "u", 0, { markLine: today }),
+      bar("Expires within 90 days", ux("soon"), "#e74c3c", "u", 0),
+      bar("Valid, unsold", ux("valid"), "#27ae60", "u", 0),
+      bar("Delivered", dx("delivered"), "#2c7fb8", "d", 1, { markLine: today }),
+      bar("Delivery due", dx("due"), "#34495e", "d", 1),
+      bar("Delivery re-dated (new date)", dx("redated"), "#e67e22", "d", 1),
+    ] }, true);
+}
+
 function renderAll() {
   syncUrl({ site: site === "ALL" ? "" : site, year: year === "ALL" ? "" : year });
   $("year").value = year;
   [...$("sites").children].forEach(b => b.classList.toggle("active", b.dataset.v === site));
-  renderLedger(); renderBalance();
+  renderLedger(); renderBalance(); renderTimeline();
 }
 async function init() {
   try { await loadAll(); } catch (e) { $("status").textContent = "Failed to load: " + e.message; return; }
+  chartT = echarts.init($("chartT")); addEventListener("resize", () => chartT.resize());
   const q = URLQ.get("site"); if (SITES.includes(q)) site = q;
   $("sites").innerHTML = ["ALL", ...SITES].map(s => `<button data-v="${s}">${s === "ALL" ? "All sites" : s}</button>`).join("");
   const qy = URLQ.get("year"); if (YEARS.includes(+qy)) year = qy;

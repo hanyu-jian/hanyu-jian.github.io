@@ -2,7 +2,7 @@
 """Open-Meteo 多位置小时云量 CSV（UTC）-> data/weather/cloud_<模型>_<来源>.csv（Budapest 本地时间，每小时一行），并更新 data/weather/models.json。
 
 模型 id（页面里 Cloud 区的 Cloud model 下拉用它）：ifs9km = ECMWF IFS HRES 9km，ifs025 = ECMWF IFS 0.25°，aifs025 = ECMWF AIFS 0.25°，gfs、icon_eu、icon_global、arpege_europe、gem_global、ukmo……（见 KNOWN_MODELS，也可以自己起 id，用 --label 写显示名）。
-**一份导出只能有一个模型**（Open-Meteo 页面的 Weather models 只勾一个）；同一个模型的所有数据（含不同年份）都要用同一个模型导出，不要混用。
+一份导出里可以有多个模型（见下面的用法）；同一个模型的所有数据（含不同年份）都要用同一个模型导出，不要混用。
 
 来源 source 有两种（页面里分别用于 DA 和 IDC 的云量策略）：
   day1  Previous Runs API 的 cloud_cover_previous_day1：提前约 24 小时发布的预报（DA 用，只有总云量）
@@ -17,7 +17,9 @@
 夏令时：转回冬令时那天本地 02:00 出现两次，取平均；转到夏令时那天本地 02:00 不存在。
 再次运行同一个输出文件时，新数据覆盖相同的小时，其余小时和列保留（可以分批追加）。
 
-用法：python3 py/build/convert_open_meteo_cloud.py <模型 id> <day1|hist> <open-meteo.csv> [输出文件] [--label "显示名"]
+一份导出里有多个模型时（Open-Meteo 页面勾了几个模型，列名带模型后缀），按模型 id 自动选列（KNOWN_COLUMNS），别的模型用 --column <列名里的模型后缀> 指定；同一份导出可以对每个模型各运行一次。
+
+用法：python3 py/build/convert_open_meteo_cloud.py <模型 id> <day1|hist> <open-meteo.csv> [输出文件] [--label "显示名"] [--column <模型后缀>]
 """
 import csv
 import json
@@ -45,27 +47,40 @@ def fmt(v):
     return "" if v is None else (str(int(v)) if v == int(v) else str(round(v, 1)))
 
 
-LAYER_RE = re.compile(r"^(cloud_cover(?:_low|_mid|_high)?)(?:_previous_day\d+)?(?:_[a-z0-9_]+)?$")
+LAYER_RE = re.compile(r"^(cloud_cover(?:_low|_mid|_high)?)(?:_previous_day\d+)?(?:_([a-z0-9_]+))?$")
+# 我们的模型 id -> Open-Meteo 列名里的模型后缀（一份导出里有多个模型时，按它选列；其它模型用 --column <后缀> 指定）
+KNOWN_COLUMNS = {"ifs9km": "ecmwf_ifs", "ifs025": "ecmwf_ifs025", "aifs025": "ecmwf_aifs025", "arpege_europe": "meteofrance_arpege_europe", "icon_eu": "dwd_icon_eu"}
+
+
+def parse_header(header):
+    """'cloud_cover_low_previous_day1_ecmwf_ifs025 (%)' -> ('cloud_cover_low', 'ecmwf_ifs025')；没有模型后缀时第二项是 None；其它变量返回 None。"""
+    m = LAYER_RE.match(header.split("(")[0].strip())
+    return (m.group(1), m.group(2)) if m else None
 
 
 def layer_of(header):
-    """'cloud_cover_low_previous_day1 (%)' -> 'cloud_cover_low'；带模型后缀的列名（'cloud_cover_ecmwf_ifs025 (%)'）也认；其它变量返回 None。"""
-    m = LAYER_RE.match(header.split("(")[0].strip())
-    return m.group(1) if m else None
+    p = parse_header(header)
+    return p[0] if p else None
 
 
-def read_open_meteo(path):
+def read_open_meteo(path, column=None):
     """-> {本地小时: {'<层>_<区域>': 平均值}}"""
     with open(path, newline="", encoding="utf-8-sig") as f:
         rows = list(csv.reader(f))
     start = next((i for i, r in enumerate(rows) if len(r) > 1 and r[0].strip() == "location_id" and r[1].strip() == "time"), None)
     if start is None:
         raise SystemExit("no 'location_id,time,...' data header found (is this a multi-location export?)")
-    cols = {i: layer_of(h) for i, h in enumerate(rows[start]) if i > 1 and layer_of(h)}
+    parsed = {i: parse_header(h) for i, h in enumerate(rows[start]) if i > 1 and parse_header(h)}
+    suffixes = sorted({sfx for _, sfx in parsed.values() if sfx})
+    if len(suffixes) > 1:                                         # several models in one export: pick the one asked for
+        if column not in suffixes:
+            raise SystemExit(f"this export has several models ({', '.join(suffixes)}): say which one with --column <suffix>" + (f" (not found: {column})" if column else ""))
+        parsed = {i: v for i, v in parsed.items() if v[1] == column}
+    cols = {i: layer for i, (layer, _) in parsed.items()}
     if "cloud_cover" not in cols.values():
         raise SystemExit("no total cloud cover column found")
     if len(set(cols.values())) != len(cols):
-        raise SystemExit("the same cloud layer appears more than once (several models in one export?): export one model only, e.g. ECMWF IFS 0.25 deg")
+        raise SystemExit("the same cloud layer appears more than once: export one model only")
     acc = defaultdict(lambda: defaultdict(list))
     for r in rows[start + 1:]:
         if len(r) < 3 or not r[1].strip() or r[0].strip() not in AREAS:
@@ -117,12 +132,15 @@ def main():
     label = None
     if "--label" in args:
         i = args.index("--label"); label = args[i + 1]; del args[i:i + 2]
+    column = None
+    if "--column" in args:
+        i = args.index("--column"); column = args[i + 1]; del args[i:i + 2]
     if len(args) < 3 or args[1] not in SOURCES or not re.fullmatch(r"[a-z0-9_]+", args[0]):
         raise SystemExit(__doc__)
     model, source, src = args[0], args[1], args[2]
     dst = Path(args[3]) if len(args) > 3 else OUT_DIR / f"cloud_{model}_{source}.csv"
     merged = read_existing(dst)
-    new = read_open_meteo(src)
+    new = read_open_meteo(src, column or KNOWN_COLUMNS.get(model))
     for k, d in new.items():
         merged.setdefault(k, {}).update(d)
     names = [f"{layer}_{area}" for layer in LAYERS for area in AREAS.values() if any(f"{layer}_{area}" in d for d in merged.values())]

@@ -46,13 +46,30 @@ def test_model_suffix_in_the_column_names_is_accepted(tmp_path):
     assert (got["cloud_cover_west"], got["cloud_cover_low_west"], got["cloud_cover_mid_west"], got["cloud_cover_high_west"]) == (55, 1, 2, 3)
 
 
-def test_two_models_in_one_export_is_refused(tmp_path):
-    head = "location_id,time,cloud_cover_previous_day1_best_match (%),cloud_cover_previous_day1_ecmwf_ifs025 (%)\n"
+def test_two_models_in_one_export_need_a_choice_and_it_is_applied(tmp_path):
+    head = "location_id,time,cloud_cover_previous_day1_ecmwf_ifs025 (%),cloud_cover_previous_day1_meteofrance_arpege_europe (%),cloud_cover_previous_day1_dwd_icon_eu (%)\n"
+    p = write(tmp_path, head, ["0,2026-01-01T00:00,30,40,50\n", "1,2026-01-01T00:00,31,41,51\n"])
     try:
-        conv.read_open_meteo(write(tmp_path, head, ["0,2026-01-01T00:00,30,40\n"]))
+        conv.read_open_meteo(p)
         assert False, "should have been refused"
     except SystemExit as e:
-        assert "one model" in str(e)
+        assert "several models" in str(e) and "--column" in str(e)
+    for column, west, east in (("ecmwf_ifs025", 30, 31), ("meteofrance_arpege_europe", 40, 41), ("dwd_icon_eu", 50, 51)):
+        assert conv.read_open_meteo(p, column) == {"2026-01-01 01:00": {"cloud_cover_west": west, "cloud_cover_east": east}}
+    try:
+        conv.read_open_meteo(p, "nope")
+        assert False
+    except SystemExit as e:
+        assert "not found" in str(e)
+
+
+def test_the_model_id_picks_the_column_in_the_cli(tmp_path, monkeypatch):
+    head = "location_id,time,cloud_cover_previous_day1_ecmwf_ifs025 (%),cloud_cover_previous_day1_dwd_icon_eu (%)\n"
+    p = write(tmp_path, head, ["0,2026-01-01T00:00,30,50\n"])
+    out = tmp_path / "o.csv"
+    monkeypatch.setattr(sys, "argv", ["x", "icon_eu", "day1", str(p), str(out)])
+    conv.main()
+    assert out.read_text(encoding="utf-8").splitlines() == ["time,cloud_cover_west", "2026-01-01 01:00,50"]
 
 
 def test_extra_locations_are_ignored(tmp_path):

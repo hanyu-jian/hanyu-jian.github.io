@@ -1,6 +1,39 @@
 {
  "models": [
   {
+   "id": "arpege_europe",
+   "label": "Météo-France ARPEGE Europe",
+   "day1": {
+    "layers": [
+     "cloud_cover"
+    ],
+    "from": "2024-12-31",
+    "to": "2026-11-19"
+   }
+  },
+  {
+   "id": "icon_eu",
+   "label": "DWD ICON EU",
+   "day1": {
+    "layers": [
+     "cloud_cover"
+    ],
+    "from": "2024-12-31",
+    "to": "2026-11-19"
+   }
+  },
+  {
+   "id": "ifs025",
+   "label": "ECMWF IFS 0.25°",
+   "day1": {
+    "layers": [
+     "cloud_cover"
+    ],
+    "from": "2024-12-31",
+    "to": "2026-11-19"
+   }
+  },
+  {
    "id": "ifs9km",
    "label": "ECMWF IFS HRES 9km",
    "day1": {

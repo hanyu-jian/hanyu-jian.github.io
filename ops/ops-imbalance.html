@@ -295,7 +295,7 @@ async function ensureCloud(src) {
 }
 function fillModels(pick) {                                   // the Cloud model dropdown
   $("cmodel").innerHTML = MODELS.map(m => `<option value="${m.id}">${m.label}</option>`).join("");
-  const want = [pick, $("cmodel").dataset.cur, "ifs9km"].find(v => v && MODELS.some(m => m.id === v));
+  const want = [pick, $("cmodel").dataset.cur, "ifs025", "ifs9km"].find(v => v && MODELS.some(m => m.id === v));
   $("cmodel").value = want || (MODELS[0] && MODELS[0].id) || "";
 }
 async function loadModels(pick) {                             // data/weather/models.json (through the Worker); the built-in single model is used if it cannot be read
@@ -307,6 +307,8 @@ async function loadModels(pick) {                             // data/weather/mo
   fillModels(pick); fillIdcLayers(); paint();
 }
 function fillIdcLayers() {                                    // the layers of the chosen model and IDC forecast source
+  [...$("ids").options].forEach(o => { o.disabled = !modelLayers(o.value).length; });                          // a model may have only one of the two sources
+  if (!modelLayers($("ids").value).length) { const alt = [...$("ids").options].find(o => !o.disabled); if (alt) $("ids").value = alt.value; }
   const cur = $("idl").value, opts = modelLayers($("ids").value);
   $("idl").innerHTML = opts.map(([v, t]) => `<option value="${v}">${t}</option>`).join("");
   if (opts.some(([v]) => v === cur)) $("idl").value = cur;

@@ -767,16 +767,22 @@ async function handleOps(request, env, url, path) {
     });
   }
 
-  // 云量预报（Open-Meteo ECMWF IFS HRES 9km，小时值，Budapest 本地时间）：src=day1（提前 24 小时的预报，DA 用）或 hist（Historical Forecast，IDC 用）。
-  // 和日前价一样原样转发静态文件，不在 Worker 里解析，几乎不占 CPU
+  // 云量预报（Open-Meteo，小时值，Budapest 本地时间）：model=<模型 id>、src=day1（提前 24 小时的预报，DA 用）或 hist（Historical Forecast，IDC 用）；
+  // /ops/api/cloud?index=1 返回有哪些模型（data/weather/models.json）。和日前价一样原样转发静态文件，不在 Worker 里解析，几乎不占 CPU
   if (path === "/ops/api/cloud") {
     if (request.method !== "GET") return new Response("Method not allowed", { status: 405 });
-    const src = url.searchParams.get("src");
-    if (src !== "day1" && src !== "hist") return json({ error: "src must be day1 or hist" }, 400);
-    const res = await env.ASSETS.fetch(new Request(new URL(`/data/weather/cloud_${src}.csv`, url)));
+    let file;
+    if (url.searchParams.get("index")) file = "/data/weather/models.json";
+    else {
+      const src = url.searchParams.get("src"), model = url.searchParams.get("model") || "ifs9km";
+      if (src !== "day1" && src !== "hist") return json({ error: "src must be day1 or hist" }, 400);
+      if (!/^[a-z0-9_]{1,32}$/.test(model)) return json({ error: "invalid model" }, 400);
+      file = `/data/weather/cloud_${model}_${src}.csv`;
+    }
+    const res = await env.ASSETS.fetch(new Request(new URL(file, url)));
     if (!res.ok) return json({ error: "Cloud cover data unavailable" }, 404);
     return new Response(res.body, {
-      headers: { "content-type": "text/csv; charset=utf-8", "Cache-Control": "private, max-age=3600", "X-Robots-Tag": "noindex" },
+      headers: { "content-type": file.endsWith(".json") ? "application/json; charset=utf-8" : "text/csv; charset=utf-8", "Cache-Control": "private, max-age=3600", "X-Robots-Tag": "noindex" },
     });
   }
 

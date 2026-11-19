@@ -1,23 +1,26 @@
 #!/usr/bin/env python3
-"""Open-Meteo 多位置小时云量 CSV（UTC）-> data/weather/cloud_<source>.csv（Budapest 本地时间，每小时一行）。
+"""Open-Meteo 多位置小时云量 CSV（UTC）-> data/weather/cloud_<模型>_<来源>.csv（Budapest 本地时间，每小时一行），并更新 data/weather/models.json。
 
-source 有两种（页面里分别用于 DA 和 IDC 的云量策略）：
+模型 id（页面里 Cloud 区的 Cloud model 下拉用它）：ifs9km = ECMWF IFS HRES 9km，ifs025 = ECMWF IFS 0.25°，aifs025 = ECMWF AIFS 0.25°，gfs、icon_eu、icon_global、arpege_europe、gem_global、ukmo……（见 KNOWN_MODELS，也可以自己起 id，用 --label 写显示名）。
+**一份导出只能有一个模型**（Open-Meteo 页面的 Weather models 只勾一个）；同一个模型的所有数据（含不同年份）都要用同一个模型导出，不要混用。
+
+来源 source 有两种（页面里分别用于 DA 和 IDC 的云量策略）：
   day1  Previous Runs API 的 cloud_cover_previous_day1：提前约 24 小时发布的预报（DA 用，只有总云量）
   hist  Historical Forecast API：每次模型运行最前面几小时拼成的序列，非常接近事后实际（IDC 用，偏乐观；有总 / 低 / 中 / 高云量）
-两份都用 ECMWF IFS HRES 9km、GMT。
 
-输入 CSV 是 Open-Meteo 多位置导出：开头是 location_id,latitude,... 的位置表，空行后是 location_id,time,<变量...> 数据。
-位置 -> 区域：location_id 0 = west（Putnok、Serenyfalva，坐标 48.29831, 20.42644），location_id 1 = east（Sajokaza、Szuhakálló 1、Szuhakálló 2，坐标 48.27581, 20.64581）。
-IFS 9km 的网格下 Sajokaza / Szuhakálló 附近的几个坐标落在同一个格子里，数据逐小时相同，所以只用两个坐标；其余 location_id 忽略。
+输入 CSV 是 Open-Meteo 多位置导出：开头是 location_id,latitude,... 的位置表，空行后是 location_id,time,<变量...> 数据，时区 GMT。
+位置 -> 区域：location_id 0 = west（Putnok、Serenyfalva，坐标 48.29831, 20.42644），location_id 1 = east（Sajokaza、Szuhakálló 1、Szuhakálló 2，坐标 48.27581, 20.64581）；其余 location_id 忽略。
+（这几个坐标在 IFS 9km 和 0.25° 的网格下都只落在两个格子里；换别的模型时请核对两个坐标确实落在两个不同的格子，各站点在同一个区域里的数据才会相同。）
 
 输出列：time（Europe/Budapest 本地时间 YYYY-MM-DD HH:00），以及 <层>_<区域>，层 = cloud_cover / cloud_cover_low / cloud_cover_mid / cloud_cover_high。
-变量名里的 _previous_day1 后缀会去掉，层按名字匹配（Open-Meteo 的列顺序是 总、低、高、中）。
+变量名里的 _previous_day1 和模型后缀会去掉，层按名字匹配（Open-Meteo 的列顺序是 总、低、高、中）。
 夏令时：转回冬令时那天本地 02:00 出现两次，取平均；转到夏令时那天本地 02:00 不存在。
 再次运行同一个输出文件时，新数据覆盖相同的小时，其余小时和列保留（可以分批追加）。
 
-用法：python3 py/build/convert_open_meteo_cloud.py <day1|hist> <open-meteo.csv> [输出文件]
+用法：python3 py/build/convert_open_meteo_cloud.py <模型 id> <day1|hist> <open-meteo.csv> [输出文件] [--label "显示名"]
 """
 import csv
+import json
 import re
 import sys
 from collections import defaultdict
@@ -30,6 +33,12 @@ OUT_DIR = Path(__file__).resolve().parents[2] / "data" / "weather"
 AREAS = {"0": "west", "1": "east"}
 LAYERS = ["cloud_cover", "cloud_cover_low", "cloud_cover_mid", "cloud_cover_high"]
 SOURCES = ("day1", "hist")
+KNOWN_MODELS = {
+    "ifs9km": "ECMWF IFS HRES 9km", "ifs025": "ECMWF IFS 0.25°", "aifs025": "ECMWF AIFS 0.25°", "gfs": "NCEP GFS", "icon_eu": "DWD ICON EU",
+    "icon_global": "DWD ICON Global", "icon_d2": "DWD ICON D2", "arpege_europe": "Météo-France ARPEGE Europe", "arpege_world": "Météo-France ARPEGE World",
+    "gem_global": "GEM Global", "ukmo_global": "UK Met Office Global 10km", "jma_gsm": "JMA GSM", "cma_grapes": "CMA GRAPES Global",
+}
+INDEX = OUT_DIR / "models.json"
 
 
 def fmt(v):
@@ -79,11 +88,39 @@ def read_existing(path):
         return out
 
 
+def update_index(model, label, index_path=None):
+    """data/weather/models.json：每个模型有哪些来源、每个来源有哪些云层、数据从哪天到哪天（由输出文件算出来）。"""
+    index_path = Path(index_path or INDEX)
+    entry = {"id": model, "label": label}
+    for source in SOURCES:
+        f = index_path.parent / f"cloud_{model}_{source}.csv"
+        if not f.exists():
+            continue
+        with open(f, newline="", encoding="utf-8") as fh:
+            r = csv.reader(fh)
+            head = next(r)
+            times = [row[0] for row in r if row]
+        layers = []
+        for layer in LAYERS:
+            if all(f"{layer}_{a}" in head for a in AREAS.values()):
+                layers.append(layer)
+        entry[source] = {"layers": layers, "from": times[0][:10] if times else None, "to": times[-1][:10] if times else None}
+    idx = json.loads(index_path.read_text(encoding="utf-8")) if index_path.exists() else {"models": []}
+    idx["models"] = [m for m in idx["models"] if m["id"] != model] + [entry]
+    idx["models"].sort(key=lambda m: m["id"])
+    index_path.write_text(json.dumps(idx, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
+    return entry
+
+
 def main():
-    if len(sys.argv) < 3 or sys.argv[1] not in SOURCES:
+    args = sys.argv[1:]
+    label = None
+    if "--label" in args:
+        i = args.index("--label"); label = args[i + 1]; del args[i:i + 2]
+    if len(args) < 3 or args[1] not in SOURCES or not re.fullmatch(r"[a-z0-9_]+", args[0]):
         raise SystemExit(__doc__)
-    source, src = sys.argv[1], sys.argv[2]
-    dst = Path(sys.argv[3]) if len(sys.argv) > 3 else OUT_DIR / f"cloud_{source}.csv"
+    model, source, src = args[0], args[1], args[2]
+    dst = Path(args[3]) if len(args) > 3 else OUT_DIR / f"cloud_{model}_{source}.csv"
     merged = read_existing(dst)
     new = read_open_meteo(src)
     for k, d in new.items():
@@ -96,6 +133,8 @@ def main():
         for k in sorted(merged):
             w.writerow([k, *(fmt(merged[k].get(n)) for n in names)])
     print(f"{len(new)} hours read, {len(merged)} hours, {len(names)} columns in {dst}")
+    if dst.parent == OUT_DIR:
+        update_index(model, label or KNOWN_MODELS.get(model, model))
 
 
 if __name__ == "__main__":

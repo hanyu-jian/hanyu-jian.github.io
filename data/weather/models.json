@@ -1,0 +1,25 @@
+{
+ "models": [
+  {
+   "id": "ifs9km",
+   "label": "ECMWF IFS HRES 9km",
+   "day1": {
+    "layers": [
+     "cloud_cover"
+    ],
+    "from": "2025-12-31",
+    "to": "2026-11-18"
+   },
+   "hist": {
+    "layers": [
+     "cloud_cover",
+     "cloud_cover_low",
+     "cloud_cover_mid",
+     "cloud_cover_high"
+    ],
+    "from": "2026-01-01",
+    "to": "2026-11-17"
+   }
+  }
+ ]
+}

@@ -143,6 +143,7 @@ tr.out td { color: #aaa; }
           <div class="sec secrow">Cloud
             <label class="tog" title="Off: the Bid values apply to every interval. On: cloudy intervals use the Cloud values, the others use Bid."><input type="checkbox" id="cloudOn"><span class="track"></span><span class="tl" id="cloudTl">Off</span></label>
           </div>
+          <div class="control-group span2" id="gModel"><label>Cloud model</label><select id="cmodel"></select></div>
           <div class="control-group" id="gDaCc"><label>DA: cloud cover &gt; (%)</label><input type="text" inputmode="decimal" id="dacc" placeholder="off" autocomplete="off"></div>
           <div class="control-group" id="gDaBc"><label>DA: bid % when cloudy</label><input type="text" inputmode="decimal" id="dabc" placeholder="as Bid" autocomplete="off"></div>
           <div class="control-group" id="gIds"><label>IDC: cloud forecast</label><select id="ids"><option value="hist">Latest forecast</option><option value="day1">Day-ahead forecast</option></select></div>
@@ -211,7 +212,7 @@ function syncUrl(o) {
   try { const p = new URLSearchParams(); for (const [k, v] of Object.entries(o)) if (v != null && v !== "") p.set(k, v);
     const q = p.toString(); history.replaceState(null, "", location.pathname + (q ? "?" + q : "") + location.hash); } catch (e) { /* the address bar is only a convenience */ }
 }
-const syncImb = () => syncUrl({ site: selected, start: $("start").value, end: $("end").value, freq, lead: $("lead").value, pct: $("pct").value.trim(), mode: $("mode").value, thr: $("thr").value.trim(), cloud: $("cloudOn").checked ? "1" : "", dacc: $("dacc").value.trim(), dabc: $("dabc").value.trim(), ibc: $("ibc").value.trim(), dd: ddPickedByUser ? ddDay : "", isrc: $("ids").value, il: $("idl").value.replace("cloud_cover", "").replace(/^_/, "") || "total", icc: $("idcc").value.trim(), ibid: $("idbid").value.trim(), from: $("sumFrom").value, to: $("sumTo").value });
+const syncImb = () => syncUrl({ site: selected, start: $("start").value, end: $("end").value, freq, lead: $("lead").value, pct: $("pct").value.trim(), mode: $("mode").value, thr: $("thr").value.trim(), cloud: $("cloudOn").checked ? "1" : "", cm: $("cmodel").value, dacc: $("dacc").value.trim(), dabc: $("dabc").value.trim(), ibc: $("ibc").value.trim(), dd: ddPickedByUser ? ddDay : "", isrc: $("ids").value, il: $("idl").value.replace("cloud_cover", "").replace(/^_/, "") || "total", icc: $("idcc").value.trim(), ibid: $("idbid").value.trim(), from: $("sumFrom").value, to: $("sumTo").value });
 let freq = "15min";
 
 // <core>
@@ -266,28 +267,47 @@ const daCcVal = () => cloudOn() ? numVal("dacc") : null, idCcVal = () => cloudOn
 function syncEnabled() {                                      // grey out what has no effect: the cloud inputs while the switch is off, Rest while a normal IDC position is set
   const on = cloudOn(), pos = idPosVal() != null;
   $("cloudTl").textContent = on ? "On" : "Off";
-  [["gDaCc", on], ["gDaBc", on], ["gIds", on], ["gIdl", on], ["gIdcc", on], ["gIdBc", on], ["gMode", !pos]].forEach(([g, act]) => { $(g).classList.toggle("off", !act); $(g).querySelectorAll("input,select").forEach(e => { e.disabled = !act; }); });
+  [["gModel", on], ["gDaCc", on], ["gDaBc", on], ["gIds", on], ["gIdl", on], ["gIdcc", on], ["gIdBc", on], ["gMode", !pos]].forEach(([g, act]) => { $(g).classList.toggle("off", !act); $(g).querySelectorAll("input,select").forEach(e => { e.disabled = !act; }); });
 }
-// Hourly cloud forecasts (%) of ECMWF IFS HRES 9 km, Budapest local time. Two sources (see the README):
+// Hourly cloud forecasts (%) per weather model, Budapest local time (data/weather/cloud_<model>_<source>.csv, listed in data/weather/models.json). Two sources (see the README):
 //   day1 = forecast issued about 24 h before (used for the DA bid, total cloud cover only), hist = Historical Forecast (used for the IDC position, total / low / mid / high).
 // Two areas: west = Putnok + Serenyfalva, east = Sajokaza + Szuhakálló 1 + 2.
 const CLOUD_AREA = { "Putnok": "west", "Serenyfalva": "west", "Sajokaza": "east", "Szuhakálló 1": "east", "Szuhakálló 2": "east" };
-const CLOUD_LAYERS = { hist: [["cloud_cover", "Total"], ["cloud_cover_low", "Low"], ["cloud_cover_mid", "Mid"], ["cloud_cover_high", "High"]], day1: [["cloud_cover", "Total"]] };
-const cloud = { day1: null, hist: null }, cloudState = { day1: "", hist: "" };     // Map "YYYY-MM-DD HH" -> { column: % } once loaded; state: "" | "loading" | "error"
+const LAYER_LABEL = { cloud_cover: "Total", cloud_cover_low: "Low", cloud_cover_mid: "Mid", cloud_cover_high: "High" };
+let MODELS = [{ id: "ifs9km", label: "ECMWF IFS HRES 9km", day1: { layers: ["cloud_cover"] }, hist: { layers: ["cloud_cover", "cloud_cover_low", "cloud_cover_mid", "cloud_cover_high"] } }];     // replaced by models.json
+const cloud = {}, cloudState = {};                            // key "<model>|<source>": Map "YYYY-MM-DD HH" -> { column: % } once loaded; state "" | "loading" | "error"
+const cm = () => $("cmodel").value || (MODELS[0] && MODELS[0].id);
+const ckey = (src, model = cm()) => model + "|" + src;
+const modelLabel = () => (MODELS.find(m => m.id === cm()) || {}).label || cm();
+const modelLayers = src => { const m = MODELS.find(x => x.id === cm()); return ((m && m[src] && m[src].layers) || []).map(l => [l, LAYER_LABEL[l] || l]); };
 async function ensureCloud(src) {
-  if (cloud[src] || cloudState[src]) return;                  // already loaded, loading, or failed (reload the page to try again)
-  cloudState[src] = "loading";
+  const key = ckey(src), model = cm();
+  if (cloud[key] || cloudState[key]) return;                  // already loaded, loading, or failed (reload the page to try again)
+  cloudState[key] = "loading";
   try {
-    const r = await fetch(`/ops/api/cloud?src=${src}`, { credentials: "same-origin" });
+    const r = await fetch(`/ops/api/cloud?src=${src}&model=${encodeURIComponent(model)}`, { credentials: "same-origin" });
     if (!r.ok) throw new Error(r.status);
     const m = new Map(), lines = (await r.text()).split("\n"), head = lines[0].trim().split(",");
     lines.slice(1).forEach(l => { const c = l.split(","); if (!c[0]) return; const o = {}; head.forEach((h, i) => { if (i && c[i] !== undefined && c[i].trim() !== "" && isFinite(+c[i])) o[h] = +c[i]; }); m.set(c[0].slice(0, 13), o); });
-    cloud[src] = m; cloudState[src] = "";
-  } catch (e) { cloudState[src] = "error"; }
+    cloud[key] = m; cloudState[key] = "";
+  } catch (e) { cloudState[key] = "error"; }
   paint();
 }
-function fillIdcLayers() {                                    // the layers of the chosen IDC forecast source
-  const cur = $("idl").value, opts = CLOUD_LAYERS[$("ids").value];
+function fillModels(pick) {                                   // the Cloud model dropdown
+  $("cmodel").innerHTML = MODELS.map(m => `<option value="${m.id}">${m.label}</option>`).join("");
+  const want = [pick, $("cmodel").dataset.cur, "ifs9km"].find(v => v && MODELS.some(m => m.id === v));
+  $("cmodel").value = want || (MODELS[0] && MODELS[0].id) || "";
+}
+async function loadModels(pick) {                             // data/weather/models.json (through the Worker); the built-in single model is used if it cannot be read
+  try {
+    const r = await fetch("/ops/api/cloud?index=1", { credentials: "same-origin" });
+    if (!r.ok) throw new Error(r.status);
+    const j = await r.json(); if (j.models && j.models.length) MODELS = j.models;
+  } catch (e) { /* keep the built-in list */ }
+  fillModels(pick); fillIdcLayers(); paint();
+}
+function fillIdcLayers() {                                    // the layers of the chosen model and IDC forecast source
+  const cur = $("idl").value, opts = modelLayers($("ids").value);
   $("idl").innerHTML = opts.map(([v, t]) => `<option value="${v}">${t}</option>`).join("");
   if (opts.some(([v]) => v === cur)) $("idl").value = cur;
 }
@@ -335,7 +355,8 @@ function init() {
   $("mode").onchange = paint;
   $("thr").oninput = paint; $("dacc").oninput = paint; $("dabc").oninput = paint; $("idcc").oninput = paint; $("ibc").oninput = paint; $("idbid").oninput = paint; $("idl").onchange = paint; $("cloudOn").onchange = paint;
   $("ids").onchange = () => { fillIdcLayers(); paint(); };
-  fillIdcLayers();
+  $("cmodel").onchange = () => { $("cmodel").dataset.cur = $("cmodel").value; fillIdcLayers(); paint(); };
+  fillModels(null); fillIdcLayers();
   // Summary table: total of a range of months (1–12)
   const monthOpts = Array.from({ length: 12 }, (_, i) => `<option value="${i + 1}">${i + 1}</option>`).join("");
   $("sumFrom").innerHTML = monthOpts; $("sumTo").innerHTML = monthOpts; $("sumFrom").value = "1"; $("sumTo").value = "12";
@@ -359,7 +380,7 @@ function init() {
   const qdbc = qget("dabc", v => v.trim() !== "" && isFinite(+v)); if (qdbc) $("dabc").value = qdbc;
   const qibc = qget("ibc", v => v.trim() !== "" && isFinite(+v)); if (qibc) $("ibc").value = qibc;
   const qis = qget("isrc", v => v === "hist" || v === "day1"); if (qis) { $("ids").value = qis; fillIdcLayers(); }
-  const qil = qget("il", v => ["total", "low", "mid", "high"].includes(v) && CLOUD_LAYERS[$("ids").value].some(([k]) => k === (v === "total" ? "cloud_cover" : "cloud_cover_" + v)));
+  const qil = qget("il", v => ["total", "low", "mid", "high"].includes(v) && modelLayers($("ids").value).some(([k]) => k === (v === "total" ? "cloud_cover" : "cloud_cover_" + v)));
   if (qil) $("idl").value = qil === "total" ? "cloud_cover" : "cloud_cover_" + qil;
   const qic = qget("icc", v => v.trim() !== "" && isFinite(+v)); if (qic) $("idcc").value = qic;
   const qib = qget("ibid", v => v.trim() !== "" && isFinite(+v)); if (qib) $("idbid").value = qib;
@@ -369,6 +390,7 @@ function init() {
   const sd = qget("start", isDate), ed = qget("end", isDate);
   if (sd && ed && sd <= ed) { $("start").value = sd; $("end").value = ed; } else defaultRange();
   if (ddDay && ddDay.slice(0, 4) !== $("end").value.slice(0, 4)) { $("start").value = ddDay; $("end").value = ddDay; }          // dd in another year: load that year
+  loadModels(qget("cm", v => /^[a-z0-9_]{1,32}$/.test(v)));
   load();
 }
 
@@ -438,11 +460,11 @@ const keyFn = f => f === "15min" ? t => t : f === "hour" ? t => t.slice(0, 13) +
 const FIELDS = ["n", "AH", "H", "D", "idc", "pos", "q", "ae", "imb", "res", "ref", "pay", "refProfit", "curt", "curtAH", "cloudDA", "cloudIDC", "impNeg", "impPos", "impNa", "absPos", "absH", "gaps"];
 const blank = () => Object.fromEntries(FIELDS.map(k => [k, 0]));
 // The strategy settings, read once, and the settlement of one interval of one site with them (shared by the tables, the chart and the drill-down).
-function stratCtx(p, mode) { return { p, mode, thr: thrVal(), dacc: daCcVal(), idcc: idCcVal(), q: idPosVal(), dabc: pctOrNull("dabc"), ibc: pctOrNull("ibc"), isrc: $("ids").value, ilayer: $("idl").value }; }
+function stratCtx(p, mode) { return { k1: ckey("day1"), ki: ckey($("ids").value), p, mode, thr: thrVal(), dacc: daCcVal(), idcc: idCcVal(), q: idPosVal(), dabc: pctOrNull("dabc"), ibc: pctOrNull("ibc"), isrc: $("ids").value, ilayer: $("idl").value }; }
 function settleAt(o, i, site, c, tmp) {
   const area = CLOUD_AREA[site], hk = o.t[i].slice(0, 13);
-  const dv = c.dacc == null || !cloud.day1 ? undefined : (cloud.day1.get(hk) || {})["cloud_cover_" + area], dCloudy = dv != null && dv > c.dacc;
-  const iv = c.idcc == null || !cloud[c.isrc] ? undefined : (cloud[c.isrc].get(hk) || {})[c.ilayer + "_" + area], iCloudy = iv != null && iv > c.idcc;
+  const dv = c.dacc == null || !cloud[c.k1] ? undefined : (cloud[c.k1].get(hk) || {})["cloud_cover_" + area], dCloudy = dv != null && dv > c.dacc;
+  const iv = c.idcc == null || !cloud[c.ki] ? undefined : (cloud[c.ki].get(hk) || {})[c.ilayer + "_" + area], iCloudy = iv != null && iv > c.idcc;
   // Bid = the normal (clear-sky) strategy, used for every interval while the cloud switch is off and for the not cloudy ones when it is on.
   // Cloudy intervals (cloud cover above the DA / IDC threshold) use "DA: bid % when cloudy" / "IDC: position % when cloudy"; an empty value = as in Bid.
   // An IDC position % (normal or cloudy) fixes the final position at that share of the IDC forecast: the rest of the volume stays in imbalance whatever Rest says.
@@ -475,8 +497,8 @@ function strategyText(p, mode, lead) {
   const rest = mode === "idc" ? `rest closed out in IDC (lead ${lead} min)` : "rest left in imbalance";
   const idcN = q == null ? rest : `IDC position ${pc0(q)}% of the IDC forecast (lead ${lead} min), the rest stays in imbalance`;
   const parts = [`${P}% DA bid`, idcN];
-  if (on && dacc != null && dabc != null) parts.push(`DA bid ${pc0(dabc)}% when day-ahead total cloud cover > ${dacc}%`);
-  if (on && idcc != null && ibc != null) parts.push(`IDC position ${pc0(ibc)}% when ${src} ${layerName("idl")} cloud cover > ${idcc}% (the rest stays in imbalance)`);
+  if (on && dacc != null && dabc != null) parts.push(`DA bid ${pc0(dabc)}% when day-ahead total cloud cover > ${dacc}% (${modelLabel()})`);
+  if (on && idcc != null && ibc != null) parts.push(`IDC position ${pc0(ibc)}% when ${src} ${layerName("idl")} cloud cover > ${idcc}% (${modelLabel()}; the rest stays in imbalance)`);
   return parts.join(", ");
 }
 const pc0 = v => nf(Math.round(v * 100));
@@ -606,7 +628,7 @@ function paint() {
   const dacc = daCcVal(), idcc = idCcVal(), isrc = $("ids").value;
   const cloudDA = rows.reduce((n, [, g]) => n + g.cloudDA, 0), cloudIDC = rows.reduce((n, [, g]) => n + g.cloudIDC, 0);
   const cloudNote = [[dacc, "day1", cloudDA, "DA"], [idcc, isrc, cloudIDC, "IDC"]].filter(([c]) => c != null)
-    .map(([, src, n, nm]) => cloudState[src] === "error" ? `cloud forecast data unavailable (${nm})` : cloudState[src] === "loading" || !cloud[src] ? `loading cloud forecast (${nm})` : `${nf(n)} cloudy intervals (${nm})`).join(" · ");
+    .map(([, src, n, nm]) => cloudState[ckey(src)] === "error" ? `cloud forecast data unavailable (${nm}, ${modelLabel()})` : cloudState[ckey(src)] === "loading" || !cloud[ckey(src)] ? `loading cloud forecast (${nm})` : `${nf(n)} cloudy intervals (${nm})`).join(" · ");
   const modeTxt = strategyText(p, mode, lead) + thrTxt;
   setStatus(rows.length ? `${name} · ${modeTxt}` + (thr != null ? ` · ${nf(curt)} intervals (${nf(curtMWh, 0)} MWh) curtailed` : "") + (cloudNote ? ` · ${cloudNote}` : "") + (skipped ? ` · ${skipped} site-days left out (no DA / imbalance price yet)` : "") + (loading ? ` · ${loading} (the rest of the year is still loading)` : "")
     : skipped ? `No data to show: all ${skipped} site-days in this period have no DA / imbalance price yet. Pick an earlier period, or check that the price table is up to date (the &ldquo;Build HU Combined Data&rdquo; workflow runs daily at 10:30 UTC).`

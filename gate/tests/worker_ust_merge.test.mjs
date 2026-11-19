@@ -16,6 +16,7 @@ const R2 = {
   "ust-replay/view/2026-11/Putnok.csv": view([["2026-11-01 12:00:00", 222], ["2026-11-01 12:15:00", 333]]),
   "ust-hindcast/view/2026-10/Putnok.csv": view([["2026-10-20 12:00:00", 444]]),
   "ust-hindcast/view/2026-01/Putnok.csv": view([["2026-01-15 12:00:00", 555]]),
+  "ust-hindcast/view/2025-06/Putnok.csv": view([["2025-06-15 12:00:00", 666]]),
 };
 const reads = [];
 const env = { UST: { get: async (k) => { reads.push(k); return R2[k] ? { text: async () => R2[k] } : null; } }, GITHUB_TOKEN: "x" };
@@ -38,6 +39,9 @@ assert.equal(t.vals["2026-10-20 12:00:00"], 444, "只有 hindcast 的时段");
 t = await run("2026-01-15", "2026-01-15");
 assert.equal(t.vals["2026-01-15 12:00:00"], 555);
 assert.deepEqual(t.reads, ["ust-hindcast/view/2026-01/Putnok.csv"], "1 月只读 hindcast，不读 live / replay");
+t = await run("2025-06-15", "2025-06-15");
+assert.equal(t.vals["2025-06-15 12:00:00"], 666, "2025 年的 hindcast 也读（已导入 R2）");
+assert.deepEqual(t.reads, ["ust-hindcast/view/2025-06/Putnok.csv"], "2025 年只读 hindcast");
 t = await run("2026-10-20", "2026-11-01");
 assert.equal(t.vals["2026-10-20 12:00:00"], 444); assert.equal(t.vals["2026-11-01 12:00:00"], 111, "跨月合成一条线");
 t = await run("2026-11-01", "2026-11-01", "&source=replay");

@@ -239,7 +239,7 @@ const UST_COLUMNS = ["theoretical_kwh", "ust_kwh", "ust_horizon_min", "da_kwh"];
 const UST_SOURCES = {
   live: { prefix: "ust", from: "2026-10", to: "9999-12" },
   replay: { prefix: "ust-replay", from: "2026-10", to: "9999-12" },
-  hindcast: { prefix: "ust-hindcast", from: "2026-01", to: "2026-10" },
+  hindcast: { prefix: "ust-hindcast", from: "2024-01", to: "2026-10" },     // 乙方回测：2025 年已导入（2024 年有就读，没有就是读不到文件，不影响）
 };
 const UST_SOURCE_ORDER = ["live", "replay", "hindcast"];
 

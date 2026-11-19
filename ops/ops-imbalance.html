@@ -274,7 +274,7 @@ function syncEnabled() {                                      // grey out what h
 // Two areas: west = Putnok + Serenyfalva, east = Sajokaza + Szuhakálló 1 + 2.
 const CLOUD_AREA = { "Putnok": "west", "Serenyfalva": "west", "Sajokaza": "east", "Szuhakálló 1": "east", "Szuhakálló 2": "east" };
 const LAYER_LABEL = { cloud_cover: "Total", cloud_cover_low: "Low", cloud_cover_mid: "Mid", cloud_cover_high: "High" };
-let MODELS = [{ id: "ifs9km", label: "ECMWF IFS HRES 9km", day1: { layers: ["cloud_cover"] }, hist: { layers: ["cloud_cover", "cloud_cover_low", "cloud_cover_mid", "cloud_cover_high"] } }];     // replaced by models.json
+let MODELS = [{ id: "ifs025", label: "ECMWF IFS 0.25°", day1: { layers: ["cloud_cover"] } }];     // replaced by models.json
 const cloud = {}, cloudState = {};                            // key "<model>|<source>": Map "YYYY-MM-DD HH" -> { column: % } once loaded; state "" | "loading" | "error"
 const cm = () => $("cmodel").value || (MODELS[0] && MODELS[0].id);
 const ckey = (src, model = cm()) => model + "|" + src;
@@ -295,7 +295,7 @@ async function ensureCloud(src) {
 }
 function fillModels(pick) {                                   // the Cloud model dropdown
   $("cmodel").innerHTML = MODELS.map(m => `<option value="${m.id}">${m.label}</option>`).join("");
-  const want = [pick, $("cmodel").dataset.cur, "ifs025", "ifs9km"].find(v => v && MODELS.some(m => m.id === v));
+  const want = [pick, $("cmodel").dataset.cur, "ifs025"].find(v => v && MODELS.some(m => m.id === v));
   $("cmodel").value = want || (MODELS[0] && MODELS[0].id) || "";
 }
 async function loadModels(pick) {                             // data/weather/models.json (through the Worker); the built-in single model is used if it cannot be read

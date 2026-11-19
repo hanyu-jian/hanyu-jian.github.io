@@ -105,7 +105,7 @@ def test_append_keeps_old_hours_and_columns_and_overwrites_same_hours(tmp_path, 
 
 def test_committed_data_files_are_consistent():
     root = Path(__file__).resolve().parents[2] / "data" / "weather"
-    for name, cols in (("cloud_ifs9km_day1.csv", 2), ("cloud_ifs9km_hist.csv", 8)):
+    for name, cols in (("cloud_ifs025_day1.csv", 2), ("cloud_arpege_europe_day1.csv", 2), ("cloud_icon_eu_day1.csv", 2)):
         lines = (root / name).read_text(encoding="utf-8").splitlines()
         assert lines[0].split(",")[0] == "time" and len(lines[0].split(",")) == cols + 1, name
         assert all(len(l.split(",")) == cols + 1 for l in lines[1:]), name

@@ -10,7 +10,7 @@
 
 输入 CSV 是 Open-Meteo 多位置导出：开头是 location_id,latitude,... 的位置表，空行后是 location_id,time,<变量...> 数据，时区 GMT。
 位置 -> 区域：location_id 0 = west（Putnok、Serenyfalva，坐标 48.29831, 20.42644），location_id 1 = east（Sajokaza、Szuhakálló 1、Szuhakálló 2，坐标 48.27581, 20.64581）；其余 location_id 忽略。
-（这几个坐标在 IFS 9km 和 0.25° 的网格下都只落在两个格子里；换别的模型时请核对两个坐标确实落在两个不同的格子，各站点在同一个区域里的数据才会相同。）
+（这两个坐标在 0.25° 的网格下落在两个不同的格子里（48.25°N 20.50°E 和 20.75°E）；换别的模型时请核对两个坐标确实落在两个不同的格子，各站点在同一个区域里的数据才会相同。）
 
 输出列：time（Europe/Budapest 本地时间 YYYY-MM-DD HH:00），以及 <层>_<区域>，层 = cloud_cover / cloud_cover_low / cloud_cover_mid / cloud_cover_high。
 变量名里的 _previous_day1 和模型后缀会去掉，层按名字匹配（Open-Meteo 的列顺序是 总、低、高、中）。

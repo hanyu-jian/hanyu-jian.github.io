@@ -774,7 +774,7 @@ async function handleOps(request, env, url, path) {
     let file;
     if (url.searchParams.get("index")) file = "/data/weather/models.json";
     else {
-      const src = url.searchParams.get("src"), model = url.searchParams.get("model") || "ifs9km";
+      const src = url.searchParams.get("src"), model = url.searchParams.get("model") || "ifs025";
       if (src !== "day1" && src !== "hist") return json({ error: "src must be day1 or hist" }, 400);
       if (!/^[a-z0-9_]{1,32}$/.test(model)) return json({ error: "invalid model" }, 400);
       file = `/data/weather/cloud_${model}_${src}.csv`;

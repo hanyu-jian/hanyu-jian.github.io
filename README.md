@@ -34,8 +34,7 @@ data/
     15min/{price,solar,wind}.csv  由 raw_data 生成的 15 分钟宽表（py/build/build_15min.py）
   enappsys/  Montel / EnAppSys 数据（按年份拆分，避免单文件过大）
     IDA/HU_<年>.csv   HUPX 日内拍卖 IDA1/2/3 价格、成交量，15 分钟
-    ID3/HU_<年>.csv   ID3 指数，列 Date, ID3, Vol（制表符分隔，日/月/年）；每天由 py/fetch/enappsys/fetch_enappsys_id3.py 接着往下更新（`update_enappsys.yml` 手动运行时可勾选 `ida_only` / `id3_only` / `afrr_capacity_only` 只更新其中一个）
-    afrr/capacity/<up|down>/15min/HU_<年>.csv   匈牙利 aFRR 容量，7 列：WAP(hourly/daily/monthly)、Volume(hourly/daily/monthly)、Total volume（无成交 / 无数据写 "-"）；由 py/fetch/enappsys/fetch_enappsys_afrr_capacity.py 更新
+    ID3/HU_<年>.csv   ID3 指数，列 Date, ID3, Vol（制表符分隔，日/月/年）；每天由 py/fetch/enappsys/fetch_enappsys_id3.py 接着往下更新（`update_enappsys.yml` 手动运行时可勾选 `ida_only` / `id3_only` 只更新其中一个）
   fx/MNB.csv  匈牙利央行汇率（HUF per EUR / RON / PLN，工作日）
   mavir/imbalance/HU_<年>.csv  MAVIR System direction（及 10 月起的 preliminary 全部列），15 分钟；每天由 `update_mavir_imbalance.yml` 更新；文件按天从 MAVIR 的 Liferay 目录取（`Pos_ImbalancePrice_ENG_preliminary_<数据日>_<发布日>.xlsx`），目录号会换（10 月的在 `358398864`，11 月起在 `360748237`），脚本依次试 `fetch_mavir_imbalance.py` 里 `FOLDERS` 列表里的目录（最新的在前），MAVIR 再换目录时在列表最前面加一个目录号即可
   （HU 整合表不放在本仓库：`py/build/build_hu_combined.py` 生成，`build_combined.yml` 在上面几个数据 workflow 跑完后重建并推送到只含这一个文件的私有仓库 `hanyu-jian/hu-market-data`。同事用只授权该仓库的只读 token 通过 GitHub contents API 取：
@@ -274,7 +273,7 @@ raw_data/<年>/  ENTSO-E 15 分钟原始数据（A44 日前价、A65 负荷、A8
 
 ## balancing-afrr-capacity.html
 
-匈牙利 aFRR 容量（Balancing 下，Imbalance Prices 后面的 aFRR Capacity 页）。数据：`enappsys/afrr/capacity/<up|down>/15min/HU_<年>.csv`（15 分钟，来源 EnAppSys，每天由 `update_enappsys.yml` 更新）。
+aFRR 容量（Balancing 下，Imbalance Prices 后面的 aFRR Capacity 页）。HU 现在读 `entsoe/afrr/HU/<up|down>/15min/HU_<年>.csv`（只有 Daily 产品，EUR，15 分钟）：历史由 EnAppSys 的 HU CSV 拷贝而来（只取 DAILY 两列），之后由 `update_entsoe_afrr.yml` 从 ENTSOE（MAVIR）接着更新；原 EnAppSys 的 afrr 文件已删除（仍在 git 历史里）。
 
 - 控件：Year、Direction（Up / Down）、Frequency（15min / Hourly / Daily / Weekly / Monthly，周以周一为起点）、Product（Total / Hourly / Daily / Monthly）。默认 15min，年份默认数据中最新的一年，图上默认显示该年最近一个月，拖动下方缩放条可看更早的数据。
 - 图：柱 = 容量（MW，左轴），线 = 加权平均价 WAP（€/MW/h，右轴）。Product = Total 时，柱为 hourly / daily / monthly 三个产品的堆叠（顶部即 Total volume），并画三条 WAP 线；选单个产品时只画该产品的容量和 WAP。
@@ -286,7 +285,7 @@ raw_data/<年>/  ENTSO-E 15 分钟原始数据（A44 日前价、A65 负荷、A8
 
 ## Hungary Operations 运营数据（独立权限）
 
-入口：`project.html` 里点 TOKAJ 卡片 → `/ops/overview`（文件 `ops/ops-overview.html`）。页面全英文，样式和主看板一致：共用 `html/nav.js` 的头部（运营会话通过 `/ops/nav.js` 取到同一份），`/ops` 页面的一级导航是单独的 TOKAJ 标签（`nav.js` 里的 `OPS_NAV_ITEMS`），二级导航是 Overview / Capture Price / Imbalance；点左上角标题 “European Electricity Dashboard” 回到看板。
+入口：`project.html` 里点 TOKAJ 卡片 → `/ops/overview`（文件 `ops/ops-overview.html`）。页面全英文，样式和主看板一致：共用 `html/nav.js` 的头部（运营会话通过 `/ops/nav.js` 取到同一份），`/ops` 页面的一级导航是单独的 TOKAJ 标签（`nav.js` 里的 `OPS_NAV_ITEMS`），二级导航是 Overview / Capture Price / Imbalance / GO；点左上角标题 “European Electricity Dashboard” 回到看板。
 
 **新增运营页面**：① 建 `ops/ops-<name>.html`（页首加 `<script src="/ops/nav.js"></script>`，并写好二级导航 `.sub-nav`）；② 把 `<name>` 加进 `gate/worker.js` 的 `OPS_PAGE_NAMES`；
 ③ 在每个运营页的 `.sub-nav` 里加一项（目前有 Overview、Capture Price 和 Imbalance）。对外地址是 `/ops/<name>`。
@@ -336,6 +335,16 @@ token 只在服务端，不会发给浏览器；数据不会进入本仓库，�
 
 **Overview 第二张卡片（一个发布时刻的 16 档预测）**：横坐标固定为当天 00:00–23:45（96 格，每 15 分钟），橙色区域 = 发布时刻 +15 到 +240 分钟（跨过午夜的画到 23:45）；发布时刻只提供当天的。
 
+**GO 页面口径**（`ops/ops-go.html`，`/ops/go`，二级导航最后一项）
+- 内容来自 GO 交易工作簿（每个场站一张明细表 + 2024–2027 四张年度表），只加了表计发电量。上方是站点按钮（All sites 在最前）和年份下拉（All years / 2024–2027），两块：
+  ① 交易明细：一笔合同（或一个月）一行，每站 22 行（2024 年 8–12 月逐月、2025 年 1–6 月逐月 + 3 月第二笔 + 7–12 月合并、2026 年 6 笔合同、2027 年 3 笔合同），金额 = 销售量 × 单价，最后一行 Total（销售量、加权平均单价、金额）。备注列直接用工作簿里的备注；All sites 时按合同把五站相加，备注不同的（如 3 月第二笔各站实际交易量不同）只留共同的前半句；
+  ② GO balance（余量，只有这一张表）：选 All sites 时一行一个场站，按年列出发电量（表计）/ 已售 GO / 剩余 GO（= 发电量 − 已售），All years 时最后多一组 2024 到当年的合计，和工作簿 2025 表的“全年电量 / 已交易 / 剩余未交易”同一口径；选单个场站时 1–12 月逐行，只有季度或半年合同的，已售和余量合并成 Jan–Jun / Jul–Dec 一格，全年合同（Q1–Q4）单列一行。已售量 3 月第二笔取备注里的“实际交易量”，某月五站没有都读满时 All sites 不显示该月发电量。
+  ③ GO timeline（余量表下面的图，站点按钮和年份下拉都管它；年份选 All years 时按当年）：三层共用一条月份轴。最上层是所选年份 Y 按工作簿实际的合同生产期（单月、Q1–Q2、Q3–Q4 等）一组一组比较，不摊到月：黑柱 = 该期间表计发电量，蓝柱 = 已签 GO，第三根 = 剩余 GO（发电量 − 已签，按期间内各月是否已过期拆成灰 = 已过期 / 绿 = 仍有效），已签超过发电量的部分是橙色 Oversold；Q1–Q4 全年合同单独一组（右边），和 Q1–Q2 / Q3–Q4 合同用完后剩下的发电量比较。中间层是 Y+1 年的时间轴，每期的剩余 GO 画在它的过期月份（生产月 + 12 个月）正下方，今天之前的部分灰、之后绿。最下层是 Y+1 年的交付月合同量（蓝 = 已交付，深色 = 待交付，橙 = 已改期的新日期），并用箭头从 Y 年各合同期连到它的交付日；交付日不在 Y+1 年的，直接写在合同期下面。过期日 = 生产月月底 + 12 个月（`EXPIRY_MONTHS`，是假设，需要按登记簿规则核对）；AXPO 64,000 MWh 的合同只有 9,000 MWh 留在原交付日，其余算在改期日。
+- 成交明细在私有 vcom 仓库的 `data/go/tokaj_go_sales.csv`（含价格、买家和备注，所以不放本仓库），Worker 的 `/ops/api/go-sales` 原样转发；新增或修改交易改这个 CSV 即可（行顺序和工作簿站点表一致）。
+- 站点对应（用 2024、2025 年表计量核对过）：ASTROPUT = Putnok，ASTROSER = Serenyfalva，ASTROKAZ = Sajokaza，ASTROSZU = Szuhakálló 1，ASTROSZELES = Szuhakálló 2。
+- 发电量用 `/ops/api/metered?resolution=hourly`（小时文件，页面按月求和）。2024 年只算 8–12 月，当年只算读满的月份。
+- 网址参数：`/ops/go?site=&year=`（site 缺省 = All sites）。
+
 **Ops 页面的网址参数**（Overview / Capture Price / Imbalance 三个页面）：页面上的选择会同步写进地址栏（`history.replaceState`，不增加浏览器历史记录），打开带参数的链接时按参数恢复；缺少或不合法的参数忽略，用默认值。链接里只有选择，没有数据，打开仍要登录 ops。
 - `/ops/overview?site=&start=&end=&res=15min|hourly&lead=&bdate=`（`site` = ALL 或站点名，`lead` = 提前量分钟数，`bdate` = 第二张卡片的日期）
 - `/ops/imbalance?site=&start=&end=&freq=&lead=&pct=&mode=idc|imb&thr=&cloud=&cm=&dacc=&dabc=&isrc=&il=&icc=&ibc=&ibid=&from=&to=`（`freq` = 15min / hour / day / week / month / quarter / year，`from`、`to` = Summary table 的月份 1–12）
@@ -348,7 +357,7 @@ token 只在服务端，不会发给浏览器；数据不会进入本仓库，�
 *页面结构*
 - 顶部：起止日期（默认前三天，不含今天，因为今天的价格和理论发电量还不完整）、Frequency 点击按钮（15 min / Hourly / Daily / Weekly / Monthly / Quarterly / Yearly，样式同 Price Overview；只影响图表的聚合，不重新请求）。
 - Site 按钮（All sites = 五站相加，其余是单站）；它同时驱动图和 Summary table。
-- Strategy（图表左边，控件两个一行，分 Cloud / Bid / Curtailment 三块；窄屏时移到图表上方）：**DA bid %**（DA 预测量按多少百分比报进日前市场，默认 100%，0–150%；两个数字框都是纯手动输入，没有上下调节箭头）、**Rest**（没报进 DA 的部分：在 IDC 里平仓 / 全部留在不平衡里）、**IDC lead time**（15–240 分钟，默认 60）、**Curtail if DA price ≤**（€/MWh，留空 = 关闭；日前价小于等于该值的 15 分钟不发电，见下）。
+- Strategy（图表左边，控件两个一行，分 Cloud / Bid / Curtailment 两块；窄屏时移到图表上方）：**DA bid %**（DA 预测量按多少百分比报进日前市场，默认 100%，0–150%；两个数字框都是纯手动输入，没有上下调节箭头）、**Rest**（没报进 DA 的部分：在 IDC 里平仓 / 全部留在不平衡里）、**IDC lead time**（15–240 分钟，默认 60）、**Curtail if DA price ≤**（€/MWh，留空 = 关闭；日前价小于等于该值的 15 分钟不发电，见下）。
 - 图：按所选频率画 DA revenue / IDC revenue / Imbalance cost 的堆叠柱，再叠 **PV revenue**（向下的堆叠柱，默认隐藏）、Total revenue 线、**Profit** 线（100% 报量、之后不交易）。
 - Summary table：所选站点 1–12 月（页面载入那一年；Month 列只标 1–12）逐月的 DA revenue、IDC revenue、Revenue (prior to imbalance cost)、Imbalance cost、Total revenue (post imbalance cost)、Imbalance %、**PV revenue**、**Profit**，最后是合计行；没有数据的月份显示 –。右上角的 **From month / To month**（1–12）选一段月份，合计行就变成这一段的合计（如 “Total 3–6”，选中的月份高亮、其余变灰），同时多出一行 “Total 1–12” 保留全年合计；选择只在浏览器里重算，不重新请求。表里的数字随 Strategy 变化，**不受图表日期范围影响**。
 

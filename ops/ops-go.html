@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex">
+<title>Operations GO</title>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+<script src="/ops/nav.js"></script>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f2f5; padding: 20px; }
+.container { max-width: 1600px; margin: 0 auto; background: white; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,.1); overflow: hidden; }
+.sub-nav { background: #f8f9fa; border-bottom: 2px solid #e6e9ed; padding: 0 30px; display: flex; }
+.sub-nav-link { display: inline-block; padding: 14px 22px; font-size: 14px; font-weight: 600; color: #6c757d; text-decoration: none;
+  border-bottom: 3px solid transparent; margin-bottom: -2px; transition: color .2s, border-color .2s; white-space: nowrap; cursor: pointer; }
+.sub-nav-link:hover { color: #2c3e50; }
+.sub-nav-link.active { color: #2c3e50; border-bottom-color: #2c3e50; }
+.status { padding: 14px 30px 0; font-size: 13px; color: #e74c3c; min-height: 8px; }
+.chart-grid { display: grid; grid-template-columns: 1fr; gap: 24px; padding: 14px 30px 30px; }
+.chart-grid > * { min-width: 0; }
+.chart-card { background: #fff; border-radius: 8px; border: 1px solid #e6e9ed; padding: 16px; }
+.chart-card-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 14px; }
+.chart-card-header h3 { font-size: 18px; font-weight: 500; color: #2c3e50; border-left: 4px solid #2c3e50; padding-left: 12px; margin: 0; line-height: 1.3; }
+.btn-group-inline { display: flex; border: 1px solid #ccc; border-radius: 6px; overflow: hidden; height: 36px; }
+.btn-group-inline button { padding: 0 13px; font-size: 13px; font-family: inherit; font-weight: 500; background: #fff; border: none; border-right: 1px solid #ccc; cursor: pointer; color: #555; transition: background .15s, color .15s; white-space: nowrap; }
+.btn-group-inline button:last-child { border-right: none; }
+.btn-group-inline button:hover { background: #f0f2f5; color: #2c3e50; }
+.btn-group-inline button.active { background: #2c3e50; color: #fff; }
+.scroll { overflow-x: auto; }
+select { font-family: inherit; height: 36px; padding: 0 12px; border: 1px solid #ccc; border-radius: 6px; font-size: 14px; color: #2c3e50; background: #fff; cursor: pointer; }
+table { border-collapse: collapse; width: 100%; font-size: 13px; }
+th, td { padding: 8px 10px; text-align: right; border-bottom: 1px solid #eef0f3; white-space: nowrap; }
+th, td.l { text-align: left; } th.r { text-align: right; }
+th { background: #f3f5f7; font-size: 12px; color: #4a5560; }
+th.grp { text-align: center; border-left: 1px solid #e0e4e8; background: #eaeef2; }
+td.sep { border-left: 1px solid #e0e4e8; }
+td.m { text-align: left; font-weight: 600; color: #2c3e50; }
+td.merged { vertical-align: middle; background: #fafbfc; }
+tr.total td { font-weight: 700; background: #fafbfc; }
+.blk { font-size: 14px; font-weight: 600; color: #2c3e50; margin: 18px 0 8px; } .blk:first-of-type { margin-top: 0; }
+.pos { color: #1e8449; font-weight: 600; } .neg { color: #d35400; font-weight: 600; } .zero { color: #888; }
+td.blue { background: #e8f1fb; padding: 3px 6px; }
+td.blue input { width: 120px; text-align: right; border: 1px solid #9ec3ea; background: #e8f1fb; border-radius: 4px; padding: 5px 8px; font: inherit; color: #1b4f8a; }
+@media (max-width: 700px) {
+  body { padding: 8px; } .chart-grid { padding: 14px 16px 16px; }
+  .sub-nav { padding: 0 10px; overflow-x: auto; } .sub-nav-link { padding: 14px 14px; font-size: 13px; }
+}
+</style>
+</head>
+<body>
+<div class="container">
+
+  <div class="sub-nav">
+    <a class="sub-nav-link" href="/ops/overview">Overview</a>
+    <a class="sub-nav-link" href="/ops/capture-price">Capture Price</a>
+    <a class="sub-nav-link" href="/ops/imbalance">Imbalance</a>
+    <a class="sub-nav-link active" href="/ops/go">GO</a>
+  </div>
+
+  <div class="status" id="status"></div>
+
+  <div class="chart-grid">
+    <div class="chart-card">
+      <div class="chart-card-header" style="margin-bottom:0;justify-content:flex-start"><div class="btn-group-inline" id="sites"></div>
+        <select id="year"></select></div>
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-card-header"><h3 id="titleA">GO sales</h3></div>
+      <div class="scroll"><table id="ledTable"></table></div>
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-card-header"><h3 id="titleB">Monthly balance</h3></div>
+      <div class="scroll"><table id="monTable"></table></div>
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-card-header"><h3 id="titleT">GO timeline</h3></div>
+      <div id="chartT" style="height:640px"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const SITES = ["Putnok", "Serenyfalva", "Sajokaza", "Szuhakálló 1", "Szuhakálló 2"];
+const CODE = { "Putnok": "ASTROPUT", "Serenyfalva": "ASTROSER", "Sajokaza": "ASTROKAZ", "Szuhakálló 1": "ASTROSZU", "Szuhakálló 2": "ASTROSZELES" };
+const FIRST_YEAR = 2024, YEARS = [2024, 2025, 2026, 2027];
+const MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const $ = id => document.getElementById(id);
+const nf = (v, d = 0, min = 0) => v == null || isNaN(v) ? "–" : v.toLocaleString("en-US", { maximumFractionDigits: d, minimumFractionDigits: min });
+const URLQ = new URLSearchParams(location.search);
+function syncUrl(o) {
+  try { const p = new URLSearchParams(); for (const [k, v] of Object.entries(o)) if (v != null && v !== "") p.set(k, v);
+    const q = p.toString(); history.replaceState(null, "", location.pathname + (q ? "?" + q : "") + location.hash); } catch (e) { /* the address bar is only a convenience */ }
+}
+function budapestToday() {
+  const p = Object.fromEntries(new Intl.DateTimeFormat("en-US", { timeZone: "Europe/Budapest", year: "numeric", month: "2-digit", day: "2-digit" })
+    .formatToParts(new Date()).map(x => [x.type, x.value]));
+  return `${p.year}-${p.month}-${p.day}`;
+}
+const TODAY = budapestToday(), THIS_YEAR = +TODAY.slice(0, 4);
+const EXPIRY_MONTHS = 12;      // a GO expires this many months after the end of its production month (assumption, check with the registry)
+const AXPO_STAY = 9000, AXPO_TOTAL = 64000;   // of the 64,000 MWh AXPO contract only 9,000 MWh stays on its original delivery date (the workbook note)
+let chartT, sales = [], prod = {}, lastTs = {}, site = "ALL", year = "ALL";
+const shownYears = () => year === "ALL" ? YEARS : [+year];
+
+function parseCSV(text) {
+  const rows = []; let row = [], cur = "", q = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (q) { if (c === '"') { if (text[i + 1] === '"') { cur += '"'; i++; } else q = false; } else cur += c; }
+    else if (c === '"') q = true;
+    else if (c === ",") { row.push(cur); cur = ""; }
+    else if (c === "\n") { row.push(cur); rows.push(row); row = []; cur = ""; }
+    else if (c !== "\r") cur += c;
+  }
+  if (cur || row.length) { row.push(cur); rows.push(row); }
+  const head = rows.shift();
+  return rows.filter(r => r.length === head.length).map(r => Object.fromEntries(head.map((h, i) => [h, r[i]])));
+}
+async function getText(url) {
+  const r = await fetch(url, { credentials: "same-origin" });
+  if (r.status === 404) return null;
+  if (!r.ok) { let m = r.status; try { m = (await r.json()).error || m; } catch (e) {} throw new Error(m); }
+  return r.text();
+}
+function sumMonths(text, into, s) {
+  const lines = text.split("\n");
+  for (let i = 1; i < lines.length; i++) {
+    const l = lines[i]; if (l.length < 20) continue;
+    const c = l.split(","); if (c[1] === "" || c[1] === undefined) continue;
+    const v = parseFloat(c[1]); if (isNaN(v)) continue;
+    const m = +c[0].slice(5, 7) - 1;
+    into[m] = (into[m] || 0) + v;
+    if (c[0] > (lastTs[s] || "")) lastTs[s] = c[0];
+  }
+}
+async function loadAll() {
+  const yrs = []; for (let y = FIRST_YEAR; y <= THIS_YEAR; y++) yrs.push(y);
+  const [salesText, ...meters] = await Promise.all([
+    getText("/ops/api/go-sales"),
+    ...SITES.flatMap(s => yrs.map(y => getText(`/ops/api/metered?site=${encodeURIComponent(s)}&year=${y}&resolution=hourly`).catch(e => { throw new Error(`${s} ${y}: ${e.message}`); }))),
+  ]);
+  if (salesText == null) throw new Error("GO sales file not found");
+  sales = parseCSV(salesText).map(r => ({ ...r, y: +r.production_year, m0: +r.start_month, m1: +r.end_month, vol: +r.volume_mwh, price: +r.price_eur_mwh, amt: +r.amount_eur }));
+  prod = {}; lastTs = {};
+  let k = 0;
+  for (const s of SITES) { prod[s] = {}; for (const y of yrs) { const t = meters[k++]; if (t) { prod[s][y] = {}; sumMonths(t, prod[s][y], s); } } }
+}
+
+// metered MWh of one month, null when there is no complete reading (months before Aug 2024 are not part of the GO sales)
+function monthProd(s, y, i) {
+  if (s === "ALL") { let a = 0; for (const x of SITES) { const v = monthProd(x, y, i); if (v == null) return null; a += v; } return a; }
+  const m = prod[s] && prod[s][y]; if (!m || m[i] == null) return null;
+  if (y === 2024 && i < 7) return null;
+  if (y === THIS_YEAR) {                      // a partly read month is not counted
+    const t = lastTs[s]; if (t && +t.slice(0, 4) === y) {
+      const mo = +t.slice(5, 7) - 1, day = +t.slice(8, 10), hr = +t.slice(11, 13);
+      const full = day === new Date(Date.UTC(y, mo + 1, 0)).getUTCDate() && hr >= 23;
+      if (i > mo || (i === mo && !full)) return null;
+    }
+  }
+  return m[i];
+}
+const yearProd = (s, y) => { let a = 0, any = false; for (let i = 0; i < 12; i++) { const v = monthProd(s, y, i); if (v != null) { a += v; any = true; } } return any ? a : null; };
+// signed volume of a row: the actually traded volume when the workbook note gives one (2nd March 2025 tranche), otherwise the contract volume
+const traded = r => { const m = /实际交易量\s*([\d,.]+)\s*MWh/.exec(r.note || ""); return m ? parseFloat(m[1].replace(/,/g, "")) : r.vol; };
+const rowsOf = (s, y) => sales.filter(r => (s === "ALL" || r.site === s) && r.y === y);
+const cls = v => v == null ? "" : Math.round(v) > 0 ? "pos" : Math.round(v) < 0 ? "neg" : "zero";
+const sgn = v => { if (v == null) return "–"; const r = Math.round(v); return r === 0 ? "0" : (r > 0 ? "+" : "") + nf(r); };
+const rng = (r) => r.m0 === r.m1 ? MON[r.m0 - 1] : `${MON[r.m0 - 1]}–${MON[r.m1 - 1]}`;
+
+function renderLedger() {
+  let rows = sales.filter(r => (site === "ALL" || r.site === site) && (year === "ALL" || r.y === +year));
+  if (site === "ALL") {                       // all sites: one row per contract, volumes added up over the five sites
+    const m = new Map();
+    rows.forEach(r => { const k = [r.y, r.period, r.buyer, r.delivery_date, r.amended_delivery].join("|");
+      if (!m.has(k)) m.set(k, { ...r, vol: 0, amt: 0, notes: new Set() });
+      const g = m.get(k); g.vol += r.vol; g.amt += r.vol * r.price; g.notes.add(r.note); });
+    m.forEach(g => { g.price = g.vol ? g.amt / g.vol : 0; g.note = g.notes.size > 1 ? [...g.notes][0].split("；")[0] : [...g.notes][0]; });
+    rows = [...m.values()];
+  }
+  $("titleA").textContent = site === "ALL" ? "All sites" : `${site} · ${CODE[site]}`;
+  const vol = rows.reduce((a, r) => a + r.vol, 0), amt = rows.reduce((a, r) => a + r.vol * r.price, 0);
+  $("ledTable").innerHTML = `<tr><th>Year</th><th>Production period</th><th class="r">Sold GO volume (MWh)</th><th class="r">Unit price (EUR/MWh)</th><th class="r">Amount (EUR)</th><th>Delivery date</th><th>Delivery to be amended</th><th>Buyer</th><th>Note</th></tr>`
+    + rows.map(r => `<tr><td class="l">${r.y}</td><td class="l">${r.period.replace(/ ?\d{4}/, "")}</td><td>${nf(r.vol, 2)}</td><td>${nf(r.price, 4)}</td><td>${nf(r.vol * r.price, 2)}</td>
+      <td class="l">${r.delivery_date}</td><td class="l">${r.amended_delivery}</td><td class="l">${r.buyer || ""}</td><td class="l" style="white-space:normal;min-width:240px;color:#888;font-size:12px">${r.note}</td></tr>`).join("")
+    + `<tr class="total"><td class="l">Total</td><td></td><td>${nf(vol, 2)}</td><td>${nf(vol ? amt / vol : null, 4)}</td><td>${nf(amt, 2)}</td><td colspan="4"></td></tr>`;
+}
+
+// month rows 1–12: the sold volume sits on the month for monthly sales, and is merged over Jan–Jun / Jul–Dec for half-year contracts
+// All sites: one row per site, one column group per year (+ a total over 2024 … current year); one site: one row per month
+function renderBySite() {
+  $("titleB").textContent = "All sites · GO balance";
+  const yrs = shownYears(), pastYrs = YEARS.filter(y => y <= THIS_YEAR), cell = (p, sold) => { const r = p == null ? null : p - sold;
+    return `<td class="sep">${nf(p, 0)}</td><td>${nf(sold, 0)}</td><td class="${cls(r)}">${sgn(r)}</td>`; };
+  const calc = (s, ys) => { let p = 0, any = false, sold = 0;
+    ys.forEach(y => { const v = y <= THIS_YEAR ? yearProd(s, y) : null; if (v != null) { p += v; any = true; } sold += rowsOf(s, y).reduce((a, r) => a + traded(r), 0); });
+    return { p: any ? p : null, sold }; };
+  const groups = yrs.map(y => ({ label: y, ys: [y] })); if (year === "ALL") groups.push({ label: `Total ${pastYrs[0]}–${pastYrs[pastYrs.length - 1]}`, ys: pastYrs });
+  const head = `<tr><th rowspan="2">Site</th>${groups.map(g => `<th class="grp" colspan="3">${g.label}</th>`).join("")}</tr>
+    <tr>${groups.map(() => `<th class="r sep">Production (MWh)</th><th class="r">Sold GO (MWh)</th><th class="r">Remaining GO (MWh)</th>`).join("")}</tr>`;
+  const body = SITES.map(s => `<tr><td class="l">${s}</td>${groups.map(g => { const c = calc(s, g.ys); return cell(c.p, c.sold); }).join("")}</tr>`).join("");
+  const tot = `<tr class="total"><td class="l">Total</td>${groups.map(g => { let p = 0, any = false, sold = 0;
+    SITES.forEach(s => { const c = calc(s, g.ys); if (c.p != null) { p += c.p; any = true; } sold += c.sold; }); return cell(any ? p : null, sold); }).join("")}</tr>`;
+  $("monTable").innerHTML = head + body + tot;
+}
+
+function renderBalance() {
+  if (site === "ALL") return renderBySite();
+  $("titleB").textContent = `${site} · GO balance by month`;
+  const per = shownYears().map(y => {
+    const rs = rowsOf(site, y), seg = {}, fy = rs.filter(r => r.m0 === 1 && r.m1 === 12).reduce((a, r) => a + traded(r), 0);
+    rs.filter(r => !(r.m0 === 1 && r.m1 === 12)).forEach(r => { const k = r.m0 + "-" + r.m1; (seg[k] = seg[k] || { m0: r.m0, m1: r.m1, sold: 0 }).sold += traded(r); });
+    const at = {}; Object.values(seg).forEach(g => { at[g.m0] = g; });
+    const covered = new Set(); Object.values(seg).forEach(g => { for (let m = g.m0 + 1; m <= g.m1; m++) covered.add(m); });
+    return { y, at, covered, fy, sold: rs.reduce((a, r) => a + traded(r), 0) };
+  });
+  const head = `<tr><th rowspan="2">Month</th>${per.map(P => `<th class="grp" colspan="3">${P.y}</th>`).join("")}</tr>
+    <tr>${per.map(() => `<th class="r sep">Production</th><th class="r">Sold</th><th class="r">Remaining</th>`).join("")}</tr>`;
+  const body = MON.map((mn, i) => {
+    const m = i + 1;
+    return `<tr><td class="m">${mn}</td>` + per.map(P => {
+      const p = P.y <= THIS_YEAR ? monthProd(site, P.y, i) : null;
+      const pc = `<td class="sep">${nf(p, 0)}</td>`;
+      if (P.covered.has(m)) return pc;
+      const g = P.at[m];
+      if (!g) return pc + `<td>–</td><td>–</td>`;
+      const span = g.m1 - g.m0 + 1; let tp = null;
+      for (let k = g.m0 - 1; k < g.m1; k++) { const v = P.y <= THIS_YEAR ? monthProd(site, P.y, k) : null; if (v != null) tp = (tp || 0) + v; }
+      const rem = tp == null ? null : tp - g.sold;
+      return pc + `<td class="merged" rowspan="${span}">${nf(g.sold, 2)}</td><td class="merged ${cls(rem)}" rowspan="${span}">${sgn(rem)}</td>`;
+    }).join("") + `</tr>`;
+  }).join("");
+  const fyRow = `<tr><td class="m">Q1–Q4</td>${per.map(P => `<td class="sep">–</td><td>${P.fy ? nf(P.fy, 2) : "–"}</td><td>–</td>`).join("")}</tr>`;
+  const tot = `<tr class="total"><td class="l">Total</td>${per.map(P => { const p = P.y <= THIS_YEAR ? yearProd(site, P.y) : null, rem = p == null ? null : p - P.sold;
+    return `<td class="sep">${nf(p, 0)}</td><td>${nf(P.sold, 2)}</td><td class="${cls(rem)}">${sgn(rem)}</td>`; }).join("")}</tr>`;
+  $("monTable").innerHTML = head + body + fyRow + tot;
+}
+
+
+// ───────────── timeline: meter production vs signed GO per contract period, and deliveries by delivery month ─────────────
+const ym = (y, m0) => `${y}-${String(m0 + 1).padStart(2, "0")}`;
+const lastDay = (y, m0) => new Date(Date.UTC(y, m0 + 1, 0)).getUTCDate();
+const expOf = k => { const y = +k.slice(0, 4), m0 = +k.slice(5) - 1, e = new Date(Date.UTC(y, m0 + EXPIRY_MONTHS, 1)), ey = e.getUTCFullYear(), em = e.getUTCMonth();
+  return `${ey}-${String(em + 1).padStart(2, "0")}-${String(lastDay(ey, em)).padStart(2, "0")}`; };
+function renderTimeline() {
+  const list = site === "ALL" ? SITES : [site], Y = year === "ALL" ? THIS_YEAR : +year, Y1 = Y + 1;
+  $("titleT").textContent = `${site === "ALL" ? "All sites" : site} · ${Y} production vs signed GO, and when the remain GO expires in ${Y1}`;
+  // ---- top: one cluster per contract period of the workbook (nothing is spread over months); x in months, 0 = 1 Jan
+  const rs = rowsOf(list.length === 1 ? list[0] : "ALL", Y), segs = {};
+  rs.filter(r => !(r.m0 === 1 && r.m1 === 12)).forEach(r => { const k = r.m0 + "-" + r.m1; (segs[k] = segs[k] || { m0: r.m0, m1: r.m1, S: 0 }).S += traded(r); });
+  const fy = rs.filter(r => r.m0 === 1 && r.m1 === 12).reduce((a, r) => a + traded(r), 0);
+  const mp = i => Y > THIS_YEAR ? 0 : list.reduce((a, s) => a + (monthProd(s, Y, i) || 0), 0);
+  const yy = String(Y).slice(2), cl = [];
+  let carry = 0, carryExp = 0;
+  Object.values(segs).sort((a, b) => a.m0 - b.m0 || a.m1 - b.m1).forEach(g => {
+    let P = 0, Pe = 0; for (let i = g.m0 - 1; i < g.m1; i++) { const v = mp(i); P += v; if (expOf(ym(Y, i)) < TODAY) Pe += v; }
+    const rem = Math.max(0, P - g.S), remExp = P ? rem * Pe / P : 0; carry += rem; carryExp += remExp;
+    const label = g.m0 === g.m1 ? MON[g.m0 - 1] : g.m0 === 1 && g.m1 === 6 ? "Q1–Q2" : g.m0 === 7 && g.m1 === 12 ? "Q3–Q4" : `${MON[g.m0 - 1]}–${MON[g.m1 - 1]}`;
+    cl.push({ label, m0: g.m0, m1: g.m1, fy: false, name: `${label} ${Y}`, x0: g.m0 - 1, x1: g.m1, b0: g.m0 - 1, b1: g.m1, row: 0, P, S: g.S, rem, remExp, over: Math.max(0, g.S - P), note: Y > THIS_YEAR ? "not produced yet" : g.m1 > (Y === THIS_YEAR ? +TODAY.slice(5, 7) - 1 : 12) && Y === THIS_YEAR ? "period not finished: production to date only" : "" });
+  });
+  if (fy) { const rem = Math.max(0, carry - fy), remExp = carry ? rem * carryExp / carry : 0;
+    cl.push({ label: "Q1–Q4", m0: 1, m1: 12, fy: true, name: `Q1–Q4 ${Y}`, x0: 12.15, x1: 13.45, b0: 0, b1: 12, row: 1, P: carry, S: fy, rem, remExp, over: Math.max(0, fy - carry), note: "full-year contracts vs. production left over by the Q1–Q2 / Q3–Q4 contracts" }); }
+  // ---- deliveries dated in Y+1: original date, or the amended date when the workbook has one
+  const dl = [], out = cl.map(() => []);      // out: delivery dates of a period that fall outside the Y+1 axis
+  const addDel = (date, vol, kind, orig, ci) => {
+    if (+date.slice(0, 4) !== Y1) { if (ci >= 0) out[ci].push(date); return; }
+    const m = +date.slice(5, 7) - 1, dim = lastDay(Y1, m); dl.push({ date, vol, kind, orig, ci, x: m + (+date.slice(8, 10) - 0.5) / dim }); };
+  list.forEach(s => YEARS.forEach(y => rowsOf(s, y).forEach(r => {
+    const v = traded(r), d = r.delivery_date; if (!d) return;
+    const fyRow = r.m0 === 1 && r.m1 === 12, ci = y !== Y ? -1 : cl.findIndex(c => fyRow ? c.fy : !c.fy && c.m0 === r.m0 && c.m1 === r.m1);
+    if (r.amended_delivery) {
+      let stay = 0; if (r.buyer === "AXPO" && r.y === 2026 && r.m1 === 6) stay = v * AXPO_STAY / AXPO_TOTAL;
+      if (stay) addDel(d, stay, d <= TODAY ? "delivered" : "due", "", ci);
+      addDel(r.amended_delivery, v - stay, "redated", d, ci);
+    } else addDel(d, v, d <= TODAY ? "delivered" : "due", "", ci);
+  })));
+  out.forEach((a, i) => { out[i] = [...new Set(a)].sort(); });
+  { const m = new Map(); dl.forEach(d => { const k = [d.date, d.kind, d.orig, d.ci].join("|"); if (m.has(k)) m.get(k).vol += d.vol; else m.set(k, { ...d }); }); dl.length = 0; m.forEach(d => dl.push(d)); }
+  const nRows = Math.max(1, ...cl.filter(c => c.rem > 0.5).map(c => c.row + 1));
+  const g1Top = 350, g1H = 40 * nRows, t2 = g1Top + g1H + 34, g2Top = t2 + 26, H = g2Top + 100 + 56;
+  $("chartT").style.height = H + "px"; chartT.resize();
+  const dser = (kind, name, color) => ({ name, type: "bar", stack: "d", xAxisIndex: 2, yAxisIndex: 2, barWidth: 26, itemStyle: { color }, label: { show: true, position: "inside", fontSize: 10, color: "#fff", formatter: p => nf(p.value[1], 0) }, data: dl.filter(d => d.kind === kind).map(d => ({ value: [d.x, Math.round(d.vol)], d })) });
+  const delMax0 = Math.max(1000, ...dl.map(d => dl.filter(e => Math.abs(e.x - d.x) < 1e-9).reduce((a, e) => a + e.vol, 0))) * 1.15, delMax = Math.ceil(delMax0 / 1000) * 1000, delTop = Math.ceil(delMax / 1000) * 1000;
+  const sameX = x => dl.filter(d => Math.abs(d.x - x) < 1e-9).reduce((a, d) => a + d.vol, 0);
+  const fmt = v => nf(v, 0), pad2 = n => String(n).padStart(2, "0");
+  const xOf = iso => { const yv = +iso.slice(0, 4), m = +iso.slice(5, 7) - 1; return (yv - Y1) * 12 + m + (+iso.slice(8, 10) - 0.5) / lastDay(yv, m); };
+  const todayX = xOf(TODAY);            // where today is on the Y+1 axis (negative = before it starts)
+  const todayTop = Y === THIS_YEAR ? xOf(TODAY) + 12 : null;
+  const maxTop = Math.max(1000, ...cl.map(c => Math.max(c.P, c.S, c.rem + c.over)));
+  const AX = { type: "value", min: 0, max: 13.5, interval: 1, splitLine: { show: false }, axisTick: { alignWithLabel: false },
+    axisLabel: { fontSize: 10, align: "left", formatter: v => v >= 0 && v < 12 && Number.isInteger(v) ? MON[v] : "" } };
+  const ax = (i, show) => ({ ...AX, gridIndex: i, axisLabel: { ...AX.axisLabel, show } });
+  const legendDummy = (name, color) => ({ name, type: "bar", xAxisIndex: 0, yAxisIndex: 0, data: [], itemStyle: { color } });
+  const line = x => ({ symbol: "none", silent: true, label: { formatter: "Today", position: "insideEndTop", color: "#c0392b" }, lineStyle: { color: "#c0392b", type: "dashed" }, data: [{ xAxis: x }] });
+  chartT.setOption({
+    animation: false,
+    title: [{ text: `${Y}: meter production vs signed GO vs remain GO, per contract period`, left: 84, top: 30, textStyle: { fontSize: 12, color: "#555" } },
+            { text: `${Y1}: where the remain GO of each period expires (12 months after production)`, left: 84, top: 326, textStyle: { fontSize: 12, color: "#555" } },
+            { text: `${Y1}: deliveries (arrows: delivery of the ${Y} contract period above)`, left: 84, top: t2, textStyle: { fontSize: 12, color: "#555" } }],
+    legend: { top: 0, data: ["Meter production", "Signed GO", "Remain GO, expired", "Remain GO, valid", "Oversold", "Delivered", "Delivery due", "Delivery re-dated (new date)"], textStyle: { fontSize: 11 } },
+    tooltip: { trigger: "item", confine: true, formatter: p => {
+      if (p.seriesType === "bar" && p.data && p.data.d) { const d = p.data.d; return `<b>${d.date}</b>${d.orig ? ` (was ${d.orig})` : ""}<br>${fmt(d.vol)} MWh`; }
+      const c = cl[p.dataIndex]; if (!c) return "";
+      if (p.seriesName === "bands") return `<b>${c.name}</b><br>Remain GO ${fmt(c.rem)} MWh expires ${c.b0 === 0 && c.b1 === 12 ? `through ${expOf(ym(Y, 11))}` : `${expOf(ym(Y, c.b0))} – ${expOf(ym(Y, c.b1 - 1))}`}`;
+      return `<b>${c.name}</b>${c.note ? `<br><i>${c.note}</i>` : ""}<br>Meter production: <b>${fmt(c.P)} MWh</b><br>Signed GO: <b>${fmt(c.S)} MWh</b><br>` +
+        (c.over > 0.5 ? `<b style="color:#d35400">Oversold: ${fmt(c.over)}</b>` : `Remain GO: <b>${fmt(c.rem)}</b> (expired ${fmt(c.remExp)}, valid ${fmt(c.rem - c.remExp)})`); } },
+    grid: [{ left: 84, right: 20, top: 56, height: 200 }, { left: 84, right: 20, top: g1Top, height: g1H }, { left: 84, right: 20, top: g2Top, height: 100 }],
+    xAxis: [ax(0, true), ax(1, false), ax(2, true)],
+    yAxis: [{ type: "value", gridIndex: 0, max: Math.ceil(maxTop * 1.05 / 1000) * 1000, name: "GO (MWh)", nameLocation: "middle", nameGap: 62, nameTextStyle: { fontSize: 11 } },
+            { type: "value", gridIndex: 1, min: 0, max: nRows, show: false },
+            { type: "value", gridIndex: 2, min: 0, max: delMax, name: "MWh", nameLocation: "middle", nameGap: 62, nameTextStyle: { fontSize: 11 } }],
+    series: [
+      legendDummy("Meter production", "#1a1a1a"), legendDummy("Signed GO", "#2c7fb8"), legendDummy("Remain GO, expired", "#b0b7bf"), legendDummy("Remain GO, valid", "#27ae60"), legendDummy("Oversold", "#e67e22"),
+      { name: "periods", type: "custom", xAxisIndex: 0, yAxisIndex: 0, z: 3, data: cl.map((c, i) => [c.x0, c.x1, i]),
+        markLine: todayTop != null ? line(todayTop) : undefined,
+        renderItem: (params, api) => {
+          const c = cl[params.dataIndex], px0 = api.coord([c.x0, 0])[0], px1 = api.coord([c.x1, 0])[0], base = api.coord([0, 0])[1];
+          const bw = Math.min(34, (px1 - px0) / 3.4), gap = 4, st = (px0 + px1) / 2 - (3 * bw + 2 * gap) / 2;
+          const R = (k, lo, hi, color) => { if (hi - lo < 0.5) return null; const yt = api.coord([0, hi])[1], yb = api.coord([0, lo])[1]; return { type: "rect", shape: { x: st + k * (bw + gap), y: yt, width: bw, height: yb - yt }, style: { fill: color } }; };
+          const ch = [R(0, 0, c.P, "#1a1a1a"), R(1, 0, c.S, "#2c7fb8"), R(2, 0, c.remExp, "#b0b7bf"), R(2, c.remExp, c.rem, "#27ae60"), R(2, c.rem, c.rem + c.over, "#e67e22")].filter(Boolean);
+          if (c.x1 - c.x0 > 1) ch.push({ type: "text", style: { text: c.label, x: (px0 + px1) / 2, y: base + 24, textAlign: "center", fill: "#555", fontSize: 11, fontWeight: 600 } });
+          if (out[params.dataIndex].length) ch.push({ type: "text", style: { text: "delivery " + out[params.dataIndex].join(", "), x: (px0 + px1) / 2, y: base + 40, textAlign: "center", fill: "#8a6d3b", fontSize: 10 } });
+          // bracket under the period
+          ch.push({ type: "line", shape: { x1: px0 + 2, y1: base + 20, x2: px1 - 2, y2: base + 20 }, style: { stroke: "#9aa5b1", lineWidth: 1 } });
+          return { type: "group", children: ch }; } },
+      { name: "bands", type: "custom", xAxisIndex: 1, yAxisIndex: 1, z: 3, data: cl.filter(c => c.rem > 0.5).map(c => [c.b0, c.b1, cl.indexOf(c)]),
+        markLine: Y1 === THIS_YEAR ? line(todayX) : undefined,
+        renderItem: (params, api) => {
+          const c = cl[api.value(2)], a = api.coord([c.b0, 0])[0], b = api.coord([c.b1, 0])[0], t = api.coord([0, c.row + 0.85])[1], bt = api.coord([0, c.row + 0.15])[1];
+          const sx = api.coord([Math.min(Math.max(todayX, c.b0), c.b1), 0])[0], ch = [];
+          if (sx > a) ch.push({ type: "rect", shape: { x: a, y: t, width: sx - a, height: bt - t }, style: { fill: "#b0b7bf" } });
+          if (b > sx) ch.push({ type: "rect", shape: { x: sx, y: t, width: b - sx, height: bt - t }, style: { fill: "#27ae60" } });
+          ch.push({ type: "text", style: { text: `${c.label} · remain ${fmt(c.rem)} MWh`, x: (a + b) / 2, y: (t + bt) / 2, textAlign: "center", textVerticalAlign: "middle", fill: "#fff", fontSize: 11, fontWeight: 600 } });
+          return { type: "group", children: ch }; } },
+      dser("delivered", "Delivered", "#5b8db8"), dser("due", "Delivery due", "#34495e"), dser("redated", "Delivery re-dated (new date)", "#e67e22"),
+    ].filter(Boolean) }, true);
+  // arrows from the bracket of each period down to its delivery in Y+1
+  const els = [];
+  dl.filter(d => d.ci >= 0).forEach(d => {
+    const c = cl[d.ci], col = d.kind === "redated" ? "#e67e22" : d.kind === "due" ? "#34495e" : "#5b8db8";
+    const W = chartT.getWidth(), px = x => 84 + x / 13.5 * (W - 104);          // same layout numbers as the grids above
+    const x1 = px((c.x0 + c.x1) / 2), y1 = 56 + 200 + 52, x2 = px(d.x), ty = g2Top + 100 - sameX(d.x) / delMax * 100 - 4;
+    if (![x1, y1, x2, ty].every(Number.isFinite)) return;
+    els.push({ type: "polyline", silent: true, z: 10, shape: { points: [[x1, y1], [x1, y1 + 8], [x2, y1 + 8], [x2, ty - 6]] }, style: { stroke: col, lineWidth: 1.3, lineDash: [4, 3], fill: "none", opacity: 0.85 } });
+    els.push({ type: "polygon", silent: true, z: 10, shape: { points: [[x2, ty], [x2 - 4.5, ty - 8], [x2 + 4.5, ty - 8]] }, style: { fill: col, opacity: 0.9 } });
+  });
+  chartT.setOption({ graphic: { elements: els } });
+}
+
+function renderAll() {
+  syncUrl({ site: site === "ALL" ? "" : site, year: year === "ALL" ? "" : year });
+  $("year").value = year;
+  [...$("sites").children].forEach(b => b.classList.toggle("active", b.dataset.v === site));
+  renderLedger(); renderBalance(); renderTimeline();
+}
+async function init() {
+  try { await loadAll(); } catch (e) { $("status").textContent = "Failed to load: " + e.message; return; }
+  chartT = echarts.init($("chartT")); addEventListener("resize", () => { chartT.resize(); renderTimeline(); });
+  const q = URLQ.get("site"); if (SITES.includes(q)) site = q;
+  $("sites").innerHTML = ["ALL", ...SITES].map(s => `<button data-v="${s}">${s === "ALL" ? "All sites" : s}</button>`).join("");
+  const qy = URLQ.get("year"); if (YEARS.includes(+qy)) year = qy;
+  $("year").innerHTML = `<option value="ALL">All years</option>` + YEARS.map(y => `<option value="${y}">${y}</option>`).join("");
+  $("year").onchange = () => { year = $("year").value; renderAll(); };
+  $("sites").onclick = e => { const b = e.target.closest("button"); if (b) { site = b.dataset.v; renderAll(); } };
+  renderAll();
+}
+init();
+</script>
+</body>
+</html>

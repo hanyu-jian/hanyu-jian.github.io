@@ -21,7 +21,7 @@ const PAGES = new Set([
 ]);
 const OPS_COOKIE = "ops_token";
 // 运营页面：对外地址 /ops/<name> → 文件 ops/ops-<name>.html。新增页面（如 capture-price）时把名字加进来即可。
-const OPS_PAGE_NAMES = new Set(["overview", "capture-price", "imbalance"]);
+const OPS_PAGE_NAMES = new Set(["overview", "capture-price", "imbalance", "go"]);
 const OPS_HOME = "/ops/overview";
 const MAX_AGE = 60 * 60 * 24 * 30;
 
@@ -622,14 +622,26 @@ async function handleMeter(url, env) {
 }
 
 // Capture Price 页面用：vcom 仓库整年的 15 分钟表计 CSV 原文（列：Date, Meter [MWh], Meter [kWh]），和 /theoretical 一样不解析、直接转发。
+// GO 页面按月汇总，只要小时值：加 resolution=hourly 取 hourly 文件（体积约 1/4），默认仍是 15min。
 async function handleMetered(url, env) {
   const site = url.searchParams.get("site");
   const year = url.searchParams.get("year") || "";
+  const resolution = url.searchParams.get("resolution") || "15min";
+  if (!PROD_RESOLUTIONS.includes(resolution)) return json({ error: "resolution must be 15min or hourly" }, 400);
   if (!SITES.includes(site)) return json({ error: `site must be one of ${SITES.join(" / ")}` }, 400);
   if (!/^\d{4}$/.test(year) || Number(year) < FIRST_YEAR || Number(year) > FIRST_YEAR + 20)
     return json({ error: `year must be ${FIRST_YEAR} or later` }, 400);
-  const text = await loadFile(env, `data/meter/tokaj/${year}/15min/${encodeURIComponent(site)}.csv`);
+  const text = await loadFile(env, `data/meter/tokaj/${year}/${resolution}/${encodeURIComponent(site)}.csv`);
   if (text === null) return json({ error: "No meter data for this site / year" }, 404);
+  return new Response(text, {
+    headers: { "content-type": "text/csv; charset=utf-8", "Cache-Control": "private, no-store", "X-Robots-Tag": "noindex" },
+  });
+}
+
+// GO 页面：Tokaj 五站的 GO 成交明细（vcom 仓库 data/go/tokaj_go_sales.csv，含价格和买家，所以放在私有仓库里），原样转发不解析。
+async function handleGoSales(env) {
+  const text = await loadFile(env, "data/go/tokaj_go_sales.csv");
+  if (text === null) return json({ error: "GO sales file not found" }, 404);
   return new Response(text, {
     headers: { "content-type": "text/csv; charset=utf-8", "Cache-Control": "private, no-store", "X-Robots-Tag": "noindex" },
   });
@@ -742,6 +754,16 @@ async function handleOps(request, env, url, path) {
     if (!env.GITHUB_TOKEN) return json({ error: "GITHUB_TOKEN is not configured" }, 500);
     try {
       return await (path === "/ops/api/meter" ? handleMeter(url, env) : handleMetered(url, env));
+    } catch (e) {
+      return json({ error: String(e.message || e) }, 502);
+    }
+  }
+
+  if (path === "/ops/api/go-sales") {
+    if (request.method !== "GET") return new Response("Method not allowed", { status: 405 });
+    if (!env.GITHUB_TOKEN) return json({ error: "GITHUB_TOKEN is not configured" }, 500);
+    try {
+      return await handleGoSales(env);
     } catch (e) {
       return json({ error: String(e.message || e) }, 502);
     }

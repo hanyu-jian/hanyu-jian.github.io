@@ -6,6 +6,7 @@ ENTSOE API 数据更新脚本 — aFRR 容量（Contracted reserves，A81 / B95�
     DE  4 个 TSO：50Hertz、Amprion、TenneT GER、TransnetBW 各自请求，再按时间合并——
         容量相加、价格按容量加权平均；15min 数据，写 15min；交付日按 Europe/Berlin；价格本来就是 EUR
         （价格数值就是 ENTSOE 给的 EUR/MW/ISP，不再乘系数）
+    HU  MAVIR（10YHU-MAVIR----U），交付日按 Europe/Budapest；EUR，15min；历史由 EnAppSys CSV 拷贝而来，接着往下更新
     BG  ESO（10YCA-BULGARIA-R），交付日按 Europe/Sofia；币种 EUR，2026 年之前的 BGN 按固定汇率 1 EUR = 1.95583 BGN 折成 EUR
     GR  IPTO（10YGR-HTSO-----Y），交付日按 Europe/Athens；币种 EUR
     BG / GR 的原始分辨率事先不确定：数据里最细的点是 1h 就写 hourly，更细（30 / 15min）就写 15min
@@ -13,7 +14,7 @@ ENTSOE API 数据更新脚本 — aFRR 容量（Contracted reserves，A81 / B95�
   controlArea_Domain=各 TSO 的 EIC；按 offset 每 100 个 TimeSeries 翻页，单次请求不超过 1 年
 - 方向：flowDirection.direction A01 = up，A02 = down，分别写
     data/entsoe/afrr/<国家>/<up|down>/<hourly|15min>/<国家>_<年>.csv（按 CET/CEST 的年份分文件）
-- 列名和匈牙利 data/enappsys/afrr/capacity/<up|down>/15min/HU_<年>.csv 里的 DAILY 两列一致：
+- 列名和匈牙利 原 EnAppSys 匈牙利 aFRR CSV（已删除）里的 DAILY 两列一致：
     Date（CET/CEST 墙钟，时间段起点，格式 "YYYY/M/D H:MM"，和 data/entsoe/imbalance_price.csv 等其他 ENTSOE 小时表一致）、
     WEIGHTED AVERAGE PRICE <UP|DOWN> (DAILY) (EUR/MW/h)、VOLUME <UP|DOWN> (DAILY) (MW)
 - 价格：XML 里币种是 RON 的（罗马尼亚）按 MNB 汇率（data/fx/MNB.csv，HUF/EUR 和 HUF/RON）折成 EUR：
@@ -59,6 +60,11 @@ COUNTRIES = {
     "DE": {"delivery_tz": "Europe/Berlin", "step": 15, "folder": "15min", "areas": {
         "50Hertz": "10YDE-VE-------2", "Amprion": "10YDE-RWENET---I",
         "TenneT GER": "10YDE-EON------1", "TransnetBW": "10YDE-ENBW-----N"}},
+    # HU：MAVIR（10YHU-MAVIR----U），交付日按 Europe/Budapest；2026-10-01 加入 PICASSO 后币种是 EUR，15min；
+    # 请求不带 psrType：HU 每个时间点有 A03 Mixed 和 A04 Generation 两个 TimeSeries，会一起返回，
+    # build_frames 里和德国一样按时间合并（容量相加、价格按容量加权）
+    # 之前的历史是从 EnAppSys 的 HU CSV 拷贝过来的（只取 DAILY 两列），接着往下更新
+    "HU": {"delivery_tz": "Europe/Budapest", "step": 15, "folder": "15min", "areas": {"MAVIR": "10YHU-MAVIR----U"}},
     "BG": {"delivery_tz": "Europe/Sofia", "step": None, "folder": None, "areas": {"ESO": "10YCA-BULGARIA-R"}},
     "GR": {"delivery_tz": "Europe/Athens", "step": None, "folder": None, "areas": {"IPTO": "10YGR-HTSO-----Y"}},
 }

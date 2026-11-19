@@ -246,7 +246,7 @@ const ym = (y, m0) => `${y}-${String(m0 + 1).padStart(2, "0")}`;
 const lastDay = (y, m0) => new Date(Date.UTC(y, m0 + 1, 0)).getUTCDate();
 function renderTimeline() {
   const list = site === "ALL" ? SITES : [site], yrs = shownYears(), todayM = TODAY.slice(0, 7);
-  $("titleT").textContent = `${site === "ALL" ? "All sites" : site} · GO by production month (signed / unsold, with expiry) · deliveries by delivery month`;
+  $("titleT").textContent = `${site === "ALL" ? "All sites" : site} · GO by production month (signed vs meter, remain GO) · deliveries by delivery month`;
   // per production month: production, signed (monthly sales as they are; half-year / full-year contracts spread over their months in proportion to production) and the rest = unsold
   const pm = {};
   list.forEach(s => yrs.forEach(y => {
@@ -256,8 +256,8 @@ function renderTimeline() {
       if (r.m0 === r.m1) a[r.m0 - 1] += v;
       else { let w = 0; for (let i = r.m0 - 1; i < r.m1; i++) w += p[i]; if (w > 0) for (let i = r.m0 - 1; i < r.m1; i++) a[i] += v * p[i] / w; } });
     p.forEach((pv, i) => { if (pv <= 0 || !list.every(x => monthProd(x, y, i) != null)) return;   // a month counts only when every selected site has a complete reading
-      const k = ym(y, i), o = pm[k] || (pm[k] = { p: 0, signed: 0, unsold: 0 }), sg = Math.min(pv, a[i]);
-      o.p += pv; o.signed += sg; o.unsold += pv - sg; });
+      const k = ym(y, i), o = pm[k] || (pm[k] = { p: 0, signed: 0, unsold: 0 });
+      o.p += pv; o.signed += a[i]; o.unsold += Math.max(0, pv - a[i]); });
   }));
   const expOf = k => { const y = +k.slice(0, 4), m0 = +k.slice(5) - 1, e = new Date(Date.UTC(y, m0 + EXPIRY_MONTHS, 1)), ey = e.getUTCFullYear(), em = e.getUTCMonth();
     return `${ey}-${String(em + 1).padStart(2, "0")}-${String(lastDay(ey, em)).padStart(2, "0")}`; };
@@ -275,8 +275,7 @@ function renderTimeline() {
   const keys = [...Object.keys(pm), ...Object.keys(del), todayM].sort();
   if (keys.length < 2) { chartT.clear(); return; }
   const months = []; for (let [y, m] = [+keys[0].slice(0, 4), +keys[0].slice(5) - 1]; ym(y, m) <= keys[keys.length - 1]; m++ >= 11 && (m = 0, y++)) months.push(ym(y, m));
-  const soon = new Date(Date.parse(TODAY + "T00:00:00Z") + 90 * 86400000).toISOString().slice(0, 10);
-  const status = k => { const e = expOf(k); return e < TODAY ? "expired" : e <= soon ? "soon" : "valid"; };
+  const status = k => expOf(k) < TODAY ? "expired" : "valid";
   const sx = months.map(k => pm[k] ? Math.round(pm[k].signed) : null);
   const ux = st => months.map(k => pm[k] && status(k) === st && pm[k].unsold >= 0.5 ? Math.round(pm[k].unsold) : null);
   const dx = kind => months.map(k => del[k] && del[k][kind] > 0.5 ? Math.round(del[k][kind]) : null);
@@ -284,22 +283,23 @@ function renderTimeline() {
   const bar = (name, data, color, stack, gx, extra = {}) => ({ name, type: "bar", stack, data, xAxisIndex: gx, yAxisIndex: gx, itemStyle: { color }, barMaxWidth: 26, ...extra });
   const fmt = v => nf(v, 0), lbl = k => `${MON[+k.slice(5) - 1]} ${k.slice(2, 4)}`;
   chartT.setOption({
-    animation: false, legend: { top: 0, data: ["Signed GO", "Unsold, expired", "Unsold, expires within 90 days", "Unsold, still valid", "Delivered", "Delivery due", "Delivery re-dated (new date)"], textStyle: { fontSize: 11 } },
+    animation: false, legend: { top: 0, data: ["Signed GO", "Remain GO, expired", "Remain GO, valid", "Meter production", "Delivered", "Delivery due", "Delivery re-dated (new date)"], textStyle: { fontSize: 11 } },
     tooltip: { trigger: "axis", axisPointer: { type: "shadow" }, confine: true, formatter: ps => {
       const k = ps[0].axisValue, o = pm[k], d = del[k]; let h = `<b>${lbl(k)}</b>`;
-      if (o) h += `<br>Production: <b>${fmt(o.p)} MWh</b><br>&nbsp;&nbsp;Signed: ${fmt(o.signed)}<br>&nbsp;&nbsp;Unsold: ${fmt(o.unsold)} (expires ${expOf(k)})`;
+      if (o) h += `<br>Meter production: <b>${fmt(o.p)} MWh</b><br>&nbsp;&nbsp;Signed GO: ${fmt(o.signed)}<br>&nbsp;&nbsp;` + (o.signed > o.p ? `<b style="color:#d35400">Oversold: ${fmt(o.signed - o.p)}</b>` : `Remain GO: ${fmt(o.p - o.signed)} (expires ${expOf(k)})`);
       if (d) h += `<br>Deliveries:` + d.items.map(([dt, v, kind, orig]) => `<br>&nbsp;&nbsp;${dt}${orig ? ` (was ${orig})` : ""}: ${fmt(v)} MWh`).join("");
       return h; } },
     grid: [{ left: 84, right: 20, top: 52, height: 240 }, { left: 84, right: 20, top: 440, height: 120 }],
     xAxis: [{ type: "category", data: months, gridIndex: 0, axisTick: { show: false }, axisLabel: { fontSize: 10, rotate: 45 } },
             { type: "category", data: months, gridIndex: 1, axisLabel: { fontSize: 10, rotate: 45 } }],
-    yAxis: [{ type: "value", gridIndex: 0, name: "Production (MWh): signed + unsold", nameLocation: "middle", nameGap: 62, nameTextStyle: { fontSize: 11 } },
+    yAxis: [{ type: "value", gridIndex: 0, name: "GO (MWh)", nameLocation: "middle", nameGap: 62, nameTextStyle: { fontSize: 11 } },
             { type: "value", gridIndex: 1, name: "Deliveries (MWh)", nameLocation: "middle", nameGap: 62, nameTextStyle: { fontSize: 11 } }],
     series: [
       bar("Signed GO", sx, "#2c7fb8", "u", 0, { markLine: today }),
-      bar("Unsold, expired", ux("expired"), "#b0b7bf", "u", 0),
-      bar("Unsold, expires within 90 days", ux("soon"), "#e74c3c", "u", 0),
-      bar("Unsold, still valid", ux("valid"), "#27ae60", "u", 0),
+      bar("Remain GO, expired", ux("expired"), "#b0b7bf", "u", 0),
+      bar("Remain GO, valid", ux("valid"), "#27ae60", "u", 0),
+      { name: "Meter production", type: "line", xAxisIndex: 0, yAxisIndex: 0, data: months.map(k => pm[k] ? Math.round(pm[k].p) : null), showSymbol: true, symbolSize: 6,
+        lineStyle: { width: 2.2, color: "#1a1a1a" }, itemStyle: { color: "#1a1a1a" }, z: 5 },
       bar("Delivered", dx("delivered"), "#5b8db8", "d", 1, { markLine: today }),
       bar("Delivery due", dx("due"), "#34495e", "d", 1),
       bar("Delivery re-dated (new date)", dx("redated"), "#e67e22", "d", 1),

@@ -255,7 +255,7 @@ function renderTimeline() {
     rowsOf(s, y).forEach(r => { const v = traded(r);
       if (r.m0 === r.m1) a[r.m0 - 1] += v;
       else { let w = 0; for (let i = r.m0 - 1; i < r.m1; i++) w += p[i]; if (w > 0) for (let i = r.m0 - 1; i < r.m1; i++) a[i] += v * p[i] / w; } });
-    p.forEach((pv, i) => { if (pv <= 0) return;
+    p.forEach((pv, i) => { if (pv <= 0 || !list.every(x => monthProd(x, y, i) != null)) return;   // a month counts only when every selected site has a complete reading
       const k = ym(y, i), o = pm[k] || (pm[k] = { p: 0, signed: 0, unsold: 0 }), sg = Math.min(pv, a[i]);
       o.p += pv; o.signed += sg; o.unsold += pv - sg; });
   }));
@@ -291,8 +291,7 @@ function renderTimeline() {
       if (d) h += `<br>Deliveries:` + d.items.map(([dt, v, kind, orig]) => `<br>&nbsp;&nbsp;${dt}${orig ? ` (was ${orig})` : ""}: ${fmt(v)} MWh`).join("");
       return h; } },
     grid: [{ left: 84, right: 20, top: 52, height: 240 }, { left: 84, right: 20, top: 440, height: 120 }],
-    xAxis: [{ type: "category", data: months, gridIndex: 0, axisTick: { show: false }, axisLabel: { fontSize: 10, interval: 0, rotate: 55,
-              formatter: k => pm[k] ? `${lbl(k)} → exp. ${lbl(expOf(k).slice(0, 7))}` : "" } },
+    xAxis: [{ type: "category", data: months, gridIndex: 0, axisTick: { show: false }, axisLabel: { fontSize: 10, rotate: 45 } },
             { type: "category", data: months, gridIndex: 1, axisLabel: { fontSize: 10, rotate: 45 } }],
     yAxis: [{ type: "value", gridIndex: 0, name: "Production (MWh): signed + unsold", nameLocation: "middle", nameGap: 62, nameTextStyle: { fontSize: 11 } },
             { type: "value", gridIndex: 1, name: "Deliveries (MWh)", nameLocation: "middle", nameGap: 62, nameTextStyle: { fontSize: 11 } }],

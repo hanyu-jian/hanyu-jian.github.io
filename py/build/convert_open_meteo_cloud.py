@@ -18,6 +18,7 @@ IFS 9km 的网格下 Sajokaza / Szuhakálló 附近的几个坐标落在同一�
 用法：python3 py/build/convert_open_meteo_cloud.py <day1|hist> <open-meteo.csv> [输出文件]
 """
 import csv
+import re
 import sys
 from collections import defaultdict
 from datetime import datetime, timezone
@@ -35,12 +36,13 @@ def fmt(v):
     return "" if v is None else (str(int(v)) if v == int(v) else str(round(v, 1)))
 
 
+LAYER_RE = re.compile(r"^(cloud_cover(?:_low|_mid|_high)?)(?:_previous_day\d+)?(?:_[a-z0-9_]+)?$")
+
+
 def layer_of(header):
-    """'cloud_cover_low_previous_day1 (%)' -> 'cloud_cover_low'; 其它变量返回 None。"""
-    name = header.split("(")[0].strip()
-    if name.endswith("_previous_day1"):
-        name = name[: -len("_previous_day1")]
-    return name if name in LAYERS else None
+    """'cloud_cover_low_previous_day1 (%)' -> 'cloud_cover_low'；带模型后缀的列名（'cloud_cover_ecmwf_ifs025 (%)'）也认；其它变量返回 None。"""
+    m = LAYER_RE.match(header.split("(")[0].strip())
+    return m.group(1) if m else None
 
 
 def read_open_meteo(path):
@@ -53,6 +55,8 @@ def read_open_meteo(path):
     cols = {i: layer_of(h) for i, h in enumerate(rows[start]) if i > 1 and layer_of(h)}
     if "cloud_cover" not in cols.values():
         raise SystemExit("no total cloud cover column found")
+    if len(set(cols.values())) != len(cols):
+        raise SystemExit("the same cloud layer appears more than once (several models in one export?): export one model only, e.g. ECMWF IFS 0.25 deg")
     acc = defaultdict(lambda: defaultdict(list))
     for r in rows[start + 1:]:
         if len(r) < 3 or not r[1].strip() or r[0].strip() not in AREAS:

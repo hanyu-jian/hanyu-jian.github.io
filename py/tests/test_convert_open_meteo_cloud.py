@@ -37,6 +37,24 @@ def test_previous_day1_suffix_is_stripped(tmp_path):
     assert got == {"2026-01-01 00:00": {"cloud_cover_west": 30.0, "cloud_cover_east": 44.0}}
 
 
+def test_model_suffix_in_the_column_names_is_accepted(tmp_path):
+    head = "location_id,time,cloud_cover_previous_day1_ecmwf_ifs025 (%)\n"
+    got = conv.read_open_meteo(write(tmp_path, head, ["0,2026-01-01T00:00,30\n", "1,2026-01-01T00:00,44\n"]))
+    assert got == {"2026-01-01 01:00": {"cloud_cover_west": 30.0, "cloud_cover_east": 44.0}}
+    head = "location_id,time,cloud_cover_ecmwf_ifs025 (%),cloud_cover_low_ecmwf_ifs025 (%),cloud_cover_mid_ecmwf_ifs025 (%),cloud_cover_high_ecmwf_ifs025 (%)\n"
+    got = conv.read_open_meteo(write(tmp_path, head, ["0,2026-01-01T00:00,55,1,2,3\n"]))["2026-01-01 01:00"]
+    assert (got["cloud_cover_west"], got["cloud_cover_low_west"], got["cloud_cover_mid_west"], got["cloud_cover_high_west"]) == (55, 1, 2, 3)
+
+
+def test_two_models_in_one_export_is_refused(tmp_path):
+    head = "location_id,time,cloud_cover_previous_day1_best_match (%),cloud_cover_previous_day1_ecmwf_ifs025 (%)\n"
+    try:
+        conv.read_open_meteo(write(tmp_path, head, ["0,2026-01-01T00:00,30,40\n"]))
+        assert False, "should have been refused"
+    except SystemExit as e:
+        assert "one model" in str(e)
+
+
 def test_extra_locations_are_ignored(tmp_path):
     got = conv.read_open_meteo(write(tmp_path, DAY1, ["0,2026-01-01T00:00,30\n", "2,2026-01-01T00:00,99\n", "3,2026-01-01T00:00,98\n"]))
     assert got == {"2026-01-01 01:00": {"cloud_cover_west": 30.0}}

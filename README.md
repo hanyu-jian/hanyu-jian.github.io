@@ -379,12 +379,13 @@ token 只在服务端，不会发给浏览器；数据不会进入本仓库，�
 - 网址参数：`dd`（手动选的那一天；不在当前年份时会加载那一年）。
 
 *云量策略*（Strategy 卡片分成 Cloud / Bid / Curtailment 三块）
-- **Bid**（平时 / 晴天的策略）：`DA bid, % of DA forecast`（D = DA bid % × H）、`IDC: position %`（**留空 = 没调整**）、`Rest (not bid in DA)`、`IDC lead time`。
-  - 只调整 DA %（IDC: position % 留空）：没报进 DA 的部分由 **Rest** 决定，Close out in IDC = 平到 UST 预测 F，Leave in imbalance = 留在不平衡里。
-  - DA % 和 IDC: position % 都调整：最终仓位 = IDC position % × F，没报的部分**自动全部留在不平衡里**（100% = 全部平到 F，0% = 一点不平），这时 Rest 不起作用，置灰。
+- **Bid**（平时 / 晴天的策略）：`DA bid, % of DA forecast`（D = DA bid % × H）、`IDC bid, % of IDC volume`（**留空 = 没调整**）、`Rest (not bid in DA)`、`IDC lead time`。
+  - **IDC volume（进入 IDC 市场的量）= UST 预测 F − DA 报量 D**，也就是 DA 之后按最新预报还需要在 IDC 里交易的量（正 = 要买进，负 = 要卖出，对应 IDC 买回 / 卖出）。**IDC bid % 是这个量里实际在 IDC 成交的比例**：最终仓位 = D + IDC bid % × (F − D)。100% = 全部成交（最终仓位 = F），20% = 只成交五分之一，0% = 一点不成交；没成交的部分留在不平衡里。和 DA bid % 是同一种意思：DA 是 “H 的 20%”，IDC 是 “IDC 量的 20%”。
+  - 只调整 DA %（IDC bid % 留空）：没报进 DA 的部分由 **Rest** 决定，Close out in IDC = 平到 UST 预测 F（等于 IDC bid 100%），Leave in imbalance = 留在不平衡里（等于 IDC bid 0%）。
+  - DA % 和 IDC bid % 都调整：按上面的公式，**没成交的部分自动全部留在不平衡里**，这时 Rest 不起作用，置灰。
 - **Cloud**：标题旁边一个 On / Off 开关（默认 Off）。
   - **Off**：Bid 里的值对所有时段生效（云量框置灰）。
-  - **On**：云量时段按 Cloud 里的值调整，其它（非多云）时段仍然按 Bid 调整：云量**不超过**阈值的时段（晴天）用 Bid 里的值；云多的时段改用云天的值：`DA: bid % when cloudy`（所在小时的**提前一天预报总云量**严格大于 `DA: cloud cover > (%)` 时，替换 DA bid %）、`IDC: position % when cloudy`（所选云量严格大于 `IDC: cloud cover > (%)` 时，替换 IDC position %，没报的部分留在不平衡里）。云天的值留空 = 云多时也和 Bid 一样；阈值留空 = 那一边没有云多的时段。
+  - **On**：云量时段按 Cloud 里的值调整，其它（非多云）时段仍然按 Bid 调整：云量**不超过**阈值的时段（晴天）用 Bid 里的值；云多的时段改用云天的值：`DA: bid % when cloudy`（所在小时的**提前一天预报总云量**严格大于 `DA: cloud cover > (%)` 时，替换 DA bid %）、`IDC: bid % when cloudy`（所选云量严格大于 `IDC: cloud cover > (%)` 时，替换 IDC bid %，同样是 IDC 量的成交比例，没成交的部分留在不平衡里）。云天的值留空 = 云多时也和 Bid 一样；阈值留空 = 那一边没有云多的时段。
   - `IDC: cloud forecast`：Latest forecast = Historical Forecast（默认），Day-ahead forecast = 提前一天预报；`IDC: cloud layer`：Total / Low / Mid / High（提前一天预报只有 Total）。
   - DA 和 IDC 两边各自独立判断云多（DA 用提前一天预报总云量，IDC 用所选来源和云层）。
 - **Curtailment**：`Curtail when DA price ≤ (EUR/MWh)`（见上）。
@@ -397,7 +398,7 @@ token 只在服务端，不会发给浏览器；数据不会进入本仓库，�
   - 转换脚本：`python3 py/build/convert_open_meteo_cloud.py <模型 id> <day1|hist> <Open-Meteo 多位置导出 CSV> [--label "显示名"]`（模型 id 如 `ifs9km`、`ifs025`、`aifs025`、`gfs`、`icon_eu`、`arpege_europe`……，见脚本里的 KNOWN_MODELS；`location_id` 0 = west、1 = east，其余位置忽略；UTC → Budapest 本地时间；夏令时重复的那个小时取平均；层按列名匹配，列名带模型后缀也认；一份导出里有多个模型会报错；再次运行会把新数据合并进去，同一小时以新的为准；同时更新 `models.json`）。某小时没有云量就按没有云处理。
   - 想要更精确（每个决策时刻只用已经发布的最新一次运行）可以以后用 Single Runs API 做，目前没做。
 - Worker 的 `GET /ops/api/cloud?src=day1|hist` 把对应文件原样转发（不解析，几乎不占 CPU）；页面只在对应的阈值框有值时才读，每个文件读一次。
-- 网址参数：`cloud`（1 = 开关打开）、`cm`（Cloud model 的 id）、`dacc`、`dabc`（DA 云天比例）、`isrc`（hist / day1）、`il`（total / low / mid / high）、`icc`、`ibc`（IDC 云天比例）、`ibid`（Bid 里的 IDC position %），其余同上。
+- 网址参数：`cloud`（1 = 开关打开）、`cm`（Cloud model 的 id）、`dacc`、`dabc`（DA 云天比例）、`isrc`（hist / day1）、`il`（total / low / mid / high）、`icc`、`ibc`（IDC 云天比例）、`ibid`（Bid 里的 IDC bid %），其余同上。
 
 *数据与接口*
 - `GET /ops/api/imbalance?site=&start=&end=&lead=`（≤ 62 天）：返回该站点该时段逐 15 分钟的结算输入（列式 JSON：`t, H, AH, F, P, AA, PI`），结算本身在浏览器里算。H 和 AH 来自 vcom（`GITHUB_TOKEN`），UST 来自 R2（`ust/`、`ust-replay/`、`ust-hindcast/` 三个视图），价格见下。

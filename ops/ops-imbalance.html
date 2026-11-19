@@ -149,10 +149,10 @@ tr.out td { color: #aaa; }
           <div class="control-group" id="gIds"><label>IDC: cloud forecast</label><select id="ids"><option value="hist">Latest forecast</option><option value="day1">Day-ahead forecast</option></select></div>
           <div class="control-group" id="gIdl"><label>IDC: cloud layer</label><select id="idl"></select></div>
           <div class="control-group" id="gIdcc"><label>IDC: cloud cover &gt; (%)</label><input type="text" inputmode="decimal" id="idcc" placeholder="off" autocomplete="off"></div>
-          <div class="control-group" id="gIdBc"><label>IDC: position % when cloudy</label><input type="text" inputmode="decimal" id="ibc" placeholder="as Bid" autocomplete="off"></div>
+          <div class="control-group" id="gIdBc"><label>IDC: bid % when cloudy</label><input type="text" inputmode="decimal" id="ibc" placeholder="as Bid" autocomplete="off" title="Share of the IDC volume (IDC forecast − DA bid) that is traded in the IDC when it is cloudy; the rest stays in imbalance"></div>
           <div class="sec">Bid</div>
           <div class="control-group"><label>DA bid, % of DA forecast</label><input type="text" inputmode="decimal" id="pct" value="100" autocomplete="off"></div>
-          <div class="control-group"><label>IDC: position %</label><input type="text" inputmode="decimal" id="idbid" placeholder="off" autocomplete="off"></div>
+          <div class="control-group"><label>IDC bid, % of IDC volume</label><input type="text" inputmode="decimal" id="idbid" placeholder="off" autocomplete="off" title="IDC volume = IDC forecast − DA bid, what the IDC would trade to close out completely. 100% = trade all of it, 20% = trade a fifth of it; the rest stays in imbalance. Empty = not adjusted (Rest decides)"></div>
           <div class="control-group span2" id="gMode"><label>Rest (not bid in DA)</label>
             <select id="mode"><option value="idc">Close out in IDC (rolling forecast)</option><option value="imb">Leave in imbalance</option></select></div>
           <div class="control-group span2"><label>IDC lead time</label><select id="lead"></select></div>
@@ -222,7 +222,8 @@ let freq = "15min";
 // no imbalance cost and no payment to the PV plant for that interval.
 // Fills out = [D, position, idc, daRevenue, idcRevenue, imbalanceRevenue, result, daOnlyRef, paymentToPlant, daOnlyProfit, curtailed(0/1)].
 // paymentToPlant = AH * P / 1000 (energy generated x day-ahead price); profit of the trading company = result - paymentToPlant.
-// kfDA / kfIDC = bid factors of a cloudy interval (1 = normal): kfDA scales the DA bid, kfIDC scales the final (IDC) position.
+// kfDA scales the DA bid (D = p x H x kfDA). kfIDC = the share of the IDC volume that is traded in the IDC, the IDC volume being F - D (what the latest forecast F says should still be traded after the DA bid):
+// final position = D + kfIDC x (F - D). 1 = close out completely (position = F), 0 = trade nothing in the IDC (the whole volume stays in imbalance).
 function settleSlot(H, AH, F, P, AA, PI, p, mode, out, thr, kfDA = 1, kfIDC = 1) {
   const priceKnown = P != null;
   P = P == null ? 0 : P; AA = AA == null ? 0 : AA; PI = PI == null ? 0 : PI;
@@ -230,7 +231,7 @@ function settleSlot(H, AH, F, P, AA, PI, p, mode, out, thr, kfDA = 1, kfIDC = 1)
   out[7] = ref; out[9] = ref - AH * P / 1000;
   if (thr != null && priceKnown && P <= thr) { out[0] = out[1] = out[2] = out[3] = out[4] = out[5] = out[6] = out[8] = 0; out[10] = 1; return out; }
   const D = p * H * kfDA;
-  const pos = mode === "idc" && F != null ? F * kfIDC : D;  // no UST forecast -> nothing is traded after the DA
+  const pos = mode === "idc" && F != null ? D + kfIDC * (F - D) : D;  // no UST forecast -> nothing is traded after the DA
   const idc = pos - D;
   const q = P * D / 1000, ae = AA * idc / 1000, imb = -(pos - AH) * PI / 1000;
   out[0] = D; out[1] = pos; out[2] = idc; out[3] = q; out[4] = ae; out[5] = imb; out[6] = q + ae + imb;
@@ -262,15 +263,15 @@ const numVal = id => { const v = $(id).value; return v === "" || !isFinite(+v) ?
 const bidVal = (id, dflt = 1) => { const v = parseFloat($(id).value); return isFinite(v) ? Math.min(Math.max(v, 0), 150) / 100 : dflt; };
 const cloudOn = () => $("cloudOn").checked;
 const pctOrNull = id => numVal(id) == null ? null : Math.min(Math.max(numVal(id), 0), 150) / 100;
-const idPosVal = () => numVal("idbid") == null ? null : Math.min(Math.max(numVal("idbid"), 0), 150) / 100;          // null = the IDC position is not adjusted: the Rest setting decides
+const idPosVal = () => numVal("idbid") == null ? null : Math.min(Math.max(numVal("idbid"), 0), 150) / 100;          // null = the IDC bid is not adjusted: the Rest setting decides
 const daCcVal = () => cloudOn() ? numVal("dacc") : null, idCcVal = () => cloudOn() ? numVal("idcc") : null;   // null = this cloud rule is not used
-function syncEnabled() {                                      // grey out what has no effect: the cloud inputs while the switch is off, Rest while a normal IDC position is set
+function syncEnabled() {                                      // grey out what has no effect: the cloud inputs while the switch is off, Rest while a normal IDC bid % is set
   const on = cloudOn(), pos = idPosVal() != null;
   $("cloudTl").textContent = on ? "On" : "Off";
   [["gModel", on], ["gDaCc", on], ["gDaBc", on], ["gIds", on], ["gIdl", on], ["gIdcc", on], ["gIdBc", on], ["gMode", !pos]].forEach(([g, act]) => { $(g).classList.toggle("off", !act); $(g).querySelectorAll("input,select").forEach(e => { e.disabled = !act; }); });
 }
 // Hourly cloud forecasts (%) per weather model, Budapest local time (data/weather/cloud_<model>_<source>.csv, listed in data/weather/models.json). Two sources (see the README):
-//   day1 = forecast issued about 24 h before (used for the DA bid, total cloud cover only), hist = Historical Forecast (used for the IDC position, total / low / mid / high).
+//   day1 = forecast issued about 24 h before (used for the DA bid, total cloud cover only), hist = Historical Forecast (used for the IDC bid, total / low / mid / high).
 // Two areas: west = Putnok + Serenyfalva, east = Sajokaza + Szuhakálló 1 + 2.
 const CLOUD_AREA = { "Putnok": "west", "Serenyfalva": "west", "Sajokaza": "east", "Szuhakálló 1": "east", "Szuhakálló 2": "east" };
 const LAYER_LABEL = { cloud_cover: "Total", cloud_cover_low: "Low", cloud_cover_mid: "Mid", cloud_cover_high: "High" };
@@ -476,8 +477,8 @@ function settleAt(o, i, site, c, tmp) {
   const dv = c.dacc == null || !cloud[c.k1] ? undefined : (cloud[c.k1].get(hk) || {})["cloud_cover_" + area], dCloudy = dv != null && dv > c.dacc;
   const iv = c.idcc == null || !cloud[c.ki] ? undefined : (cloud[c.ki].get(hk) || {})[c.ilayer + "_" + area], iCloudy = iv != null && iv > c.idcc;
   // Bid = the normal (clear-sky) strategy, used for every interval while the cloud switch is off and for the not cloudy ones when it is on.
-  // Cloudy intervals (cloud cover above the DA / IDC threshold) use "DA: bid % when cloudy" / "IDC: position % when cloudy"; an empty value = as in Bid.
-  // An IDC position % (normal or cloudy) fixes the final position at that share of the IDC forecast: the rest of the volume stays in imbalance whatever Rest says.
+  // Cloudy intervals (cloud cover above the DA / IDC threshold) use "DA: bid % when cloudy" / "IDC: bid % when cloudy"; an empty value = as in Bid.
+  // An IDC bid % (normal or cloudy) is the share of the IDC volume (F − D) that is traded in the IDC: final position = D + share × (F − D); the rest of the volume stays in imbalance whatever Rest says.
   const pe = dCloudy && c.dabc != null ? c.dabc : c.p, qe = iCloudy && c.ibc != null ? c.ibc : c.q;
   settleSlot(o.H[i], o.AH[i], o.F[i], o.P[i], o.AA[i], o.PI[i], pe, qe != null ? "idc" : c.mode, tmp, c.thr, 1, qe != null ? qe : 1);
   tmp[11] = dCloudy; tmp[12] = iCloudy;
@@ -505,10 +506,10 @@ function strategyText(p, mode, lead) {
   const on = cloudOn(), P = pc0(p), q = idPosVal(), dacc = daCcVal(), idcc = idCcVal(), dabc = pctOrNull("dabc"), ibc = pctOrNull("ibc");
   const src = $("ids").value === "hist" ? "latest" : "day-ahead";
   const rest = mode === "idc" ? `rest closed out in IDC (lead ${lead} min)` : "rest left in imbalance";
-  const idcN = q == null ? rest : `IDC position ${pc0(q)}% of the IDC forecast (lead ${lead} min), the rest stays in imbalance`;
+  const idcN = q == null ? rest : `IDC bid ${pc0(q)}% of the IDC volume (lead ${lead} min), the rest stays in imbalance`;
   const parts = [`${P}% DA bid`, idcN];
   if (on && dacc != null && dabc != null) parts.push(`DA bid ${pc0(dabc)}% when day-ahead total cloud cover > ${dacc}% (${modelLabel()})`);
-  if (on && idcc != null && ibc != null) parts.push(`IDC position ${pc0(ibc)}% when ${src} ${layerName("idl")} cloud cover > ${idcc}% (${modelLabel()}; the rest stays in imbalance)`);
+  if (on && idcc != null && ibc != null) parts.push(`IDC bid ${pc0(ibc)}% of the IDC volume when ${src} ${layerName("idl")} cloud cover > ${idcc}% (${modelLabel()}; the rest stays in imbalance)`);
   return parts.join(", ");
 }
 const pc0 = v => nf(Math.round(v * 100));

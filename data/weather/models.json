@@ -9,6 +9,16 @@
     ],
     "from": "2024-12-31",
     "to": "2026-11-19"
+   },
+   "hist": {
+    "layers": [
+     "cloud_cover",
+     "cloud_cover_low",
+     "cloud_cover_mid",
+     "cloud_cover_high"
+    ],
+    "from": "2024-12-31",
+    "to": "2026-11-18"
    }
   },
   {
@@ -20,6 +30,16 @@
     ],
     "from": "2024-12-31",
     "to": "2026-11-19"
+   },
+   "hist": {
+    "layers": [
+     "cloud_cover",
+     "cloud_cover_low",
+     "cloud_cover_mid",
+     "cloud_cover_high"
+    ],
+    "from": "2024-12-31",
+    "to": "2026-11-18"
    }
   },
   {
@@ -31,6 +51,16 @@
     ],
     "from": "2024-12-31",
     "to": "2026-11-19"
+   },
+   "hist": {
+    "layers": [
+     "cloud_cover",
+     "cloud_cover_low",
+     "cloud_cover_mid",
+     "cloud_cover_high"
+    ],
+    "from": "2024-12-31",
+    "to": "2026-11-18"
    }
   }
  ]

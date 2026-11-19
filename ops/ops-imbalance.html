@@ -298,17 +298,24 @@ function fillModels(pick) {                                   // the Cloud model
   const want = [pick, $("cmodel").dataset.cur, "ifs025"].find(v => v && MODELS.some(m => m.id === v));
   $("cmodel").value = want || (MODELS[0] && MODELS[0].id) || "";
 }
+let urlPick = {};
 async function loadModels(pick) {                             // data/weather/models.json (through the Worker); the built-in single model is used if it cannot be read
   try {
     const r = await fetch("/ops/api/cloud?index=1", { credentials: "same-origin" });
     if (!r.ok) throw new Error(r.status);
     const j = await r.json(); if (j.models && j.models.length) MODELS = j.models;
   } catch (e) { /* keep the built-in list */ }
-  fillModels(pick); fillIdcLayers(); paint();
+  fillModels(pick);
+  if (urlPick.isrc) $("ids").dataset.want = urlPick.isrc;
+  fillIdcLayers();
+  if (urlPick.il && [...$("idl").options].some(o => o.value === urlPick.il)) $("idl").value = urlPick.il;
+  urlPick = {}; paint();
 }
 function fillIdcLayers() {                                    // the layers of the chosen model and IDC forecast source
   [...$("ids").options].forEach(o => { o.disabled = !modelLayers(o.value).length; });                          // a model may have only one of the two sources
-  if (!modelLayers($("ids").value).length) { const alt = [...$("ids").options].find(o => !o.disabled); if (alt) $("ids").value = alt.value; }
+  const want = $("ids").dataset.want || "hist";                                // the source the user asked for (default: latest forecast); a model without it falls back to the other one
+  const wantOpt = [...$("ids").options].find(o => o.value === want && !o.disabled), alt = [...$("ids").options].find(o => !o.disabled);
+  if (wantOpt) $("ids").value = want; else if (alt) $("ids").value = alt.value;
   const cur = $("idl").value, opts = modelLayers($("ids").value);
   $("idl").innerHTML = opts.map(([v, t]) => `<option value="${v}">${t}</option>`).join("");
   if (opts.some(([v]) => v === cur)) $("idl").value = cur;
@@ -356,7 +363,7 @@ function init() {
   };
   $("mode").onchange = paint;
   $("thr").oninput = paint; $("dacc").oninput = paint; $("dabc").oninput = paint; $("idcc").oninput = paint; $("ibc").oninput = paint; $("idbid").oninput = paint; $("idl").onchange = paint; $("cloudOn").onchange = paint;
-  $("ids").onchange = () => { fillIdcLayers(); paint(); };
+  $("ids").onchange = () => { $("ids").dataset.want = $("ids").value; fillIdcLayers(); paint(); };
   $("cmodel").onchange = () => { $("cmodel").dataset.cur = $("cmodel").value; fillIdcLayers(); paint(); };
   fillModels(null); fillIdcLayers();
   // Summary table: total of a range of months (1–12)
@@ -381,9 +388,9 @@ function init() {
   if (qget("cloud", v => v === "1")) $("cloudOn").checked = true;
   const qdbc = qget("dabc", v => v.trim() !== "" && isFinite(+v)); if (qdbc) $("dabc").value = qdbc;
   const qibc = qget("ibc", v => v.trim() !== "" && isFinite(+v)); if (qibc) $("ibc").value = qibc;
-  const qis = qget("isrc", v => v === "hist" || v === "day1"); if (qis) { $("ids").value = qis; fillIdcLayers(); }
-  const qil = qget("il", v => ["total", "low", "mid", "high"].includes(v) && modelLayers($("ids").value).some(([k]) => k === (v === "total" ? "cloud_cover" : "cloud_cover_" + v)));
-  if (qil) $("idl").value = qil === "total" ? "cloud_cover" : "cloud_cover_" + qil;
+  // the source / layer from the URL are applied when models.json has been read (what a model has is only known then)
+  const qis = qget("isrc", v => v === "hist" || v === "day1"); if (qis) urlPick.isrc = qis;
+  const qil = qget("il", v => ["total", "low", "mid", "high"].includes(v)); if (qil) urlPick.il = qil === "total" ? "cloud_cover" : "cloud_cover_" + qil;
   const qic = qget("icc", v => v.trim() !== "" && isFinite(+v)); if (qic) $("idcc").value = qic;
   const qib = qget("ibid", v => v.trim() !== "" && isFinite(+v)); if (qib) $("idbid").value = qib;
   const qdd = qget("dd", isDate); if (qdd) { ddDay = qdd; ddPickedByUser = true; }

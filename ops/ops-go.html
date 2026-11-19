@@ -66,6 +66,11 @@ td.blue input { width: 120px; text-align: right; border: 1px solid #9ec3ea; back
     </div>
 
     <div class="chart-card">
+      <div class="chart-card-header"><h3 id="titleS">GO summary</h3></div>
+      <div class="scroll"><table id="sumTable"></table></div>
+    </div>
+
+    <div class="chart-card">
       <div class="chart-card-header"><h3 id="titleA">GO sales</h3></div>
       <div class="scroll"><table id="ledTable"></table></div>
     </div>
@@ -157,6 +162,8 @@ function monthProd(s, y, i) {
   return m[i];
 }
 const yearProd = (s, y) => { let a = 0, any = false; for (let i = 0; i < 12; i++) { const v = monthProd(s, y, i); if (v != null) { a += v; any = true; } } return any ? a : null; };
+// signed volume of a row: the actually traded volume when the workbook note gives one (2nd March 2025 tranche), otherwise the contract volume
+const traded = r => { const m = /实际交易量\s*([\d,.]+)\s*MWh/.exec(r.note || ""); return m ? parseFloat(m[1].replace(/,/g, "")) : r.vol; };
 const rowsOf = (s, y) => sales.filter(r => (s === "ALL" || r.site === s) && r.y === y);
 const cls = v => v == null ? "" : Math.round(v) > 0 ? "pos" : Math.round(v) < 0 ? "neg" : "zero";
 const sgn = v => { if (v == null) return "–"; const r = Math.round(v); return r === 0 ? "0" : (r > 0 ? "+" : "") + nf(r); };
@@ -180,15 +187,32 @@ function renderLedger() {
     + `<tr class="total"><td class="l">Total</td><td></td><td></td><td>${nf(vol, 2)}</td><td>${nf(vol ? amt / vol : null, 4)}</td><td>${nf(amt, 2)}</td><td colspan="3"></td></tr>`;
 }
 
+// one line per site: production, signed GO and what is left; All years = 2024 up to the current year
+function renderSummary() {
+  const yrs = year === "ALL" ? YEARS.filter(y => y <= THIS_YEAR) : [+year];
+  $("titleS").textContent = `GO summary · ${year === "ALL" ? `${yrs[0]}–${yrs[yrs.length - 1]}` : year}`;
+  let tp = 0, ts = 0, anyP = false;
+  const body = SITES.map(s => {
+    let p = 0, any = false;
+    yrs.forEach(y => { const v = y <= THIS_YEAR ? yearProd(s, y) : null; if (v != null) { p += v; any = true; } });
+    const sold = yrs.reduce((a, y) => a + rowsOf(s, y).reduce((b, r) => b + traded(r), 0), 0), rem = any ? p - sold : null;
+    ts += sold; if (any) { tp += p; anyP = true; }
+    return `<tr><td class="l">${s}</td><td>${any ? nf(p, 2) : "–"}</td><td>${nf(sold, 0)}</td><td class="${cls(rem)}">${sgn(rem)}</td></tr>`;
+  }).join("");
+  const tr = anyP ? tp - ts : null;
+  $("sumTable").innerHTML = `<tr><th>Site</th><th class="r">Production (MWh)</th><th class="r">Signed GO (MWh)</th><th class="r">Remaining unsold GO (MWh)</th></tr>` + body
+    + `<tr class="total"><td class="l">Total</td><td>${anyP ? nf(tp, 2) : "–"}</td><td>${nf(ts, 0)}</td><td class="${cls(tr)}">${sgn(tr)}</td></tr>`;
+}
+
 // month rows 1–12: the sold volume sits on the month for monthly sales, and is merged over Jan–Jun / Jul–Dec for half-year contracts
 function renderMonths() {
   $("titleB").textContent = `${site === "ALL" ? "All sites" : site} · monthly balance`;
   const per = shownYears().map(y => {
-    const rs = rowsOf(site, y), seg = {}, fy = rs.filter(r => r.m0 === 1 && r.m1 === 12).reduce((a, r) => a + r.vol, 0);
-    rs.filter(r => !(r.m0 === 1 && r.m1 === 12)).forEach(r => { const k = r.m0 + "-" + r.m1; (seg[k] = seg[k] || { m0: r.m0, m1: r.m1, sold: 0 }).sold += r.vol; });
+    const rs = rowsOf(site, y), seg = {}, fy = rs.filter(r => r.m0 === 1 && r.m1 === 12).reduce((a, r) => a + traded(r), 0);
+    rs.filter(r => !(r.m0 === 1 && r.m1 === 12)).forEach(r => { const k = r.m0 + "-" + r.m1; (seg[k] = seg[k] || { m0: r.m0, m1: r.m1, sold: 0 }).sold += traded(r); });
     const at = {}; Object.values(seg).forEach(g => { at[g.m0] = g; });
     const covered = new Set(); Object.values(seg).forEach(g => { for (let m = g.m0 + 1; m <= g.m1; m++) covered.add(m); });
-    return { y, at, covered, fy, sold: rs.reduce((a, r) => a + r.vol, 0) };
+    return { y, at, covered, fy, sold: rs.reduce((a, r) => a + traded(r), 0) };
   });
   const head = `<tr><th rowspan="2">Month</th>${per.map(P => `<th class="grp" colspan="3">${P.y}</th>`).join("")}</tr>
     <tr>${per.map(() => `<th class="r sep">Production</th><th class="r">Sold</th><th class="r">Remaining</th>`).join("")}</tr>`;
@@ -216,7 +240,7 @@ function renderAll() {
   syncUrl({ site: site === "ALL" ? "" : site, year: year === "ALL" ? "" : year });
   $("year").value = year;
   [...$("sites").children].forEach(b => b.classList.toggle("active", b.dataset.v === site));
-  renderLedger(); renderMonths();
+  renderSummary(); renderLedger(); renderMonths();
 }
 async function init() {
   try { await loadAll(); } catch (e) { $("status").textContent = "Failed to load: " + e.message; return; }

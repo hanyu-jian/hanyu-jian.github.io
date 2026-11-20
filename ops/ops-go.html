@@ -297,8 +297,8 @@ function renderTimeline() {
   const todayTop = Y === THIS_YEAR ? xOf(TODAY) + 12 : null;
   const maxTop = Math.max(1000, ...cl.map(c => Math.max(c.P, c.S, c.rem + c.over)));
   const AX = { type: "value", min: 0, max: 13.5, interval: 1, splitLine: { show: false }, axisTick: { alignWithLabel: false },
-    axisLabel: { fontSize: 10, align: "left", formatter: v => v >= 0 && v < 12 && Number.isInteger(v) ? MON[v] : "" } };
-  const ax = (i, show) => ({ ...AX, gridIndex: i, axisLabel: { ...AX.axisLabel, show } });
+    axisLabel: { fontSize: 10, align: "left" } };
+  const ax = (i, show, yr) => ({ ...AX, gridIndex: i, axisLabel: { ...AX.axisLabel, show, formatter: v => v >= 0 && v < 12 && Number.isInteger(v) ? `${MON[v]} ${yr}` : "" } });
   const legendDummy = (name, color) => ({ name, type: "bar", xAxisIndex: 0, yAxisIndex: 0, data: [], itemStyle: { color } });
   const line = x => ({ symbol: "none", silent: true, label: { formatter: "Today", position: "insideEndTop", color: "#c0392b" }, lineStyle: { color: "#c0392b", type: "dashed" }, data: [{ xAxis: x }] });
   chartT.setOption({
@@ -314,7 +314,7 @@ function renderTimeline() {
       return `<b>${c.name}</b>${c.note ? `<br><i>${c.note}</i>` : ""}<br>Meter production: <b>${fmt(c.P)} MWh</b><br>Signed GO: <b>${fmt(c.S)} MWh</b><br>` +
         (c.over > 0.5 ? `<b style="color:#d35400">Oversold: ${fmt(c.over)}</b>` : `Remain GO: <b>${fmt(c.rem)}</b> (expired ${fmt(c.remExp)}, valid ${fmt(c.rem - c.remExp)})`); } },
     grid: [{ left: 84, right: 20, top: 56, height: 200 }, { left: 84, right: 20, top: g1Top, height: g1H }, { left: 84, right: 20, top: g2Top, height: 100 }],
-    xAxis: [ax(0, true), ax(1, false), ax(2, true)],
+    xAxis: [ax(0, true, Y), ax(1, false, Y1), ax(2, true, Y1)],
     yAxis: [{ type: "value", gridIndex: 0, max: Math.ceil(maxTop * 1.05 / 1000) * 1000, name: "GO (MWh)", nameLocation: "middle", nameGap: 62, nameTextStyle: { fontSize: 11 } },
             { type: "value", gridIndex: 1, min: 0, max: nRows, show: false },
             { type: "value", gridIndex: 2, min: 0, max: delMax, name: "MWh", nameLocation: "middle", nameGap: 62, nameTextStyle: { fontSize: 11 } }],

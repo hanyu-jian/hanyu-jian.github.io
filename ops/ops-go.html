@@ -356,8 +356,8 @@ function renderTimeline() {
   });
   [...new Set(dl.map(d => d.x))].forEach(x => { const tot = sameX(x), top = g2Top + 100 - tot / delMax * 100;       // one total per delivery date, above the stacked bar
     els.push({ type: "text", silent: true, z: 10, style: { text: nf(tot, 0), x: px(x), y: top - 3, textAlign: "center", textVerticalAlign: "bottom", fill: "#444", fontSize: 10 } }); });
-  // the year once per axis, left of the first month label
-  [[56 + 200, Y], [g2Top + 100, Y1]].forEach(([yb, yr]) => els.push({ type: "text", silent: true, z: 10, style: { text: String(yr), x: 78, y: yb + 6, textAlign: "right", fill: "#2c3e50", fontSize: 13, fontWeight: 700 } }));
+  // the year once per axis, centred under the chart
+  [[56 + 200 + 34, Y], [g2Top + 100 + 30, Y1]].forEach(([yy, yr]) => els.push({ type: "text", silent: true, z: 20, style: { text: String(yr), x: 84 + (W - 104) / 2, y: yy, textAlign: "center", textVerticalAlign: "middle", fill: "#2c3e50", fontSize: 14, fontWeight: 700, backgroundColor: "#fff", padding: [1, 6] } }));
   chartT.setOption({ graphic: { elements: els } });
 }
 

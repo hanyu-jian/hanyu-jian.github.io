@@ -279,8 +279,8 @@ function renderTimeline() {
   const xs = n => ({ type: "category", gridIndex: n, data: cols.map((_, i) => i), axisTick: { alignWithLabel: true }, axisLabel: { fontSize: 11, interval: 0, rich,
     formatter: (v, i) => { const c = cols[i]; return n === 0 ? `{b|${c.label}}` : `{b|${c.label}}\n{e|expires ${c.exp}}` + c.cs.map(k => `\n{d|${multi(c) && k.buyer ? k.buyer + " " : ""}delivery ${k.del}}`).join(""); } } });
   const meterSeries = { name: "Meter production", type: "bar", xAxisIndex: 0, yAxisIndex: 0, barMaxWidth: 56, z: 3,
-    itemStyle: { color: { type: "linear", x: 0, y: 0, x2: 0, y2: 1, colorStops: [{ offset: 0, color: "#5f7482" }, { offset: 1, color: "#263238" }] }, borderRadius: [5, 5, 0, 0], shadowBlur: 6, shadowOffsetY: 2, shadowColor: "rgba(0,0,0,.25)" },
-    data: cols.map(c => R(c.P)),
+    itemStyle: { color: "#455a64", borderColor: "#fff", borderWidth: 1 },
+        data: cols.map(c => R(c.P)),
     label: { show: true, position: "top", fontSize: 11, fontWeight: 700, color: "#263238", formatter: p => p.value == null ? "" : `${cols[p.dataIndex].fy ? "left over " : ""}${nf(p.value, 0)}` } };
   const maxK = Math.max(1, ...cols.map(c => c.cs.length)), SHADE = ["#2c7fb8", "#79b4dc", "#1b5a85"];
   const g2Top = 56 + 200 + 80, G2H = 170, nDel = Math.max(1, ...cols.map(c => c.cs.length)), H = g2Top + G2H + 80 + 14 * nDel;

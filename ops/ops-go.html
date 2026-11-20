@@ -315,7 +315,9 @@ function renderTimeline() {
       { name: "Oversold", type: "bar", stack: "r", xAxisIndex: 1, yAxisIndex: 1, data: cols.map(c => R(c.over)), itemStyle: { color: "#e67e22" }, barMaxWidth: 56, label: lab2 },
     ] }, true);
   const cx = 84 + (chartT.getWidth() - 104) / 2, yearTxt = (txt, y) => ({ type: "text", silent: true, z: 20, style: { text: String(txt), x: cx, y, textAlign: "center", textVerticalAlign: "middle", fill: "#2c3e50", fontSize: 14, fontWeight: 700 } });
-  chartT.setOption({ graphic: { elements: [yearTxt(Y, 56 + 200 + 46), yearTxt(Y + 1, H - 24)] } });
+  const xb = 84 + (chartT.getWidth() - 104) * (cols.length - 1) / cols.length;        // boundary in front of the Total column
+  const sep = (y1, y2) => ({ type: "line", silent: true, z: 15, shape: { x1: xb, y1, x2: xb, y2 }, style: { stroke: "#7f8c8d", lineWidth: 1.2, lineDash: [5, 4] } });
+  chartT.setOption({ graphic: { elements: [yearTxt(Y, 56 + 200 + 46), yearTxt(Y + 1, H - 24), ...(cols.length > 1 ? [sep(56, 56 + 200 + 30), sep(g2Top, g2Top + G2H + 30)] : [])] } });
 }
 
 function renderAll() {

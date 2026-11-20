@@ -298,7 +298,7 @@ function renderTimeline() {
   const maxTop = Math.max(1000, ...cl.map(c => Math.max(c.P, c.S, c.rem + c.over)));
   const AX = { type: "value", min: 0, max: 13.5, interval: 1, splitLine: { show: false }, axisTick: { alignWithLabel: false },
     axisLabel: { fontSize: 10, align: "left" } };
-  const ax = (i, show, yr) => ({ ...AX, gridIndex: i, axisLabel: { ...AX.axisLabel, show, formatter: v => v >= 0 && v < 12 && Number.isInteger(v) ? `${MON[v]} ${yr}` : "" } });
+  const ax = (i, show, yr) => ({ ...AX, gridIndex: i, axisLabel: { ...AX.axisLabel, show, formatter: v => v >= 0 && v < 12 && Number.isInteger(v) ? MON[v] : "" } });
   const legendDummy = (name, color) => ({ name, type: "bar", xAxisIndex: 0, yAxisIndex: 0, data: [], itemStyle: { color } });
   const line = x => ({ symbol: "none", silent: true, label: { formatter: "Today", position: "insideEndTop", color: "#c0392b" }, lineStyle: { color: "#c0392b", type: "dashed" }, data: [{ xAxis: x }] });
   chartT.setOption({
@@ -356,6 +356,8 @@ function renderTimeline() {
   });
   [...new Set(dl.map(d => d.x))].forEach(x => { const tot = sameX(x), top = g2Top + 100 - tot / delMax * 100;       // one total per delivery date, above the stacked bar
     els.push({ type: "text", silent: true, z: 10, style: { text: nf(tot, 0), x: px(x), y: top - 3, textAlign: "center", textVerticalAlign: "bottom", fill: "#444", fontSize: 10 } }); });
+  // the year once per axis, left of the first month label
+  [[56 + 200, Y], [g2Top + 100, Y1]].forEach(([yb, yr]) => els.push({ type: "text", silent: true, z: 10, style: { text: String(yr), x: 78, y: yb + 6, textAlign: "right", fill: "#2c3e50", fontSize: 13, fontWeight: 700 } }));
   chartT.setOption({ graphic: { elements: els } });
 }
 

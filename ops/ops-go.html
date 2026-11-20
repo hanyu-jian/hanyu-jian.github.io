@@ -300,12 +300,12 @@ function renderTimeline() {
   const AX = { type: "value", min: 0, max: 13.5, interval: 1, splitLine: { show: false }, axisTick: { alignWithLabel: false },
     axisLabel: { fontSize: 10, align: "left" } };
   const ax = (i, show, yr) => ({ ...AX, gridIndex: i, axisLine: { onZero: false }, axisLabel: { ...AX.axisLabel, show, formatter: v => v >= 0 && v < 12 && Number.isInteger(v) ? MON[v] : "" } });
-  const legendDummy = (name, color) => ({ name, type: "bar", xAxisIndex: 0, yAxisIndex: 0, data: [], itemStyle: { color } });
+  const legendDummy = (name, color, g = 0) => ({ name, type: "bar", xAxisIndex: g, yAxisIndex: g, data: [], itemStyle: { color } });
   const line = x => ({ symbol: "none", silent: true, label: { formatter: "Today", position: "insideEndTop", color: "#c0392b" }, lineStyle: { color: "#c0392b", type: "dashed" }, data: [{ xAxis: x }] });
   chartT.setOption({
     animation: false,
-    legend: [{ top: 0, data: ["Meter production", "Signed GO", "Remain GO, expired", "Remain GO, valid", "Oversold"], textStyle: { fontSize: 11 } },
-             { right: 20, top: t2 - 8, data: ["Delivered", "Delivery due", "Delivery re-dated (new date)"], textStyle: { fontSize: 11 } }],
+    legend: [{ top: 0, data: ["Meter production", "Signed GO"], textStyle: { fontSize: 11 } },
+             { right: 20, top: t2 - 8, data: ["Remain GO, valid", "Remain GO, expired", "Delivered", "Delivery due", "Delivery re-dated (new date)"], textStyle: { fontSize: 11 } }],
     tooltip: { trigger: "item", confine: true, formatter: p => {
       if (p.seriesType === "bar" && p.data && p.data.d) { const d = p.data.d; return `<b>${d.date}</b>${d.orig ? ` (was ${d.orig})` : ""}<br>${fmt(d.vol)} MWh`; }
       const c = cl[p.dataIndex]; if (!c) return "";
@@ -318,15 +318,14 @@ function renderTimeline() {
             { type: "value", gridIndex: 1, min: yMin, max: yMax, interval: step, name: "Deliveries (MWh)", nameLocation: "middle", nameGap: 62, nameTextStyle: { fontSize: 11 }, nameRotate: 90,
               axisLabel: { formatter: v => v >= 0 ? nf(v, 0) : "" } }],
     series: [
-      legendDummy("Meter production", "#1a1a1a"), legendDummy("Signed GO", "#2c7fb8"), legendDummy("Remain GO, expired", "#b0b7bf"), legendDummy("Remain GO, valid", "#27ae60"), legendDummy("Oversold", "#e67e22"),
+      legendDummy("Meter production", "#1a1a1a"), legendDummy("Signed GO", "#2c7fb8"), legendDummy("Remain GO, valid", "#8fd3ac", 1), legendDummy("Remain GO, expired", "#d3d7db", 1),
       { name: "periods", type: "custom", xAxisIndex: 0, yAxisIndex: 0, z: 3, data: cl.map((c, i) => [c.x0, c.x1, i]),
         markLine: todayTop != null ? line(todayTop) : undefined,
         renderItem: (params, api) => {
           const c = cl[params.dataIndex], px0 = api.coord([c.x0, 0])[0], px1 = api.coord([c.x1, 0])[0], base = api.coord([0, 0])[1];
           const bw = Math.min(40, (px1 - px0) / 2.6), gap = 4, st = (px0 + px1) / 2 - (2 * bw + gap) / 2;
           const R = (k, lo, hi, color) => { if (hi - lo < 0.5) return null; const yt = api.coord([0, hi])[1], yb = api.coord([0, lo])[1]; return { type: "rect", shape: { x: st + k * (bw + gap), y: yt, width: bw, height: yb - yt }, style: { fill: color } }; };
-          const sg = Math.min(c.S, c.P);       // second bar = signed + remain stacked (+ the oversold part above the meter bar), to be read against the meter bar next to it
-          const ch = [R(0, 0, c.P, "#1a1a1a"), R(1, 0, sg, "#2c7fb8"), R(1, sg, sg + c.remExp, "#b0b7bf"), R(1, sg + c.remExp, sg + c.rem, "#27ae60"), R(1, c.P, c.P + c.over, "#e67e22")].filter(Boolean);
+          const ch = [R(0, 0, c.P, "#1a1a1a"), R(1, 0, c.S, "#2c7fb8")].filter(Boolean);       // meter vs signed; a signed bar above the meter bar = oversold
           if (c.x1 - c.x0 > 1) ch.push({ type: "text", style: { text: c.label, x: (px0 + px1) / 2, y: base + 24, textAlign: "center", fill: "#555", fontSize: 11, fontWeight: 600 } });
           if (out[params.dataIndex].length) ch.push({ type: "text", style: { text: "delivery " + out[params.dataIndex].join(", "), x: (px0 + px1) / 2, y: base + 40, textAlign: "center", fill: "#8a6d3b", fontSize: 10 } });
           // bracket under the period

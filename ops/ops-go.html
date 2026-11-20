@@ -304,8 +304,6 @@ function renderTimeline() {
   const line = x => ({ symbol: "none", silent: true, label: { formatter: "Today", position: "insideEndTop", color: "#c0392b" }, lineStyle: { color: "#c0392b", type: "dashed" }, data: [{ xAxis: x }] });
   chartT.setOption({
     animation: false,
-    title: [{ text: `${Y}: meter production vs signed GO vs remain GO, per contract period`, left: 84, top: 30, textStyle: { fontSize: 12, color: "#555" } },
-            { text: `${Y1}: deliveries (bars) and expiry of the remain GO (translucent bands: green = valid, grey = expired)`, left: 84, top: t2, textStyle: { fontSize: 12, color: "#555" } }],
     legend: [{ top: 0, data: ["Meter production", "Signed GO", "Remain GO, expired", "Remain GO, valid", "Oversold"], textStyle: { fontSize: 11 } },
              { right: 20, top: t2 - 8, data: ["Delivered", "Delivery due", "Delivery re-dated (new date)"], textStyle: { fontSize: 11 } }],
     tooltip: { trigger: "item", confine: true, formatter: p => {

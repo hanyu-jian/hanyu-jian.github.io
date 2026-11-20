@@ -278,15 +278,19 @@ function renderTimeline() {
   const multi = c => c.cs.length > 1;
   const xs = n => ({ type: "category", gridIndex: n, data: cols.map((_, i) => i), axisTick: { alignWithLabel: true }, axisLabel: { fontSize: 11, interval: 0, rich,
     formatter: (v, i) => { const c = cols[i]; return n === 0 ? `{b|${c.label}}` : `{b|${c.label}}\n{e|expires ${c.exp}}` + c.cs.map(k => `\n{d|${multi(c) && k.buyer ? k.buyer + " " : ""}delivery ${k.del}}`).join(""); } } });
+  const meterSeries = { name: "Meter production", type: "bar", xAxisIndex: 0, yAxisIndex: 0, barMaxWidth: 56, z: 3,
+    itemStyle: { color: { type: "linear", x: 0, y: 0, x2: 0, y2: 1, colorStops: [{ offset: 0, color: "#5f7482" }, { offset: 1, color: "#263238" }] }, borderRadius: [5, 5, 0, 0], shadowBlur: 6, shadowOffsetY: 2, shadowColor: "rgba(0,0,0,.25)" },
+    data: cols.map(c => R(c.P)),
+    label: { show: true, position: "top", fontSize: 11, fontWeight: 700, color: "#263238", formatter: p => p.value == null ? "" : `${cols[p.dataIndex].fy ? "left over " : ""}${nf(p.value, 0)}` } };
   const maxK = Math.max(1, ...cols.map(c => c.cs.length)), SHADE = ["#2c7fb8", "#79b4dc", "#1b5a85"];
   const g2Top = 56 + 200 + 80, G2H = 170, nDel = Math.max(1, ...cols.map(c => c.cs.length)), H = g2Top + G2H + 80 + 14 * nDel;
   $("chartT").style.height = H + "px"; chartT.resize();
   const signedSeries = Array.from({ length: maxK }, (_, k) => ({ name: "Signed GO", type: "bar", stack: "s", xAxisIndex: 0, yAxisIndex: 0, barMaxWidth: 70, itemStyle: { color: SHADE[k % SHADE.length], borderColor: "#fff", borderWidth: 1 },
     data: cols.map(c => c.cs[k] ? R(c.cs[k].S) : null),
-    label: { show: true, position: "inside", fontSize: 10, color: "#fff", formatter: p => { const c = cols[p.dataIndex], k2 = c && c.cs[k]; return k2 && p.value != null ? `${multi(c) && k2.buyer ? k2.buyer + " " : ""}${nf(p.value, 0)}` : ""; } } }));
+    label: { show: true, position: "inside", fontSize: 10, color: "#fff", formatter: p => { const c = cols[p.dataIndex], k2 = c && c.cs[k]; return k2 && p.value != null && multi(c) ? `${k2.buyer ? k2.buyer + " " : ""}${nf(p.value, 0)}` : ""; } } }));
   chartT.setOption({
     animation: false,
-    legend: [{ top: 0, data: ["Signed GO", "Meter production (per contract period)"], textStyle: { fontSize: 11 } },
+    legend: [{ top: 0, data: ["Meter production", "Signed GO"], textStyle: { fontSize: 11 } },
              { right: 20, top: 56 + 200 + 44, data: ["Remain GO, valid", "Remain GO, expired", "Oversold"], textStyle: { fontSize: 11 } }],
     tooltip: { trigger: "item", confine: true, formatter: p => { const c = cols[p.dataIndex]; if (!c) return "";
       return `<b>${c.label}</b>${c.note ? `<br><i>${c.note}</i>` : ""}<br>Meter production: <b>${fmt(c.P)} MWh</b><br>Signed GO: <b>${fmt(c.S)} MWh</b>` + c.cs.map(k => `<br>&nbsp;&nbsp;${k.buyer || "contract"}: ${fmt(k.S)} (delivery ${k.del})`).join("") + "<br>" +
@@ -296,14 +300,10 @@ function renderTimeline() {
     yAxis: [{ type: "value", gridIndex: 0, max: Math.ceil(Math.max(1000, ...cols.map(c => Math.max(c.P, c.S))) * 1.15 / 1000) * 1000, name: "GO (MWh)", nameLocation: "middle", nameGap: 62, nameTextStyle: { fontSize: 11 } },
             { type: "value", gridIndex: 1, name: "Remain GO (MWh)", nameLocation: "middle", nameGap: 62, nameTextStyle: { fontSize: 11 } }],
     series: [
+      meterSeries,
       ...signedSeries,
-      { name: "Meter production (per contract period)", type: "custom", itemStyle: { color: "#1a1a1a" }, xAxisIndex: 0, yAxisIndex: 0, z: 6, data: cols.map((c, i) => [i, c.P]),
-        renderItem: (params, api) => { const c = cols[params.dataIndex], ctr = api.coord([params.dataIndex, c.P]), half = api.size([1, 0])[0] * 0.42, a = [ctr[0] - half, ctr[1]], b = [ctr[0] + half, ctr[1]], top = api.coord([params.dataIndex, c.S])[1];
-          const dy = Math.abs(a[1] - top), sy = top - 6 - (dy < 16 ? 14 : 0);
-          return { type: "group", children: [
-            { type: "line", shape: { x1: a[0], y1: a[1], x2: b[0], y2: b[1] }, style: { stroke: "#1a1a1a", lineWidth: 3 } },
-            { type: "text", style: { text: `${c.fy ? "left over" : "meter"} ${fmt(c.P)}`, x: (a[0] + b[0]) / 2, y: a[1] - 6, textAlign: "center", textVerticalAlign: "bottom", fill: "#1a1a1a", fontSize: 11, fontWeight: 700 } },
-            { type: "text", style: { text: `signed ${fmt(c.S)}`, x: (a[0] + b[0]) / 2, y: sy, textAlign: "center", textVerticalAlign: "bottom", fill: "#2c7fb8", fontSize: 11, fontWeight: 700 } }] }; } },
+      { name: "Signed GO", type: "bar", stack: "s", xAxisIndex: 0, yAxisIndex: 0, barMaxWidth: 70, itemStyle: { color: "rgba(0,0,0,0)" }, silent: true, tooltip: { show: false }, data: cols.map(c => c.S > 0.5 ? 1 : null),
+        label: { show: true, position: "top", fontSize: 11, fontWeight: 700, color: "#1b5a85", formatter: p => p.value == null ? "" : nf(cols[p.dataIndex].S, 0) } },
       { name: "Remain GO, expired", type: "bar", stack: "r", xAxisIndex: 1, yAxisIndex: 1, data: cols.map(c => R(c.remExp)), itemStyle: { color: "#b0b7bf" }, barMaxWidth: 56, label: lab2 },
       { name: "Remain GO, valid", type: "bar", stack: "r", xAxisIndex: 1, yAxisIndex: 1, data: cols.map(c => R(c.rem - c.remExp)), itemStyle: { color: "#27ae60" }, barMaxWidth: 56, label: lab2 },
       { name: "Oversold", type: "bar", stack: "r", xAxisIndex: 1, yAxisIndex: 1, data: cols.map(c => R(c.over)), itemStyle: { color: "#e67e22" }, barMaxWidth: 56, label: lab2 },

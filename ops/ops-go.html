@@ -247,108 +247,78 @@ const lastDay = (y, m0) => new Date(Date.UTC(y, m0 + 1, 0)).getUTCDate();
 const expOf = k => { const y = +k.slice(0, 4), m0 = +k.slice(5) - 1, e = new Date(Date.UTC(y, m0 + EXPIRY_MONTHS, 1)), ey = e.getUTCFullYear(), em = e.getUTCMonth();
   return `${ey}-${String(em + 1).padStart(2, "0")}-${String(lastDay(ey, em)).padStart(2, "0")}`; };
 function renderTimeline() {
-  const list = site === "ALL" ? SITES : [site], Y = year === "ALL" ? THIS_YEAR : +year, Y1 = Y + 1;
-  $("titleT").textContent = `${site === "ALL" ? "All sites" : site} · ${Y} production vs signed GO, and when the remain GO expires in ${Y1}`;
-  // ---- top: one cluster per contract period of the workbook (nothing is spread over months); x in months, 0 = 1 Jan
-  const rs = rowsOf(list.length === 1 ? list[0] : "ALL", Y), segs = {};
-  rs.filter(r => !(r.m0 === 1 && r.m1 === 12)).forEach(r => { const k = r.m0 + "-" + r.m1; (segs[k] = segs[k] || { m0: r.m0, m1: r.m1, S: 0 }).S += traded(r); });
-  const fy = rs.filter(r => r.m0 === 1 && r.m1 === 12).reduce((a, r) => a + traded(r), 0);
+  const list = site === "ALL" ? SITES : [site], Y = year === "ALL" ? THIS_YEAR : +year, yy = String(Y).slice(2);
+  $("titleT").textContent = `${site === "ALL" ? "All sites" : site} · ${Y}: signed GO vs meter production, and remain GO, per contract period`;
+  // One column per contract period of the workbook (a month, Q1–Q2, Q3–Q4 …); contracts of the same period are stacked in the signed bar. Nothing is spread over months.
+  // Full-year (Q1–Q4) contracts are compared with the production that the half-year contracts left over.
+  const rs = rowsOf(list.length === 1 ? list[0] : "ALL", Y), groups = {};
+  rs.forEach(r => { const fyRow = r.m0 === 1 && r.m1 === 12, key = fyRow ? "fy" : r.m0 + "-" + r.m1, g = groups[key] || (groups[key] = { m0: r.m0, m1: r.m1, cs: new Map() });
+    const ck = [r.period, r.buyer, r.delivery_date, r.amended_delivery].join("|"), c = g.cs.get(ck) || (g.cs.set(ck, { r, S: 0 }), g.cs.get(ck)); c.S += traded(r); });
   const mp = i => Y > THIS_YEAR ? 0 : list.reduce((a, s) => a + (monthProd(s, Y, i) || 0), 0);
-  const yy = String(Y).slice(2), cl = [];
-  let carry = 0, carryExp = 0;
-  Object.values(segs).sort((a, b) => a.m0 - b.m0 || a.m1 - b.m1).forEach(g => {
-    let P = 0, Pe = 0; for (let i = g.m0 - 1; i < g.m1; i++) { const v = mp(i); P += v; if (expOf(ym(Y, i)) < TODAY) Pe += v; }
-    const rem = Math.max(0, P - g.S), remExp = P ? rem * Pe / P : 0; carry += rem; carryExp += remExp;
-    const label = g.m0 === g.m1 ? MON[g.m0 - 1] : g.m0 === 1 && g.m1 === 6 ? "Q1–Q2" : g.m0 === 7 && g.m1 === 12 ? "Q3–Q4" : `${MON[g.m0 - 1]}–${MON[g.m1 - 1]}`;
-    cl.push({ label, m0: g.m0, m1: g.m1, fy: false, name: `${label} ${Y}`, x0: g.m0 - 1, x1: g.m1, b0: g.m0 - 1, b1: g.m1, row: 0, P, S: g.S, rem, remExp, over: Math.max(0, g.S - P), note: Y > THIS_YEAR ? "not produced yet" : g.m1 > (Y === THIS_YEAR ? +TODAY.slice(5, 7) - 1 : 12) && Y === THIS_YEAR ? "period not finished: production to date only" : "" });
+  const nm = m => MON[m - 1], fmt = v => nf(v, 0);
+  const expText = (m0, m1) => (m0 === m1 ? `${nm(m0)}` : `${nm(m0)}–${nm(m1)}`) + ` ${Y + 1}`;
+  const shortP = p => p.replace(/-/g, "–").replace(/ (\d{4})/, (m, y) => " " + y.slice(2));
+  const cols = []; let carry = 0, carryExp = 0;
+  const ordered = Object.entries(groups).filter(([k]) => k !== "fy").map(([, g]) => g).sort((a, b) => a.m0 - b.m0 || a.m1 - b.m1);
+  if (groups.fy) ordered.push({ ...groups.fy, fy: true });
+  ordered.forEach(g => {
+    const cs = [...g.cs.values()].sort((a, b) => a.r.delivery_date < b.r.delivery_date ? -1 : a.r.delivery_date > b.r.delivery_date ? 1 : 0).map(c => ({ S: c.S, buyer: (c.r.buyer || "").split(" ")[0],
+      del: c.r.amended_delivery ? `${c.r.delivery_date} → ${c.r.amended_delivery}` : c.r.delivery_date }));
+    const S = cs.reduce((a, c) => a + c.S, 0); let P, Pe = 0;
+    if (g.fy) P = carry; else { P = 0; for (let i = g.m0 - 1; i < g.m1; i++) { const v = mp(i); P += v; if (expOf(ym(Y, i)) < TODAY) Pe += v; } }
+    const rem = Math.max(0, P - S), remExp = g.fy ? (carry ? rem * carryExp / carry : 0) : (P ? rem * Pe / P : 0);
+    if (!g.fy) { carry += rem; carryExp += remExp; }
+    const first = [...g.cs.values()][0].r.period;
+    cols.push({ label: g.fy ? `Q1–Q4 ${yy}` : shortP(first.replace(/ \(2nd\)/, "")), cs, P, S, rem, remExp, over: Math.max(0, S - P), exp: g.fy ? expText(1, 12) : expText(g.m0, g.m1), fy: !!g.fy,
+      note: g.fy ? "full-year contracts vs. the production left over by the Q1–Q2 / Q3–Q4 contracts" : Y > THIS_YEAR ? "not produced yet" : Y === THIS_YEAR && g.m1 > +TODAY.slice(5, 7) - 1 ? "period not finished: production to date only" : "" });
   });
-  if (fy) { const rem = Math.max(0, carry - fy), remExp = carry ? rem * carryExp / carry : 0;
-    cl.push({ label: "Q1–Q4", m0: 1, m1: 12, fy: true, name: `Q1–Q4 ${Y}`, x0: 12.15, x1: 13.45, b0: 0, b1: 12, row: 1, P: carry, S: fy, rem, remExp, over: Math.max(0, fy - carry), note: "full-year contracts vs. production left over by the Q1–Q2 / Q3–Q4 contracts" }); }
-  // ---- deliveries dated in Y+1: original date, or the amended date when the workbook has one
-  const dl = [], out = cl.map(() => []);      // out: delivery dates of a period that fall outside the Y+1 axis
-  const addDel = (date, vol, kind, orig, ci) => {
-    if (+date.slice(0, 4) !== Y1) { if (ci >= 0) out[ci].push(date); return; }
-    const m = +date.slice(5, 7) - 1, dim = lastDay(Y1, m); dl.push({ date, vol, kind, orig, ci, x: m + (+date.slice(8, 10) - 0.5) / dim }); };
-  list.forEach(s => YEARS.forEach(y => rowsOf(s, y).forEach(r => {
-    const v = traded(r), d = r.delivery_date; if (!d) return;
-    const fyRow = r.m0 === 1 && r.m1 === 12, ci = y !== Y ? -1 : cl.findIndex(c => fyRow ? c.fy : !c.fy && c.m0 === r.m0 && c.m1 === r.m1);
-    if (r.amended_delivery) {
-      let stay = 0; if (r.buyer === "AXPO" && r.y === 2026 && r.m1 === 6) stay = v * AXPO_STAY / AXPO_TOTAL;
-      if (stay) addDel(d, stay, d <= TODAY ? "delivered" : "due", "", ci);
-      addDel(r.amended_delivery, v - stay, "redated", d, ci);
-    } else addDel(d, v, d <= TODAY ? "delivered" : "due", "", ci);
-  })));
-  out.forEach((a, i) => { out[i] = [...new Set(a)].sort(); });
-  { const m = new Map(); dl.forEach(d => { const k = [d.date, d.kind, d.orig, d.ci].join("|"); if (m.has(k)) m.get(k).vol += d.vol; else m.set(k, { ...d }); }); dl.length = 0; m.forEach(d => dl.push(d)); }
-  const nRows = Math.max(1, ...cl.filter(c => c.rem > 0.5).map(c => c.row + 1));
-  const g1Top = 350, g1H = 40 * nRows, t2 = g1Top + g1H + 34, g2Top = t2 + 26, H = g2Top + 100 + 56;
+  // last column: the whole year (production of the year, all contracts of the year, what is left)
+  { let Pt = 0, Pte = 0; for (let i = 0; i < 12; i++) { const v = mp(i); Pt += v; if (expOf(ym(Y, i)) < TODAY) Pte += v; }
+    const bb = new Map(); rs.forEach(r => { const b = (r.buyer || "").split(" ")[0]; bb.set(b, (bb.get(b) || 0) + traded(r)); });
+    const cs = [...bb.entries()].map(([buyer, S]) => ({ S, buyer, del: "" })), St = cs.reduce((a, c) => a + c.S, 0), rem = Math.max(0, Pt - St);
+    cols.push({ label: `Total ${yy}`, cs, P: Pt, S: St, rem, remExp: Pt ? rem * Pte / Pt : 0, over: Math.max(0, St - Pt), exp: "", total: true,
+      note: Y > THIS_YEAR ? "not produced yet" : Y === THIS_YEAR ? "year not finished: production to date only" : "whole year: production of the year vs all contracts of the year" }); }
+  const R = v => v > 0.5 ? Math.round(v) : null;
+  const lab2 = { show: true, position: "inside", fontSize: 11, fontWeight: 600, color: "#fff", formatter: p => p.value == null ? "" : nf(p.value, 0) };
+  const rich = { b: { fontWeight: 700, fontSize: 11, color: "#333", lineHeight: 16 }, e: { fontSize: 10, color: "#2e7d4f", lineHeight: 14 }, d: { fontSize: 10, color: "#8a6d3b", lineHeight: 14 } };
+  const multi = c => c.cs.length > 1;
+  const xs = n => ({ type: "category", gridIndex: n, data: cols.map((_, i) => i), axisTick: { alignWithLabel: true }, axisLabel: { fontSize: 11, interval: 0, rich,
+    formatter: (v, i) => { const c = cols[i]; return n === 0 || c.total ? `{b|${c.label}}` : `{b|${c.label}}\n{e|expires ${c.exp}}` + c.cs.map(k => `\n{d|${multi(c) && k.buyer ? k.buyer + " " : ""}delivery ${k.del}}`).join(""); } } });
+  const meterSeries = { name: "Meter production", type: "bar", xAxisIndex: 0, yAxisIndex: 0, barMaxWidth: 56, z: 3,
+    itemStyle: { color: "#455a64", borderColor: "#fff", borderWidth: 1 },
+        data: cols.map(c => R(c.P)),
+    label: { show: true, position: "top", fontSize: 11, fontWeight: 700, color: "#263238", formatter: p => p.value == null ? "" : `${cols[p.dataIndex].fy ? "left over " : ""}${nf(p.value, 0)}` } };
+  const maxK = Math.max(1, ...cols.map(c => c.cs.length)), SHADE = ["#2c7fb8", "#79b4dc", "#1b5a85"];
+  const g2Top = 56 + 200 + 80, G2H = 170, nDel = Math.max(1, ...cols.filter(c => !c.total).map(c => c.cs.length)), H = g2Top + G2H + 80 + 14 * nDel;
   $("chartT").style.height = H + "px"; chartT.resize();
-  const dser = (kind, name, color) => ({ name, type: "bar", stack: "d", xAxisIndex: 2, yAxisIndex: 2, barWidth: 26, itemStyle: { color }, label: { show: true, position: "inside", fontSize: 10, color: "#fff", formatter: p => nf(p.value[1], 0) }, data: dl.filter(d => d.kind === kind).map(d => ({ value: [d.x, Math.round(d.vol)], d })) });
-  const delMax0 = Math.max(1000, ...dl.map(d => dl.filter(e => Math.abs(e.x - d.x) < 1e-9).reduce((a, e) => a + e.vol, 0))) * 1.15, delMax = Math.ceil(delMax0 / 1000) * 1000, delTop = Math.ceil(delMax / 1000) * 1000;
-  const sameX = x => dl.filter(d => Math.abs(d.x - x) < 1e-9).reduce((a, d) => a + d.vol, 0);
-  const fmt = v => nf(v, 0), pad2 = n => String(n).padStart(2, "0");
-  const xOf = iso => { const yv = +iso.slice(0, 4), m = +iso.slice(5, 7) - 1; return (yv - Y1) * 12 + m + (+iso.slice(8, 10) - 0.5) / lastDay(yv, m); };
-  const todayX = xOf(TODAY);            // where today is on the Y+1 axis (negative = before it starts)
-  const todayTop = Y === THIS_YEAR ? xOf(TODAY) + 12 : null;
-  const maxTop = Math.max(1000, ...cl.map(c => Math.max(c.P, c.S, c.rem + c.over)));
-  const AX = { type: "value", min: 0, max: 13.5, interval: 1, splitLine: { show: false }, axisTick: { alignWithLabel: false },
-    axisLabel: { fontSize: 10, align: "left", formatter: v => v >= 0 && v < 12 && Number.isInteger(v) ? MON[v] : "" } };
-  const ax = (i, show) => ({ ...AX, gridIndex: i, axisLabel: { ...AX.axisLabel, show } });
-  const legendDummy = (name, color) => ({ name, type: "bar", xAxisIndex: 0, yAxisIndex: 0, data: [], itemStyle: { color } });
-  const line = x => ({ symbol: "none", silent: true, label: { formatter: "Today", position: "insideEndTop", color: "#c0392b" }, lineStyle: { color: "#c0392b", type: "dashed" }, data: [{ xAxis: x }] });
+  const signedSeries = Array.from({ length: maxK }, (_, k) => ({ name: "Signed GO", type: "bar", stack: "s", xAxisIndex: 0, yAxisIndex: 0, barMaxWidth: 70, itemStyle: { color: SHADE[k % SHADE.length], borderColor: "#fff", borderWidth: 1 },
+    data: cols.map(c => c.cs[k] ? R(c.cs[k].S) : null),
+    label: { show: true, position: "inside", fontSize: 10, color: "#fff", formatter: p => { const c = cols[p.dataIndex], k2 = c && c.cs[k]; return k2 && p.value != null && multi(c) ? `${k2.buyer ? k2.buyer + " " : ""}${nf(p.value, 0)}` : ""; } } }));
   chartT.setOption({
     animation: false,
-    title: [{ text: `${Y}: meter production vs signed GO vs remain GO, per contract period`, left: 84, top: 30, textStyle: { fontSize: 12, color: "#555" } },
-            { text: `${Y1}: where the remain GO of each period expires (12 months after production)`, left: 84, top: 326, textStyle: { fontSize: 12, color: "#555" } },
-            { text: `${Y1}: deliveries (arrows: delivery of the ${Y} contract period above)`, left: 84, top: t2, textStyle: { fontSize: 12, color: "#555" } }],
-    legend: { top: 0, data: ["Meter production", "Signed GO", "Remain GO, expired", "Remain GO, valid", "Oversold", "Delivered", "Delivery due", "Delivery re-dated (new date)"], textStyle: { fontSize: 11 } },
-    tooltip: { trigger: "item", confine: true, formatter: p => {
-      if (p.seriesType === "bar" && p.data && p.data.d) { const d = p.data.d; return `<b>${d.date}</b>${d.orig ? ` (was ${d.orig})` : ""}<br>${fmt(d.vol)} MWh`; }
-      const c = cl[p.dataIndex]; if (!c) return "";
-      if (p.seriesName === "bands") return `<b>${c.name}</b><br>Remain GO ${fmt(c.rem)} MWh expires ${c.b0 === 0 && c.b1 === 12 ? `through ${expOf(ym(Y, 11))}` : `${expOf(ym(Y, c.b0))} – ${expOf(ym(Y, c.b1 - 1))}`}`;
-      return `<b>${c.name}</b>${c.note ? `<br><i>${c.note}</i>` : ""}<br>Meter production: <b>${fmt(c.P)} MWh</b><br>Signed GO: <b>${fmt(c.S)} MWh</b><br>` +
-        (c.over > 0.5 ? `<b style="color:#d35400">Oversold: ${fmt(c.over)}</b>` : `Remain GO: <b>${fmt(c.rem)}</b> (expired ${fmt(c.remExp)}, valid ${fmt(c.rem - c.remExp)})`); } },
-    grid: [{ left: 84, right: 20, top: 56, height: 200 }, { left: 84, right: 20, top: g1Top, height: g1H }, { left: 84, right: 20, top: g2Top, height: 100 }],
-    xAxis: [ax(0, true), ax(1, false), ax(2, true)],
-    yAxis: [{ type: "value", gridIndex: 0, max: Math.ceil(maxTop * 1.05 / 1000) * 1000, name: "GO (MWh)", nameLocation: "middle", nameGap: 62, nameTextStyle: { fontSize: 11 } },
-            { type: "value", gridIndex: 1, min: 0, max: nRows, show: false },
-            { type: "value", gridIndex: 2, min: 0, max: delMax, name: "MWh", nameLocation: "middle", nameGap: 62, nameTextStyle: { fontSize: 11 } }],
+    legend: [{ top: 0, data: ["Meter production", "Signed GO"], textStyle: { fontSize: 11 } },
+             { right: 20, top: 56 + 200 + 44, data: ["Remain GO, valid", "Remain GO, expired", "Oversold"], textStyle: { fontSize: 11 } }],
+    tooltip: { trigger: "item", confine: true, formatter: p => { const c = cols[p.dataIndex]; if (!c) return "";
+      return `<b>${c.label}</b>${c.note ? `<br><i>${c.note}</i>` : ""}<br>Meter production: <b>${fmt(c.P)} MWh</b><br>Signed GO: <b>${fmt(c.S)} MWh</b>` + c.cs.map(k => `<br>&nbsp;&nbsp;${k.buyer || "contract"}: ${fmt(k.S)}${k.del ? ` (delivery ${k.del})` : ""}`).join("") + "<br>" +
+        (c.over > 0.5 ? `<b style="color:#d35400">Oversold: ${fmt(c.over)}</b>` : `Remain GO: <b>${fmt(c.rem)}</b> (expired ${fmt(c.remExp)}, valid ${fmt(c.rem - c.remExp)})` + (c.exp ? `<br>Expires ${c.exp}` : "")); } },
+    grid: [{ left: 84, right: 20, top: 56, height: 200 }, { left: 84, right: 20, top: g2Top, height: G2H }],
+    xAxis: [xs(0), xs(1)],
+    yAxis: [{ type: "value", gridIndex: 0, max: Math.ceil(Math.max(1000, ...cols.map(c => Math.max(c.P, c.S))) * 1.15 / 1000) * 1000, name: "GO (MWh)", nameLocation: "middle", nameGap: 62, nameTextStyle: { fontSize: 11 } },
+            { type: "value", gridIndex: 1, name: "Remain GO (MWh)", nameLocation: "middle", nameGap: 62, nameTextStyle: { fontSize: 11 } }],
     series: [
-      legendDummy("Meter production", "#1a1a1a"), legendDummy("Signed GO", "#2c7fb8"), legendDummy("Remain GO, expired", "#b0b7bf"), legendDummy("Remain GO, valid", "#27ae60"), legendDummy("Oversold", "#e67e22"),
-      { name: "periods", type: "custom", xAxisIndex: 0, yAxisIndex: 0, z: 3, data: cl.map((c, i) => [c.x0, c.x1, i]),
-        markLine: todayTop != null ? line(todayTop) : undefined,
-        renderItem: (params, api) => {
-          const c = cl[params.dataIndex], px0 = api.coord([c.x0, 0])[0], px1 = api.coord([c.x1, 0])[0], base = api.coord([0, 0])[1];
-          const bw = Math.min(34, (px1 - px0) / 3.4), gap = 4, st = (px0 + px1) / 2 - (3 * bw + 2 * gap) / 2;
-          const R = (k, lo, hi, color) => { if (hi - lo < 0.5) return null; const yt = api.coord([0, hi])[1], yb = api.coord([0, lo])[1]; return { type: "rect", shape: { x: st + k * (bw + gap), y: yt, width: bw, height: yb - yt }, style: { fill: color } }; };
-          const ch = [R(0, 0, c.P, "#1a1a1a"), R(1, 0, c.S, "#2c7fb8"), R(2, 0, c.remExp, "#b0b7bf"), R(2, c.remExp, c.rem, "#27ae60"), R(2, c.rem, c.rem + c.over, "#e67e22")].filter(Boolean);
-          if (c.x1 - c.x0 > 1) ch.push({ type: "text", style: { text: c.label, x: (px0 + px1) / 2, y: base + 24, textAlign: "center", fill: "#555", fontSize: 11, fontWeight: 600 } });
-          if (out[params.dataIndex].length) ch.push({ type: "text", style: { text: "delivery " + out[params.dataIndex].join(", "), x: (px0 + px1) / 2, y: base + 40, textAlign: "center", fill: "#8a6d3b", fontSize: 10 } });
-          // bracket under the period
-          ch.push({ type: "line", shape: { x1: px0 + 2, y1: base + 20, x2: px1 - 2, y2: base + 20 }, style: { stroke: "#9aa5b1", lineWidth: 1 } });
-          return { type: "group", children: ch }; } },
-      { name: "bands", type: "custom", xAxisIndex: 1, yAxisIndex: 1, z: 3, data: cl.filter(c => c.rem > 0.5).map(c => [c.b0, c.b1, cl.indexOf(c)]),
-        markLine: Y1 === THIS_YEAR ? line(todayX) : undefined,
-        renderItem: (params, api) => {
-          const c = cl[api.value(2)], a = api.coord([c.b0, 0])[0], b = api.coord([c.b1, 0])[0], t = api.coord([0, c.row + 0.85])[1], bt = api.coord([0, c.row + 0.15])[1];
-          const sx = api.coord([Math.min(Math.max(todayX, c.b0), c.b1), 0])[0], ch = [];
-          if (sx > a) ch.push({ type: "rect", shape: { x: a, y: t, width: sx - a, height: bt - t }, style: { fill: "#b0b7bf" } });
-          if (b > sx) ch.push({ type: "rect", shape: { x: sx, y: t, width: b - sx, height: bt - t }, style: { fill: "#27ae60" } });
-          ch.push({ type: "text", style: { text: `${c.label} · remain ${fmt(c.rem)} MWh`, x: (a + b) / 2, y: (t + bt) / 2, textAlign: "center", textVerticalAlign: "middle", fill: "#fff", fontSize: 11, fontWeight: 600 } });
-          return { type: "group", children: ch }; } },
-      dser("delivered", "Delivered", "#5b8db8"), dser("due", "Delivery due", "#34495e"), dser("redated", "Delivery re-dated (new date)", "#e67e22"),
-    ].filter(Boolean) }, true);
-  // arrows from the bracket of each period down to its delivery in Y+1
-  const els = [];
-  dl.filter(d => d.ci >= 0).forEach(d => {
-    const c = cl[d.ci], col = d.kind === "redated" ? "#e67e22" : d.kind === "due" ? "#34495e" : "#5b8db8";
-    const W = chartT.getWidth(), px = x => 84 + x / 13.5 * (W - 104);          // same layout numbers as the grids above
-    const x1 = px((c.x0 + c.x1) / 2), y1 = 56 + 200 + 52, x2 = px(d.x), ty = g2Top + 100 - sameX(d.x) / delMax * 100 - 4;
-    if (![x1, y1, x2, ty].every(Number.isFinite)) return;
-    els.push({ type: "polyline", silent: true, z: 10, shape: { points: [[x1, y1], [x1, y1 + 8], [x2, y1 + 8], [x2, ty - 6]] }, style: { stroke: col, lineWidth: 1.3, lineDash: [4, 3], fill: "none", opacity: 0.85 } });
-    els.push({ type: "polygon", silent: true, z: 10, shape: { points: [[x2, ty], [x2 - 4.5, ty - 8], [x2 + 4.5, ty - 8]] }, style: { fill: col, opacity: 0.9 } });
-  });
-  chartT.setOption({ graphic: { elements: els } });
+      meterSeries,
+      ...signedSeries,
+      { name: "Signed GO", type: "bar", stack: "s", xAxisIndex: 0, yAxisIndex: 0, barMaxWidth: 70, itemStyle: { color: "rgba(0,0,0,0)" }, silent: true, tooltip: { show: false }, data: cols.map(c => c.S > 0.5 ? 1 : null),
+        label: { show: true, position: "top", fontSize: 11, fontWeight: 700, color: "#1b5a85", formatter: p => p.value == null ? "" : nf(cols[p.dataIndex].S, 0) } },
+      { name: "Remain GO, expired", type: "bar", stack: "r", xAxisIndex: 1, yAxisIndex: 1, data: cols.map(c => R(c.remExp)), itemStyle: { color: "#b0b7bf" }, barMaxWidth: 56, label: lab2 },
+      { name: "Remain GO, valid", type: "bar", stack: "r", xAxisIndex: 1, yAxisIndex: 1, data: cols.map(c => R(c.rem - c.remExp)), itemStyle: { color: "#27ae60" }, barMaxWidth: 56, label: lab2 },
+      { name: "Oversold", type: "bar", stack: "r", xAxisIndex: 1, yAxisIndex: 1, data: cols.map(c => R(c.over)), itemStyle: { color: "#e67e22" }, barMaxWidth: 56, label: lab2 },
+    ] }, true);
+  const cx = 84 + (chartT.getWidth() - 104) / 2, yearTxt = (txt, y) => ({ type: "text", silent: true, z: 20, style: { text: String(txt), x: cx, y, textAlign: "center", textVerticalAlign: "middle", fill: "#2c3e50", fontSize: 14, fontWeight: 700 } });
+  const xb = 84 + (chartT.getWidth() - 104) * (cols.length - 1) / cols.length;        // boundary in front of the Total column
+  const sep = (y1, y2) => ({ type: "line", silent: true, z: 15, shape: { x1: xb, y1, x2: xb, y2 }, style: { stroke: "#7f8c8d", lineWidth: 1.2, lineDash: [5, 4] } });
+  const W = chartT.getWidth(), tint = (y1, y2) => ({ type: "rect", silent: true, z: 0, shape: { x: xb, y: y1, width: W - 20 - xb, height: y2 - y1 }, style: { fill: "#eaf1f8" } });
+  chartT.setOption({ graphic: { elements: [yearTxt(Y, 56 + 200 + 46), yearTxt(Y + 1, H - 24), ...(cols.length > 1 ? [tint(56, 56 + 200 + 30), tint(g2Top, g2Top + G2H + 30), sep(56, 56 + 200 + 30), sep(g2Top, g2Top + G2H + 30)] : [])] } });
 }
 
 function renderAll() {

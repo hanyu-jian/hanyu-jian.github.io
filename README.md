@@ -350,78 +350,72 @@ token 只在服务端，不会发给浏览器；数据不会进入本仓库，�
 - `/ops/imbalance?site=&start=&end=&freq=&lead=&pct=&mode=idc|imb&thr=&cloud=&cm=&dacc=&dabc=&isrc=&il=&icc=&ibc=&ibid=&from=&to=`（`freq` = 15min / hour / day / week / month / quarter / year，`from`、`to` = Summary table 的月份 1–12）
 - `/ops/capture-price?site=&year=&mode=price|ratio&ssite=&thresh=negative|nonpositive`
 
-**Imbalance 页面口径**（`ops/ops-imbalance.html`，`/ops/imbalance`，二级导航里排在 Capture Price 后面）
+**Imbalance 页面口径**（`ops/ops-imbalance.html`，`/ops/imbalance`）
 
-页面上不放说明文字，下面是它的全部口径。
+这一页只做一件事：按 Strategy 里的设置，算出每个 15 分钟的收入、不平衡费用和利润，再按月汇总。下面只写怎么算。所有数值都是每 15 分钟、每个站点一份；电量 kWh，价格 EUR/MWh，所以每个 “电量 × 价格” 都要 ÷ 1000。
 
-*页面结构*
-- 顶部：起止日期（默认前三天，不含今天，因为今天的价格和理论发电量还不完整）、Frequency 点击按钮（15 min / Hourly / Daily / Weekly / Monthly / Quarterly / Yearly，样式同 Price Overview；只影响图表的聚合，不重新请求）。
-- Site 按钮（All sites = 五站相加，其余是单站）；它同时驱动图和 Summary table。
-- Strategy（图表左边，控件两个一行，分 Cloud / Bid / Curtailment 两块；窄屏时移到图表上方）：**DA bid %**（DA 预测量按多少百分比报进日前市场，默认 100%，0–150%；两个数字框都是纯手动输入，没有上下调节箭头）、**Rest**（没报进 DA 的部分：在 IDC 里平仓 / 全部留在不平衡里）、**IDC lead time**（15–240 分钟，默认 60）、**Curtail if DA price ≤**（€/MWh，留空 = 关闭；日前价小于等于该值的 15 分钟不发电，见下）。
-- 图：按所选频率画 DA revenue / IDC revenue / Imbalance cost 的堆叠柱，再叠 **PV revenue**（向下的堆叠柱，默认隐藏）、Total revenue 线、**Profit** 线（100% 报量、之后不交易）。
-- Summary table：所选站点 1–12 月（页面载入那一年；Month 列只标 1–12）逐月的 DA revenue、IDC revenue、Revenue (prior to imbalance cost)、Imbalance cost、Total revenue (post imbalance cost)、Imbalance %、**PV revenue**、**Profit**，最后是合计行；没有数据的月份显示 –。右上角的 **From month / To month**（1–12）选一段月份，合计行就变成这一段的合计（如 “Total 3–6”，选中的月份高亮、其余变灰），同时多出一行 “Total 1–12” 保留全年合计；选择只在浏览器里重算，不重新请求。表里的数字随 Strategy 变化，**不受图表日期范围影响**。
+### 1. Inputs
 
-*加载方式*：页面一次加载一个日历年（结束日期所在的年份）的 15 分钟结算输入，每个站点按 62 天一块并发请求（和所选日期重叠的块先到，图先画出来，其余在后台继续）；年内改日期、频率、DA bid %、Rest 都在浏览器里算，不再请求；只有换年份或 IDC lead time 才重新加载（约 30 个请求）。把一个日期改到另一个年份时，另一个日期会跟着挪到同一年。
+| Input | How it is obtained |
+|---|---|
+| **Theoretical production** (kWh) | `MIN(AC limit, MAX(0, measured POA / 1000 * DC capacity * monthly PR) / 4) * 1000`. Measured POA in W/m², DC capacity in MWp, AC limit = the site's maximum MWh per 15 min, monthly PR from our own PR table. Treated as the energy actually produced. |
+| **DA forecast** (kWh) | The same formula, with the supplier's day-ahead POA forecast instead of measured POA. |
+| **UST forecast** (kWh) | The same formula, with the supplier's rolling ultra-short-term POA forecast (16 lead times, 15 to 240 min): the smallest lead time at or above the chosen IDC lead time that has a value; per cell the source priority is live > replay > hindcast. |
+| **DA price** (EUR/MWh) | HU day-ahead price, 15 min. |
+| **IDC price** (EUR/MWh) | ID3 index price. |
+| **Imbalance price** (EUR/MWh) | The single imbalance price. Before 2026-10-01 it was in HUF, converted with the MNB rate of the previous business day. |
+| **Cloud cover** (%) | Open-Meteo forecast of the hour that contains the interval, for the site's area (west = Putnok + Serenyfalva, east = Sajokaza + Szuhakálló 1 + 2); the weather model is chosen in Cloud model. |
 
-*结算口径*（每 15 分钟，单一不平衡价，所以系统方向不影响总额；和 `py/analysis/tokaj_da_idc_settlement.py`、工作簿核对过的那一版一致）
-- H = DA 预测（vcom `production forecast` 的 I 列，用 POA + 我们的公式算出）；AH = 理论发电量（实测 POA 算出，含 AC 限值）；D = DA bid % × H（DA 报量）。
-- F = 提前 L 分钟的超短期预测（UST，提前量 ≥ L 里最小的一档；每个格子 live > replay > hindcast 取第一个有值的）。
-- Rest = IDC：最终仓位 = F，没有 F 的时段 = D（不交易）；Rest = imbalance：最终仓位 = D，不交易。
-- DA revenue = P·D/1000；IDC revenue = AA·(最终仓位 − D)/1000；**Imbalance cost = −(最终仓位 − AH)·Pimb/1000**（负 = 成本，正 = 收入）；Revenue (prior to imbalance cost) = DA + IDC；**Total revenue (post imbalance cost) = DA + IDC + Imbalance cost**；**Imbalance % = Imbalance cost / Revenue (prior to imbalance cost)**，即工作簿汇总区的 AQ ÷ AF（不平衡费用合计 ÷ 不平衡前收入合计，月度行用当月合计相除，全年行是先合计再相除，不是各月百分比的平均）；负数表示不平衡侵蚀了这个比例的收入，核对过 Putnok 1–8 月 = −333,839 / 2,441,198 = −13.68%。
-- P = 日前价，AA = ID3 指数价，Pimb = 不平衡价，EUR/MWh。100% 报量 + IDC 就是对过工作簿的那一版。
-- 只统计「理论发电量和 DA 预测都有值」的时段。价格缺失按 0 计；某个站点某一天完全没有日前价或没有不平衡价（通常是最近一两天）就整天不计，状态栏会写出来。
-- 注意：2026-10-29 之前的 UST 是乙方的回测（hindcast，2026-01-01 ~ 10-25）和回放（replay，10-25 起），假设每个发布时刻都有最新实测，所以这些时段 IDC 的结果是**理想条件下的上限**，不是实际运行能拿到的；live 目前实测输入有延迟，精度更差。
+### 2. Strategy（从 Inputs 得到报量和仓位）
 
-*售电公司利润与不发电策略*
-- 站点结算款（PV revenue）= AH·P/1000，即当天实测 POA 算出的理论发电量 × 对应日前价，付给光伏场站。
-- **Profit = Total revenue (post imbalance cost) − PV revenue**（售电公司最终到手）。
-- **Profit % = Profit ÷ PV revenue × 100**（每付给光伏场站 1 欧元多赚多少）：Summary table 最右一列，用橙色底色突出；月度行用当月合计相除，合计行和所选月份范围行是先合计再相除，不是各月百分比的平均；PV revenue ≤ 0 时显示 –。DA-only 的 profit 同理：(P·H − (H−AH)·Pimb)/1000 − AH·P/1000。
-- **Curtail if DA price ≤ X**：某 15 分钟日前价 P ≤ X（价格缺失不触发）则场站不发电：DA / IDC / Imbalance cost / Payment 全部为 0；状态栏写出被停发的时段数和电量。DA-only 参照线不受该策略影响。
+| Name | Formula | 说明 |
+|---|---|---|
+| **DA bid** | `DA bid % * DA forecast` | DA 报量。Cloud 打开时，云多的时段改用 “DA: bid % when cloudy”（见第 5 节）。 |
+| **IDC volume** | `UST forecast - DA bid` | 进入 IDC 市场的量：DA 之后按最新预报还需要交易的量，正 = 买进，负 = 卖出。 |
+| **Final position** | `DA bid + IDC bid % * IDC volume` | 最终仓位。IDC bid % 是 IDC volume 里实际成交的比例，没成交的部分留在不平衡里。IDC bid % 留空时：Rest 选 Close out in IDC 等于 100%（Final position = UST forecast），选 Leave in imbalance 等于 0%（Final position = DA bid）。该时段没有 UST forecast 时，Final position = DA bid。 |
+| **Curtailment** | `if DA price <= curtail threshold then all amounts of the interval = 0` | 日前价小于等于阈值的时段不发电：下面所有金额（含 PV revenue）都是 0；价格缺失不触发。 |
 
-*Imbalance cost drill-down（溯源）*：Strategy / 图下面的卡片，回答 “某一天的不平衡费用为什么这么高（成本或收益）”。
-- **左边排名**：按 Summary table 里 From month / To month 选的月份，列出 |Imbalance cost| 最大的 10 天，同时给出当天的 **Imbalance kWh**（= 最终仓位 − 理论发电量，kWh；正 = 报得比实际发的多）、系统方向 ≤ 0 的时段的不平衡费用、系统方向 > 0 的时段的不平衡费用。**任何一天都可以选**：点排名里的一行、用右上角的 Day 选日期，或用旁边的 ‹ › 翻到前一天 / 后一天（不限于排名里的 10 天）。选到别的年份时，页面会加载那一年（上面图的日期范围会跟着移到那一天）；选的那天没有数据时，页面写明 “no data for this day”，不会跳回别的日子。没手动选时，默认跟着成本最大的那一天（改 Strategy 后会跟着变）。
-- **右边联动图**（一天，每 15 分钟，四层共用横轴和提示框，每一层的图例在自己那一层上面）：① 理论发电量、DA 报量、最终仓位（kWh），线之间用色块表示 “DA 报量和理论发电量的差” 怎么来、去了哪里：**橙色块 = IDC 修正掉的**（IDC correction），**红色块 = 修正后最终仓位仍高于理论发电量（报多了，Imbalance: bid more）**，**绿色块 = 最终仓位低于理论发电量（报少了，Imbalance: bid less）**；② 每个时段 **DA 报量 − 理论发电量** 的叠加柱子：橙色 = IDC correction，红 / 绿 = 修正后留在不平衡里的（Imbalance: bid more / bid less，就是 Imbalance kWh = 最终仓位 − 理论发电量）；③ 不平衡价（左轴 EUR/MWh）和系统方向（右轴 MWh，≤ 0 红、> 0 蓝）放在同一层里，左右两个轴的 0 线对齐、刻度在同一条线上；④ 每个时段的不平衡费用（EUR，红 = 成本，绿 = 收益）。读法：DA 报多了 → IDC 买回一部分（橙色）→ 剩下的（红）× 不平衡价（③）= 不平衡费用（④），系统方向（③）≤ 0 时不平衡价通常被推高。
-- **下面**：当天合计（不平衡费用、Imbalance kWh、系统方向 ≤ 0 / > 0 各有多少个时段、各占多少，最大的 5 个时段占全天的比例）和当天最大的 8 个时段（理论发电量、DA 报量、最终仓位、Imbalance kWh、日前价、不平衡价、系统方向、不平衡费用）。
-- 全部按当前的 Strategy（Cloud / Bid / Curtailment）和 Site 算，口径和上面的图、表完全一致（同一个结算函数）。成本 = −(最终仓位 − 理论发电量) × 不平衡价 ÷ 1000，所以高成本的原因就是下面三样的组合：不平衡量有多大（Imbalance kWh = 仓位 − 理论）、不平衡价有多高（以及比日前价高多少）、当时的系统方向。
-- 系统方向来自 MAVIR（`data/mavir/imbalance/HU_<年>.csv` 第 14 列 `System direction [MWh]`），经 `build_hu_combined.py` 进整合表的 `System direction (MWh)`，`upload_prices_to_r2.py` 把它和三列价格一起传到 R2；Worker 的 `/ops/api/imbalance` 多返回一列 `SD`（没有这一列或没有数据就是 null）。2026 年的数据里，系统方向 ≤ 0 的时段不平衡价大多高于日前价，> 0 的时段大多低于日前价。MAVIR 的 1–9 月是修正数据，之后是 preliminary。
-- **部署后要做一次**：运行 **Build HU Combined Data**（Actions → Run workflow），R2 里的价格表才会带上 System direction 这一列；在那之前页面照常工作，只是系统方向显示 “–”。
-- 网址参数：`dd`（手动选的那一天；不在当前年份时会加载那一年）。
+### 3. Outputs（Summary table 的每一列）
 
-*云量策略*（Strategy 卡片分成 Cloud / Bid / Curtailment 三块）
-- **Bid**（平时 / 晴天的策略）：`DA bid, % of DA forecast`（D = DA bid % × H）、`IDC bid, % of IDC volume`（**留空 = 没调整**）、`Rest (not bid in DA)`、`IDC lead time`。
-  - **IDC volume（进入 IDC 市场的量）= UST 预测 F − DA 报量 D**，也就是 DA 之后按最新预报还需要在 IDC 里交易的量（正 = 要买进，负 = 要卖出，对应 IDC 买回 / 卖出）。**IDC bid % 是这个量里实际在 IDC 成交的比例**：最终仓位 = D + IDC bid % × (F − D)。100% = 全部成交（最终仓位 = F），20% = 只成交五分之一，0% = 一点不成交；没成交的部分留在不平衡里。和 DA bid % 是同一种意思：DA 是 “H 的 20%”，IDC 是 “IDC 量的 20%”。
-  - 只调整 DA %（IDC bid % 留空）：没报进 DA 的部分由 **Rest** 决定，Close out in IDC = 平到 UST 预测 F（等于 IDC bid 100%），Leave in imbalance = 留在不平衡里（等于 IDC bid 0%）。
-  - DA % 和 IDC bid % 都调整：按上面的公式，**没成交的部分自动全部留在不平衡里**，这时 Rest 不起作用，置灰。
-- **Cloud**：标题旁边一个 On / Off 开关（默认 Off）。
-  - **Off**：Bid 里的值对所有时段生效（云量框置灰）。
-  - **On**：云量时段按 Cloud 里的值调整，其它（非多云）时段仍然按 Bid 调整：云量**不超过**阈值的时段（晴天）用 Bid 里的值；云多的时段改用云天的值：`DA: bid % when cloudy`（所在小时的**提前一天预报总云量**严格大于 `DA: cloud cover > (%)` 时，替换 DA bid %）、`IDC: bid % when cloudy`（所选云量严格大于 `IDC: cloud cover > (%)` 时，替换 IDC bid %，同样是 IDC 量的成交比例，没成交的部分留在不平衡里）。云天的值留空 = 云多时也和 Bid 一样；阈值留空 = 那一边没有云多的时段。
-  - `IDC: cloud forecast`：Latest forecast = Historical Forecast（默认），Day-ahead forecast = 提前一天预报；`IDC: cloud layer`：Total / Low / Mid / High（提前一天预报只有 Total）。
-  - DA 和 IDC 两边各自独立判断云多（DA 用提前一天预报总云量，IDC 用所选来源和云层）。
-- **Curtailment**：`Curtail when DA price ≤ (EUR/MWh)`（见上）。
-- PV revenue 不变（场站仍按实际发电量 × 日前价结算），Curtail 优先于云量策略。状态栏写出两边各有多少个云量时段；云量文件读不到时写 “cloud forecast data unavailable”。
-- **云量数据**（Open-Meteo，GMT 转成 Budapest 本地时间，每小时一行，在 `data/weather/`）：每个天气模型两份文件 `cloud_<模型>_day1.csv`、`cloud_<模型>_hist.csv`，`models.json` 列出有哪些模型、每个来源有哪些云层、数据从哪天到哪天。页面 Cloud 区的 **Cloud model** 下拉选哪个模型，DA 和 IDC 的云量判断就用哪个模型的数据（想比较不同模型：换一个模型，其他设置不变，看结果）。目前有三个模型，各有 `day1` 和 `hist` 两个来源（2024-12-31 起，到 2026-11 中）：`ifs025`（ECMWF IFS 0.25°，默认）、`arpege_europe`（Météo-France ARPEGE Europe）、`icon_eu`（DWD ICON EU；这个旧版在 2026-11-30 停用，之后的数据要换 Native 版）。之前的 IFS HRES 9km 数据已经去掉（它在 2025 年 2–7 月没有数据，不能和 2025 年连起来）。另外有一项 `avg`（**Average of the 3 models**，三个模型的平均）：每个小时、每个云层取三个模型的平均数（只用三个模型都有值的小时），由 `python3 py/build/average_cloud_models.py` 生成，新增或更新了模型数据后重新运行一次。平均数不是真实云量，是几个模型的“共识分数”，但按 2025–2026 年的对比，它和遮光程度（用理论发电量估的代理指标，粗略）的相关性比任何单个模型都高：`day1` 总云量 0.603（IFS 0.525、ARPEGE 0.544、ICON EU 0.546），`hist` 总云量 0.618（0.557 / 0.543 / 0.573）。某个模型只有一种来源时，IDC 的云量来源里另一个选项会置灰。**不同模型云量的平均水平不一样**（2025–2026 年白天小时平均：IFS 0.25° 44%，ARPEGE 54%，ICON EU 64%，同期用理论发电量估出的遮光程度平均 45%），所以阈值不能直接互相套用，比如 60% 在 ICON EU 里比在 IFS 里常见得多。
-  - `day1`：Previous Runs API 的 `cloud_cover_previous_day1`（有效时刻前约 24 小时发布的预报）。只有总云量。模型每 6 小时更新一次，`previous_day1` 对下午和傍晚的小时用到的那次运行是 DA 截止（前一天 12:00）之后才发布的，所以对这些小时**略微偏乐观**。
-  - `hist`：Historical Forecast API（每次模型运行最前面几小时拼成的序列）。有总 / 低 / 中 / 高云量。它非常接近事后实际，而且每次运行要在起始时间之后几个小时才发布，所以用它回测 IDC 会**明显偏乐观**（比真实 IDC 时刻能拿到的预报新得多）；`Day-ahead forecast` 则偏保守（比真实 IDC 时刻能拿到的更旧）。真实收益大概率在两者之间，只在乐观版有收益的结果不能当真。
-  - 两个区域：`west` = Putnok、Serenyfalva（坐标 48.29831, 20.42644），`east` = Sajokaza、Szuhakálló 1、Szuhakálló 2（坐标 48.27581, 20.64581）。列名是 `<层>_<区域>`，层 = `cloud_cover` / `cloud_cover_low` / `cloud_cover_mid` / `cloud_cover_high`。**换模型时请核对这两个坐标落在两个不同的格子里**（网格太粗时两个坐标会落进同一个格子，west 和 east 就没有区别了）。
-  - **一个模型的所有数据要用同一个模型导出**（Open-Meteo 页面 Weather models 只勾一个，导出时不要选 Best match，它是自动混合、不固定）；不同年份缺数据（比如 IFS HRES 9km 在 2025 年 2–7 月没有）就换成同一家的另一个版本，整年统一，并在这里写明。
-  - 转换脚本：`python3 py/build/convert_open_meteo_cloud.py <模型 id> <day1|hist> <Open-Meteo 多位置导出 CSV> [--label "显示名"]`（模型 id 如 `ifs9km`、`ifs025`、`aifs025`、`gfs`、`icon_eu`、`arpege_europe`……，见脚本里的 KNOWN_MODELS；`location_id` 0 = west、1 = east，其余位置忽略；UTC → Budapest 本地时间；夏令时重复的那个小时取平均；层按列名匹配，列名带模型后缀也认；一份导出里有多个模型会报错；再次运行会把新数据合并进去，同一小时以新的为准；同时更新 `models.json`）。某小时没有云量就按没有云处理。
-  - 想要更精确（每个决策时刻只用已经发布的最新一次运行）可以以后用 Single Runs API 做，目前没做。
-- Worker 的 `GET /ops/api/cloud?src=day1|hist` 把对应文件原样转发（不解析，几乎不占 CPU）；页面只在对应的阈值框有值时才读，每个文件读一次。
-- 网址参数：`cloud`（1 = 开关打开）、`cm`（Cloud model 的 id）、`dacc`、`dabc`（DA 云天比例）、`isrc`（hist / day1）、`il`（total / low / mid / high）、`icc`、`ibc`（IDC 云天比例）、`ibid`（Bid 里的 IDC bid %），其余同上。
+| Column | Formula | 说明 |
+|---|---|---|
+| **DA revenue €** | `DA bid * DA price / 1000` | DA 报量 × 日前价。 |
+| **IDC revenue €** | `(Final position - DA bid) * IDC price / 1000` | 在 IDC 的成交金额，负 = 买回，正 = 卖出。 |
+| **Revenue (prior to imbalance cost) €** | `DA revenue + IDC revenue` | 不平衡之前的收入。 |
+| **Imbalance cost €** | `-(Final position - Theoretical production) * Imbalance price / 1000` | 不平衡费用。报多了又遇上正的不平衡价是负数（成本），报少了是收益；不平衡价为负时符号反过来。 |
+| **Total revenue (post imbalance cost) €** | `Revenue (prior to imbalance cost) + Imbalance cost` | 扣掉不平衡费用后的总收入。 |
+| **Imbalance %** | `Imbalance cost / Revenue (prior to imbalance cost) * 100` | 不平衡费用占不平衡前收入的比例，对应工作簿的 AQ ÷ AF。 |
+| **PV revenue €** | `Theoretical production * DA price / 1000` | 售电公司付给光伏场站的钱。 |
+| **Profit (total revenue - PV revenue) €** | `Total revenue (post imbalance cost) - PV revenue` | 售电公司最终到手的。 |
+| **Profit %** | `Profit / PV revenue * 100` | 每付给场站 1 欧元赚多少；PV revenue ≤ 0 时显示 “–”。 |
 
-*数据与接口*
-- `GET /ops/api/imbalance?site=&start=&end=&lead=`（≤ 62 天）：返回该站点该时段逐 15 分钟的结算输入（列式 JSON：`t, H, AH, F, P, AA, PI`），结算本身在浏览器里算。H 和 AH 来自 vcom（`GITHUB_TOKEN`），UST 来自 R2（`ust/`、`ust-replay/`、`ust-hindcast/` 三个视图），价格见下。
-- `GET /ops/api/ust-range?site=&start=&end=&resolution=15min|hourly`（≤ 62 天）：理论发电量 + DA + 16 档提前量的 UST（Overview 页的滑块 / 热力图用）。
+### 4. 汇总规则
 
-*哪些年份能算*：结算每个 15 分钟需要 **理论发电量（AH）和 DA 预测（H）都有值**。理论发电量 2024 年起都有；DA 预测来自乙方的 POA 预测（vcom `data/irradiance forecast`、`data/production forecast`），**目前只有 2026-01-02 起**，所以 2025 年及以前选出来没有时段可算，页面显示没有数据。要算 2025 年，需要先把乙方 2025 年的 DA POA 预测拉进 vcom（`py/fetch_hupv_forecast.py --start 2025-01-01 --end 2025-12-31`，再运行 `py/fill_production_forecast.py` 用公式算出 power），这取决于乙方的接口能不能取到历史出稿。价格（hu-market-data / R2）、系统方向（缺了只是显示 “–”，不影响不平衡费用的计算）、UST（hindcast 现在从 2024-01 起都读）都不是限制。
+- 月份行：所选站点、当月所有 15 分钟的值直接相加；月份按 15 分钟起点的布达佩斯当地时间。
+- **Total 行 / 选中的月份范围**：先把金额相加，再用相加后的数重新算 Imbalance % 和 Profit %，不是各月百分比的平均。
+- 只统计 Theoretical production 和 DA forecast 都有值的时段；价格缺失按 0 计；某个站点某一天完全没有日前价或没有不平衡价的，整天不计；没有数据的月份显示 “–”。
+- 图（频率可选 15 min 到 Yearly）用同一个结算函数，只是按所选频率汇总。
 
-*价格表*：日前价、ID3 价、不平衡价（欧元；2026-09-30 及以前的不平衡价是福林，用 MNB 前一个工作日汇率换算）来自 `py/build/build_hu_combined.py` 每天整合的 15 分钟表。`build_combined.yml` 把它推到 `hu-market-data`（给同事用），**最后一步**再把三列（`DA Price`、`ID3 Price`、`Imbalance Price`，约 1.3 MB / 年）传到 R2 的 `market/prices_HU_<年>.csv`（`py/build/upload_prices_to_r2.py`，覆盖写，两个步骤互相独立）。Worker 先读 R2，R2 里没有再退回 `hu-market-data` 仓库（`PRICE_TOKEN`，没配就用 `GITHUB_TOKEN`，仓库可用变量 `PRICE_REPO` 改）；都读不到时页面报错并写明原因。GitHub 对没有权限的私有仓库返回 404 而不是 403，所以 404 按「读不到」处理，不当作「没有数据」。
+### 5. Cloud：哪些时段算 “云多”
 
-*部署清单（价格表）*
-1. 网站仓库 Settings → Secrets and variables → Actions：`R2_ACCOUNT_ID`、`R2_ACCESS_KEY_ID`、`R2_SECRET_ACCESS_KEY`、`R2_BUCKET`（和 vcom 超短期用的是同一个 R2 桶，token 要对它有读写权限）。
-2. 第一次部署后手动运行一次 **Build HU Combined Data**（Actions → Run workflow），R2 里才会有 `market/`；之后每天 10:30 UTC 自动更新。
-3. Worker 已绑定 R2（绑定名 `UST`，桶 `poa-forecast`）即可，不需要额外的 token；只有走仓库兜底时才需要 `PRICE_TOKEN`（只授权 `hu-market-data`、Contents 只读）。
+- Cloud 开关 **Off**：Bid 里的 DA bid % 和 IDC bid % 对所有时段生效。
+- **On**：云多的时段用 Cloud 里的 “DA: bid % when cloudy” 和 “IDC: bid % when cloudy”（留空 = 和 Bid 一样），其他时段仍用 Bid。
+- DA 和 IDC 各自判断：DA 看**提前一天预报**的总云量是否严格大于 “DA: cloud cover > (%)”；IDC 看所选来源（Latest forecast = Historical Forecast，或 Day-ahead forecast）和云层（Total / Low / Mid / High）是否严格大于 “IDC: cloud cover > (%)”。阈值留空 = 那一边没有云多的时段。
+- 云量来自 Cloud model 选的天气模型（IFS 0.25° / ARPEGE Europe / ICON EU / 三个模型的平均）。不同模型云量的平均水平不同（IFS 44%，ARPEGE 54%，ICON EU 64%），阈值不能直接互相套用。
+- 注意：Historical Forecast 非常接近事后实际，对 IDC 偏乐观；Day-ahead 偏保守，真实收益在两者之间。2026-10-29 之前的 UST 是乙方回测和回放（假设每个发布时刻都有最新实测），所以那段时间 IDC 的结果是理想条件下的上限。
 
-*测试*
-- `node gate/tests/worker_imbalance.test.mjs`（需要 python3 + pandas）：Worker 输出经页面里的 `settleSlot`（`ops-imbalance.html` 的 `<core>` 段）算出的结果，和 Python 结算脚本在 1536 个数值上逐项一致（16 档提前量 × {IDC, imbalance} × 报量 100/80/50% × 3 天，含缺失价格和缺失预测），另覆盖 R2 与仓库两条价格路径一致、两边都读不到时 502、`PRICE_TOKEN` 只用于价格仓库、参数校验。
-- `python py/tests/test_upload_prices_to_r2.py`：三列瘦身、夏令时回拨日重复的小时保留、缺列报错。
+### 6. Imbalance cost drill-down（某一天为什么高）
+
+- 排名：按 Summary table 选的月份范围，列出 |Imbalance cost| 最大的 10 天；Day 可以选任意一天。全部按当前 Strategy 和 Site 算，和表用同一个结算函数。
+- **Imbalance kWh** = `Final position - Theoretical production`（正 = 报得比实际发的多）。
+- 联动图（一天，每 15 分钟）：① Theoretical production、DA bid、Final position，色块 = DA bid 和 Theoretical production 之间的差：橙色是被 IDC 买回的部分（IDC correction），红色是买回之后仍然报多了的部分（Imbalance: bid more），绿色是报少了的部分（Imbalance: bid less）；② 同样的拆分，按每个时段的柱子；③ Imbalance price（左轴）和 System direction（右轴，≤ 0 红 / > 0 蓝，两轴 0 线对齐）；④ 每个时段的 Imbalance cost。
+- 读法：DA 报多了 → IDC 买回一部分（橙）→ 剩下的（红）× Imbalance price = Imbalance cost。2026 年的数据里，System direction ≤ 0 的时段不平衡价大多高于日前价，> 0 的大多低于日前价。
+
+### 7. 数据与维护（简要）
+
+- **价格 / 系统方向**：`py/build/build_hu_combined.py` 每天整合（日前价、ID3、不平衡价、MAVIR 的 System direction，在 `data/mavir/imbalance/HU_<年>.csv` 第 14 列），`build_combined.yml` 最后一步用 `py/build/upload_prices_to_r2.py` 把四列传到 R2 的 `market/prices_HU_<年>.csv`；Worker 先读 R2，读不到再读 `hu-market-data`（`PRICE_TOKEN`）。新增 / 改了价格数据后，在 Actions 手动运行一次 **Build HU Combined Data**。
+- **哪些年份能算**：需要 Theoretical production 和 DA forecast 都有值。DA forecast（vcom `data/irradiance forecast`、`data/production forecast`）目前只有 2026-01-02 起，所以 2025 年及以前没有时段可算；要算 2025 年，需要先把乙方 2025 年的 DA POA 预测拉进 vcom（`py/fetch_hupv_forecast.py`，再运行 `py/fill_production_forecast.py`）。
+- **UST**：R2 的 `ust/`（live）、`ust-replay/`、`ust-hindcast/`（2024-01 起读）。
+- **云量数据**：`data/weather/cloud_<模型>_day1.csv`（提前一天预报，总云量）和 `cloud_<模型>_hist.csv`（Historical Forecast，总 / 低 / 中 / 高云量），`models.json` 列出有哪些模型。两个区域：west（坐标 48.29831, 20.42644）= Putnok + Serenyfalva，east（坐标 48.27581, 20.64581）= Sajokaza + Szuhakálló 1 + 2。新增或更新：`python3 py/build/convert_open_meteo_cloud.py <模型 id> <day1|hist> <Open-Meteo 多位置导出 CSV>`（一份导出里有多个模型时按模型 id 取列；UTC 转 Budapest 本地时间），再运行 `python3 py/build/average_cloud_models.py` 更新平均。同一个模型的所有数据要用同一个模型导出，不要选 Best match。
+- **接口**：`GET /ops/api/imbalance?site=&start=&end=&lead=`（≤ 62 天，逐 15 分钟的输入，结算在浏览器里算）、`/ops/api/ust-range`、`/ops/api/cloud?model=&src=day1|hist`（`?index=1` 返回模型列表）。
+- **测试**：`node gate/tests/worker_imbalance.test.mjs`（需要 python3 + pandas，页面里的 `settleSlot` 和 Python 结算脚本逐项对照）、`python3 -m pytest py/tests/test_upload_prices_to_r2.py py/tests/test_convert_open_meteo_cloud.py`。

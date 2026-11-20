@@ -324,9 +324,10 @@ function renderTimeline() {
         markLine: todayTop != null ? line(todayTop) : undefined,
         renderItem: (params, api) => {
           const c = cl[params.dataIndex], px0 = api.coord([c.x0, 0])[0], px1 = api.coord([c.x1, 0])[0], base = api.coord([0, 0])[1];
-          const bw = Math.min(34, (px1 - px0) / 3.4), gap = 4, st = (px0 + px1) / 2 - (3 * bw + 2 * gap) / 2;
+          const bw = Math.min(40, (px1 - px0) / 2.6), gap = 4, st = (px0 + px1) / 2 - (2 * bw + gap) / 2;
           const R = (k, lo, hi, color) => { if (hi - lo < 0.5) return null; const yt = api.coord([0, hi])[1], yb = api.coord([0, lo])[1]; return { type: "rect", shape: { x: st + k * (bw + gap), y: yt, width: bw, height: yb - yt }, style: { fill: color } }; };
-          const ch = [R(0, 0, c.P, "#1a1a1a"), R(1, 0, c.S, "#2c7fb8"), R(2, 0, c.remExp, "#b0b7bf"), R(2, c.remExp, c.rem, "#27ae60"), R(2, c.rem, c.rem + c.over, "#e67e22")].filter(Boolean);
+          const sg = Math.min(c.S, c.P);       // second bar = signed + remain stacked (+ the oversold part above the meter bar), to be read against the meter bar next to it
+          const ch = [R(0, 0, c.P, "#1a1a1a"), R(1, 0, sg, "#2c7fb8"), R(1, sg, sg + c.remExp, "#b0b7bf"), R(1, sg + c.remExp, sg + c.rem, "#27ae60"), R(1, c.P, c.P + c.over, "#e67e22")].filter(Boolean);
           if (c.x1 - c.x0 > 1) ch.push({ type: "text", style: { text: c.label, x: (px0 + px1) / 2, y: base + 24, textAlign: "center", fill: "#555", fontSize: 11, fontWeight: 600 } });
           if (out[params.dataIndex].length) ch.push({ type: "text", style: { text: "delivery " + out[params.dataIndex].join(", "), x: (px0 + px1) / 2, y: base + 40, textAlign: "center", fill: "#8a6d3b", fontSize: 10 } });
           // bracket under the period

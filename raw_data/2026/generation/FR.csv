@@ -400041,13 +400041,13 @@ date,category,value
 2026/11/18 16:30,Fossil Hard Coal,1.09
 2026/11/18 16:30,Fossil Oil,40.39
 2026/11/18 16:30,Hydro Pumped Storage,944.69
-2026/11/18 16:30,Hydro Run-of-river and Poundage,4165.07
-2026/11/18 16:30,Hydro Water Reservoir,902.61
-2026/11/18 16:30,Nuclear,43566.22
-2026/11/18 16:30,Solar,1477.83
+2026/11/18 16:30,Hydro Run-of-river and Poundage,4164.88
+2026/11/18 16:30,Hydro Water Reservoir,903.36
+2026/11/18 16:30,Nuclear,43566.21
+2026/11/18 16:30,Solar,1477.67
 2026/11/18 16:30,Waste,403.39
 2026/11/18 16:30,Wind Offshore,1899.17
-2026/11/18 16:30,Wind Onshore,13126.51
+2026/11/18 16:30,Wind Onshore,13126.27
 2026/11/18 16:45,Biomass,273.02
 2026/11/18 16:45,Energy Storage,28.26
 2026/11/18 16:45,Fossil Gas,1137.18
@@ -400425,3 +400425,1251 @@ date,category,value
 2026/11/18 23:45,Waste,400.06
 2026/11/18 23:45,Wind Offshore,2109.51
 2026/11/18 23:45,Wind Onshore,12820.11
+2026/11/19 0:00,Biomass,273.92
+2026/11/19 0:00,Energy Storage,6.59
+2026/11/19 0:00,Fossil Gas,1290.02
+2026/11/19 0:00,Fossil Hard Coal,1.0
+2026/11/19 0:00,Fossil Oil,40.93
+2026/11/19 0:00,Hydro Pumped Storage,872.81
+2026/11/19 0:00,Hydro Run-of-river and Poundage,4316.63
+2026/11/19 0:00,Hydro Water Reservoir,1056.45
+2026/11/19 0:00,Nuclear,42974.93
+2026/11/19 0:00,Solar,0.0
+2026/11/19 0:00,Waste,401.94
+2026/11/19 0:00,Wind Offshore,2062.57
+2026/11/19 0:00,Wind Onshore,12961.2
+2026/11/19 0:15,Biomass,273.95
+2026/11/19 0:15,Energy Storage,32.97
+2026/11/19 0:15,Fossil Gas,1310.24
+2026/11/19 0:15,Fossil Hard Coal,1.08
+2026/11/19 0:15,Fossil Oil,40.6
+2026/11/19 0:15,Hydro Pumped Storage,726.61
+2026/11/19 0:15,Hydro Run-of-river and Poundage,4260.31
+2026/11/19 0:15,Hydro Water Reservoir,960.7
+2026/11/19 0:15,Nuclear,42985.67
+2026/11/19 0:15,Solar,0.0
+2026/11/19 0:15,Waste,402.96
+2026/11/19 0:15,Wind Offshore,2067.39
+2026/11/19 0:15,Wind Onshore,13197.08
+2026/11/19 0:30,Biomass,274.01
+2026/11/19 0:30,Energy Storage,81.42
+2026/11/19 0:30,Fossil Gas,1298.1
+2026/11/19 0:30,Fossil Hard Coal,0.94
+2026/11/19 0:30,Fossil Oil,40.42
+2026/11/19 0:30,Hydro Pumped Storage,343.3
+2026/11/19 0:30,Hydro Run-of-river and Poundage,4231.26
+2026/11/19 0:30,Hydro Water Reservoir,870.4
+2026/11/19 0:30,Nuclear,43074.04
+2026/11/19 0:30,Solar,0.0
+2026/11/19 0:30,Waste,404.96
+2026/11/19 0:30,Wind Offshore,2119.95
+2026/11/19 0:30,Wind Onshore,12948.97
+2026/11/19 0:45,Biomass,273.94
+2026/11/19 0:45,Energy Storage,220.64
+2026/11/19 0:45,Fossil Gas,1247.19
+2026/11/19 0:45,Fossil Hard Coal,1.11
+2026/11/19 0:45,Fossil Oil,40.72
+2026/11/19 0:45,Hydro Pumped Storage,211.05
+2026/11/19 0:45,Hydro Run-of-river and Poundage,4245.25
+2026/11/19 0:45,Hydro Water Reservoir,893.41
+2026/11/19 0:45,Nuclear,43107.77
+2026/11/19 0:45,Solar,0.0
+2026/11/19 0:45,Waste,404.66
+2026/11/19 0:45,Wind Offshore,2177.0
+2026/11/19 0:45,Wind Onshore,12728.91
+2026/11/19 1:00,Biomass,274.15
+2026/11/19 1:00,Energy Storage,71.13
+2026/11/19 1:00,Fossil Gas,1086.89
+2026/11/19 1:00,Fossil Hard Coal,1.14
+2026/11/19 1:00,Fossil Oil,40.93
+2026/11/19 1:00,Hydro Pumped Storage,196.36
+2026/11/19 1:00,Hydro Run-of-river and Poundage,4241.76
+2026/11/19 1:00,Hydro Water Reservoir,988.42
+2026/11/19 1:00,Nuclear,43199.86
+2026/11/19 1:00,Solar,0.0
+2026/11/19 1:00,Waste,401.67
+2026/11/19 1:00,Wind Offshore,2183.46
+2026/11/19 1:00,Wind Onshore,12898.39
+2026/11/19 1:15,Biomass,273.1
+2026/11/19 1:15,Energy Storage,221.88
+2026/11/19 1:15,Fossil Gas,1093.13
+2026/11/19 1:15,Fossil Hard Coal,1.09
+2026/11/19 1:15,Fossil Oil,40.68
+2026/11/19 1:15,Hydro Pumped Storage,139.25
+2026/11/19 1:15,Hydro Run-of-river and Poundage,4230.98
+2026/11/19 1:15,Hydro Water Reservoir,949.6
+2026/11/19 1:15,Nuclear,43240.27
+2026/11/19 1:15,Solar,0.0
+2026/11/19 1:15,Waste,396.34
+2026/11/19 1:15,Wind Offshore,2178.46
+2026/11/19 1:15,Wind Onshore,13170.95
+2026/11/19 1:30,Biomass,273.07
+2026/11/19 1:30,Energy Storage,74.75
+2026/11/19 1:30,Fossil Gas,1080.85
+2026/11/19 1:30,Fossil Hard Coal,0.97
+2026/11/19 1:30,Fossil Oil,40.71
+2026/11/19 1:30,Hydro Pumped Storage,45.8
+2026/11/19 1:30,Hydro Run-of-river and Poundage,4198.1
+2026/11/19 1:30,Hydro Water Reservoir,956.6
+2026/11/19 1:30,Nuclear,43119.88
+2026/11/19 1:30,Solar,0.0
+2026/11/19 1:30,Waste,401.75
+2026/11/19 1:30,Wind Offshore,2174.14
+2026/11/19 1:30,Wind Onshore,13243.6
+2026/11/19 1:45,Biomass,273.08
+2026/11/19 1:45,Energy Storage,197.96
+2026/11/19 1:45,Fossil Gas,1081.01
+2026/11/19 1:45,Fossil Hard Coal,1.11
+2026/11/19 1:45,Fossil Oil,40.41
+2026/11/19 1:45,Hydro Pumped Storage,53.84
+2026/11/19 1:45,Hydro Run-of-river and Poundage,4184.95
+2026/11/19 1:45,Hydro Water Reservoir,916.36
+2026/11/19 1:45,Nuclear,43344.86
+2026/11/19 1:45,Solar,0.0
+2026/11/19 1:45,Waste,402.11
+2026/11/19 1:45,Wind Offshore,2181.57
+2026/11/19 1:45,Wind Onshore,13347.73
+2026/11/19 2:00,Biomass,273.3
+2026/11/19 2:00,Energy Storage,94.5
+2026/11/19 2:00,Fossil Gas,1081.45
+2026/11/19 2:00,Fossil Hard Coal,1.03
+2026/11/19 2:00,Fossil Oil,40.98
+2026/11/19 2:00,Hydro Pumped Storage,54.59
+2026/11/19 2:00,Hydro Run-of-river and Poundage,4198.06
+2026/11/19 2:00,Hydro Water Reservoir,930.09
+2026/11/19 2:00,Nuclear,43075.33
+2026/11/19 2:00,Solar,0.0
+2026/11/19 2:00,Waste,401.77
+2026/11/19 2:00,Wind Offshore,2187.45
+2026/11/19 2:00,Wind Onshore,13472.48
+2026/11/19 2:15,Biomass,273.21
+2026/11/19 2:15,Energy Storage,28.04
+2026/11/19 2:15,Fossil Gas,1092.05
+2026/11/19 2:15,Fossil Hard Coal,1.04
+2026/11/19 2:15,Fossil Oil,40.92
+2026/11/19 2:15,Hydro Pumped Storage,54.57
+2026/11/19 2:15,Hydro Run-of-river and Poundage,4196.31
+2026/11/19 2:15,Hydro Water Reservoir,924.04
+2026/11/19 2:15,Nuclear,42534.1
+2026/11/19 2:15,Solar,0.0
+2026/11/19 2:15,Waste,403.4
+2026/11/19 2:15,Wind Offshore,2175.97
+2026/11/19 2:15,Wind Onshore,13574.06
+2026/11/19 2:30,Biomass,273.23
+2026/11/19 2:30,Energy Storage,23.43
+2026/11/19 2:30,Fossil Gas,1079.07
+2026/11/19 2:30,Fossil Hard Coal,0.98
+2026/11/19 2:30,Fossil Oil,40.79
+2026/11/19 2:30,Hydro Pumped Storage,54.41
+2026/11/19 2:30,Hydro Run-of-river and Poundage,4098.3
+2026/11/19 2:30,Hydro Water Reservoir,869.72
+2026/11/19 2:30,Nuclear,41491.42
+2026/11/19 2:30,Solar,0.0
+2026/11/19 2:30,Waste,404.16
+2026/11/19 2:30,Wind Offshore,2152.81
+2026/11/19 2:30,Wind Onshore,13612.95
+2026/11/19 2:45,Biomass,273.29
+2026/11/19 2:45,Energy Storage,13.67
+2026/11/19 2:45,Fossil Gas,1084.78
+2026/11/19 2:45,Fossil Hard Coal,0.98
+2026/11/19 2:45,Fossil Oil,40.88
+2026/11/19 2:45,Hydro Pumped Storage,54.47
+2026/11/19 2:45,Hydro Run-of-river and Poundage,4096.75
+2026/11/19 2:45,Hydro Water Reservoir,947.63
+2026/11/19 2:45,Nuclear,40638.23
+2026/11/19 2:45,Solar,0.0
+2026/11/19 2:45,Waste,405.7
+2026/11/19 2:45,Wind Offshore,2143.49
+2026/11/19 2:45,Wind Onshore,13855.29
+2026/11/19 3:00,Biomass,272.81
+2026/11/19 3:00,Energy Storage,24.61
+2026/11/19 3:00,Fossil Gas,1089.39
+2026/11/19 3:00,Fossil Hard Coal,1.05
+2026/11/19 3:00,Fossil Oil,40.83
+2026/11/19 3:00,Hydro Pumped Storage,54.44
+2026/11/19 3:00,Hydro Run-of-river and Poundage,4094.83
+2026/11/19 3:00,Hydro Water Reservoir,923.82
+2026/11/19 3:00,Nuclear,40214.77
+2026/11/19 3:00,Solar,0.0
+2026/11/19 3:00,Waste,402.18
+2026/11/19 3:00,Wind Offshore,2138.44
+2026/11/19 3:00,Wind Onshore,14127.23
+2026/11/19 3:15,Biomass,271.79
+2026/11/19 3:15,Energy Storage,24.57
+2026/11/19 3:15,Fossil Gas,1100.13
+2026/11/19 3:15,Fossil Hard Coal,1.11
+2026/11/19 3:15,Fossil Oil,40.68
+2026/11/19 3:15,Hydro Pumped Storage,54.13
+2026/11/19 3:15,Hydro Run-of-river and Poundage,4047.76
+2026/11/19 3:15,Hydro Water Reservoir,913.72
+2026/11/19 3:15,Nuclear,39899.66
+2026/11/19 3:15,Solar,0.0
+2026/11/19 3:15,Waste,406.4
+2026/11/19 3:15,Wind Offshore,2152.15
+2026/11/19 3:15,Wind Onshore,13997.93
+2026/11/19 3:30,Biomass,272.07
+2026/11/19 3:30,Energy Storage,8.0
+2026/11/19 3:30,Fossil Gas,1080.35
+2026/11/19 3:30,Fossil Hard Coal,1.18
+2026/11/19 3:30,Fossil Oil,40.66
+2026/11/19 3:30,Hydro Pumped Storage,54.25
+2026/11/19 3:30,Hydro Run-of-river and Poundage,4035.05
+2026/11/19 3:30,Hydro Water Reservoir,921.98
+2026/11/19 3:30,Nuclear,39836.6
+2026/11/19 3:30,Solar,0.0
+2026/11/19 3:30,Waste,405.62
+2026/11/19 3:30,Wind Offshore,2157.71
+2026/11/19 3:30,Wind Onshore,13836.56
+2026/11/19 3:45,Biomass,273.1
+2026/11/19 3:45,Energy Storage,96.23
+2026/11/19 3:45,Fossil Gas,1074.02
+2026/11/19 3:45,Fossil Hard Coal,1.05
+2026/11/19 3:45,Fossil Oil,40.52
+2026/11/19 3:45,Hydro Pumped Storage,270.65
+2026/11/19 3:45,Hydro Run-of-river and Poundage,4047.09
+2026/11/19 3:45,Hydro Water Reservoir,941.19
+2026/11/19 3:45,Nuclear,39778.83
+2026/11/19 3:45,Solar,0.0
+2026/11/19 3:45,Waste,404.9
+2026/11/19 3:45,Wind Offshore,2164.93
+2026/11/19 3:45,Wind Onshore,14073.29
+2026/11/19 4:00,Biomass,273.33
+2026/11/19 4:00,Energy Storage,70.68
+2026/11/19 4:00,Fossil Gas,1112.72
+2026/11/19 4:00,Fossil Hard Coal,1.17
+2026/11/19 4:00,Fossil Oil,40.53
+2026/11/19 4:00,Hydro Pumped Storage,262.02
+2026/11/19 4:00,Hydro Run-of-river and Poundage,4054.33
+2026/11/19 4:00,Hydro Water Reservoir,926.08
+2026/11/19 4:00,Nuclear,39812.6
+2026/11/19 4:00,Solar,0.0
+2026/11/19 4:00,Waste,404.64
+2026/11/19 4:00,Wind Offshore,2139.44
+2026/11/19 4:00,Wind Onshore,14397.25
+2026/11/19 4:15,Biomass,273.54
+2026/11/19 4:15,Energy Storage,90.37
+2026/11/19 4:15,Fossil Gas,1082.67
+2026/11/19 4:15,Fossil Hard Coal,0.9
+2026/11/19 4:15,Fossil Oil,40.51
+2026/11/19 4:15,Hydro Pumped Storage,247.51
+2026/11/19 4:15,Hydro Run-of-river and Poundage,4066.27
+2026/11/19 4:15,Hydro Water Reservoir,923.5
+2026/11/19 4:15,Nuclear,39831.52
+2026/11/19 4:15,Solar,0.0
+2026/11/19 4:15,Waste,405.25
+2026/11/19 4:15,Wind Offshore,2018.9
+2026/11/19 4:15,Wind Onshore,14375.68
+2026/11/19 4:30,Biomass,273.4
+2026/11/19 4:30,Energy Storage,103.77
+2026/11/19 4:30,Fossil Gas,1080.56
+2026/11/19 4:30,Fossil Hard Coal,1.02
+2026/11/19 4:30,Fossil Oil,40.71
+2026/11/19 4:30,Hydro Pumped Storage,325.9
+2026/11/19 4:30,Hydro Run-of-river and Poundage,4067.86
+2026/11/19 4:30,Hydro Water Reservoir,1054.21
+2026/11/19 4:30,Nuclear,39891.98
+2026/11/19 4:30,Solar,0.0
+2026/11/19 4:30,Waste,403.24
+2026/11/19 4:30,Wind Offshore,2019.56
+2026/11/19 4:30,Wind Onshore,14455.83
+2026/11/19 4:45,Biomass,273.11
+2026/11/19 4:45,Energy Storage,49.37
+2026/11/19 4:45,Fossil Gas,1084.98
+2026/11/19 4:45,Fossil Hard Coal,0.87
+2026/11/19 4:45,Fossil Oil,40.24
+2026/11/19 4:45,Hydro Pumped Storage,333.11
+2026/11/19 4:45,Hydro Run-of-river and Poundage,4061.79
+2026/11/19 4:45,Hydro Water Reservoir,1034.53
+2026/11/19 4:45,Nuclear,39826.06
+2026/11/19 4:45,Solar,0.0
+2026/11/19 4:45,Waste,405.86
+2026/11/19 4:45,Wind Offshore,2012.63
+2026/11/19 4:45,Wind Onshore,14674.17
+2026/11/19 5:00,Biomass,273.39
+2026/11/19 5:00,Energy Storage,163.99
+2026/11/19 5:00,Fossil Gas,1098.01
+2026/11/19 5:00,Fossil Hard Coal,1.15
+2026/11/19 5:00,Fossil Oil,40.81
+2026/11/19 5:00,Hydro Pumped Storage,353.48
+2026/11/19 5:00,Hydro Run-of-river and Poundage,4067.48
+2026/11/19 5:00,Hydro Water Reservoir,1021.77
+2026/11/19 5:00,Nuclear,39871.4
+2026/11/19 5:00,Solar,0.0
+2026/11/19 5:00,Waste,403.5
+2026/11/19 5:00,Wind Offshore,2013.99
+2026/11/19 5:00,Wind Onshore,14827.88
+2026/11/19 5:15,Biomass,273.29
+2026/11/19 5:15,Energy Storage,341.58
+2026/11/19 5:15,Fossil Gas,1080.85
+2026/11/19 5:15,Fossil Hard Coal,0.74
+2026/11/19 5:15,Fossil Oil,40.7
+2026/11/19 5:15,Hydro Pumped Storage,234.76
+2026/11/19 5:15,Hydro Run-of-river and Poundage,4073.18
+2026/11/19 5:15,Hydro Water Reservoir,1004.14
+2026/11/19 5:15,Nuclear,39848.08
+2026/11/19 5:15,Solar,0.0
+2026/11/19 5:15,Waste,399.62
+2026/11/19 5:15,Wind Offshore,2037.24
+2026/11/19 5:15,Wind Onshore,15041.23
+2026/11/19 5:30,Biomass,273.37
+2026/11/19 5:30,Energy Storage,89.55
+2026/11/19 5:30,Fossil Gas,1081.17
+2026/11/19 5:30,Fossil Hard Coal,1.17
+2026/11/19 5:30,Fossil Oil,40.83
+2026/11/19 5:30,Hydro Pumped Storage,213.47
+2026/11/19 5:30,Hydro Run-of-river and Poundage,4083.49
+2026/11/19 5:30,Hydro Water Reservoir,1064.36
+2026/11/19 5:30,Nuclear,39889.29
+2026/11/19 5:30,Solar,0.0
+2026/11/19 5:30,Waste,399.01
+2026/11/19 5:30,Wind Offshore,2056.32
+2026/11/19 5:30,Wind Onshore,15076.14
+2026/11/19 5:45,Biomass,273.92
+2026/11/19 5:45,Energy Storage,258.12
+2026/11/19 5:45,Fossil Gas,1088.28
+2026/11/19 5:45,Fossil Hard Coal,0.81
+2026/11/19 5:45,Fossil Oil,40.57
+2026/11/19 5:45,Hydro Pumped Storage,80.88
+2026/11/19 5:45,Hydro Run-of-river and Poundage,4106.59
+2026/11/19 5:45,Hydro Water Reservoir,1070.45
+2026/11/19 5:45,Nuclear,40384.09
+2026/11/19 5:45,Solar,0.0
+2026/11/19 5:45,Waste,398.38
+2026/11/19 5:45,Wind Offshore,2058.8
+2026/11/19 5:45,Wind Onshore,15216.53
+2026/11/19 6:00,Biomass,274.09
+2026/11/19 6:00,Energy Storage,16.98
+2026/11/19 6:00,Fossil Gas,1092.52
+2026/11/19 6:00,Fossil Hard Coal,1.2
+2026/11/19 6:00,Fossil Oil,40.59
+2026/11/19 6:00,Hydro Pumped Storage,64.28
+2026/11/19 6:00,Hydro Run-of-river and Poundage,4233.22
+2026/11/19 6:00,Hydro Water Reservoir,1072.18
+2026/11/19 6:00,Nuclear,41023.62
+2026/11/19 6:00,Solar,0.0
+2026/11/19 6:00,Waste,398.41
+2026/11/19 6:00,Wind Offshore,2065.87
+2026/11/19 6:00,Wind Onshore,15267.47
+2026/11/19 6:15,Biomass,273.85
+2026/11/19 6:15,Energy Storage,5.59
+2026/11/19 6:15,Fossil Gas,1081.66
+2026/11/19 6:15,Fossil Hard Coal,1.02
+2026/11/19 6:15,Fossil Oil,40.59
+2026/11/19 6:15,Hydro Pumped Storage,69.08
+2026/11/19 6:15,Hydro Run-of-river and Poundage,4357.58
+2026/11/19 6:15,Hydro Water Reservoir,1112.41
+2026/11/19 6:15,Nuclear,41387.89
+2026/11/19 6:15,Solar,0.0
+2026/11/19 6:15,Waste,397.58
+2026/11/19 6:15,Wind Offshore,2072.79
+2026/11/19 6:15,Wind Onshore,15242.72
+2026/11/19 6:30,Biomass,273.37
+2026/11/19 6:30,Energy Storage,7.05
+2026/11/19 6:30,Fossil Gas,1081.47
+2026/11/19 6:30,Fossil Hard Coal,1.14
+2026/11/19 6:30,Fossil Oil,40.76
+2026/11/19 6:30,Hydro Pumped Storage,67.56
+2026/11/19 6:30,Hydro Run-of-river and Poundage,4359.35
+2026/11/19 6:30,Hydro Water Reservoir,1124.91
+2026/11/19 6:30,Nuclear,41857.73
+2026/11/19 6:30,Solar,0.0
+2026/11/19 6:30,Waste,394.33
+2026/11/19 6:30,Wind Offshore,2064.91
+2026/11/19 6:30,Wind Onshore,15244.87
+2026/11/19 6:45,Biomass,271.86
+2026/11/19 6:45,Energy Storage,6.26
+2026/11/19 6:45,Fossil Gas,1095.09
+2026/11/19 6:45,Fossil Hard Coal,0.91
+2026/11/19 6:45,Fossil Oil,40.68
+2026/11/19 6:45,Hydro Pumped Storage,67.32
+2026/11/19 6:45,Hydro Run-of-river and Poundage,4288.77
+2026/11/19 6:45,Hydro Water Reservoir,1154.01
+2026/11/19 6:45,Nuclear,42392.82
+2026/11/19 6:45,Solar,0.0
+2026/11/19 6:45,Waste,393.33
+2026/11/19 6:45,Wind Offshore,1948.45
+2026/11/19 6:45,Wind Onshore,15325.32
+2026/11/19 7:00,Biomass,271.62
+2026/11/19 7:00,Energy Storage,4.72
+2026/11/19 7:00,Fossil Gas,1088.33
+2026/11/19 7:00,Fossil Hard Coal,1.27
+2026/11/19 7:00,Fossil Oil,40.71
+2026/11/19 7:00,Hydro Pumped Storage,230.42
+2026/11/19 7:00,Hydro Run-of-river and Poundage,4299.37
+2026/11/19 7:00,Hydro Water Reservoir,1304.24
+2026/11/19 7:00,Nuclear,42841.89
+2026/11/19 7:00,Solar,216.06
+2026/11/19 7:00,Waste,395.59
+2026/11/19 7:00,Wind Offshore,1923.84
+2026/11/19 7:00,Wind Onshore,15562.64
+2026/11/19 7:15,Biomass,272.12
+2026/11/19 7:15,Energy Storage,4.08
+2026/11/19 7:15,Fossil Gas,1082.83
+2026/11/19 7:15,Fossil Hard Coal,0.94
+2026/11/19 7:15,Fossil Oil,40.37
+2026/11/19 7:15,Hydro Pumped Storage,797.46
+2026/11/19 7:15,Hydro Run-of-river and Poundage,4197.01
+2026/11/19 7:15,Hydro Water Reservoir,1368.81
+2026/11/19 7:15,Nuclear,42940.51
+2026/11/19 7:15,Solar,224.88
+2026/11/19 7:15,Waste,398.37
+2026/11/19 7:15,Wind Offshore,1915.01
+2026/11/19 7:15,Wind Onshore,15792.35
+2026/11/19 7:30,Biomass,272.92
+2026/11/19 7:30,Energy Storage,6.57
+2026/11/19 7:30,Fossil Gas,1086.21
+2026/11/19 7:30,Fossil Hard Coal,0.9
+2026/11/19 7:30,Fossil Oil,40.52
+2026/11/19 7:30,Hydro Pumped Storage,832.15
+2026/11/19 7:30,Hydro Run-of-river and Poundage,4187.06
+2026/11/19 7:30,Hydro Water Reservoir,1298.23
+2026/11/19 7:30,Nuclear,42908.78
+2026/11/19 7:30,Solar,196.73
+2026/11/19 7:30,Waste,399.88
+2026/11/19 7:30,Wind Offshore,2016.82
+2026/11/19 7:30,Wind Onshore,15892.86
+2026/11/19 7:45,Biomass,272.99
+2026/11/19 7:45,Energy Storage,2.97
+2026/11/19 7:45,Fossil Gas,1132.77
+2026/11/19 7:45,Fossil Hard Coal,0.91
+2026/11/19 7:45,Fossil Oil,40.86
+2026/11/19 7:45,Hydro Pumped Storage,841.12
+2026/11/19 7:45,Hydro Run-of-river and Poundage,4196.64
+2026/11/19 7:45,Hydro Water Reservoir,1361.86
+2026/11/19 7:45,Nuclear,42778.15
+2026/11/19 7:45,Solar,231.7
+2026/11/19 7:45,Waste,397.98
+2026/11/19 7:45,Wind Offshore,2054.69
+2026/11/19 7:45,Wind Onshore,15923.51
+2026/11/19 8:00,Biomass,273.72
+2026/11/19 8:00,Energy Storage,13.01
+2026/11/19 8:00,Fossil Gas,1100.99
+2026/11/19 8:00,Fossil Hard Coal,0.94
+2026/11/19 8:00,Fossil Oil,40.36
+2026/11/19 8:00,Hydro Pumped Storage,1238.89
+2026/11/19 8:00,Hydro Run-of-river and Poundage,4159.83
+2026/11/19 8:00,Hydro Water Reservoir,1408.41
+2026/11/19 8:00,Nuclear,42771.9
+2026/11/19 8:00,Solar,310.31
+2026/11/19 8:00,Waste,397.39
+2026/11/19 8:00,Wind Offshore,2057.32
+2026/11/19 8:00,Wind Onshore,15684.66
+2026/11/19 8:15,Biomass,274.92
+2026/11/19 8:15,Energy Storage,7.62
+2026/11/19 8:15,Fossil Gas,1073.6
+2026/11/19 8:15,Fossil Hard Coal,0.92
+2026/11/19 8:15,Fossil Oil,40.67
+2026/11/19 8:15,Hydro Pumped Storage,1708.08
+2026/11/19 8:15,Hydro Run-of-river and Poundage,4145.76
+2026/11/19 8:15,Hydro Water Reservoir,1445.59
+2026/11/19 8:15,Nuclear,42819.14
+2026/11/19 8:15,Solar,606.71
+2026/11/19 8:15,Waste,396.98
+2026/11/19 8:15,Wind Offshore,2047.03
+2026/11/19 8:15,Wind Onshore,15755.66
+2026/11/19 8:30,Biomass,274.24
+2026/11/19 8:30,Energy Storage,8.95
+2026/11/19 8:30,Fossil Gas,1077.01
+2026/11/19 8:30,Fossil Hard Coal,1.3
+2026/11/19 8:30,Fossil Oil,40.41
+2026/11/19 8:30,Hydro Pumped Storage,1575.94
+2026/11/19 8:30,Hydro Run-of-river and Poundage,4187.22
+2026/11/19 8:30,Hydro Water Reservoir,1413.89
+2026/11/19 8:30,Nuclear,42840.17
+2026/11/19 8:30,Solar,1037.23
+2026/11/19 8:30,Waste,392.41
+2026/11/19 8:30,Wind Offshore,2058.46
+2026/11/19 8:30,Wind Onshore,15809.93
+2026/11/19 8:45,Biomass,273.24
+2026/11/19 8:45,Energy Storage,6.75
+2026/11/19 8:45,Fossil Gas,1074.66
+2026/11/19 8:45,Fossil Hard Coal,1.0
+2026/11/19 8:45,Fossil Oil,40.39
+2026/11/19 8:45,Hydro Pumped Storage,1552.86
+2026/11/19 8:45,Hydro Run-of-river and Poundage,4232.24
+2026/11/19 8:45,Hydro Water Reservoir,1369.84
+2026/11/19 8:45,Nuclear,42841.43
+2026/11/19 8:45,Solar,1687.36
+2026/11/19 8:45,Waste,393.05
+2026/11/19 8:45,Wind Offshore,2063.65
+2026/11/19 8:45,Wind Onshore,15785.54
+2026/11/19 9:00,Biomass,265.73
+2026/11/19 9:00,Energy Storage,12.72
+2026/11/19 9:00,Fossil Gas,1073.61
+2026/11/19 9:00,Fossil Hard Coal,1.11
+2026/11/19 9:00,Fossil Oil,40.37
+2026/11/19 9:00,Hydro Pumped Storage,1433.26
+2026/11/19 9:00,Hydro Run-of-river and Poundage,4240.23
+2026/11/19 9:00,Hydro Water Reservoir,1141.78
+2026/11/19 9:00,Nuclear,42841.38
+2026/11/19 9:00,Solar,2410.33
+2026/11/19 9:00,Waste,393.95
+2026/11/19 9:00,Wind Offshore,2052.03
+2026/11/19 9:00,Wind Onshore,15878.25
+2026/11/19 9:15,Biomass,270.63
+2026/11/19 9:15,Energy Storage,38.15
+2026/11/19 9:15,Fossil Gas,1072.59
+2026/11/19 9:15,Fossil Hard Coal,1.12
+2026/11/19 9:15,Fossil Oil,40.34
+2026/11/19 9:15,Hydro Pumped Storage,1207.77
+2026/11/19 9:15,Hydro Run-of-river and Poundage,4189.74
+2026/11/19 9:15,Hydro Water Reservoir,1096.92
+2026/11/19 9:15,Nuclear,42840.2
+2026/11/19 9:15,Solar,3203.41
+2026/11/19 9:15,Waste,394.15
+2026/11/19 9:15,Wind Offshore,2054.72
+2026/11/19 9:15,Wind Onshore,16010.11
+2026/11/19 9:30,Biomass,269.74
+2026/11/19 9:30,Energy Storage,56.45
+2026/11/19 9:30,Fossil Gas,1076.4
+2026/11/19 9:30,Fossil Hard Coal,1.0
+2026/11/19 9:30,Fossil Oil,40.63
+2026/11/19 9:30,Hydro Pumped Storage,686.67
+2026/11/19 9:30,Hydro Run-of-river and Poundage,4099.29
+2026/11/19 9:30,Hydro Water Reservoir,1102.18
+2026/11/19 9:30,Nuclear,42814.89
+2026/11/19 9:30,Solar,4035.79
+2026/11/19 9:30,Waste,391.31
+2026/11/19 9:30,Wind Offshore,2064.42
+2026/11/19 9:30,Wind Onshore,15980.37
+2026/11/19 9:45,Biomass,266.89
+2026/11/19 9:45,Energy Storage,204.51
+2026/11/19 9:45,Fossil Gas,1073.44
+2026/11/19 9:45,Fossil Hard Coal,1.11
+2026/11/19 9:45,Fossil Oil,40.58
+2026/11/19 9:45,Hydro Pumped Storage,227.59
+2026/11/19 9:45,Hydro Run-of-river and Poundage,4097.98
+2026/11/19 9:45,Hydro Water Reservoir,1104.93
+2026/11/19 9:45,Nuclear,42780.2
+2026/11/19 9:45,Solar,4902.1
+2026/11/19 9:45,Waste,390.06
+2026/11/19 9:45,Wind Offshore,2059.59
+2026/11/19 9:45,Wind Onshore,15891.06
+2026/11/19 10:00,Biomass,272.87
+2026/11/19 10:00,Energy Storage,333.55
+2026/11/19 10:00,Fossil Gas,1071.86
+2026/11/19 10:00,Fossil Hard Coal,0.86
+2026/11/19 10:00,Fossil Oil,40.27
+2026/11/19 10:00,Hydro Pumped Storage,75.02
+2026/11/19 10:00,Hydro Run-of-river and Poundage,4050.12
+2026/11/19 10:00,Hydro Water Reservoir,924.62
+2026/11/19 10:00,Nuclear,42725.39
+2026/11/19 10:00,Solar,5738.24
+2026/11/19 10:00,Waste,382.93
+2026/11/19 10:00,Wind Offshore,2054.99
+2026/11/19 10:00,Wind Onshore,15966.05
+2026/11/19 10:15,Biomass,270.55
+2026/11/19 10:15,Energy Storage,371.92
+2026/11/19 10:15,Fossil Gas,1071.49
+2026/11/19 10:15,Fossil Hard Coal,1.21
+2026/11/19 10:15,Fossil Oil,40.27
+2026/11/19 10:15,Hydro Pumped Storage,66.36
+2026/11/19 10:15,Hydro Run-of-river and Poundage,4128.52
+2026/11/19 10:15,Hydro Water Reservoir,842.64
+2026/11/19 10:15,Nuclear,42612.2
+2026/11/19 10:15,Solar,6701.31
+2026/11/19 10:15,Waste,393.63
+2026/11/19 10:15,Wind Offshore,2037.26
+2026/11/19 10:15,Wind Onshore,16050.0
+2026/11/19 10:30,Biomass,265.66
+2026/11/19 10:30,Energy Storage,404.09
+2026/11/19 10:30,Fossil Gas,1082.29
+2026/11/19 10:30,Fossil Hard Coal,0.8
+2026/11/19 10:30,Fossil Oil,40.41
+2026/11/19 10:30,Hydro Pumped Storage,69.14
+2026/11/19 10:30,Hydro Run-of-river and Poundage,4122.37
+2026/11/19 10:30,Hydro Water Reservoir,848.97
+2026/11/19 10:30,Nuclear,42656.21
+2026/11/19 10:30,Solar,7391.32
+2026/11/19 10:30,Waste,394.79
+2026/11/19 10:30,Wind Offshore,2037.09
+2026/11/19 10:30,Wind Onshore,16383.39
+2026/11/19 10:45,Biomass,269.05
+2026/11/19 10:45,Energy Storage,415.52
+2026/11/19 10:45,Fossil Gas,1052.54
+2026/11/19 10:45,Fossil Hard Coal,1.04
+2026/11/19 10:45,Fossil Oil,40.81
+2026/11/19 10:45,Hydro Pumped Storage,67.96
+2026/11/19 10:45,Hydro Run-of-river and Poundage,4124.23
+2026/11/19 10:45,Hydro Water Reservoir,807.23
+2026/11/19 10:45,Nuclear,42562.81
+2026/11/19 10:45,Solar,7823.64
+2026/11/19 10:45,Waste,394.85
+2026/11/19 10:45,Wind Offshore,2040.17
+2026/11/19 10:45,Wind Onshore,15755.13
+2026/11/19 11:00,Biomass,263.6
+2026/11/19 11:00,Energy Storage,226.34
+2026/11/19 11:00,Fossil Gas,1074.05
+2026/11/19 11:00,Fossil Hard Coal,0.81
+2026/11/19 11:00,Fossil Oil,40.56
+2026/11/19 11:00,Hydro Pumped Storage,71.98
+2026/11/19 11:00,Hydro Run-of-river and Poundage,4176.67
+2026/11/19 11:00,Hydro Water Reservoir,874.17
+2026/11/19 11:00,Nuclear,42675.84
+2026/11/19 11:00,Solar,7708.34
+2026/11/19 11:00,Waste,395.28
+2026/11/19 11:00,Wind Offshore,2041.12
+2026/11/19 11:00,Wind Onshore,14107.11
+2026/11/19 11:15,Biomass,271.72
+2026/11/19 11:15,Energy Storage,74.76
+2026/11/19 11:15,Fossil Gas,1094.03
+2026/11/19 11:15,Fossil Hard Coal,0.97
+2026/11/19 11:15,Fossil Oil,40.57
+2026/11/19 11:15,Hydro Pumped Storage,75.26
+2026/11/19 11:15,Hydro Run-of-river and Poundage,4172.49
+2026/11/19 11:15,Hydro Water Reservoir,1044.38
+2026/11/19 11:15,Nuclear,42744.95
+2026/11/19 11:15,Solar,7388.3
+2026/11/19 11:15,Waste,394.96
+2026/11/19 11:15,Wind Offshore,2040.67
+2026/11/19 11:15,Wind Onshore,11827.4
+2026/11/19 11:30,Biomass,272.27
+2026/11/19 11:30,Energy Storage,33.95
+2026/11/19 11:30,Fossil Gas,1097.22
+2026/11/19 11:30,Fossil Hard Coal,0.86
+2026/11/19 11:30,Fossil Oil,40.52
+2026/11/19 11:30,Hydro Pumped Storage,64.46
+2026/11/19 11:30,Hydro Run-of-river and Poundage,4158.17
+2026/11/19 11:30,Hydro Water Reservoir,1208.05
+2026/11/19 11:30,Nuclear,42619.04
+2026/11/19 11:30,Solar,7462.02
+2026/11/19 11:30,Waste,397.06
+2026/11/19 11:30,Wind Offshore,2039.82
+2026/11/19 11:30,Wind Onshore,12146.05
+2026/11/19 11:45,Biomass,272.57
+2026/11/19 11:45,Energy Storage,28.48
+2026/11/19 11:45,Fossil Gas,1096.57
+2026/11/19 11:45,Fossil Hard Coal,0.81
+2026/11/19 11:45,Fossil Oil,40.56
+2026/11/19 11:45,Hydro Pumped Storage,58.63
+2026/11/19 11:45,Hydro Run-of-river and Poundage,4189.49
+2026/11/19 11:45,Hydro Water Reservoir,1298.23
+2026/11/19 11:45,Nuclear,42569.95
+2026/11/19 11:45,Solar,7788.46
+2026/11/19 11:45,Waste,398.11
+2026/11/19 11:45,Wind Offshore,2028.37
+2026/11/19 11:45,Wind Onshore,12459.43
+2026/11/19 12:00,Biomass,273.27
+2026/11/19 12:00,Energy Storage,427.13
+2026/11/19 12:00,Fossil Gas,1063.65
+2026/11/19 12:00,Fossil Hard Coal,0.85
+2026/11/19 12:00,Fossil Oil,40.51
+2026/11/19 12:00,Hydro Pumped Storage,57.09
+2026/11/19 12:00,Hydro Run-of-river and Poundage,4158.17
+2026/11/19 12:00,Hydro Water Reservoir,950.07
+2026/11/19 12:00,Nuclear,42428.78
+2026/11/19 12:00,Solar,8144.56
+2026/11/19 12:00,Waste,403.64
+2026/11/19 12:00,Wind Offshore,2036.31
+2026/11/19 12:00,Wind Onshore,13897.14
+2026/11/19 12:15,Biomass,273.3
+2026/11/19 12:15,Energy Storage,13.22
+2026/11/19 12:15,Fossil Gas,1103.26
+2026/11/19 12:15,Fossil Hard Coal,0.98
+2026/11/19 12:15,Fossil Oil,40.66
+2026/11/19 12:15,Hydro Pumped Storage,63.71
+2026/11/19 12:15,Hydro Run-of-river and Poundage,4161.5
+2026/11/19 12:15,Hydro Water Reservoir,1081.13
+2026/11/19 12:15,Nuclear,42679.21
+2026/11/19 12:15,Solar,8074.97
+2026/11/19 12:15,Waste,400.76
+2026/11/19 12:15,Wind Offshore,2010.62
+2026/11/19 12:15,Wind Onshore,13038.98
+2026/11/19 12:30,Biomass,272.47
+2026/11/19 12:30,Energy Storage,418.26
+2026/11/19 12:30,Fossil Gas,1055.65
+2026/11/19 12:30,Fossil Hard Coal,0.88
+2026/11/19 12:30,Fossil Oil,40.62
+2026/11/19 12:30,Hydro Pumped Storage,57.93
+2026/11/19 12:30,Hydro Run-of-river and Poundage,4154.45
+2026/11/19 12:30,Hydro Water Reservoir,822.97
+2026/11/19 12:30,Nuclear,42314.7
+2026/11/19 12:30,Solar,8731.77
+2026/11/19 12:30,Waste,403.38
+2026/11/19 12:30,Wind Offshore,2011.49
+2026/11/19 12:30,Wind Onshore,14615.63
+2026/11/19 12:45,Biomass,272.47
+2026/11/19 12:45,Energy Storage,391.9
+2026/11/19 12:45,Fossil Gas,1099.8
+2026/11/19 12:45,Fossil Hard Coal,0.81
+2026/11/19 12:45,Fossil Oil,40.69
+2026/11/19 12:45,Hydro Pumped Storage,57.24
+2026/11/19 12:45,Hydro Run-of-river and Poundage,4122.1
+2026/11/19 12:45,Hydro Water Reservoir,722.42
+2026/11/19 12:45,Nuclear,42157.89
+2026/11/19 12:45,Solar,9442.78
+2026/11/19 12:45,Waste,405.13
+2026/11/19 12:45,Wind Offshore,2010.61
+2026/11/19 12:45,Wind Onshore,15827.27
+2026/11/19 13:00,Biomass,272.45
+2026/11/19 13:00,Energy Storage,349.55
+2026/11/19 13:00,Fossil Gas,1113.71
+2026/11/19 13:00,Fossil Hard Coal,0.93
+2026/11/19 13:00,Fossil Oil,40.9
+2026/11/19 13:00,Hydro Pumped Storage,58.04
+2026/11/19 13:00,Hydro Run-of-river and Poundage,4168.68
+2026/11/19 13:00,Hydro Water Reservoir,686.04
+2026/11/19 13:00,Nuclear,42253.63
+2026/11/19 13:00,Solar,8656.35
+2026/11/19 13:00,Waste,401.06
+2026/11/19 13:00,Wind Offshore,1979.5
+2026/11/19 13:00,Wind Onshore,15398.56
+2026/11/19 13:15,Biomass,273.79
+2026/11/19 13:15,Energy Storage,23.42
+2026/11/19 13:15,Fossil Gas,1205.35
+2026/11/19 13:15,Fossil Hard Coal,0.93
+2026/11/19 13:15,Fossil Oil,40.76
+2026/11/19 13:15,Hydro Pumped Storage,67.55
+2026/11/19 13:15,Hydro Run-of-river and Poundage,4176.11
+2026/11/19 13:15,Hydro Water Reservoir,680.81
+2026/11/19 13:15,Nuclear,42591.7
+2026/11/19 13:15,Solar,7532.92
+2026/11/19 13:15,Waste,399.87
+2026/11/19 13:15,Wind Offshore,1994.71
+2026/11/19 13:15,Wind Onshore,12766.13
+2026/11/19 13:30,Biomass,274.01
+2026/11/19 13:30,Energy Storage,14.72
+2026/11/19 13:30,Fossil Gas,1221.84
+2026/11/19 13:30,Fossil Hard Coal,0.97
+2026/11/19 13:30,Fossil Oil,40.77
+2026/11/19 13:30,Hydro Pumped Storage,65.12
+2026/11/19 13:30,Hydro Run-of-river and Poundage,4133.08
+2026/11/19 13:30,Hydro Water Reservoir,673.1
+2026/11/19 13:30,Nuclear,42625.37
+2026/11/19 13:30,Solar,7227.77
+2026/11/19 13:30,Waste,401.92
+2026/11/19 13:30,Wind Offshore,2002.34
+2026/11/19 13:30,Wind Onshore,12123.83
+2026/11/19 13:45,Biomass,274.04
+2026/11/19 13:45,Energy Storage,15.53
+2026/11/19 13:45,Fossil Gas,1259.98
+2026/11/19 13:45,Fossil Hard Coal,1.06
+2026/11/19 13:45,Fossil Oil,40.63
+2026/11/19 13:45,Hydro Pumped Storage,64.57
+2026/11/19 13:45,Hydro Run-of-river and Poundage,4127.52
+2026/11/19 13:45,Hydro Water Reservoir,670.57
+2026/11/19 13:45,Nuclear,42564.74
+2026/11/19 13:45,Solar,6867.22
+2026/11/19 13:45,Waste,404.62
+2026/11/19 13:45,Wind Offshore,2029.58
+2026/11/19 13:45,Wind Onshore,12080.5
+2026/11/19 14:00,Biomass,273.78
+2026/11/19 14:00,Energy Storage,415.5
+2026/11/19 14:00,Fossil Gas,1249.81
+2026/11/19 14:00,Fossil Hard Coal,0.98
+2026/11/19 14:00,Fossil Oil,40.57
+2026/11/19 14:00,Hydro Pumped Storage,51.92
+2026/11/19 14:00,Hydro Run-of-river and Poundage,4065.42
+2026/11/19 14:00,Hydro Water Reservoir,670.56
+2026/11/19 14:00,Nuclear,42282.35
+2026/11/19 14:00,Solar,7249.11
+2026/11/19 14:00,Waste,412.56
+2026/11/19 14:00,Wind Offshore,2047.25
+2026/11/19 14:00,Wind Onshore,15416.73
+2026/11/19 14:15,Biomass,273.26
+2026/11/19 14:15,Energy Storage,362.07
+2026/11/19 14:15,Fossil Gas,1356.07
+2026/11/19 14:15,Fossil Hard Coal,0.87
+2026/11/19 14:15,Fossil Oil,40.8
+2026/11/19 14:15,Hydro Pumped Storage,40.61
+2026/11/19 14:15,Hydro Run-of-river and Poundage,4066.99
+2026/11/19 14:15,Hydro Water Reservoir,670.77
+2026/11/19 14:15,Nuclear,42171.81
+2026/11/19 14:15,Solar,7515.42
+2026/11/19 14:15,Waste,412.76
+2026/11/19 14:15,Wind Offshore,2053.73
+2026/11/19 14:15,Wind Onshore,16848.68
+2026/11/19 14:30,Biomass,273.15
+2026/11/19 14:30,Energy Storage,46.28
+2026/11/19 14:30,Fossil Gas,1420.51
+2026/11/19 14:30,Fossil Hard Coal,0.94
+2026/11/19 14:30,Fossil Oil,40.97
+2026/11/19 14:30,Hydro Pumped Storage,42.16
+2026/11/19 14:30,Hydro Run-of-river and Poundage,4067.79
+2026/11/19 14:30,Hydro Water Reservoir,672.42
+2026/11/19 14:30,Nuclear,42251.51
+2026/11/19 14:30,Solar,7074.58
+2026/11/19 14:30,Waste,412.75
+2026/11/19 14:30,Wind Offshore,2041.93
+2026/11/19 14:30,Wind Onshore,16608.7
+2026/11/19 14:45,Biomass,273.15
+2026/11/19 14:45,Energy Storage,71.97
+2026/11/19 14:45,Fossil Gas,1497.17
+2026/11/19 14:45,Fossil Hard Coal,0.83
+2026/11/19 14:45,Fossil Oil,41.0
+2026/11/19 14:45,Hydro Pumped Storage,37.59
+2026/11/19 14:45,Hydro Run-of-river and Poundage,4056.3
+2026/11/19 14:45,Hydro Water Reservoir,676.22
+2026/11/19 14:45,Nuclear,42193.85
+2026/11/19 14:45,Solar,6434.37
+2026/11/19 14:45,Waste,411.38
+2026/11/19 14:45,Wind Offshore,2038.44
+2026/11/19 14:45,Wind Onshore,16798.14
+2026/11/19 15:00,Biomass,273.45
+2026/11/19 15:00,Energy Storage,20.31
+2026/11/19 15:00,Fossil Gas,1595.07
+2026/11/19 15:00,Fossil Hard Coal,0.92
+2026/11/19 15:00,Fossil Oil,41.0
+2026/11/19 15:00,Hydro Pumped Storage,26.2
+2026/11/19 15:00,Hydro Run-of-river and Poundage,4001.09
+2026/11/19 15:00,Hydro Water Reservoir,707.36
+2026/11/19 15:00,Nuclear,42312.41
+2026/11/19 15:00,Solar,5731.13
+2026/11/19 15:00,Waste,408.58
+2026/11/19 15:00,Wind Offshore,2029.94
+2026/11/19 15:00,Wind Onshore,16769.37
+2026/11/19 15:15,Biomass,273.56
+2026/11/19 15:15,Energy Storage,10.09
+2026/11/19 15:15,Fossil Gas,1627.91
+2026/11/19 15:15,Fossil Hard Coal,0.82
+2026/11/19 15:15,Fossil Oil,40.97
+2026/11/19 15:15,Hydro Pumped Storage,27.83
+2026/11/19 15:15,Hydro Run-of-river and Poundage,3990.53
+2026/11/19 15:15,Hydro Water Reservoir,692.84
+2026/11/19 15:15,Nuclear,42545.04
+2026/11/19 15:15,Solar,5062.81
+2026/11/19 15:15,Waste,408.58
+2026/11/19 15:15,Wind Offshore,2038.87
+2026/11/19 15:15,Wind Onshore,16616.4
+2026/11/19 15:30,Biomass,274.93
+2026/11/19 15:30,Energy Storage,20.29
+2026/11/19 15:30,Fossil Gas,1626.48
+2026/11/19 15:30,Fossil Hard Coal,0.96
+2026/11/19 15:30,Fossil Oil,40.96
+2026/11/19 15:30,Hydro Pumped Storage,26.51
+2026/11/19 15:30,Hydro Run-of-river and Poundage,4013.1
+2026/11/19 15:30,Hydro Water Reservoir,675.03
+2026/11/19 15:30,Nuclear,42497.33
+2026/11/19 15:30,Solar,4276.15
+2026/11/19 15:30,Waste,412.61
+2026/11/19 15:30,Wind Offshore,2041.26
+2026/11/19 15:30,Wind Onshore,16620.83
+2026/11/19 15:45,Biomass,275.36
+2026/11/19 15:45,Energy Storage,10.09
+2026/11/19 15:45,Fossil Gas,1626.6
+2026/11/19 15:45,Fossil Hard Coal,0.89
+2026/11/19 15:45,Fossil Oil,40.97
+2026/11/19 15:45,Hydro Pumped Storage,31.19
+2026/11/19 15:45,Hydro Run-of-river and Poundage,4115.17
+2026/11/19 15:45,Hydro Water Reservoir,683.69
+2026/11/19 15:45,Nuclear,42615.59
+2026/11/19 15:45,Solar,3500.1
+2026/11/19 15:45,Waste,411.25
+2026/11/19 15:45,Wind Offshore,2055.34
+2026/11/19 15:45,Wind Onshore,16623.84
+2026/11/19 16:00,Biomass,275.46
+2026/11/19 16:00,Energy Storage,31.69
+2026/11/19 16:00,Fossil Gas,1636.35
+2026/11/19 16:00,Fossil Hard Coal,0.96
+2026/11/19 16:00,Fossil Oil,40.53
+2026/11/19 16:00,Hydro Pumped Storage,26.58
+2026/11/19 16:00,Hydro Run-of-river and Poundage,4304.27
+2026/11/19 16:00,Hydro Water Reservoir,760.33
+2026/11/19 16:00,Nuclear,42533.9
+2026/11/19 16:00,Solar,2703.57
+2026/11/19 16:00,Waste,411.9
+2026/11/19 16:00,Wind Offshore,1987.1
+2026/11/19 16:00,Wind Onshore,16705.75
+2026/11/19 16:15,Biomass,273.27
+2026/11/19 16:15,Energy Storage,3.82
+2026/11/19 16:15,Fossil Gas,1586.38
+2026/11/19 16:15,Fossil Hard Coal,0.79
+2026/11/19 16:15,Fossil Oil,40.99
+2026/11/19 16:15,Hydro Pumped Storage,48.41
+2026/11/19 16:15,Hydro Run-of-river and Poundage,4382.86
+2026/11/19 16:15,Hydro Water Reservoir,837.66
+2026/11/19 16:15,Nuclear,42763.56
+2026/11/19 16:15,Solar,2022.18
+2026/11/19 16:15,Waste,411.99
+2026/11/19 16:15,Wind Offshore,1671.3
+2026/11/19 16:15,Wind Onshore,16739.35
+2026/11/19 16:30,Biomass,273.65
+2026/11/19 16:30,Energy Storage,12.95
+2026/11/19 16:30,Fossil Gas,1513.55
+2026/11/19 16:30,Fossil Hard Coal,0.88
+2026/11/19 16:30,Fossil Oil,41.0
+2026/11/19 16:30,Hydro Pumped Storage,47.45
+2026/11/19 16:30,Hydro Run-of-river and Poundage,4508.64
+2026/11/19 16:30,Hydro Water Reservoir,895.3
+2026/11/19 16:30,Nuclear,42830.91
+2026/11/19 16:30,Solar,1472.93
+2026/11/19 16:30,Waste,411.4
+2026/11/19 16:30,Wind Offshore,1957.68
+2026/11/19 16:30,Wind Onshore,16384.99
+2026/11/19 16:45,Biomass,274.42
+2026/11/19 16:45,Energy Storage,7.26
+2026/11/19 16:45,Fossil Gas,1454.49
+2026/11/19 16:45,Fossil Hard Coal,0.82
+2026/11/19 16:45,Fossil Oil,40.84
+2026/11/19 16:45,Hydro Pumped Storage,235.7
+2026/11/19 16:45,Hydro Run-of-river and Poundage,4549.56
+2026/11/19 16:45,Hydro Water Reservoir,826.36
+2026/11/19 16:45,Nuclear,42842.33
+2026/11/19 16:45,Solar,1057.12
+2026/11/19 16:45,Waste,409.14
+2026/11/19 16:45,Wind Offshore,2035.13
+2026/11/19 16:45,Wind Onshore,16342.09
+2026/11/19 17:00,Biomass,274.62
+2026/11/19 17:00,Energy Storage,53.82
+2026/11/19 17:00,Fossil Gas,1426.01
+2026/11/19 17:00,Fossil Hard Coal,1.2
+2026/11/19 17:00,Fossil Oil,40.93
+2026/11/19 17:00,Hydro Pumped Storage,523.81
+2026/11/19 17:00,Hydro Run-of-river and Poundage,4757.03
+2026/11/19 17:00,Hydro Water Reservoir,893.22
+2026/11/19 17:00,Nuclear,42838.72
+2026/11/19 17:00,Solar,710.34
+2026/11/19 17:00,Waste,404.52
+2026/11/19 17:00,Wind Offshore,2070.84
+2026/11/19 17:00,Wind Onshore,16361.94
+2026/11/19 17:15,Biomass,274.64
+2026/11/19 17:15,Energy Storage,14.96
+2026/11/19 17:15,Fossil Gas,1423.49
+2026/11/19 17:15,Fossil Hard Coal,0.81
+2026/11/19 17:15,Fossil Oil,40.96
+2026/11/19 17:15,Hydro Pumped Storage,944.22
+2026/11/19 17:15,Hydro Run-of-river and Poundage,4809.72
+2026/11/19 17:15,Hydro Water Reservoir,957.3
+2026/11/19 17:15,Nuclear,42920.47
+2026/11/19 17:15,Solar,398.14
+2026/11/19 17:15,Waste,404.59
+2026/11/19 17:15,Wind Offshore,2101.35
+2026/11/19 17:15,Wind Onshore,16259.55
+2026/11/19 17:30,Biomass,274.56
+2026/11/19 17:30,Energy Storage,8.08
+2026/11/19 17:30,Fossil Gas,1423.89
+2026/11/19 17:30,Fossil Hard Coal,1.0
+2026/11/19 17:30,Fossil Oil,40.77
+2026/11/19 17:30,Hydro Pumped Storage,1507.17
+2026/11/19 17:30,Hydro Run-of-river and Poundage,4874.3
+2026/11/19 17:30,Hydro Water Reservoir,983.21
+2026/11/19 17:30,Nuclear,43065.86
+2026/11/19 17:30,Solar,260.99
+2026/11/19 17:30,Waste,405.48
+2026/11/19 17:30,Wind Offshore,2123.07
+2026/11/19 17:30,Wind Onshore,16322.32
+2026/11/19 17:45,Biomass,274.64
+2026/11/19 17:45,Energy Storage,7.81
+2026/11/19 17:45,Fossil Gas,1437.27
+2026/11/19 17:45,Fossil Hard Coal,0.75
+2026/11/19 17:45,Fossil Oil,40.99
+2026/11/19 17:45,Hydro Pumped Storage,2100.0
+2026/11/19 17:45,Hydro Run-of-river and Poundage,4905.59
+2026/11/19 17:45,Hydro Water Reservoir,1064.14
+2026/11/19 17:45,Nuclear,43111.81
+2026/11/19 17:45,Solar,221.19
+2026/11/19 17:45,Waste,408.75
+2026/11/19 17:45,Wind Offshore,2132.83
+2026/11/19 17:45,Wind Onshore,16273.87
+2026/11/19 18:00,Biomass,274.23
+2026/11/19 18:00,Energy Storage,5.44
+2026/11/19 18:00,Fossil Gas,1433.16
+2026/11/19 18:00,Fossil Hard Coal,1.07
+2026/11/19 18:00,Fossil Oil,40.47
+2026/11/19 18:00,Hydro Pumped Storage,2417.53
+2026/11/19 18:00,Hydro Run-of-river and Poundage,5117.65
+2026/11/19 18:00,Hydro Water Reservoir,1155.51
+2026/11/19 18:00,Nuclear,43515.47
+2026/11/19 18:00,Solar,222.02
+2026/11/19 18:00,Waste,409.41
+2026/11/19 18:00,Wind Offshore,2121.97
+2026/11/19 18:00,Wind Onshore,16173.6
+2026/11/19 18:15,Biomass,273.34
+2026/11/19 18:15,Energy Storage,2.45
+2026/11/19 18:15,Fossil Gas,1417.06
+2026/11/19 18:15,Fossil Hard Coal,0.8
+2026/11/19 18:15,Fossil Oil,40.76
+2026/11/19 18:15,Hydro Pumped Storage,2452.69
+2026/11/19 18:15,Hydro Run-of-river and Poundage,5134.03
+2026/11/19 18:15,Hydro Water Reservoir,1305.64
+2026/11/19 18:15,Nuclear,43702.27
+2026/11/19 18:15,Solar,195.37
+2026/11/19 18:15,Waste,409.18
+2026/11/19 18:15,Wind Offshore,2124.49
+2026/11/19 18:15,Wind Onshore,16222.0
+2026/11/19 18:30,Biomass,269.84
+2026/11/19 18:30,Energy Storage,2.52
+2026/11/19 18:30,Fossil Gas,1374.37
+2026/11/19 18:30,Fossil Hard Coal,0.98
+2026/11/19 18:30,Fossil Oil,40.93
+2026/11/19 18:30,Hydro Pumped Storage,2597.69
+2026/11/19 18:30,Hydro Run-of-river and Poundage,5193.58
+2026/11/19 18:30,Hydro Water Reservoir,1779.4
+2026/11/19 18:30,Nuclear,43987.99
+2026/11/19 18:30,Solar,195.96
+2026/11/19 18:30,Waste,410.49
+2026/11/19 18:30,Wind Offshore,2117.35
+2026/11/19 18:30,Wind Onshore,16322.55
+2026/11/19 18:45,Biomass,266.26
+2026/11/19 18:45,Energy Storage,6.13
+2026/11/19 18:45,Fossil Gas,1402.32
+2026/11/19 18:45,Fossil Hard Coal,0.79
+2026/11/19 18:45,Fossil Oil,41.0
+2026/11/19 18:45,Hydro Pumped Storage,2769.14
+2026/11/19 18:45,Hydro Run-of-river and Poundage,5253.24
+2026/11/19 18:45,Hydro Water Reservoir,1973.01
+2026/11/19 18:45,Nuclear,44023.56
+2026/11/19 18:45,Solar,216.74
+2026/11/19 18:45,Waste,410.29
+2026/11/19 18:45,Wind Offshore,2114.76
+2026/11/19 18:45,Wind Onshore,16301.49
+2026/11/19 19:00,Biomass,269.13
+2026/11/19 19:00,Energy Storage,6.67
+2026/11/19 19:00,Fossil Gas,1354.42
+2026/11/19 19:00,Fossil Hard Coal,0.93
+2026/11/19 19:00,Fossil Oil,41.0
+2026/11/19 19:00,Hydro Pumped Storage,3666.55
+2026/11/19 19:00,Hydro Run-of-river and Poundage,5331.3
+2026/11/19 19:00,Hydro Water Reservoir,1969.59
+2026/11/19 19:00,Nuclear,44103.54
+2026/11/19 19:00,Solar,209.35
+2026/11/19 19:00,Waste,408.8
+2026/11/19 19:00,Wind Offshore,2108.1
+2026/11/19 19:00,Wind Onshore,16082.06
+2026/11/19 19:15,Biomass,273.97
+2026/11/19 19:15,Energy Storage,10.42
+2026/11/19 19:15,Fossil Gas,1452.52
+2026/11/19 19:15,Fossil Hard Coal,0.81
+2026/11/19 19:15,Fossil Oil,41.0
+2026/11/19 19:15,Hydro Pumped Storage,3327.52
+2026/11/19 19:15,Hydro Run-of-river and Poundage,5381.64
+2026/11/19 19:15,Hydro Water Reservoir,1825.37
+2026/11/19 19:15,Nuclear,44184.04
+2026/11/19 19:15,Solar,193.96
+2026/11/19 19:15,Waste,410.59
+2026/11/19 19:15,Wind Offshore,2102.5
+2026/11/19 19:15,Wind Onshore,15920.24
+2026/11/19 19:30,Biomass,274.2
+2026/11/19 19:30,Energy Storage,5.5
+2026/11/19 19:30,Fossil Gas,1498.41
+2026/11/19 19:30,Fossil Hard Coal,1.1
+2026/11/19 19:30,Fossil Oil,41.0
+2026/11/19 19:30,Hydro Pumped Storage,3247.94
+2026/11/19 19:30,Hydro Run-of-river and Poundage,5325.17
+2026/11/19 19:30,Hydro Water Reservoir,1504.42
+2026/11/19 19:30,Nuclear,44201.59
+2026/11/19 19:30,Solar,193.42
+2026/11/19 19:30,Waste,412.05
+2026/11/19 19:30,Wind Offshore,2069.28
+2026/11/19 19:30,Wind Onshore,15781.03
+2026/11/19 19:45,Biomass,274.01
+2026/11/19 19:45,Energy Storage,17.55
+2026/11/19 19:45,Fossil Gas,1529.16
+2026/11/19 19:45,Fossil Hard Coal,0.98
+2026/11/19 19:45,Fossil Oil,41.0
+2026/11/19 19:45,Hydro Pumped Storage,3042.03
+2026/11/19 19:45,Hydro Run-of-river and Poundage,5294.47
+2026/11/19 19:45,Hydro Water Reservoir,1380.18
+2026/11/19 19:45,Nuclear,44230.85
+2026/11/19 19:45,Solar,195.47
+2026/11/19 19:45,Waste,411.79
+2026/11/19 19:45,Wind Offshore,2054.44
+2026/11/19 19:45,Wind Onshore,15831.88
+2026/11/19 20:00,Biomass,273.8
+2026/11/19 20:00,Energy Storage,29.83
+2026/11/19 20:00,Fossil Gas,1443.86
+2026/11/19 20:00,Fossil Hard Coal,1.07
+2026/11/19 20:00,Fossil Oil,41.0
+2026/11/19 20:00,Hydro Pumped Storage,2243.01
+2026/11/19 20:00,Hydro Run-of-river and Poundage,5231.52
+2026/11/19 20:00,Hydro Water Reservoir,1023.79
+2026/11/19 20:00,Nuclear,44459.15
+2026/11/19 20:00,Solar,0.0
+2026/11/19 20:00,Waste,413.62
+2026/11/19 20:00,Wind Offshore,2085.72
+2026/11/19 20:00,Wind Onshore,16045.63
+2026/11/19 20:15,Biomass,273.58
+2026/11/19 20:15,Energy Storage,57.42
+2026/11/19 20:15,Fossil Gas,1148.1
+2026/11/19 20:15,Fossil Hard Coal,0.93
+2026/11/19 20:15,Fossil Oil,41.0
+2026/11/19 20:15,Hydro Pumped Storage,1494.85
+2026/11/19 20:15,Hydro Run-of-river and Poundage,5223.22
+2026/11/19 20:15,Hydro Water Reservoir,998.41
+2026/11/19 20:15,Nuclear,44786.58
+2026/11/19 20:15,Solar,0.0
+2026/11/19 20:15,Waste,410.09
+2026/11/19 20:15,Wind Offshore,2103.49
+2026/11/19 20:15,Wind Onshore,16189.78
+2026/11/19 20:30,Biomass,272.74
+2026/11/19 20:30,Energy Storage,14.91
+2026/11/19 20:30,Fossil Gas,1107.48
+2026/11/19 20:30,Fossil Hard Coal,0.89
+2026/11/19 20:30,Fossil Oil,40.83
+2026/11/19 20:30,Hydro Pumped Storage,865.26
+2026/11/19 20:30,Hydro Run-of-river and Poundage,5125.05
+2026/11/19 20:30,Hydro Water Reservoir,993.17
+2026/11/19 20:30,Nuclear,44881.79
+2026/11/19 20:30,Solar,0.0
+2026/11/19 20:30,Waste,408.12
+2026/11/19 20:30,Wind Offshore,2097.38
+2026/11/19 20:30,Wind Onshore,16152.96
+2026/11/19 20:45,Biomass,274.18
+2026/11/19 20:45,Energy Storage,75.51
+2026/11/19 20:45,Fossil Gas,1057.81
+2026/11/19 20:45,Fossil Hard Coal,1.12
+2026/11/19 20:45,Fossil Oil,40.72
+2026/11/19 20:45,Hydro Pumped Storage,684.84
+2026/11/19 20:45,Hydro Run-of-river and Poundage,4982.72
+2026/11/19 20:45,Hydro Water Reservoir,1004.3
+2026/11/19 20:45,Nuclear,44761.57
+2026/11/19 20:45,Solar,0.0
+2026/11/19 20:45,Waste,410.39
+2026/11/19 20:45,Wind Offshore,2070.69
+2026/11/19 20:45,Wind Onshore,16168.19
+2026/11/19 21:00,Biomass,273.7
+2026/11/19 21:00,Energy Storage,20.46
+2026/11/19 21:00,Fossil Gas,1064.7
+2026/11/19 21:00,Fossil Hard Coal,1.05
+2026/11/19 21:00,Fossil Oil,40.74
+2026/11/19 21:00,Hydro Pumped Storage,682.33
+2026/11/19 21:00,Hydro Run-of-river and Poundage,4970.59
+2026/11/19 21:00,Hydro Water Reservoir,1018.53
+2026/11/19 21:00,Nuclear,44567.05
+2026/11/19 21:00,Solar,0.0
+2026/11/19 21:00,Waste,408.95
+2026/11/19 21:00,Wind Offshore,2050.08
+2026/11/19 21:00,Wind Onshore,16074.97
+2026/11/19 21:15,Biomass,273.77
+2026/11/19 21:15,Energy Storage,160.28
+2026/11/19 21:15,Fossil Gas,1039.32
+2026/11/19 21:15,Fossil Hard Coal,1.19
+2026/11/19 21:15,Fossil Oil,40.4
+2026/11/19 21:15,Hydro Pumped Storage,630.17
+2026/11/19 21:15,Hydro Run-of-river and Poundage,4957.13
+2026/11/19 21:15,Hydro Water Reservoir,999.94
+2026/11/19 21:15,Nuclear,44420.7
+2026/11/19 21:15,Solar,0.0
+2026/11/19 21:15,Waste,407.27
+2026/11/19 21:15,Wind Offshore,2095.4
+2026/11/19 21:15,Wind Onshore,16217.11
+2026/11/19 21:30,Biomass,273.96
+2026/11/19 21:30,Energy Storage,183.72
+2026/11/19 21:30,Fossil Gas,1079.72
+2026/11/19 21:30,Fossil Hard Coal,1.01
+2026/11/19 21:30,Fossil Oil,40.69
+2026/11/19 21:30,Hydro Pumped Storage,248.75
+2026/11/19 21:30,Hydro Run-of-river and Poundage,4973.58
+2026/11/19 21:30,Hydro Water Reservoir,1102.68
+2026/11/19 21:30,Nuclear,44428.47
+2026/11/19 21:30,Solar,0.0
+2026/11/19 21:30,Waste,404.54
+2026/11/19 21:30,Wind Offshore,2094.76
+2026/11/19 21:30,Wind Onshore,16213.58
+2026/11/19 21:45,Biomass,273.22
+2026/11/19 21:45,Energy Storage,116.4
+2026/11/19 21:45,Fossil Gas,1068.0
+2026/11/19 21:45,Fossil Hard Coal,1.08
+2026/11/19 21:45,Fossil Oil,40.42
+2026/11/19 21:45,Hydro Pumped Storage,46.19
+2026/11/19 21:45,Hydro Run-of-river and Poundage,4955.58
+2026/11/19 21:45,Hydro Water Reservoir,1091.26
+2026/11/19 21:45,Nuclear,44425.06
+2026/11/19 21:45,Solar,0.0
+2026/11/19 21:45,Waste,406.32
+2026/11/19 21:45,Wind Offshore,2023.85
+2026/11/19 21:45,Wind Onshore,16363.78
+2026/11/19 22:00,Biomass,273.01
+2026/11/19 22:00,Energy Storage,33.55
+2026/11/19 22:00,Fossil Gas,1062.02
+2026/11/19 22:00,Fossil Hard Coal,0.97
+2026/11/19 22:00,Fossil Oil,40.93
+2026/11/19 22:00,Hydro Pumped Storage,46.83
+2026/11/19 22:00,Hydro Run-of-river and Poundage,4753.83
+2026/11/19 22:00,Hydro Water Reservoir,1186.6
+2026/11/19 22:00,Nuclear,44452.03
+2026/11/19 22:00,Solar,0.0
+2026/11/19 22:00,Waste,405.03
+2026/11/19 22:00,Wind Offshore,2032.29
+2026/11/19 22:00,Wind Onshore,16090.46
+2026/11/19 22:15,Biomass,273.34
+2026/11/19 22:15,Energy Storage,46.94
+2026/11/19 22:15,Fossil Gas,1091.13
+2026/11/19 22:15,Fossil Hard Coal,0.93
+2026/11/19 22:15,Fossil Oil,41.0
+2026/11/19 22:15,Hydro Pumped Storage,47.2
+2026/11/19 22:15,Hydro Run-of-river and Poundage,4726.91
+2026/11/19 22:15,Hydro Water Reservoir,1174.22
+2026/11/19 22:15,Nuclear,44487.93
+2026/11/19 22:15,Solar,0.0
+2026/11/19 22:15,Waste,402.05
+2026/11/19 22:15,Wind Offshore,2007.49
+2026/11/19 22:15,Wind Onshore,15923.74
+2026/11/19 22:30,Biomass,271.53
+2026/11/19 22:30,Energy Storage,9.88
+2026/11/19 22:30,Fossil Gas,1099.83
+2026/11/19 22:30,Fossil Hard Coal,0.83
+2026/11/19 22:30,Fossil Oil,40.74
+2026/11/19 22:30,Hydro Pumped Storage,189.88
+2026/11/19 22:30,Hydro Run-of-river and Poundage,4742.97
+2026/11/19 22:30,Hydro Water Reservoir,1065.47
+2026/11/19 22:30,Nuclear,44394.68
+2026/11/19 22:30,Solar,0.0
+2026/11/19 22:30,Waste,404.72
+2026/11/19 22:30,Wind Offshore,2025.12
+2026/11/19 22:30,Wind Onshore,15798.31
+2026/11/19 22:45,Biomass,272.34
+2026/11/19 22:45,Energy Storage,75.66
+2026/11/19 22:45,Fossil Gas,1078.7
+2026/11/19 22:45,Fossil Hard Coal,0.86
+2026/11/19 22:45,Fossil Oil,40.46
+2026/11/19 22:45,Hydro Pumped Storage,196.19
+2026/11/19 22:45,Hydro Run-of-river and Poundage,4713.8
+2026/11/19 22:45,Hydro Water Reservoir,1055.74
+2026/11/19 22:45,Nuclear,44348.05
+2026/11/19 22:45,Solar,0.0
+2026/11/19 22:45,Waste,406.3
+2026/11/19 22:45,Wind Offshore,2027.6
+2026/11/19 22:45,Wind Onshore,15888.63
+2026/11/19 23:00,Biomass,273.56
+2026/11/19 23:00,Energy Storage,136.84
+2026/11/19 23:00,Fossil Gas,1084.17
+2026/11/19 23:00,Fossil Hard Coal,0.95
+2026/11/19 23:00,Fossil Oil,40.48
+2026/11/19 23:00,Hydro Pumped Storage,52.66
+2026/11/19 23:00,Hydro Run-of-river and Poundage,4651.23
+2026/11/19 23:00,Hydro Water Reservoir,1017.22
+2026/11/19 23:00,Nuclear,44294.99
+2026/11/19 23:00,Solar,0.0
+2026/11/19 23:00,Waste,406.74
+2026/11/19 23:00,Wind Offshore,2089.84
+2026/11/19 23:00,Wind Onshore,15849.75
+2026/11/19 23:15,Biomass,272.43
+2026/11/19 23:15,Energy Storage,111.44
+2026/11/19 23:15,Fossil Gas,1137.58
+2026/11/19 23:15,Fossil Hard Coal,1.2
+2026/11/19 23:15,Fossil Oil,40.5
+2026/11/19 23:15,Hydro Pumped Storage,46.14
+2026/11/19 23:15,Hydro Run-of-river and Poundage,4644.22
+2026/11/19 23:15,Hydro Water Reservoir,1012.48
+2026/11/19 23:15,Nuclear,44276.02
+2026/11/19 23:15,Solar,0.0
+2026/11/19 23:15,Waste,404.56
+2026/11/19 23:15,Wind Offshore,2042.16
+2026/11/19 23:15,Wind Onshore,15935.97
+2026/11/19 23:30,Biomass,273.11
+2026/11/19 23:30,Energy Storage,113.99
+2026/11/19 23:30,Fossil Gas,1127.33
+2026/11/19 23:30,Fossil Hard Coal,1.12
+2026/11/19 23:30,Fossil Oil,40.24
+2026/11/19 23:30,Hydro Pumped Storage,37.62
+2026/11/19 23:30,Hydro Run-of-river and Poundage,4769.4
+2026/11/19 23:30,Hydro Water Reservoir,1089.3
+2026/11/19 23:30,Nuclear,44362.73
+2026/11/19 23:30,Solar,0.0
+2026/11/19 23:30,Waste,408.6
+2026/11/19 23:30,Wind Offshore,1976.87
+2026/11/19 23:30,Wind Onshore,15888.54
+2026/11/19 23:45,Biomass,272.26
+2026/11/19 23:45,Energy Storage,251.18
+2026/11/19 23:45,Fossil Gas,1120.7
+2026/11/19 23:45,Fossil Hard Coal,1.06
+2026/11/19 23:45,Fossil Oil,40.29
+2026/11/19 23:45,Hydro Pumped Storage,35.91
+2026/11/19 23:45,Hydro Run-of-river and Poundage,4769.23
+2026/11/19 23:45,Hydro Water Reservoir,1083.11
+2026/11/19 23:45,Nuclear,44377.48
+2026/11/19 23:45,Solar,0.0
+2026/11/19 23:45,Waste,408.53
+2026/11/19 23:45,Wind Offshore,2073.33
+2026/11/19 23:45,Wind Onshore,15725.82

@@ -285,13 +285,13 @@ function renderTimeline() {
   const xs = n => ({ type: "category", gridIndex: n, data: cols.map((_, i) => i), axisTick: { alignWithLabel: true }, axisLabel: { fontSize: 11, interval: 0, rich,
     formatter: (v, i) => { const c = cols[i]; return n === 0 || c.total ? `{b|${c.label}}` : `{b|${c.label}}\n{e|expires ${c.exp}}` + c.cs.map(k => `\n{d|${multi(c) && k.buyer ? k.buyer + " " : ""}delivery ${k.del}}`).join(""); } } });
   const meterSeries = { name: "Meter production", type: "bar", xAxisIndex: 0, yAxisIndex: 0, barMaxWidth: 56, z: 3,
-    itemStyle: { color: "#455a64" },
+    itemStyle: { color: "#455a64", borderColor: "#fff", borderWidth: 1 },
         data: cols.map(c => R(c.P)),
     label: { show: true, position: "top", fontSize: 11, fontWeight: 700, color: "#263238", formatter: p => p.value == null ? "" : `${cols[p.dataIndex].fy ? "left over " : ""}${nf(p.value, 0)}` } };
   const maxK = Math.max(1, ...cols.map(c => c.cs.length)), SHADE = ["#2c7fb8", "#79b4dc", "#1b5a85"];
   const g2Top = 56 + 200 + 80, G2H = 170, nDel = Math.max(1, ...cols.filter(c => !c.total).map(c => c.cs.length)), H = g2Top + G2H + 80 + 14 * nDel;
   $("chartT").style.height = H + "px"; chartT.resize();
-  const signedSeries = Array.from({ length: maxK }, (_, k) => ({ name: "Signed GO", type: "bar", stack: "s", xAxisIndex: 0, yAxisIndex: 0, barMaxWidth: 70, itemStyle: { color: SHADE[k % SHADE.length] },
+  const signedSeries = Array.from({ length: maxK }, (_, k) => ({ name: "Signed GO", type: "bar", stack: "s", xAxisIndex: 0, yAxisIndex: 0, barMaxWidth: 70, itemStyle: { color: SHADE[k % SHADE.length], borderColor: "#fff", borderWidth: 1 },
     data: cols.map(c => c.cs[k] ? R(c.cs[k].S) : null),
     label: { show: true, position: "inside", fontSize: 10, color: "#fff", formatter: p => { const c = cols[p.dataIndex], k2 = c && c.cs[k]; return k2 && p.value != null && multi(c) ? `${k2.buyer ? k2.buyer + " " : ""}${nf(p.value, 0)}` : ""; } } }));
   chartT.setOption({
@@ -317,7 +317,8 @@ function renderTimeline() {
   const cx = 84 + (chartT.getWidth() - 104) / 2, yearTxt = (txt, y) => ({ type: "text", silent: true, z: 20, style: { text: String(txt), x: cx, y, textAlign: "center", textVerticalAlign: "middle", fill: "#2c3e50", fontSize: 14, fontWeight: 700 } });
   const xb = 84 + (chartT.getWidth() - 104) * (cols.length - 1) / cols.length;        // boundary in front of the Total column
   const sep = (y1, y2) => ({ type: "line", silent: true, z: 15, shape: { x1: xb, y1, x2: xb, y2 }, style: { stroke: "#7f8c8d", lineWidth: 1.2, lineDash: [5, 4] } });
-  chartT.setOption({ graphic: { elements: [yearTxt(Y, 56 + 200 + 46), yearTxt(Y + 1, H - 24), ...(cols.length > 1 ? [sep(56, 56 + 200 + 30), sep(g2Top, g2Top + G2H + 30)] : [])] } });
+  const W = chartT.getWidth(), tint = (y1, y2) => ({ type: "rect", silent: true, z: 0, shape: { x: xb, y: y1, width: W - 20 - xb, height: y2 - y1 }, style: { fill: "#eaf1f8" } });
+  chartT.setOption({ graphic: { elements: [yearTxt(Y, 56 + 200 + 46), yearTxt(Y + 1, H - 24), ...(cols.length > 1 ? [tint(56, 56 + 200 + 30), tint(g2Top, g2Top + G2H + 30), sep(56, 56 + 200 + 30), sep(g2Top, g2Top + G2H + 30)] : [])] } });
 }
 
 function renderAll() {

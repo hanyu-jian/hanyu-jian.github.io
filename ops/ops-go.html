@@ -272,18 +272,24 @@ function renderTimeline() {
     cols.push({ label: g.fy ? `Q1–Q4 ${yy}` : shortP(first.replace(/ \(2nd\)/, "")), cs, P, S, rem, remExp, over: Math.max(0, S - P), exp: g.fy ? expText(1, 12) : expText(g.m0, g.m1), fy: !!g.fy,
       note: g.fy ? "full-year contracts vs. the production left over by the Q1–Q2 / Q3–Q4 contracts" : Y > THIS_YEAR ? "not produced yet" : Y === THIS_YEAR && g.m1 > +TODAY.slice(5, 7) - 1 ? "period not finished: production to date only" : "" });
   });
+  // last column: the whole year (production of the year, all contracts of the year, what is left)
+  { let Pt = 0, Pte = 0; for (let i = 0; i < 12; i++) { const v = mp(i); Pt += v; if (expOf(ym(Y, i)) < TODAY) Pte += v; }
+    const bb = new Map(); rs.forEach(r => { const b = (r.buyer || "").split(" ")[0]; bb.set(b, (bb.get(b) || 0) + traded(r)); });
+    const cs = [...bb.entries()].map(([buyer, S]) => ({ S, buyer, del: "" })), St = cs.reduce((a, c) => a + c.S, 0), rem = Math.max(0, Pt - St);
+    cols.push({ label: `Total ${yy}`, cs, P: Pt, S: St, rem, remExp: Pt ? rem * Pte / Pt : 0, over: Math.max(0, St - Pt), exp: "", total: true,
+      note: Y > THIS_YEAR ? "not produced yet" : Y === THIS_YEAR ? "year not finished: production to date only" : "whole year: production of the year vs all contracts of the year" }); }
   const R = v => v > 0.5 ? Math.round(v) : null;
   const lab2 = { show: true, position: "inside", fontSize: 11, fontWeight: 600, color: "#fff", formatter: p => p.value == null ? "" : nf(p.value, 0) };
   const rich = { b: { fontWeight: 700, fontSize: 11, color: "#333", lineHeight: 16 }, e: { fontSize: 10, color: "#2e7d4f", lineHeight: 14 }, d: { fontSize: 10, color: "#8a6d3b", lineHeight: 14 } };
   const multi = c => c.cs.length > 1;
   const xs = n => ({ type: "category", gridIndex: n, data: cols.map((_, i) => i), axisTick: { alignWithLabel: true }, axisLabel: { fontSize: 11, interval: 0, rich,
-    formatter: (v, i) => { const c = cols[i]; return n === 0 ? `{b|${c.label}}` : `{b|${c.label}}\n{e|expires ${c.exp}}` + c.cs.map(k => `\n{d|${multi(c) && k.buyer ? k.buyer + " " : ""}delivery ${k.del}}`).join(""); } } });
+    formatter: (v, i) => { const c = cols[i]; return n === 0 || c.total ? `{b|${c.label}}` : `{b|${c.label}}\n{e|expires ${c.exp}}` + c.cs.map(k => `\n{d|${multi(c) && k.buyer ? k.buyer + " " : ""}delivery ${k.del}}`).join(""); } } });
   const meterSeries = { name: "Meter production", type: "bar", xAxisIndex: 0, yAxisIndex: 0, barMaxWidth: 56, z: 3,
     itemStyle: { color: "#455a64", borderColor: "#fff", borderWidth: 1 },
         data: cols.map(c => R(c.P)),
     label: { show: true, position: "top", fontSize: 11, fontWeight: 700, color: "#263238", formatter: p => p.value == null ? "" : `${cols[p.dataIndex].fy ? "left over " : ""}${nf(p.value, 0)}` } };
   const maxK = Math.max(1, ...cols.map(c => c.cs.length)), SHADE = ["#2c7fb8", "#79b4dc", "#1b5a85"];
-  const g2Top = 56 + 200 + 80, G2H = 170, nDel = Math.max(1, ...cols.map(c => c.cs.length)), H = g2Top + G2H + 80 + 14 * nDel;
+  const g2Top = 56 + 200 + 80, G2H = 170, nDel = Math.max(1, ...cols.filter(c => !c.total).map(c => c.cs.length)), H = g2Top + G2H + 80 + 14 * nDel;
   $("chartT").style.height = H + "px"; chartT.resize();
   const signedSeries = Array.from({ length: maxK }, (_, k) => ({ name: "Signed GO", type: "bar", stack: "s", xAxisIndex: 0, yAxisIndex: 0, barMaxWidth: 70, itemStyle: { color: SHADE[k % SHADE.length], borderColor: "#fff", borderWidth: 1 },
     data: cols.map(c => c.cs[k] ? R(c.cs[k].S) : null),
@@ -293,8 +299,8 @@ function renderTimeline() {
     legend: [{ top: 0, data: ["Meter production", "Signed GO"], textStyle: { fontSize: 11 } },
              { right: 20, top: 56 + 200 + 44, data: ["Remain GO, valid", "Remain GO, expired", "Oversold"], textStyle: { fontSize: 11 } }],
     tooltip: { trigger: "item", confine: true, formatter: p => { const c = cols[p.dataIndex]; if (!c) return "";
-      return `<b>${c.label}</b>${c.note ? `<br><i>${c.note}</i>` : ""}<br>Meter production: <b>${fmt(c.P)} MWh</b><br>Signed GO: <b>${fmt(c.S)} MWh</b>` + c.cs.map(k => `<br>&nbsp;&nbsp;${k.buyer || "contract"}: ${fmt(k.S)} (delivery ${k.del})`).join("") + "<br>" +
-        (c.over > 0.5 ? `<b style="color:#d35400">Oversold: ${fmt(c.over)}</b>` : `Remain GO: <b>${fmt(c.rem)}</b> (expired ${fmt(c.remExp)}, valid ${fmt(c.rem - c.remExp)})<br>Expires ${c.exp}`); } },
+      return `<b>${c.label}</b>${c.note ? `<br><i>${c.note}</i>` : ""}<br>Meter production: <b>${fmt(c.P)} MWh</b><br>Signed GO: <b>${fmt(c.S)} MWh</b>` + c.cs.map(k => `<br>&nbsp;&nbsp;${k.buyer || "contract"}: ${fmt(k.S)}${k.del ? ` (delivery ${k.del})` : ""}`).join("") + "<br>" +
+        (c.over > 0.5 ? `<b style="color:#d35400">Oversold: ${fmt(c.over)}</b>` : `Remain GO: <b>${fmt(c.rem)}</b> (expired ${fmt(c.remExp)}, valid ${fmt(c.rem - c.remExp)})` + (c.exp ? `<br>Expires ${c.exp}` : "")); } },
     grid: [{ left: 84, right: 20, top: 56, height: 200 }, { left: 84, right: 20, top: g2Top, height: G2H }],
     xAxis: [xs(0), xs(1)],
     yAxis: [{ type: "value", gridIndex: 0, max: Math.ceil(Math.max(1000, ...cols.map(c => Math.max(c.P, c.S))) * 1.15 / 1000) * 1000, name: "GO (MWh)", nameLocation: "middle", nameGap: 62, nameTextStyle: { fontSize: 11 } },

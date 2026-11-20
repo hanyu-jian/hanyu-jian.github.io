@@ -283,13 +283,13 @@ function renderTimeline() {
     dl.forEach(d => { const k = [d.date, d.kind, d.orig].join("|"); let g = m.get(k); if (!g) { g = { ...d, vol: 0, cis: new Set() }; m.set(k, g); } g.vol += d.vol; if (d.ci >= 0) g.cis.add(d.ci); });
     dl.length = 0; m.forEach(g => dl.push(g)); }
   const nRows = Math.max(1, ...cl.filter(c => c.rem > 0.5).map(c => c.row + 1));
-  const G2H = 140 + 30 * nRows, t2 = 56 + 200 + 84, g2Top = t2 + 26, H = g2Top + G2H + 60;
+  const G2H = 170, t2 = 56 + 200 + 84, g2Top = t2 + 26, H = g2Top + G2H + 60;
   $("chartT").style.height = H + "px"; chartT.resize();
   // bars on a value axis do not stack, so each kind is drawn as the running total at its date, the taller ones further back
   const KIND = ["delivered", "due", "redated"];
   const cum = d => dl.filter(e => Math.abs(e.x - d.x) < 1e-9 && KIND.indexOf(e.kind) <= KIND.indexOf(d.kind)).reduce((a, e) => a + e.vol, 0);
   const dser = (kind, name, color) => ({ name, type: "bar", z: 5 - KIND.indexOf(kind), xAxisIndex: 1, yAxisIndex: 1, barWidth: 26, barGap: "-100%", itemStyle: { color }, data: dl.filter(d => d.kind === kind).map(d => ({ value: [d.x, Math.round(cum(d))], d })) });
-  const delMax0 = Math.max(1000, ...dl.map(d => dl.filter(e => Math.abs(e.x - d.x) < 1e-9).reduce((a, e) => a + e.vol, 0))) * 1.15, step = Math.max(1000, Math.ceil(delMax0 / 4 / 1000) * 1000), yMax = Math.ceil(delMax0 / step) * step, yMin = -nRows * step;
+  const delMax0 = Math.max(1000, ...dl.map(d => dl.filter(e => Math.abs(e.x - d.x) < 1e-9).reduce((a, e) => a + e.vol, 0))) * 1.15, step = Math.max(1000, Math.ceil(delMax0 / 4 / 1000) * 1000), yMax = Math.ceil(delMax0 / step) * step, yMin = 0;
   const ypx = v => g2Top + G2H * (yMax - v) / (yMax - yMin);       // pixel row of a value of the deliveries axis (the lane below zero holds the expiry bands)
   const sameX = x => dl.filter(d => Math.abs(d.x - x) < 1e-9).reduce((a, d) => a + d.vol, 0);
   const fmt = v => nf(v, 0), pad2 = n => String(n).padStart(2, "0");
@@ -305,7 +305,7 @@ function renderTimeline() {
   chartT.setOption({
     animation: false,
     title: [{ text: `${Y}: meter production vs signed GO vs remain GO, per contract period`, left: 84, top: 30, textStyle: { fontSize: 12, color: "#555" } },
-            { text: `${Y1}: deliveries (bars) and expiry of the remain GO (bands: green = valid, grey = expired)`, left: 84, top: t2, textStyle: { fontSize: 12, color: "#555" } }],
+            { text: `${Y1}: deliveries (bars) and expiry of the remain GO (translucent bands: green = valid, grey = expired)`, left: 84, top: t2, textStyle: { fontSize: 12, color: "#555" } }],
     legend: [{ top: 0, data: ["Meter production", "Signed GO", "Remain GO, expired", "Remain GO, valid", "Oversold"], textStyle: { fontSize: 11 } },
              { right: 20, top: t2 - 8, data: ["Delivered", "Delivery due", "Delivery re-dated (new date)"], textStyle: { fontSize: 11 } }],
     tooltip: { trigger: "item", confine: true, formatter: p => {
@@ -334,16 +334,16 @@ function renderTimeline() {
           // bracket under the period
           ch.push({ type: "line", shape: { x1: px0 + 2, y1: base + 20, x2: px1 - 2, y2: base + 20 }, style: { stroke: "#9aa5b1", lineWidth: 1 } });
           return { type: "group", children: ch }; } },
-      { name: "bands", type: "custom", xAxisIndex: 1, yAxisIndex: 1, z: 3, data: cl.filter(c => c.rem > 0.5).map(c => [c.b0, c.b1, cl.indexOf(c)]),
+      { name: "bands", type: "custom", xAxisIndex: 1, yAxisIndex: 1, z: 1, data: cl.filter(c => c.rem > 0.5).map(c => [c.b0, c.b1, cl.indexOf(c)]),
         markLine: Y1 === THIS_YEAR ? line(todayX) : undefined,
         renderItem: (params, api) => {
-          const c = cl[api.value(2)], a = api.coord([c.b0, 0])[0], b = api.coord([c.b1, 0])[0], t = api.coord([0, -c.row * step - 0.14 * step])[1], bt = api.coord([0, -(c.row + 1) * step + 0.14 * step])[1];
+          const c = cl[api.value(2)], a = api.coord([c.b0, 0])[0], b = api.coord([c.b1, 0])[0], cy = yMax * (0.5 - 0.17 * c.row), t = api.coord([0, cy + yMax * 0.07])[1], bt = api.coord([0, cy - yMax * 0.07])[1];
           const sx = api.coord([Math.min(Math.max(todayX, c.b0), c.b1), 0])[0], ch = [];
-          if (sx > a) ch.push({ type: "rect", shape: { x: a, y: t, width: sx - a, height: bt - t }, style: { fill: "#b0b7bf" } });
-          if (b > sx) ch.push({ type: "rect", shape: { x: sx, y: t, width: b - sx, height: bt - t }, style: { fill: "#27ae60" } });
+          if (sx > a) ch.push({ type: "rect", shape: { x: a, y: t, width: sx - a, height: bt - t }, style: { fill: "#b0b7bf", opacity: 0.45 } });
+          if (b > sx) ch.push({ type: "rect", shape: { x: sx, y: t, width: b - sx, height: bt - t }, style: { fill: "#27ae60", opacity: 0.4 } });
           const w = b - a, span = c.b0 === 0 && c.b1 === 12 ? `${MON[0]}–${MON[11]}` : c.b1 - c.b0 === 1 ? MON[c.b0] : `${MON[c.b0]}–${MON[c.b1 - 1]}`,
             txt = w > 330 ? `${c.label} ${Y}: remain ${fmt(c.rem)} MWh · expires ${span} ${Y1}` : w > 190 ? `${c.label} · remain ${fmt(c.rem)} MWh` : w > 95 ? `${fmt(c.rem)} MWh` : w > 38 ? fmt(c.rem) : "";
-          if (txt) ch.push({ type: "text", style: { text: txt, x: (a + b) / 2, y: (t + bt) / 2, textAlign: "center", textVerticalAlign: "middle", fill: "#fff", fontSize: 11, fontWeight: 600 } });
+          if (txt) ch.push({ type: "text", style: { text: txt, x: (a + b) / 2, y: (t + bt) / 2, textAlign: "center", textVerticalAlign: "middle", fill: "#1f4d2e", fontSize: 11, fontWeight: 600 } });
           return { type: "group", children: ch }; } },
       dser("delivered", "Delivered", "#5b8db8"), dser("due", "Delivery due", "#34495e"), dser("redated", "Delivery re-dated (new date)", "#e67e22"),
     ].filter(Boolean) }, true);

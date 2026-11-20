@@ -317,7 +317,7 @@ function renderTimeline() {
   const cx = 84 + (chartT.getWidth() - 104) / 2, yearTxt = (txt, y) => ({ type: "text", silent: true, z: 20, style: { text: String(txt), x: cx, y, textAlign: "center", textVerticalAlign: "middle", fill: "#2c3e50", fontSize: 14, fontWeight: 700 } });
   const xb = 84 + (chartT.getWidth() - 104) * (cols.length - 1) / cols.length;        // boundary in front of the Total column
   const sep = (y1, y2) => ({ type: "line", silent: true, z: 15, shape: { x1: xb, y1, x2: xb, y2 }, style: { stroke: "#7f8c8d", lineWidth: 1.2, lineDash: [5, 4] } });
-  const W = chartT.getWidth(), tint = (y1, y2) => ({ type: "rect", silent: true, z: 0, shape: { x: xb, y: y1, width: W - 20 - xb, height: y2 - y1 }, style: { fill: "#eaf1f8" } });
+  const W = chartT.getWidth(), tint = (y1, y2) => ({ type: "rect", silent: true, z: 0, shape: { x: xb, y: y1, width: W - 20 - xb, height: y2 - y1 }, style: { fill: "#fdf3d0" } });
   chartT.setOption({ graphic: { elements: [yearTxt(Y, 56 + 200 + 46), yearTxt(Y + 1, H - 24), ...(cols.length > 1 ? [tint(56, 56 + 200 + 30), tint(g2Top, g2Top + G2H + 30), sep(56, 56 + 200 + 30), sep(g2Top, g2Top + G2H + 30)] : [])] } });
 }
 

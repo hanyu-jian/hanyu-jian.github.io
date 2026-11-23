@@ -130,8 +130,14 @@ tr.total td { font-weight: 700; background: #fafbfc; }
 
     <div class="chart-card">
       <div class="chart-card-header">
-        <div><h3>Summary by site</h3><div class="subtitle">Selected period · UST at the lead time chosen above</div></div>
+        <div><h3>Summary by site</h3><div class="subtitle" id="sumSub">Selected period · UST at the lead time chosen above</div></div>
+        <div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap">
+          <div class="control-group"><label for="sumFrom">From month</label><input type="month" id="sumFrom" style="height:36px;padding:0 10px;border:1px solid #ccc;border-radius:6px;font-family:inherit"></div>
+          <div class="control-group"><label for="sumTo">To month</label><input type="month" id="sumTo" style="height:36px;padding:0 10px;border:1px solid #ccc;border-radius:6px;font-family:inherit"></div>
+          <button id="sumReset" type="button" style="height:36px;padding:0 12px;border:1px solid #ccc;border-radius:6px;background:#fff;cursor:pointer">Use chart period</button>
+        </div>
       </div>
+      <div id="sumStatus" class="note" style="margin:0 0 8px"></div>
       <div class="scroll"><table id="sumTable"></table></div>
       <p class="note">
         <b>Theoretical production</b> is calculated from VCOM POA irradiance (includes the AC limit, excludes grid curtailment); it is not the meter reading.
@@ -191,7 +197,7 @@ function syncUrl(o) {
   try { const p = new URLSearchParams(); for (const [k, v] of Object.entries(o)) if (v != null && v !== "") p.set(k, v);
     const q = p.toString(); history.replaceState(null, "", location.pathname + (q ? "?" + q : "") + location.hash); } catch (e) { /* the address bar is only a convenience */ }
 }
-const syncOv = () => syncUrl({ site: selected, start: $("start").value, end: $("end").value, res: $("res").value, lead: lead(), bdate: $("bDate").value });
+const syncOv = () => syncUrl({ site: selected, start: $("start").value, end: $("end").value, res: $("res").value, lead: lead(), bdate: $("bDate").value, sfrom: $("sumFrom").value, sto: $("sumTo").value });
 let selected = "ALL", store = {}, chart, heat, loadSeq = 0, loadTimer = null;
 let bStore = {}, bChart, bBars, bSeq = 0, bTimer = null, bMsg = "", bIssue = null, bCand = [];   // second card: one issue time
 const lead = () => STEPS[+$("slider").value];
@@ -238,6 +244,8 @@ function init() {
     scheduleLoad();
   };
   $("slider").oninput = paint;
+  $("sumFrom").onchange = $("sumTo").onchange = () => scheduleSum();
+  $("sumReset").onclick = () => { $("sumFrom").value = ""; $("sumTo").value = ""; scheduleSum(0); };
   chart = echarts.init($("chart")); heat = echarts.init($("heat")); echarts.connect([chart, heat]);
   bChart = echarts.init($("bChart")); bBars = echarts.init($("bBars"));
   window.addEventListener("resize", () => { chart.resize(); heat.resize(); bChart.resize(); bBars.resize(); });
@@ -248,7 +256,8 @@ function init() {
   const sd = qget("start", isDate), ed = qget("end", isDate);
   if (sd && ed && sd <= ed) { $("start").value = sd; $("end").value = ed; capRange(); } else setRange(7, 0);
   const bd = qget("bdate", isDate); if (bd) $("bDate").value = bd;
-  load();
+  const sf = qget("sfrom", isMonth), st = qget("sto", isMonth); if (sf && st) { $("sumFrom").value = sf; $("sumTo").value = st; }
+  load(); if (sf && st) scheduleSum(0);
 }
 
 async function fetchRange(s, start, end, res) {
@@ -368,11 +377,52 @@ function paint() {
   summary();
 }
 
+// Summary by site can cover whole months instead of the chart period: with From and To month both set it loads its own data (62-day chunks, 15-min resolution).
+const SUM_MAX_MONTHS = 12, SUM_CONC = 3;
+let sumStore = null, sumSeq = 0, sumTimer = null;
+const isMonth = v => /^\d{4}-(0[1-9]|1[0-2])$/.test(v);
+const monthEnd = m => new Date(Date.UTC(+m.slice(0, 4), +m.slice(5, 7), 0)).toISOString().slice(0, 10);
+function sumRange() {                                   // null = use the chart period
+  let f = $("sumFrom").value, t = $("sumTo").value;
+  if (!isMonth(f) || !isMonth(t)) return null;
+  if (t < f) [f, t] = [t, f];
+  const today = budapestToday(), b = monthEnd(t);
+  return { f, t, a: f + "-01", b: b > today ? today : b };
+}
+function scheduleSum(delay = 300) { syncOv(); clearTimeout(sumTimer); sumTimer = setTimeout(loadSum, delay); }
+async function loadSum() {
+  const r = sumRange(), seq = ++sumSeq;
+  if (!r) { sumStore = null; $("sumStatus").textContent = ""; return summary(); }
+  const months = (+r.t.slice(0, 4) - +r.f.slice(0, 4)) * 12 + (+r.t.slice(5, 7) - +r.f.slice(5, 7)) + 1;
+  if (months > SUM_MAX_MONTHS) { sumStore = null; $("sumStatus").textContent = `At most ${SUM_MAX_MONTHS} months at a time.`; return summary(); }
+  if (r.a > r.b) { sumStore = {}; $("sumStatus").textContent = "That period starts in the future."; return summary(); }
+  const jobs = [];
+  for (const s of SITES) for (let a = r.a; a <= r.b; a = addDays(a, MAX_DAYS)) { const b = addDays(a, MAX_DAYS - 1); jobs.push({ s, a, b: b > r.b ? r.b : b }); }
+  let next = 0, done = 0; const parts = {};
+  const msg = () => { $("sumStatus").textContent = `Loading ${r.f} to ${r.t}: ${done} / ${jobs.length}…`; };
+  msg();
+  try {
+    await Promise.all(Array.from({ length: Math.min(SUM_CONC, jobs.length) }, async () => {
+      while (next < jobs.length) {
+        const j = jobs[next++], d = await fetchRange(j.s, j.a, j.b, "15min");
+        if (seq !== sumSeq) return;
+        if (d) (parts[j.s] = parts[j.s] || []).push({ a: j.a, rows: d.rows });
+        done++; msg();
+      }
+    }));
+    if (seq !== sumSeq) return;
+    sumStore = Object.fromEntries(Object.entries(parts).map(([s, p]) => [s, { rows: p.sort((x, y) => x.a < y.a ? -1 : 1).flatMap(x => x.rows) }]));
+    $("sumStatus").textContent = Object.keys(sumStore).length ? "" : "No data for these months.";
+    summary();
+  } catch (e) { if (seq === sumSeq) $("sumStatus").textContent = "Failed to load: " + e.message; }
+}
+
 function summary() {
-  const h = lead();
+  const h = lead(), r = sumRange(), src = r && sumStore ? sumStore : store;
+  $("sumSub").textContent = (r && sumStore ? `${r.f} to ${r.t} · whole months, up to today` : "Selected period") + " · UST at the lead time chosen above";
   const at = (st, s) => { const d = st[s] && combine(st, [s]); return d ? stats(d.t, d.act, d.da, d.lead[h]) : null; };
-  const rows = SITES.map(s => ({ name: s, st: at(store, s) }));
-  const tot = combine(store, SITES);
+  const rows = SITES.map(s => ({ name: s, st: at(src, s) }));
+  const tot = combine(src, SITES);
   rows.push({ name: "Total", cls: "total", st: tot ? stats(tot.t, tot.act, tot.da, tot.lead[h]) : null });
   const pcell = v => v == null ? `<td>–</td>` : `<td class="${v >= 0 ? "pos" : "neg"}">${nf(v, 1)}%</td>`;
   const ab = v => `<td>${v == null ? "–" : nf(v, 1) + "%"}</td>`;

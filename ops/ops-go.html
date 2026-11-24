@@ -144,19 +144,17 @@ function yearProd(y) { let a = 0, any = false; for (const s of SITES) for (let i
 const cls = v => v == null ? "" : Math.round(v) > 0 ? "pos" : Math.round(v) < 0 ? "neg" : "zero";
 const sgn = v => { if (v == null) return "–"; const r = Math.round(v); return r === 0 ? "0" : (r > 0 ? "+" : "") + nf(r); };
 
-// undelivered volume sits on the delivery date, or on the amended date when there is one
+// every row sits on its delivery date, or on the amended date when there is one
 function dueMap() {
   const m = new Map();
-  rows.filter(r => r.undelivered > 0.005).forEach(r => { const o = m.get(r.due) || { date: r.due, vol: 0, items: [] }; o.vol += r.undelivered; o.items.push(r); m.set(r.due, o); });
+  rows.forEach(r => { const o = m.get(r.due) || { date: r.due, del: 0, vol: 0, items: [] }; o.del += r.delivered; o.vol += r.undelivered; o.items.push(r); m.set(r.due, o); });
   return [...m.values()].sort((a, b) => a.date < b.date ? -1 : 1);
 }
 function renderDue() {
   const dues = dueMap();
-  $("dueTable").innerHTML = `<tr><th class="l">Delivery date (amended date if any)</th><th>Undelivered (MWh)</th><th class="l">Detail: rows of the Contracts table (Signed − Delivered)</th></tr>`
-    + (dues.map(d => {
-      return `<tr><td class="l">${d.date}${d.date < TODAY ? '<span class="tag">overdue</span>' : ""}</td><td class="neg">${nf(d.vol, 2)}</td>
-        <td class="l" style="white-space:normal">${d.items.map(r => `<b>${r.year} #${r.no}</b> · ${r.buyer ? r.buyer + " · " : ""}${r.period}: ${nf(r.signed, 2)} − ${nf(r.delivered, 2)} = ${nf(r.undelivered, 2)}`).join("<br>")}</td></tr>`; }).join("")
-      || `<tr><td class="l" colspan="3" style="color:#888">Nothing left to deliver.</td></tr>`);
+  $("dueTable").innerHTML = `<tr><th class="l">Delivery date (amended date if any)</th><th>Delivered GO (MWh)</th><th>Undelivered GO (MWh)</th><th class="l">Detail: rows of the Contracts table (Signed − Delivered)</th></tr>`
+    + dues.map(d => `<tr><td class="l">${d.date}${d.date < TODAY && d.vol > 0.005 ? '<span class="tag">overdue</span>' : ""}</td><td>${nf(d.del, 2)}</td><td class="${d.vol > 0.005 ? "neg" : "zero"}">${nf(d.vol, 2)}</td>
+        <td class="l" style="white-space:normal">${d.items.map(r => `<b>${r.year} #${r.no}</b> · ${r.buyer ? r.buyer + " · " : ""}${r.period}: ${nf(r.signed, 2)} − ${nf(r.delivered, 2)} = ${nf(r.undelivered, 2)}`).join("<br>")}</td></tr>`).join("");
 }
 
 const PALETTE = ["#dff3e3", "#d9ecf7", "#eceff1", "#dbe3fa", "#fff3c4", "#fde2e4", "#e8def8", "#fde8d0"];

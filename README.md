@@ -339,7 +339,7 @@ token 只在服务端，不会发给浏览器；数据不会进入本仓库，�
 - 内容来自 GO 交易工作簿的 `summary` 表（Tokaj 五站一起交付，所以页面不分场站），数据在私有 vcom 仓库的 `data/go/tokaj_go_sales.csv`（一行一笔交易：year, trade_no, period, signed_mwh, delivered_mwh, amount_eur, delivery_date, signing_date, amended_delivery, buyer），Worker 的 `/ops/api/go-sales` 原样转发。有新合同或交付量变化时改这个 CSV 即可（`delivered_mwh` 是已交付量，手动更新）。
 - 两个表：
   ① Contracts（上面有年份下拉：All years / 2024–2027）：和工作簿 summary 一样一笔交易一行，合同签署日期同一天、同一买方的算一个合同（同色标出），一个合同可以有几个不同的交付日和交付量；单价 = 金额 ÷ 已签量；每个年份最后一行是该年合计，同一行里写着全年电量（五站表计合计，2024 年只算 8–12 月，当年只算读满的月份，标 to date）和剩余未交易 GO（= 全年电量 − 已签）；
-  ② Undelivered GO：待交付量（已签 − 已交付）按交付日汇总，交付日以 delivery date 为准，有 amended date 的以 amended date 为准，列出每个交付日的待交付量和是哪几笔合同；早于今天且还没交付完的标 overdue。
+  ② Undelivered GO：待交付量（已签 − 已交付）按交付日汇总，交付日以 delivery date 为准，有 amended date 的以 amended date 为准，列出每个交付日的已交付量（Delivered GO）、待交付量（Undelivered GO）和明细（是 Contracts 表里哪几行，已签 − 已交付）；一行合同整行按它的交付日（有 amended date 用 amended date）归到同一天；早于今天且还没交付完的标 overdue。
 - 全年电量用 `/ops/api/metered?resolution=hourly`（五站小时表计，页面按月求和）。
 
 **Ops 页面的网址参数**（Overview / Capture Price / Imbalance 三个页面）：页面上的选择会同步写进地址栏（`history.replaceState`，不增加浏览器历史记录），打开带参数的链接时按参数恢复；缺少或不合法的参数忽略，用默认值。链接里只有选择，没有数据，打开仍要登录 ops。

@@ -23,17 +23,14 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background:
 .chart-card-header h3 { font-size: 18px; font-weight: 500; color: #2c3e50; border-left: 4px solid #2c3e50; padding-left: 12px; margin: 0; line-height: 1.3; }
 .scroll { overflow-x: auto; }
 table { border-collapse: collapse; width: 100%; font-size: 13px; }
-th, td { padding: 8px 10px; text-align: right; border-bottom: 1px solid #eef0f3; white-space: nowrap; }
+th, td { padding: 8px 8px; text-align: right; border-bottom: 1px solid #eef0f3; white-space: nowrap; }
 th.l, td.l { text-align: left; }
 th { background: #f3f5f7; font-size: 12px; color: #4a5560; }
 tr.total td { font-weight: 700; background: #fafbfc; }
 tr.sub td { font-weight: 600; background: #fafbfc; color: #4a5560; font-size: 12px; }
 .pos { color: #1e8449; font-weight: 600; } .neg { color: #d35400; font-weight: 600; } .zero { color: #888; }
 .tag { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; background: #fdecea; color: #c0392b; margin-left: 6px; }
-.picker { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; margin-bottom: 14px; font-size: 14px; color: #2c3e50; }
-.picker input[type=date] { font-family: inherit; height: 36px; padding: 0 12px; border: 1px solid #ccc; border-radius: 6px; font-size: 14px; color: #2c3e50; }
-.picker .res { background: #f3f5f7; border-radius: 6px; padding: 8px 14px; }
-.picker .res b { font-size: 16px; }
+select { font-family: inherit; height: 36px; padding: 0 12px; border: 1px solid #ccc; border-radius: 6px; font-size: 14px; color: #2c3e50; background: #fff; cursor: pointer; }
 .sw { display: inline-block; padding: 2px 8px; border-radius: 4px; }
 @media (max-width: 700px) {
   body { padding: 8px; } .chart-grid { padding: 14px 16px 16px; }
@@ -55,22 +52,13 @@ tr.sub td { font-weight: 600; background: #fafbfc; color: #4a5560; font-size: 12
 
   <div class="chart-grid">
     <div class="chart-card">
-      <div class="chart-card-header"><h3>Tokaj GO summary</h3></div>
-      <div class="scroll"><table id="yearTable"></table></div>
-    </div>
-
-    <div class="chart-card">
-      <div class="chart-card-header"><h3>Undelivered GO by delivery date</h3></div>
-      <div class="picker">
-        <label>Undelivered due on or before <input type="date" id="asof"></label>
-        <span class="res" id="asofRes"></span>
-      </div>
-      <div class="scroll"><table id="dueTable"></table></div>
-    </div>
-
-    <div class="chart-card">
-      <div class="chart-card-header"><h3>Contracts</h3></div>
+      <div class="chart-card-header"><h3>Contracts</h3><select id="year"></select></div>
       <div class="scroll"><table id="conTable"></table></div>
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-card-header"><h3>Undelivered GO</h3></div>
+      <div class="scroll"><table id="dueTable"></table></div>
     </div>
   </div>
 </div>
@@ -91,7 +79,7 @@ function budapestToday() {
   return `${p.year}-${p.month}-${p.day}`;
 }
 const TODAY = budapestToday(), THIS_YEAR = +TODAY.slice(0, 4);
-let rows = [], prod = {}, lastTs = {};
+let rows = [], prod = {}, lastTs = {}, year = "ALL";
 
 function parseCSV(text) {
   const out = []; let row = [], cur = "", q = false;
@@ -156,21 +144,6 @@ function yearProd(y) { let a = 0, any = false; for (const s of SITES) for (let i
 const cls = v => v == null ? "" : Math.round(v) > 0 ? "pos" : Math.round(v) < 0 ? "neg" : "zero";
 const sgn = v => { if (v == null) return "–"; const r = Math.round(v); return r === 0 ? "0" : (r > 0 ? "+" : "") + nf(r); };
 
-function renderYears() {
-  const years = [...new Set(rows.map(r => r.year))].sort();
-  let tp = 0, ts = 0, td = 0, tu = 0, anyP = false;
-  const body = years.map(y => {
-    const rs = rows.filter(r => r.year === y), p = y <= THIS_YEAR ? yearProd(y) : null;
-    const S = rs.reduce((a, r) => a + r.signed, 0), D = rs.reduce((a, r) => a + r.delivered, 0), U = S - D, rem = p == null ? null : p - S;
-    ts += S; td += D; tu += U; if (p != null) { tp += p; anyP = true; }
-    return `<tr><td class="l">${y}${y === 2024 ? " (Aug–Dec)" : ""}</td><td>${nf(p, 2)}${y === THIS_YEAR && p != null ? ' <span class="zero">(to date)</span>' : ""}</td><td>${nf(S, 2)}</td><td>${nf(D, 2)}</td>
-      <td class="${U > 0.5 ? "neg" : "zero"}">${nf(U, 2)}</td><td class="${cls(rem)}">${sgn(rem)}</td></tr>`;
-  }).join("");
-  const remT = anyP ? tp - rows.filter(r => r.year <= THIS_YEAR).reduce((a, r) => a + r.signed, 0) : null;
-  $("yearTable").innerHTML = `<tr><th class="l">Year</th><th>Annual production (MWh)</th><th>Signed GO (MWh)</th><th>Delivered (MWh)</th><th>Undelivered (MWh)</th><th>Remaining unsold GO (MWh)</th></tr>` + body
-    + `<tr class="total"><td class="l">Total</td><td>${anyP ? nf(tp, 2) : "–"}</td><td>${nf(ts, 2)}</td><td>${nf(td, 2)}</td><td class="${tu > 0.5 ? "neg" : "zero"}">${nf(tu, 2)}</td><td class="${cls(remT)}">${sgn(remT)}</td></tr>`;
-}
-
 // undelivered volume sits on the delivery date, or on the amended date when there is one
 function dueMap() {
   const m = new Map();
@@ -178,44 +151,40 @@ function dueMap() {
   return [...m.values()].sort((a, b) => a.date < b.date ? -1 : 1);
 }
 function renderDue() {
-  const dues = dueMap(); let cum = 0;
-  $("dueTable").innerHTML = `<tr><th class="l">Delivery date (amended date if any)</th><th>Undelivered on this date (MWh)</th><th>Cumulative undelivered (MWh)</th><th class="l">Contracts</th></tr>`
-    + (dues.map(d => { cum += d.vol;
-      return `<tr><td class="l">${d.date}${d.date < TODAY ? '<span class="tag">overdue</span>' : ""}</td><td class="neg">${nf(d.vol, 2)}</td><td>${nf(cum, 2)}</td>
+  const dues = dueMap();
+  $("dueTable").innerHTML = `<tr><th class="l">Delivery date (amended date if any)</th><th>Undelivered (MWh)</th><th class="l">Contracts</th></tr>`
+    + (dues.map(d => {
+      return `<tr><td class="l">${d.date}${d.date < TODAY ? '<span class="tag">overdue</span>' : ""}</td><td class="neg">${nf(d.vol, 2)}</td>
         <td class="l" style="white-space:normal">${d.items.map(r => `${r.buyer || "–"} · signed ${r.signing_date || "–"} · ${r.period}: ${nf(r.undelivered, 2)}`).join("<br>")}</td></tr>`; }).join("")
-      || `<tr><td class="l" colspan="4" style="color:#888">Nothing left to deliver.</td></tr>`);
-  const asof = $("asof").value;
-  if (!asof) { $("asofRes").textContent = ""; return; }
-  const on = dues.filter(d => d.date === asof).reduce((a, d) => a + d.vol, 0), by = dues.filter(d => d.date <= asof).reduce((a, d) => a + d.vol, 0);
-  $("asofRes").innerHTML = `On ${asof}: <b class="${on > 0.005 ? "neg" : "zero"}">${nf(on, 2)} MWh</b> &nbsp;·&nbsp; by ${asof} (including earlier dates): <b class="${by > 0.005 ? "neg" : "zero"}">${nf(by, 2)} MWh</b>`;
+      || `<tr><td class="l" colspan="3" style="color:#888">Nothing left to deliver.</td></tr>`);
 }
 
 const PALETTE = ["#dff3e3", "#d9ecf7", "#eceff1", "#dbe3fa", "#fff3c4", "#fde2e4", "#e8def8", "#fde8d0"];
 function renderContracts() {
   const keys = []; rows.forEach(r => { const k = (r.signing_date || "") + "|" + r.buyer; if (!keys.includes(k)) keys.push(k); });
   const color = {}; keys.forEach((k, i) => { color[k] = k.startsWith("|") ? "#ffffff" : PALETTE[i % PALETTE.length]; });
-  const price = r => r.signed ? r.amount / r.signed : null;
-  let out = "", prevYear = null, tS = 0, tD = 0, tA = 0;
-  keys.forEach(k => {
-    const g = rows.filter(r => (r.signing_date || "") + "|" + r.buyer === k), c = color[k];
-    g.forEach(r => {
-      out += `<tr><td class="l">${r.year !== prevYear ? r.year : ""}</td><td class="l">${r.no}</td><td class="l"><span class="sw" style="background:${c}">${r.signing_date || "–"}</span></td><td class="l">${r.buyer}</td><td class="l">${r.period}</td>
+  const price = r => r.signed ? r.amount / r.signed : null, years = [...new Set(rows.map(r => r.year))].sort(), shown = year === "ALL" ? years : [+year];
+  let out = "", T = { S: 0, D: 0, A: 0, P: 0, anyP: false, S2: 0 };
+  shown.forEach(y => {
+    const rs = rows.filter(r => r.year === y); let first = true;
+    rs.forEach(r => {
+      out += `<tr><td class="l">${first ? y : ""}</td><td class="l">${r.no}</td><td class="l"><span class="sw" style="background:${color[(r.signing_date || "") + "|" + r.buyer]}">${r.signing_date || "–"}</span></td><td class="l">${r.buyer}</td><td class="l">${r.period}</td>
         <td>${nf(r.signed, 2)}</td><td>${nf(r.delivered, 2)}</td><td class="${r.undelivered > 0.005 ? "neg" : "zero"}">${nf(r.undelivered, 2)}</td><td>${nf(price(r), 4)}</td><td>${nf(r.amount, 2)}</td>
-        <td class="l">${r.delivery_date}</td><td class="l">${r.amended_delivery}</td></tr>`;
-      prevYear = r.year; tS += r.signed; tD += r.delivered; tA += r.amount; });
-    if (g.length > 1) { const S = g.reduce((a, r) => a + r.signed, 0), D = g.reduce((a, r) => a + r.delivered, 0), A = g.reduce((a, r) => a + r.amount, 0);
-      out += `<tr class="sub"><td class="l" colspan="5" style="text-align:right">Contract total · signed ${g[0].signing_date} · ${g[0].buyer}</td><td>${nf(S, 2)}</td><td>${nf(D, 2)}</td><td class="${S - D > 0.005 ? "neg" : "zero"}">${nf(S - D, 2)}</td><td>${nf(S ? A / S : null, 4)}</td><td>${nf(A, 2)}</td><td colspan="2"></td></tr>`; }
+        <td class="l">${r.delivery_date}</td><td class="l">${r.amended_delivery}</td></tr>`; first = false; });
+    const S = rs.reduce((a, r) => a + r.signed, 0), D = rs.reduce((a, r) => a + r.delivered, 0), A = rs.reduce((a, r) => a + r.amount, 0), p = y <= THIS_YEAR ? yearProd(y) : null, rem = p == null ? null : p - S;
+    out += `<tr class="total"><td class="l" colspan="5">${y} total · annual production ${p == null ? "–" : nf(p, 2) + (y === THIS_YEAR ? " (to date)" : "")} · remaining unsold <span class="${cls(rem)}">${sgn(rem)}</span></td><td>${nf(S, 2)}</td><td>${nf(D, 2)}</td><td class="${S - D > 0.005 ? "neg" : "zero"}">${nf(S - D, 2)}</td><td>${nf(S ? A / S : null, 4)}</td><td>${nf(A, 2)}</td><td colspan="2"></td></tr>`;
   });
-  $("conTable").innerHTML = `<tr><th class="l">Year</th><th class="l">#</th><th class="l">Contract signed</th><th class="l">Buyer</th><th class="l">Production period</th><th>Signed GO (MWh)</th><th>Delivered (MWh)</th><th>Undelivered (MWh)</th><th>Unit price (EUR/MWh)</th><th>Total amount (EUR)</th><th class="l">Delivery date</th><th class="l">Amended delivery date</th></tr>`
-    + out + `<tr class="total"><td class="l" colspan="5">Total</td><td>${nf(tS, 2)}</td><td>${nf(tD, 2)}</td><td class="${tS - tD > 0.005 ? "neg" : "zero"}">${nf(tS - tD, 2)}</td><td>${nf(tS ? tA / tS : null, 4)}</td><td>${nf(tA, 2)}</td><td colspan="2"></td></tr>`;
+  $("conTable").innerHTML = `<tr><th class="l">Year</th><th class="l">#</th><th class="l">Contract signed</th><th class="l">Buyer</th><th class="l">Production period</th><th>Signed GO (MWh)</th><th>Delivered (MWh)</th><th>Undelivered (MWh)</th><th>Unit price (EUR/MWh)</th><th>Total amount (EUR)</th><th class="l">Delivery date</th><th class="l">Amended date</th></tr>` + out;
 }
 
 async function init() {
   try { await loadAll(); } catch (e) { $("status").textContent = "Failed to load: " + e.message; return; }
-  const dues = dueMap(), qa = URLQ.get("asof");
-  $("asof").value = /^\d{4}-\d{2}-\d{2}$/.test(qa || "") ? qa : (dues.find(d => d.date >= TODAY) || dues[0] || {}).date || "";
-  $("asof").onchange = () => { syncUrl({ asof: $("asof").value }); renderDue(); };
-  renderYears(); renderDue(); renderContracts();
+  const ys = [...new Set(rows.map(r => r.year))].sort(), qy = URLQ.get("year");
+  year = ys.includes(+qy) ? qy : "ALL";
+  $("year").innerHTML = `<option value="ALL">All years</option>` + ys.map(y => `<option value="${y}">${y}</option>`).join("");
+  $("year").value = year;
+  $("year").onchange = () => { year = $("year").value; syncUrl({ year: year === "ALL" ? "" : year }); renderContracts(); };
+  renderContracts(); renderDue();
 }
 init();
 </script>

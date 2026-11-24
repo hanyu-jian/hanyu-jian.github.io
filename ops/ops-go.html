@@ -34,8 +34,17 @@ select { font-family: inherit; height: 36px; padding: 0 12px; border: 1px solid 
 tr.hl td { background: #d6e9fb !important; }
 tr.pick { cursor: pointer; } tr.pick:hover td { background: #f1f7fd; } tr.pick.sel td { background: #d6e9fb; }
 tr.txhead td { padding: 0; background: #f4f9fe; }
-table.inner { width: auto; margin: 6px 0 10px 28px; } table.inner th, table.inner td { padding: 6px 22px; } table.inner th { background: #e6f0fa; } table.inner td { background: transparent; border-bottom: 1px solid #e3edf7; }
-table.inner th:nth-child(1), table.inner td:nth-child(1) { min-width: 130px; } table.inner th:nth-child(2), table.inner td:nth-child(2) { min-width: 110px; } table.inner th:nth-child(3), table.inner td:nth-child(3) { min-width: 150px; }
+.txbox { margin: 8px 12px 12px 24px; background: #fff; border: 1px solid #cfe2f5; border-left: 4px solid #5b9bd5; border-radius: 8px; padding: 4px 18px 8px; max-width: 600px; box-shadow: 0 1px 3px rgba(44,62,80,.08); }
+.txg { display: grid; grid-template-columns: 150px 130px 1fr; column-gap: 0; align-items: center; }
+.txg > div { padding: 8px 24px 8px 0; font-size: 13px; text-align: left; border-bottom: 1px solid #f0f4f8; }
+.txg > .h { font-size: 11px; font-weight: 600; color: #6b7c8d; text-transform: uppercase; letter-spacing: .5px; border-bottom: 1px solid #dbe7f3; }
+.txg > .v { text-align: right; padding-right: 32px; font-variant-numeric: tabular-nums; font-weight: 600; color: #2c3e50; }
+.txg > .h.v { font-weight: 600; color: #6b7c8d; }
+.txg > .tot { border-bottom: none; border-top: 1px solid #dbe7f3; font-weight: 700; color: #2c3e50; padding-top: 10px; }
+.txg .na { color: #a3adb8; }
+.bd { display: inline-block; padding: 2px 10px; border-radius: 10px; font-size: 12px; font-weight: 600; background: #e3f0fb; color: #1b5a85; }
+.bd.b1 { background: #efe6fa; color: #6b3fa0; }
+.nt { color: #8a96a3; font-size: 12px; margin-left: 8px; }
 .sw { display: inline-block; padding: 2px 8px; border-radius: 4px; }
 @media (max-width: 700px) {
   body { padding: 8px; } .chart-grid { padding: 14px 16px 16px; }
@@ -167,8 +176,10 @@ function renderDue() {
   dues.forEach(d => {
     out += `<tr class="pick${selDue === d.key ? " sel" : ""}" data-key="${d.key}"><td class="l">${d.date}${d.date < TODAY && d.vol > 0.005 ? '<span class="tag">overdue</span>' : ""}</td><td>${nf(d.sig, 2)}</td><td>${nf(d.del, 2)}</td><td class="${d.vol > 0.005 ? "neg" : "zero"}">${nf(d.vol, 2)}</td><td class="l">${d.buyer || "–"}</td></tr>`;
     const t = selDue === d.key ? tx.filter(x => x.delivery_date === d.date && x.buyer === d.buyer) : [];
-    if (t.length) out += `<tr class="txhead"><td colspan="5"><table class="inner"><tr><th class="l">Transaction date</th><th>Volume (MWh)</th><th class="l">Buyer</th></tr>`
-      + t.map(x => `<tr><td class="l">${x.transaction_date || ""}</td><td>${nf(x.vol, 2)}</td><td class="l">${x.buyer}${x.note ? ` <span class="zero">(${x.note})</span>` : ""}</td></tr>`).join("") + `</table></td></tr>`;
+    if (t.length) { const tot = t.reduce((a, x) => a + x.vol, 0);
+      out += `<tr class="txhead"><td colspan="5"><div class="txbox"><div class="txg"><div class="h">Transaction date</div><div class="h v">Volume (MWh)</div><div class="h">Buyer</div>`
+        + t.map(x => `<div>${x.transaction_date || '<span class="na" title="date not known">—</span>'}</div><div class="v">${nf(x.vol, 2)}</div><div><span class="bd${x.buyer === "AXPO" ? " b1" : ""}">${x.buyer}</span>${x.note ? `<span class="nt">${x.note}</span>` : ""}</div>`).join("")
+        + `<div class="tot">Total</div><div class="v tot">${nf(tot, 2)}</div><div class="tot"></div></div></div></td></tr>`; }
   });
   $("dueTable").innerHTML = `<tr><th class="l">Delivery date (amended date if any)</th><th>Signed GO (MWh)</th><th>Delivered GO (MWh)</th><th>Undelivered GO (MWh)</th><th class="l">Buyer</th></tr>` + out;
   $("dueTable").querySelectorAll("tr.pick").forEach(tr => tr.onclick = () => pickDue(tr.dataset.key));

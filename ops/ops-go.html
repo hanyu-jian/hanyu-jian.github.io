@@ -40,6 +40,10 @@ tr.tx td:first-child, tr.txh td:first-child { padding-left: 28px; }
 .bd { display: inline-block; padding: 1px 9px; border-radius: 10px; font-size: 12px; font-weight: 600; background: #e3f0fb; color: #1b5a85; }
 .bd.b1 { background: #efe6fa; color: #6b3fa0; } .bd.b2 { background: #e4f5ea; color: #1e6b3a; } .bd.b3 { background: #fdeede; color: #9a5a12; }
 .nt { color: #8a96a3; font-size: 12px; margin-left: 8px; } .na { color: #a3adb8; }
+#dueTable { width: auto; min-width: 760px; }
+#dueTable th, #dueTable td { padding-right: 28px; }
+#dueTable th:nth-child(1), #dueTable td:nth-child(1) { min-width: 200px; }
+#dueTable th:nth-child(2), #dueTable th:nth-child(3), #dueTable th:nth-child(4), #dueTable td:nth-child(2), #dueTable td:nth-child(3), #dueTable td:nth-child(4) { min-width: 120px; }
 .sw { display: inline-block; padding: 2px 8px; border-radius: 4px; }
 @media (max-width: 700px) {
   body { padding: 8px; } .chart-grid { padding: 14px 16px 16px; }
@@ -184,7 +188,6 @@ function pickDue(key) {
   const d = selDue && dueMap().find(x => x.key === selDue);
   if (d && year !== "ALL" && [...d.rows].some(id => rows.find(r => r.id === id).year !== +year)) { year = "ALL"; $("year").value = "ALL"; syncUrl({}); }
   renderDue(); renderContracts();
-  if (selDue) { const el = $("conTable").querySelector("tr.hl"); if (el) el.scrollIntoView({ block: "nearest", behavior: "smooth" }); }
 }
 
 const PALETTE = ["#dff3e3", "#d9ecf7", "#eceff1", "#dbe3fa", "#fff3c4", "#fde2e4", "#e8def8", "#fde8d0"];

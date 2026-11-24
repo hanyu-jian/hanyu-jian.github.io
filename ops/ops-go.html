@@ -131,7 +131,7 @@ async function loadAll() {
     ...SITES.flatMap(s => yrs.map(y => getText(`/ops/api/metered?site=${encodeURIComponent(s)}&year=${y}&resolution=hourly`).catch(e => { throw new Error(`${s} ${y}: ${e.message}`); }))),
   ]);
   if (salesText == null) throw new Error("GO sales file not found");
-  rows = parseCSV(salesText).map(r => ({ ...r, id: +r.id, year: +r.year, no: +r.trade_no, signed: +r.signed_mwh, delivered: +r.delivered_mwh, amount: +r.amount_eur }));
+  rows = parseCSV(salesText).map(r => ({ ...r, price: r.unit_price_eur_mwh === "" || r.unit_price_eur_mwh == null ? null : +r.unit_price_eur_mwh, id: +r.id, year: +r.year, no: +r.trade_no, signed: +r.signed_mwh, delivered: +r.delivered_mwh, amount: +r.amount_eur }));
   rows.forEach(r => { r.undelivered = r.signed - r.delivered; r.due = r.amended_delivery || r.delivery_date; });
   tx = txText ? parseCSV(txText).map(t => ({ ...t, vol: +t.volume_mwh })) : [];
   prod = {}; lastTs = {};
@@ -195,7 +195,7 @@ function renderContracts() {
   const keys = []; rows.forEach(r => { const k = (r.signing_date || "") + "|" + r.buyer; if (!keys.includes(k)) keys.push(k); });
   const color = {}; keys.forEach((k, i) => { color[k] = k.startsWith("|") ? "#ffffff" : PALETTE[i % PALETTE.length]; });
   const hlRows = new Set((selDue && (dueMap().find(x => x.key === selDue) || {}).rows) || []);
-  const price = r => r.signed ? r.amount / r.signed : null, years = [...new Set(rows.map(r => r.year))].sort(), shown = year === "ALL" ? years : [+year];
+  const price = r => r.price != null ? r.price : (r.signed ? r.amount / r.signed : null), years = [...new Set(rows.map(r => r.year))].sort(), shown = year === "ALL" ? years : [+year];
   let out = "", T = { S: 0, D: 0, A: 0, P: 0, anyP: false, S2: 0 };
   shown.forEach(y => {
     const rs = rows.filter(r => r.year === y); let first = true;
@@ -204,7 +204,7 @@ function renderContracts() {
         <td>${nf(r.signed, 2)}</td><td>${nf(r.delivered, 2)}</td><td class="${r.undelivered > 0.005 ? "neg" : "zero"}">${nf(r.undelivered, 2)}</td><td>${nf(price(r), 4)}</td><td>${nf(r.amount, 2)}</td>
         <td class="l">${r.delivery_date}</td><td class="l">${r.amended_delivery}</td><td></td><td></td></tr>`; first = false; });
     const S = rs.reduce((a, r) => a + r.signed, 0), D = rs.reduce((a, r) => a + r.delivered, 0), A = rs.reduce((a, r) => a + r.amount, 0), P = y <= THIS_YEAR ? yearProd(y) : null;
-    out += `<tr class="total"><td class="l" colspan="5">${y} total</td><td>${nf(S, 2)}</td><td>${nf(D, 2)}</td><td class="${S - D > 0.005 ? "neg" : "zero"}">${nf(S - D, 2)}</td><td>${nf(S ? A / S : null, 4)}</td><td>${nf(A, 2)}</td><td colspan="2"></td>${P == null ? "<td>–</td><td>–</td>" : `<td>${nf(P, 2)}${y === THIS_YEAR ? ' <span class="zero" style="font-weight:400">(to date)</span>' : ""}</td><td class="${cls(P - S)}">${sgn(P - S)}</td>`}</tr>`;
+    out += `<tr class="total"><td class="l" colspan="5">${y} total</td><td>${nf(S, 2)}</td><td>${nf(D, 2)}</td><td class="${S - D > 0.005 ? "neg" : "zero"}">${nf(S - D, 2)}</td><td>${nf(S ? rs.reduce((a, r) => a + price(r) * r.signed, 0) / S : null, 4)}</td><td>${nf(A, 2)}</td><td colspan="2"></td>${P == null ? "<td>–</td><td>–</td>" : `<td>${nf(P, 2)}${y === THIS_YEAR ? ' <span class="zero" style="font-weight:400">(to date)</span>' : ""}</td><td class="${cls(P - S)}">${sgn(P - S)}</td>`}</tr>`;
   });
   $("conTable").innerHTML = `<tr><th class="l">Year</th><th class="l">#</th><th class="l">Contract signed</th><th class="l">Buyer</th><th class="l">Production period</th><th>Signed GO (MWh)</th><th>Delivered (MWh)</th><th>Undelivered (MWh)</th><th>Unit price (EUR/MWh)</th><th>Amount (EUR)</th><th class="l">Delivery date</th><th class="l">Amended date</th><th title="Meter production of the five sites in the year (2024: Aug–Dec; current year: complete months to date)">Production (MWh)</th><th title="Production − Signed GO of the year: GO not yet signed">Unsold GO (MWh)</th></tr>` + out;
 }

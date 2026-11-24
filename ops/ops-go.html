@@ -36,14 +36,10 @@ tr.pick { cursor: pointer; } tr.pick:hover td { background: #f1f7fd; } tr.pick.s
 tr.txhead td { padding: 0; background: #f4f9fe; }
 tr.txh td { background: #f4f9fe; color: #6b7c8d; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .4px; padding-top: 6px; padding-bottom: 6px; }
 tr.tx td { background: #f4f9fe; color: #2c3e50; }
-tr.tx td:first-child, tr.txh td:first-child { padding-left: 28px; }
+.txr { display: flex; padding-left: 20px; } .txr > span { display: inline-block; } .txr > span:nth-child(1) { width: 130px; } .txr > span:nth-child(2) { width: 110px; text-align: right; margin-right: 28px; } .txr > span:nth-child(3) { width: 220px; }
 .bd { display: inline-block; padding: 1px 9px; border-radius: 10px; font-size: 12px; font-weight: 600; background: #e3f0fb; color: #1b5a85; }
 .bd.b1 { background: #efe6fa; color: #6b3fa0; } .bd.b2 { background: #e4f5ea; color: #1e6b3a; } .bd.b3 { background: #fdeede; color: #9a5a12; }
 .nt { color: #8a96a3; font-size: 12px; margin-left: 8px; } .na { color: #a3adb8; }
-#dueTable { width: auto; min-width: 760px; }
-#dueTable th, #dueTable td { padding-right: 28px; }
-#dueTable th:nth-child(1), #dueTable td:nth-child(1) { min-width: 200px; }
-#dueTable th:nth-child(2), #dueTable th:nth-child(3), #dueTable th:nth-child(4), #dueTable td:nth-child(2), #dueTable td:nth-child(3), #dueTable td:nth-child(4) { min-width: 120px; }
 .sw { display: inline-block; padding: 2px 8px; border-radius: 4px; }
 @media (max-width: 700px) {
   body { padding: 8px; } .chart-grid { padding: 14px 16px 16px; }
@@ -176,8 +172,8 @@ function renderDue() {
   dues.forEach(d => {
     out += `<tr class="pick${selDue === d.key ? " sel" : ""}" data-key="${d.key}"><td class="l">${d.date}${d.date < TODAY && d.vol > 0.005 ? '<span class="tag">overdue</span>' : ""}</td><td>${nf(d.sig, 2)}</td><td>${nf(d.del, 2)}</td><td class="${d.vol > 0.005 ? "neg" : "zero"}">${nf(d.vol, 2)}</td><td class="l">${d.buyer || "–"}</td></tr>`;
     const t = selDue === d.key ? tx.filter(x => x.delivery_date === d.date && x.buyer === d.buyer) : [];
-    if (t.length) out += `<tr class="txh"><td class="l">Transaction date</td><td></td><td>Volume (MWh)</td><td></td><td class="l">Buyer</td></tr>`
-      + t.map(x => `<tr class="tx"><td class="l">${x.transaction_date || '<span class="na" title="date not known">—</span>'}</td><td></td><td>${nf(x.vol, 2)}</td><td></td><td class="l"><span class="bd ${bcls(x.buyer)}">${x.buyer}</span>${x.note ? `<span class="nt">${x.note}</span>` : ""}</td></tr>`).join("");
+    if (t.length) out += `<tr class="txh"><td colspan="5" class="l"><div class="txr"><span>Transaction date</span><span>Volume (MWh)</span><span>Buyer</span></div></td></tr>`
+      + t.map(x => `<tr class="tx"><td colspan="5" class="l"><div class="txr"><span>${x.transaction_date || '<span class="na" title="date not known">—</span>'}</span><span>${nf(x.vol, 2)}</span><span><span class="bd ${bcls(x.buyer)}">${x.buyer}</span>${x.note ? `<span class="nt">${x.note}</span>` : ""}</span></div></td></tr>`).join("");
   });
   $("dueTable").innerHTML = `<tr><th class="l">Delivery date (amended date if any)</th><th>Signed GO (MWh)</th><th>Delivered GO (MWh)</th><th>Undelivered GO (MWh)</th><th class="l">Buyer</th></tr>` + out;
   $("dueTable").querySelectorAll("tr.pick").forEach(tr => tr.onclick = () => pickDue(tr.dataset.key));

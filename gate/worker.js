@@ -639,8 +639,8 @@ async function handleMetered(url, env) {
 }
 
 // GO 页面：Tokaj 五站的 GO 成交明细（vcom 仓库 data/go/tokaj_go_sales.csv，含价格和买家，所以放在私有仓库里），原样转发不解析。
-async function handleGoSales(env) {
-  const text = await loadFile(env, "data/go/tokaj_go_sales.csv");
+async function handleGoSales(env, file = "tokaj_go_sales.csv") {
+  const text = await loadFile(env, `data/go/${file}`);
   if (text === null) return json({ error: "GO sales file not found" }, 404);
   return new Response(text, {
     headers: { "content-type": "text/csv; charset=utf-8", "Cache-Control": "private, no-store", "X-Robots-Tag": "noindex" },
@@ -754,6 +754,16 @@ async function handleOps(request, env, url, path) {
     if (!env.GITHUB_TOKEN) return json({ error: "GITHUB_TOKEN is not configured" }, 500);
     try {
       return await (path === "/ops/api/meter" ? handleMeter(url, env) : handleMetered(url, env));
+    } catch (e) {
+      return json({ error: String(e.message || e) }, 502);
+    }
+  }
+
+  if (path === "/ops/api/go-transactions") {      // delivery detail (transaction date / volume / buyer) of the GO deliveries
+    if (request.method !== "GET") return new Response("Method not allowed", { status: 405 });
+    if (!env.GITHUB_TOKEN) return json({ error: "GITHUB_TOKEN is not configured" }, 500);
+    try {
+      return await handleGoSales(env, "tokaj_go_transactions.csv");
     } catch (e) {
       return json({ error: String(e.message || e) }, 502);
     }

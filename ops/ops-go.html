@@ -181,19 +181,18 @@ function cumProd(D) {
 }
 const bcls = b => "b" + ([...(b || "")].reduce((a, c) => a + c.charCodeAt(0), 0) % 4);      // a stable colour per buyer
 function renderDue() {
-  const dues = dueMap(); let out = "", cumD = 0, lastDate = null, P = 0, availCls = "";
-  const sc = v => `<td class="${cls(v)}">${sgn(v)}</td>`;
+  const dues = dueMap(); let out = "", lastDate = null, P = 0;
   dues.forEach(d => {
     const firstOfDate = d.date !== lastDate;
-    if (firstOfDate) { dues.filter(x => x.date === d.date).forEach(x => { cumD += x.del; }); P = cumProd(d.date); lastDate = d.date; }
+    if (firstOfDate) { P = cumProd(d.date); lastDate = d.date; }
     out += `<tr class="pick${selDue === d.key ? " sel" : ""}" data-key="${d.key}"><td class="l">${d.date}${d.date < TODAY && d.vol > 0.005 ? '<span class="tag">overdue</span>' : ""}</td>`
-      + (firstOfDate ? `<td>${nf(P, 0)}</td>${sc(P - cumD)}` : `<td></td><td></td>`)
+      + (firstOfDate ? `<td>${nf(P, 0)}</td>` : `<td></td>`)
       + `<td>${nf(d.sig, 2)}</td><td>${nf(d.del, 2)}</td><td class="${d.vol > 0.005 ? "neg" : "zero"}">${nf(d.vol, 2)}</td><td class="l">${d.buyer || "–"}</td></tr>`;
     const t = selDue === d.key ? tx.filter(x => x.delivery_date === d.date && x.buyer === d.buyer) : [];
-    if (t.length) out += `<tr class="txh"><td colspan="7" class="l"><div class="txr"><span>Transaction date</span><span>Volume (MWh)</span><span>Buyer</span></div></td></tr>`
-      + t.map(x => `<tr class="tx"><td colspan="7" class="l"><div class="txr"><span>${x.transaction_date || '<span class="na" title="date not known">—</span>'}</span><span>${nf(x.vol, 2)}</span><span><span class="bd ${bcls(x.buyer)}">${x.buyer}</span>${x.note ? `<span class="nt">${x.note}</span>` : ""}</span></div></td></tr>`).join("");
+    if (t.length) out += `<tr class="txh"><td colspan="6" class="l"><div class="txr"><span>Transaction date</span><span>Volume (MWh)</span><span>Buyer</span></div></td></tr>`
+      + t.map(x => `<tr class="tx"><td colspan="6" class="l"><div class="txr"><span>${x.transaction_date || '<span class="na" title="date not known">—</span>'}</span><span>${nf(x.vol, 2)}</span><span><span class="bd ${bcls(x.buyer)}">${x.buyer}</span>${x.note ? `<span class="nt">${x.note}</span>` : ""}</span></div></td></tr>`).join("");
   });
-  $("dueTable").innerHTML = `<tr><th class="l">Delivery date</th><th title="GO produced up to this date (five sites, complete months, capped at the latest meter data)">Production (MWh)</th><th title="Production − Delivered (up to this date): GO in hand that can still be delivered">Available to deliver (MWh)</th><th>Signed GO (MWh)</th><th>Delivered GO (MWh)</th><th>Undelivered GO (MWh)</th><th class="l">Buyer</th></tr>` + out;
+  $("dueTable").innerHTML = `<tr><th class="l">Delivery date</th><th title="GO produced up to this date (five sites, complete months, capped at the latest meter data)">Production (MWh)</th><th>Signed GO (MWh)</th><th>Delivered GO (MWh)</th><th>Undelivered GO (MWh)</th><th class="l">Buyer</th></tr>` + out;
   $("dueTable").querySelectorAll("tr.pick").forEach(tr => tr.onclick = () => pickDue(tr.dataset.key));
 }
 // click a delivery line: the rows of the Contracts table that add up to it are highlighted, and its transactions (transaction date / volume / buyer) open underneath

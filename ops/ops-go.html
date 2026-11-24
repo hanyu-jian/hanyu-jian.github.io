@@ -132,7 +132,7 @@ async function loadAll() {
   ]);
   if (salesText == null) throw new Error("GO sales file not found");
   rows = parseCSV(salesText).map(r => ({ ...r, price: r.unit_price_eur_mwh === "" || r.unit_price_eur_mwh == null ? null : +r.unit_price_eur_mwh, id: +r.id, year: +r.year, no: +r.trade_no, signed: +r.signed_mwh, delivered: +r.delivered_mwh, amount: +r.amount_eur }));
-  rows.forEach(r => { r.undelivered = r.signed - r.delivered; r.due = r.amended_delivery || r.delivery_date; });
+  rows.forEach(r => { r.undelivered = r.signed - r.delivered; r.due = r.amended_delivery || r.delivery_date; if (r.price == null && r.signed) r.price = r.amount / r.signed; r.amount = r.signed * (r.price || 0); });   // total amount = signed GO × unit price
   tx = txText ? parseCSV(txText).map(t => ({ ...t, vol: +t.volume_mwh })) : [];
   prod = {}; lastTs = {};
   let k = 0;

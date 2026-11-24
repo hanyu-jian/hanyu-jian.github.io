@@ -40,6 +40,7 @@ tr.tx td { background: #f4f9fe; color: #2c3e50; }
 .bd { display: inline-block; padding: 1px 9px; border-radius: 10px; font-size: 12px; font-weight: 600; background: #e3f0fb; color: #1b5a85; }
 .bd.b1 { background: #efe6fa; color: #6b3fa0; } .bd.b2 { background: #e4f5ea; color: #1e6b3a; } .bd.b3 { background: #fdeede; color: #9a5a12; }
 .nt { color: #8a96a3; font-size: 12px; margin-left: 8px; } .na { color: #a3adb8; }
+#conTable th, #conTable td { padding: 8px 6px; }
 .sw { display: inline-block; padding: 2px 8px; border-radius: 4px; }
 @media (max-width: 700px) {
   body { padding: 8px; } .chart-grid { padding: 14px 16px 16px; }
@@ -66,7 +67,7 @@ tr.tx td { background: #f4f9fe; color: #2c3e50; }
     </div>
 
     <div class="chart-card">
-      <div class="chart-card-header"><h3>Undelivered GO</h3></div>
+      <div class="chart-card-header"><h3>Undelivered GO</h3><select id="dmode"><option value="amended">Delivery date: amended (current plan)</option><option value="original">Delivery date: original (before amendment)</option></select></div>
       <div class="scroll"><table id="dueTable"></table></div>
     </div>
   </div>
@@ -88,7 +89,7 @@ function budapestToday() {
   return `${p.year}-${p.month}-${p.day}`;
 }
 const TODAY = budapestToday(), THIS_YEAR = +TODAY.slice(0, 4);
-let rows = [], tx = [], prod = {}, lastTs = {}, year = "ALL", selDue = null;
+let rows = [], tx = [], prod = {}, lastTs = {}, year = "ALL", selDue = null, dmode = "amended";
 
 function parseCSV(text) {
   const out = []; let row = [], cur = "", q = false;
@@ -130,8 +131,8 @@ async function loadAll() {
     ...SITES.flatMap(s => yrs.map(y => getText(`/ops/api/metered?site=${encodeURIComponent(s)}&year=${y}&resolution=hourly`).catch(e => { throw new Error(`${s} ${y}: ${e.message}`); }))),
   ]);
   if (salesText == null) throw new Error("GO sales file not found");
-  rows = parseCSV(salesText).map(r => ({ ...r, id: +r.id, year: +r.year, no: +r.trade_no, signed: +r.signed_mwh, delivered: +r.delivered_mwh, amount: +r.amount_eur }));
-  rows.forEach(r => { r.undelivered = r.signed - r.delivered; r.due = r.amended_delivery || r.delivery_date; });
+  rows = parseCSV(salesText).map(r => ({ ...r, price: r.unit_price_eur_mwh === "" || r.unit_price_eur_mwh == null ? null : +r.unit_price_eur_mwh, id: +r.id, year: +r.year, no: +r.trade_no, signed: +r.signed_mwh, delivered: +r.delivered_mwh, amount: +r.amount_eur }));
+  rows.forEach(r => { r.undelivered = r.signed - r.delivered; r.due = r.amended_delivery || r.delivery_date; if (r.price == null && r.signed) r.price = r.amount / r.signed; r.amount = r.signed * (r.price || 0); });   // total amount = signed GO × unit price
   tx = txText ? parseCSV(txText).map(t => ({ ...t, vol: +t.volume_mwh })) : [];
   prod = {}; lastTs = {};
   let k = 0;
@@ -155,13 +156,15 @@ function yearProd(y) { let a = 0, any = false; for (const s of SITES) for (let i
 const cls = v => v == null ? "" : Math.round(v) > 0 ? "pos" : Math.round(v) < 0 ? "neg" : "zero";
 const sgn = v => { if (v == null) return "–"; const r = Math.round(v); return r === 0 ? "0" : (r > 0 ? "+" : "") + nf(r); };
 
-// Delivery lines = one per delivery date and buyer. A contract row sits on its delivery date, or on the amended date when there is one;
+// Delivery lines = one per delivery date and buyer. With "amended" a contract row sits on its amended date when it has one, otherwise on its delivery date;
 // a row that is partly delivered and has an amended date is split: the delivered part stays on the delivery date, the rest moves to the amended date.
+// With "original" every row stays on its original delivery date (the plan before any amendment).
 function dueMap() {
   const m = new Map(), add = (date, r, signed, delivered) => { const k = date + "|" + r.buyer, o = m.get(k) || { key: k, date, buyer: r.buyer, sig: 0, del: 0, vol: 0, rows: new Set() };
     o.sig += signed; o.del += delivered; o.vol += signed - delivered; o.rows.add(r.id); m.set(k, o); };
   rows.forEach(r => {
-    if (r.amended_delivery && r.delivered > 0.005 && r.delivered < r.signed - 0.005) { add(r.delivery_date, r, r.delivered, r.delivered); add(r.amended_delivery, r, r.signed - r.delivered, 0); }
+    if (dmode === "original") add(r.delivery_date, r, r.signed, r.delivered);
+    else if (r.amended_delivery && r.delivered > 0.005 && r.delivered < r.signed - 0.005) { add(r.delivery_date, r, r.delivered, r.delivered); add(r.amended_delivery, r, r.signed - r.delivered, 0); }
     else add(r.due, r, r.signed, r.delivered);
   });
   return [...m.values()].sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : a.buyer < b.buyer ? -1 : 1);
@@ -170,12 +173,13 @@ const bcls = b => "b" + ([...(b || "")].reduce((a, c) => a + c.charCodeAt(0), 0)
 function renderDue() {
   const dues = dueMap(); let out = "";
   dues.forEach(d => {
-    out += `<tr class="pick${selDue === d.key ? " sel" : ""}" data-key="${d.key}"><td class="l">${d.date}${d.date < TODAY && d.vol > 0.005 ? '<span class="tag">overdue</span>' : ""}</td><td>${nf(d.sig, 2)}</td><td>${nf(d.del, 2)}</td><td class="${d.vol > 0.005 ? "neg" : "zero"}">${nf(d.vol, 2)}</td><td class="l">${d.buyer || "–"}</td></tr>`;
+    out += `<tr class="pick${selDue === d.key ? " sel" : ""}" data-key="${d.key}"><td class="l">${d.date}${d.date < TODAY && d.vol > 0.005 ? '<span class="tag">overdue</span>' : ""}</td>`
+      + `<td>${nf(d.sig, 2)}</td><td>${nf(d.del, 2)}</td><td class="${d.vol > 0.005 ? "neg" : "zero"}">${nf(d.vol, 2)}</td><td class="l">${d.buyer || "–"}</td></tr>`;
     const t = selDue === d.key ? tx.filter(x => x.delivery_date === d.date && x.buyer === d.buyer) : [];
     if (t.length) out += `<tr class="txh"><td colspan="5" class="l"><div class="txr"><span>Transaction date</span><span>Volume (MWh)</span><span>Buyer</span></div></td></tr>`
       + t.map(x => `<tr class="tx"><td colspan="5" class="l"><div class="txr"><span>${x.transaction_date || '<span class="na" title="date not known">—</span>'}</span><span>${nf(x.vol, 2)}</span><span><span class="bd ${bcls(x.buyer)}">${x.buyer}</span>${x.note ? `<span class="nt">${x.note}</span>` : ""}</span></div></td></tr>`).join("");
   });
-  $("dueTable").innerHTML = `<tr><th class="l">Delivery date (amended date if any)</th><th>Signed GO (MWh)</th><th>Delivered GO (MWh)</th><th>Undelivered GO (MWh)</th><th class="l">Buyer</th></tr>` + out;
+  $("dueTable").innerHTML = `<tr><th class="l">Delivery date</th><th>Signed GO (MWh)</th><th>Delivered GO (MWh)</th><th>Undelivered GO (MWh)</th><th class="l">Buyer</th></tr>` + out;
   $("dueTable").querySelectorAll("tr.pick").forEach(tr => tr.onclick = () => pickDue(tr.dataset.key));
 }
 // click a delivery line: the rows of the Contracts table that add up to it are highlighted, and its transactions (transaction date / volume / buyer) open underneath
@@ -191,18 +195,18 @@ function renderContracts() {
   const keys = []; rows.forEach(r => { const k = (r.signing_date || "") + "|" + r.buyer; if (!keys.includes(k)) keys.push(k); });
   const color = {}; keys.forEach((k, i) => { color[k] = k.startsWith("|") ? "#ffffff" : PALETTE[i % PALETTE.length]; });
   const hlRows = new Set((selDue && (dueMap().find(x => x.key === selDue) || {}).rows) || []);
-  const price = r => r.signed ? r.amount / r.signed : null, years = [...new Set(rows.map(r => r.year))].sort(), shown = year === "ALL" ? years : [+year];
+  const price = r => r.price != null ? r.price : (r.signed ? r.amount / r.signed : null), years = [...new Set(rows.map(r => r.year))].sort(), shown = year === "ALL" ? years : [+year];
   let out = "", T = { S: 0, D: 0, A: 0, P: 0, anyP: false, S2: 0 };
   shown.forEach(y => {
     const rs = rows.filter(r => r.year === y); let first = true;
     rs.forEach(r => {
       out += `<tr${hlRows.has(r.id) ? ' class="hl"' : ""}><td class="l">${first ? y : ""}</td><td class="l">${r.no}</td><td class="l"><span class="sw" style="background:${color[(r.signing_date || "") + "|" + r.buyer]}">${r.signing_date || "–"}</span></td><td class="l">${r.buyer}</td><td class="l">${r.period}</td>
         <td>${nf(r.signed, 2)}</td><td>${nf(r.delivered, 2)}</td><td class="${r.undelivered > 0.005 ? "neg" : "zero"}">${nf(r.undelivered, 2)}</td><td>${nf(price(r), 4)}</td><td>${nf(r.amount, 2)}</td>
-        <td class="l">${r.delivery_date}</td><td class="l">${r.amended_delivery}</td></tr>`; first = false; });
-    const S = rs.reduce((a, r) => a + r.signed, 0), D = rs.reduce((a, r) => a + r.delivered, 0), A = rs.reduce((a, r) => a + r.amount, 0);
-    out += `<tr class="total"><td class="l" colspan="5">${y} total</td><td>${nf(S, 2)}</td><td>${nf(D, 2)}</td><td class="${S - D > 0.005 ? "neg" : "zero"}">${nf(S - D, 2)}</td><td>${nf(S ? A / S : null, 4)}</td><td>${nf(A, 2)}</td><td colspan="2"></td></tr>`;
+        <td class="l">${r.delivery_date}</td><td class="l">${r.amended_delivery}</td><td></td><td></td></tr>`; first = false; });
+    const S = rs.reduce((a, r) => a + r.signed, 0), D = rs.reduce((a, r) => a + r.delivered, 0), A = rs.reduce((a, r) => a + r.amount, 0), P = y <= THIS_YEAR ? yearProd(y) : null;
+    out += `<tr class="total"><td class="l" colspan="5">${y} total</td><td>${nf(S, 2)}</td><td>${nf(D, 2)}</td><td class="${S - D > 0.005 ? "neg" : "zero"}">${nf(S - D, 2)}</td><td>${nf(S ? rs.reduce((a, r) => a + price(r) * r.signed, 0) / S : null, 4)}</td><td>${nf(A, 2)}</td><td colspan="2"></td>${P == null ? "<td>–</td><td>–</td>" : `<td>${nf(P, 2)}${y === THIS_YEAR ? ' <span class="zero" style="font-weight:400">(to date)</span>' : ""}</td><td class="${cls(P - S)}">${sgn(P - S)}</td>`}</tr>`;
   });
-  $("conTable").innerHTML = `<tr><th class="l">Year</th><th class="l">#</th><th class="l">Contract signed</th><th class="l">Buyer</th><th class="l">Production period</th><th>Signed GO (MWh)</th><th>Delivered (MWh)</th><th>Undelivered (MWh)</th><th>Unit price (EUR/MWh)</th><th>Total amount (EUR)</th><th class="l">Delivery date</th><th class="l">Amended date</th></tr>` + out;
+  $("conTable").innerHTML = `<tr><th class="l">Year</th><th class="l">#</th><th class="l">Contract signed</th><th class="l">Buyer</th><th class="l">Production period</th><th>Signed GO (MWh)</th><th>Delivered (MWh)</th><th>Undelivered (MWh)</th><th>Unit price (EUR/MWh)</th><th>Amount (EUR)</th><th class="l">Delivery date</th><th class="l">Amended date</th><th title="Meter production of the five sites in the year (2024: Aug–Dec; current year: complete months to date)">Production (MWh)</th><th title="Production − Signed GO of the year: GO not yet signed">Unsold GO (MWh)</th></tr>` + out;
 }
 
 async function init() {
@@ -212,6 +216,8 @@ async function init() {
   $("year").innerHTML = `<option value="ALL">All years</option>` + ys.map(y => `<option value="${y}">${y}</option>`).join("");
   $("year").value = year;
   $("year").onchange = () => { year = $("year").value; syncUrl({ year: year === "ALL" ? "" : year }); renderContracts(); };
+  dmode = URLQ.get("dates") === "original" ? "original" : "amended"; $("dmode").value = dmode;
+  $("dmode").onchange = () => { dmode = $("dmode").value; selDue = null; syncUrl({ year: year === "ALL" ? "" : year, dates: dmode === "original" ? "original" : "" }); renderDue(); renderContracts(); };
   renderContracts(); renderDue();
 }
 init();

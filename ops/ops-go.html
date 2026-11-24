@@ -5,7 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="robots" content="noindex">
 <title>Operations GO</title>
-<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
 <script src="/ops/nav.js"></script>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -22,26 +21,20 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background:
 .chart-card { background: #fff; border-radius: 8px; border: 1px solid #e6e9ed; padding: 16px; }
 .chart-card-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 14px; }
 .chart-card-header h3 { font-size: 18px; font-weight: 500; color: #2c3e50; border-left: 4px solid #2c3e50; padding-left: 12px; margin: 0; line-height: 1.3; }
-.btn-group-inline { display: flex; border: 1px solid #ccc; border-radius: 6px; overflow: hidden; height: 36px; }
-.btn-group-inline button { padding: 0 13px; font-size: 13px; font-family: inherit; font-weight: 500; background: #fff; border: none; border-right: 1px solid #ccc; cursor: pointer; color: #555; transition: background .15s, color .15s; white-space: nowrap; }
-.btn-group-inline button:last-child { border-right: none; }
-.btn-group-inline button:hover { background: #f0f2f5; color: #2c3e50; }
-.btn-group-inline button.active { background: #2c3e50; color: #fff; }
 .scroll { overflow-x: auto; }
-select { font-family: inherit; height: 36px; padding: 0 12px; border: 1px solid #ccc; border-radius: 6px; font-size: 14px; color: #2c3e50; background: #fff; cursor: pointer; }
 table { border-collapse: collapse; width: 100%; font-size: 13px; }
 th, td { padding: 8px 10px; text-align: right; border-bottom: 1px solid #eef0f3; white-space: nowrap; }
-th, td.l { text-align: left; } th.r { text-align: right; }
+th.l, td.l { text-align: left; }
 th { background: #f3f5f7; font-size: 12px; color: #4a5560; }
-th.grp { text-align: center; border-left: 1px solid #e0e4e8; background: #eaeef2; }
-td.sep { border-left: 1px solid #e0e4e8; }
-td.m { text-align: left; font-weight: 600; color: #2c3e50; }
-td.merged { vertical-align: middle; background: #fafbfc; }
 tr.total td { font-weight: 700; background: #fafbfc; }
-.blk { font-size: 14px; font-weight: 600; color: #2c3e50; margin: 18px 0 8px; } .blk:first-of-type { margin-top: 0; }
+tr.sub td { font-weight: 600; background: #fafbfc; color: #4a5560; font-size: 12px; }
 .pos { color: #1e8449; font-weight: 600; } .neg { color: #d35400; font-weight: 600; } .zero { color: #888; }
-td.blue { background: #e8f1fb; padding: 3px 6px; }
-td.blue input { width: 120px; text-align: right; border: 1px solid #9ec3ea; background: #e8f1fb; border-radius: 4px; padding: 5px 8px; font: inherit; color: #1b4f8a; }
+.tag { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; background: #fdecea; color: #c0392b; margin-left: 6px; }
+.picker { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; margin-bottom: 14px; font-size: 14px; color: #2c3e50; }
+.picker input[type=date] { font-family: inherit; height: 36px; padding: 0 12px; border: 1px solid #ccc; border-radius: 6px; font-size: 14px; color: #2c3e50; }
+.picker .res { background: #f3f5f7; border-radius: 6px; padding: 8px 14px; }
+.picker .res b { font-size: 16px; }
+.sw { display: inline-block; padding: 2px 8px; border-radius: 4px; }
 @media (max-width: 700px) {
   body { padding: 8px; } .chart-grid { padding: 14px 16px 16px; }
   .sub-nav { padding: 0 10px; overflow-x: auto; } .sub-nav-link { padding: 14px 14px; font-size: 13px; }
@@ -62,34 +55,31 @@ td.blue input { width: 120px; text-align: right; border: 1px solid #9ec3ea; back
 
   <div class="chart-grid">
     <div class="chart-card">
-      <div class="chart-card-header" style="margin-bottom:0;justify-content:flex-start"><div class="btn-group-inline" id="sites"></div>
-        <select id="year"></select></div>
+      <div class="chart-card-header"><h3>Tokaj GO summary</h3></div>
+      <div class="scroll"><table id="yearTable"></table></div>
     </div>
 
     <div class="chart-card">
-      <div class="chart-card-header"><h3 id="titleA">GO sales</h3></div>
-      <div class="scroll"><table id="ledTable"></table></div>
+      <div class="chart-card-header"><h3>Undelivered GO by delivery date</h3></div>
+      <div class="picker">
+        <label>Undelivered due on or before <input type="date" id="asof"></label>
+        <span class="res" id="asofRes"></span>
+      </div>
+      <div class="scroll"><table id="dueTable"></table></div>
     </div>
 
     <div class="chart-card">
-      <div class="chart-card-header"><h3 id="titleB">Monthly balance</h3></div>
-      <div class="scroll"><table id="monTable"></table></div>
-    </div>
-
-    <div class="chart-card">
-      <div class="chart-card-header"><h3 id="titleT">GO timeline</h3></div>
-      <div id="chartT" style="height:640px"></div>
+      <div class="chart-card-header"><h3>Contracts</h3></div>
+      <div class="scroll"><table id="conTable"></table></div>
     </div>
   </div>
 </div>
 
 <script>
-const SITES = ["Putnok", "Serenyfalva", "Sajokaza", "Szuhakálló 1", "Szuhakálló 2"];
-const CODE = { "Putnok": "ASTROPUT", "Serenyfalva": "ASTROSER", "Sajokaza": "ASTROKAZ", "Szuhakálló 1": "ASTROSZU", "Szuhakálló 2": "ASTROSZELES" };
-const FIRST_YEAR = 2024, YEARS = [2024, 2025, 2026, 2027];
-const MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const SITES = ["Putnok", "Serenyfalva", "Sajokaza", "Szuhakálló 1", "Szuhakálló 2"];   // the five sites are always delivered together
+const FIRST_YEAR = 2024;
 const $ = id => document.getElementById(id);
-const nf = (v, d = 0, min = 0) => v == null || isNaN(v) ? "–" : v.toLocaleString("en-US", { maximumFractionDigits: d, minimumFractionDigits: min });
+const nf = (v, d = 0) => v == null || isNaN(v) ? "–" : v.toLocaleString("en-US", { maximumFractionDigits: d, minimumFractionDigits: 0 });
 const URLQ = new URLSearchParams(location.search);
 function syncUrl(o) {
   try { const p = new URLSearchParams(); for (const [k, v] of Object.entries(o)) if (v != null && v !== "") p.set(k, v);
@@ -101,24 +91,21 @@ function budapestToday() {
   return `${p.year}-${p.month}-${p.day}`;
 }
 const TODAY = budapestToday(), THIS_YEAR = +TODAY.slice(0, 4);
-const EXPIRY_MONTHS = 12;      // a GO expires this many months after the end of its production month (assumption, check with the registry)
-const AXPO_STAY = 9000, AXPO_TOTAL = 64000;   // of the 64,000 MWh AXPO contract only 9,000 MWh stays on its original delivery date (the workbook note)
-let chartT, sales = [], prod = {}, lastTs = {}, site = "ALL", year = "ALL";
-const shownYears = () => year === "ALL" ? YEARS : [+year];
+let rows = [], prod = {}, lastTs = {};
 
 function parseCSV(text) {
-  const rows = []; let row = [], cur = "", q = false;
+  const out = []; let row = [], cur = "", q = false;
   for (let i = 0; i < text.length; i++) {
     const c = text[i];
     if (q) { if (c === '"') { if (text[i + 1] === '"') { cur += '"'; i++; } else q = false; } else cur += c; }
     else if (c === '"') q = true;
     else if (c === ",") { row.push(cur); cur = ""; }
-    else if (c === "\n") { row.push(cur); rows.push(row); row = []; cur = ""; }
+    else if (c === "\n") { row.push(cur); out.push(row); row = []; cur = ""; }
     else if (c !== "\r") cur += c;
   }
-  if (cur || row.length) { row.push(cur); rows.push(row); }
-  const head = rows.shift();
-  return rows.filter(r => r.length === head.length).map(r => Object.fromEntries(head.map((h, i) => [h, r[i]])));
+  if (cur || row.length) { row.push(cur); out.push(row); }
+  const head = out.shift();
+  return out.filter(r => r.length === head.length).map(r => Object.fromEntries(head.map((h, i) => [h, r[i]])));
 }
 async function getText(url) {
   const r = await fetch(url, { credentials: "same-origin" });
@@ -126,6 +113,7 @@ async function getText(url) {
   if (!r.ok) { let m = r.status; try { m = (await r.json()).error || m; } catch (e) {} throw new Error(m); }
   return r.text();
 }
+// hourly meter CSV (Date, Meter [MWh], Meter [kWh]) → MWh per month; also remembers the last timestamp with a reading
 function sumMonths(text, into, s) {
   const lines = text.split("\n");
   for (let i = 1; i < lines.length; i++) {
@@ -144,18 +132,18 @@ async function loadAll() {
     ...SITES.flatMap(s => yrs.map(y => getText(`/ops/api/metered?site=${encodeURIComponent(s)}&year=${y}&resolution=hourly`).catch(e => { throw new Error(`${s} ${y}: ${e.message}`); }))),
   ]);
   if (salesText == null) throw new Error("GO sales file not found");
-  sales = parseCSV(salesText).map(r => ({ ...r, y: +r.production_year, m0: +r.start_month, m1: +r.end_month, vol: +r.volume_mwh, price: +r.price_eur_mwh, amt: +r.amount_eur }));
+  rows = parseCSV(salesText).map(r => ({ ...r, year: +r.year, no: +r.trade_no, signed: +r.signed_mwh, delivered: +r.delivered_mwh, amount: +r.amount_eur }));
+  rows.forEach(r => { r.undelivered = r.signed - r.delivered; r.due = r.amended_delivery || r.delivery_date; });
   prod = {}; lastTs = {};
   let k = 0;
   for (const s of SITES) { prod[s] = {}; for (const y of yrs) { const t = meters[k++]; if (t) { prod[s][y] = {}; sumMonths(t, prod[s][y], s); } } }
 }
 
-// metered MWh of one month, null when there is no complete reading (months before Aug 2024 are not part of the GO sales)
+// production of the five sites in a year (MWh): months with a complete reading only, 2024 from August (the first month that was sold)
 function monthProd(s, y, i) {
-  if (s === "ALL") { let a = 0; for (const x of SITES) { const v = monthProd(x, y, i); if (v == null) return null; a += v; } return a; }
   const m = prod[s] && prod[s][y]; if (!m || m[i] == null) return null;
   if (y === 2024 && i < 7) return null;
-  if (y === THIS_YEAR) {                      // a partly read month is not counted
+  if (y === THIS_YEAR) {
     const t = lastTs[s]; if (t && +t.slice(0, 4) === y) {
       const mo = +t.slice(5, 7) - 1, day = +t.slice(8, 10), hr = +t.slice(11, 13);
       const full = day === new Date(Date.UTC(y, mo + 1, 0)).getUTCDate() && hr >= 23;
@@ -164,179 +152,70 @@ function monthProd(s, y, i) {
   }
   return m[i];
 }
-const yearProd = (s, y) => { let a = 0, any = false; for (let i = 0; i < 12; i++) { const v = monthProd(s, y, i); if (v != null) { a += v; any = true; } } return any ? a : null; };
-// signed volume of a row: the actually traded volume when the workbook note gives one (2nd March 2025 tranche), otherwise the contract volume
-const traded = r => { const m = /实际交易量\s*([\d,.]+)\s*MWh/.exec(r.note || ""); return m ? parseFloat(m[1].replace(/,/g, "")) : r.vol; };
-const rowsOf = (s, y) => sales.filter(r => (s === "ALL" || r.site === s) && r.y === y);
+function yearProd(y) { let a = 0, any = false; for (const s of SITES) for (let i = 0; i < 12; i++) { const v = monthProd(s, y, i); if (v != null) { a += v; any = true; } } return any ? a : null; }
 const cls = v => v == null ? "" : Math.round(v) > 0 ? "pos" : Math.round(v) < 0 ? "neg" : "zero";
 const sgn = v => { if (v == null) return "–"; const r = Math.round(v); return r === 0 ? "0" : (r > 0 ? "+" : "") + nf(r); };
-const rng = (r) => r.m0 === r.m1 ? MON[r.m0 - 1] : `${MON[r.m0 - 1]}–${MON[r.m1 - 1]}`;
 
-function renderLedger() {
-  let rows = sales.filter(r => (site === "ALL" || r.site === site) && (year === "ALL" || r.y === +year));
-  if (site === "ALL") {                       // all sites: one row per contract, volumes added up over the five sites
-    const m = new Map();
-    rows.forEach(r => { const k = [r.y, r.period, r.buyer, r.delivery_date, r.amended_delivery].join("|");
-      if (!m.has(k)) m.set(k, { ...r, vol: 0, amt: 0, notes: new Set() });
-      const g = m.get(k); g.vol += r.vol; g.amt += r.vol * r.price; g.notes.add(r.note); });
-    m.forEach(g => { g.price = g.vol ? g.amt / g.vol : 0; g.note = g.notes.size > 1 ? [...g.notes][0].split("；")[0] : [...g.notes][0]; });
-    rows = [...m.values()];
-  }
-  $("titleA").textContent = site === "ALL" ? "All sites" : `${site} · ${CODE[site]}`;
-  const vol = rows.reduce((a, r) => a + r.vol, 0), amt = rows.reduce((a, r) => a + r.vol * r.price, 0);
-  $("ledTable").innerHTML = `<tr><th>Year</th><th>Production period</th><th class="r">Sold GO volume (MWh)</th><th class="r">Unit price (EUR/MWh)</th><th class="r">Amount (EUR)</th><th>Delivery date</th><th>Delivery to be amended</th><th>Buyer</th><th>Note</th></tr>`
-    + rows.map(r => `<tr><td class="l">${r.y}</td><td class="l">${r.period.replace(/ ?\d{4}/, "")}</td><td>${nf(r.vol, 2)}</td><td>${nf(r.price, 4)}</td><td>${nf(r.vol * r.price, 2)}</td>
-      <td class="l">${r.delivery_date}</td><td class="l">${r.amended_delivery}</td><td class="l">${r.buyer || ""}</td><td class="l" style="white-space:normal;min-width:240px;color:#888;font-size:12px">${r.note}</td></tr>`).join("")
-    + `<tr class="total"><td class="l">Total</td><td></td><td>${nf(vol, 2)}</td><td>${nf(vol ? amt / vol : null, 4)}</td><td>${nf(amt, 2)}</td><td colspan="4"></td></tr>`;
-}
-
-// month rows 1–12: the sold volume sits on the month for monthly sales, and is merged over Jan–Jun / Jul–Dec for half-year contracts
-// All sites: one row per site, one column group per year (+ a total over 2024 … current year); one site: one row per month
-function renderBySite() {
-  $("titleB").textContent = "All sites · GO balance";
-  const yrs = shownYears(), pastYrs = YEARS.filter(y => y <= THIS_YEAR), cell = (p, sold) => { const r = p == null ? null : p - sold;
-    return `<td class="sep">${nf(p, 0)}</td><td>${nf(sold, 0)}</td><td class="${cls(r)}">${sgn(r)}</td>`; };
-  const calc = (s, ys) => { let p = 0, any = false, sold = 0;
-    ys.forEach(y => { const v = y <= THIS_YEAR ? yearProd(s, y) : null; if (v != null) { p += v; any = true; } sold += rowsOf(s, y).reduce((a, r) => a + traded(r), 0); });
-    return { p: any ? p : null, sold }; };
-  const groups = yrs.map(y => ({ label: y, ys: [y] })); if (year === "ALL") groups.push({ label: `Total ${pastYrs[0]}–${pastYrs[pastYrs.length - 1]}`, ys: pastYrs });
-  const head = `<tr><th rowspan="2">Site</th>${groups.map(g => `<th class="grp" colspan="3">${g.label}</th>`).join("")}</tr>
-    <tr>${groups.map(() => `<th class="r sep">Production (MWh)</th><th class="r">Sold GO (MWh)</th><th class="r">Remaining GO (MWh)</th>`).join("")}</tr>`;
-  const body = SITES.map(s => `<tr><td class="l">${s}</td>${groups.map(g => { const c = calc(s, g.ys); return cell(c.p, c.sold); }).join("")}</tr>`).join("");
-  const tot = `<tr class="total"><td class="l">Total</td>${groups.map(g => { let p = 0, any = false, sold = 0;
-    SITES.forEach(s => { const c = calc(s, g.ys); if (c.p != null) { p += c.p; any = true; } sold += c.sold; }); return cell(any ? p : null, sold); }).join("")}</tr>`;
-  $("monTable").innerHTML = head + body + tot;
-}
-
-function renderBalance() {
-  if (site === "ALL") return renderBySite();
-  $("titleB").textContent = `${site} · GO balance by month`;
-  const per = shownYears().map(y => {
-    const rs = rowsOf(site, y), seg = {}, fy = rs.filter(r => r.m0 === 1 && r.m1 === 12).reduce((a, r) => a + traded(r), 0);
-    rs.filter(r => !(r.m0 === 1 && r.m1 === 12)).forEach(r => { const k = r.m0 + "-" + r.m1; (seg[k] = seg[k] || { m0: r.m0, m1: r.m1, sold: 0 }).sold += traded(r); });
-    const at = {}; Object.values(seg).forEach(g => { at[g.m0] = g; });
-    const covered = new Set(); Object.values(seg).forEach(g => { for (let m = g.m0 + 1; m <= g.m1; m++) covered.add(m); });
-    return { y, at, covered, fy, sold: rs.reduce((a, r) => a + traded(r), 0) };
-  });
-  const head = `<tr><th rowspan="2">Month</th>${per.map(P => `<th class="grp" colspan="3">${P.y}</th>`).join("")}</tr>
-    <tr>${per.map(() => `<th class="r sep">Production</th><th class="r">Sold</th><th class="r">Remaining</th>`).join("")}</tr>`;
-  const body = MON.map((mn, i) => {
-    const m = i + 1;
-    return `<tr><td class="m">${mn}</td>` + per.map(P => {
-      const p = P.y <= THIS_YEAR ? monthProd(site, P.y, i) : null;
-      const pc = `<td class="sep">${nf(p, 0)}</td>`;
-      if (P.covered.has(m)) return pc;
-      const g = P.at[m];
-      if (!g) return pc + `<td>–</td><td>–</td>`;
-      const span = g.m1 - g.m0 + 1; let tp = null;
-      for (let k = g.m0 - 1; k < g.m1; k++) { const v = P.y <= THIS_YEAR ? monthProd(site, P.y, k) : null; if (v != null) tp = (tp || 0) + v; }
-      const rem = tp == null ? null : tp - g.sold;
-      return pc + `<td class="merged" rowspan="${span}">${nf(g.sold, 2)}</td><td class="merged ${cls(rem)}" rowspan="${span}">${sgn(rem)}</td>`;
-    }).join("") + `</tr>`;
+function renderYears() {
+  const years = [...new Set(rows.map(r => r.year))].sort();
+  let tp = 0, ts = 0, td = 0, tu = 0, anyP = false;
+  const body = years.map(y => {
+    const rs = rows.filter(r => r.year === y), p = y <= THIS_YEAR ? yearProd(y) : null;
+    const S = rs.reduce((a, r) => a + r.signed, 0), D = rs.reduce((a, r) => a + r.delivered, 0), U = S - D, rem = p == null ? null : p - S;
+    ts += S; td += D; tu += U; if (p != null) { tp += p; anyP = true; }
+    return `<tr><td class="l">${y}${y === 2024 ? " (Aug–Dec)" : ""}</td><td>${nf(p, 2)}${y === THIS_YEAR && p != null ? ' <span class="zero">(to date)</span>' : ""}</td><td>${nf(S, 2)}</td><td>${nf(D, 2)}</td>
+      <td class="${U > 0.5 ? "neg" : "zero"}">${nf(U, 2)}</td><td class="${cls(rem)}">${sgn(rem)}</td></tr>`;
   }).join("");
-  const fyRow = `<tr><td class="m">Q1–Q4</td>${per.map(P => `<td class="sep">–</td><td>${P.fy ? nf(P.fy, 2) : "–"}</td><td>–</td>`).join("")}</tr>`;
-  const tot = `<tr class="total"><td class="l">Total</td>${per.map(P => { const p = P.y <= THIS_YEAR ? yearProd(site, P.y) : null, rem = p == null ? null : p - P.sold;
-    return `<td class="sep">${nf(p, 0)}</td><td>${nf(P.sold, 2)}</td><td class="${cls(rem)}">${sgn(rem)}</td>`; }).join("")}</tr>`;
-  $("monTable").innerHTML = head + body + fyRow + tot;
+  const remT = anyP ? tp - rows.filter(r => r.year <= THIS_YEAR).reduce((a, r) => a + r.signed, 0) : null;
+  $("yearTable").innerHTML = `<tr><th class="l">Year</th><th>Annual production (MWh)</th><th>Signed GO (MWh)</th><th>Delivered (MWh)</th><th>Undelivered (MWh)</th><th>Remaining unsold GO (MWh)</th></tr>` + body
+    + `<tr class="total"><td class="l">Total</td><td>${anyP ? nf(tp, 2) : "–"}</td><td>${nf(ts, 2)}</td><td>${nf(td, 2)}</td><td class="${tu > 0.5 ? "neg" : "zero"}">${nf(tu, 2)}</td><td class="${cls(remT)}">${sgn(remT)}</td></tr>`;
 }
 
+// undelivered volume sits on the delivery date, or on the amended date when there is one
+function dueMap() {
+  const m = new Map();
+  rows.filter(r => r.undelivered > 0.005).forEach(r => { const o = m.get(r.due) || { date: r.due, vol: 0, items: [] }; o.vol += r.undelivered; o.items.push(r); m.set(r.due, o); });
+  return [...m.values()].sort((a, b) => a.date < b.date ? -1 : 1);
+}
+function renderDue() {
+  const dues = dueMap(); let cum = 0;
+  $("dueTable").innerHTML = `<tr><th class="l">Delivery date (amended date if any)</th><th>Undelivered on this date (MWh)</th><th>Cumulative undelivered (MWh)</th><th class="l">Contracts</th></tr>`
+    + (dues.map(d => { cum += d.vol;
+      return `<tr><td class="l">${d.date}${d.date < TODAY ? '<span class="tag">overdue</span>' : ""}</td><td class="neg">${nf(d.vol, 2)}</td><td>${nf(cum, 2)}</td>
+        <td class="l" style="white-space:normal">${d.items.map(r => `${r.buyer || "–"} · signed ${r.signing_date || "–"} · ${r.period}: ${nf(r.undelivered, 2)}`).join("<br>")}</td></tr>`; }).join("")
+      || `<tr><td class="l" colspan="4" style="color:#888">Nothing left to deliver.</td></tr>`);
+  const asof = $("asof").value;
+  if (!asof) { $("asofRes").textContent = ""; return; }
+  const on = dues.filter(d => d.date === asof).reduce((a, d) => a + d.vol, 0), by = dues.filter(d => d.date <= asof).reduce((a, d) => a + d.vol, 0);
+  $("asofRes").innerHTML = `On ${asof}: <b class="${on > 0.005 ? "neg" : "zero"}">${nf(on, 2)} MWh</b> &nbsp;·&nbsp; by ${asof} (including earlier dates): <b class="${by > 0.005 ? "neg" : "zero"}">${nf(by, 2)} MWh</b>`;
+}
 
-// ───────────── timeline: meter production vs signed GO per contract period, and deliveries by delivery month ─────────────
-const ym = (y, m0) => `${y}-${String(m0 + 1).padStart(2, "0")}`;
-const lastDay = (y, m0) => new Date(Date.UTC(y, m0 + 1, 0)).getUTCDate();
-const expOf = k => { const y = +k.slice(0, 4), m0 = +k.slice(5) - 1, e = new Date(Date.UTC(y, m0 + EXPIRY_MONTHS, 1)), ey = e.getUTCFullYear(), em = e.getUTCMonth();
-  return `${ey}-${String(em + 1).padStart(2, "0")}-${String(lastDay(ey, em)).padStart(2, "0")}`; };
-function renderTimeline() {
-  const list = site === "ALL" ? SITES : [site], Y = year === "ALL" ? THIS_YEAR : +year, yy = String(Y).slice(2);
-  $("titleT").textContent = `${site === "ALL" ? "All sites" : site} · ${Y}: signed GO vs meter production, and remain GO, per contract period`;
-  // One column per contract period of the workbook (a month, Q1–Q2, Q3–Q4 …); contracts of the same period are stacked in the signed bar. Nothing is spread over months.
-  // Full-year (Q1–Q4) contracts are compared with the production that the half-year contracts left over.
-  const rs = rowsOf(list.length === 1 ? list[0] : "ALL", Y), groups = {};
-  rs.forEach(r => { const fyRow = r.m0 === 1 && r.m1 === 12, key = fyRow ? "fy" : r.m0 + "-" + r.m1, g = groups[key] || (groups[key] = { m0: r.m0, m1: r.m1, cs: new Map() });
-    const ck = [r.period, r.buyer, r.delivery_date, r.amended_delivery].join("|"), c = g.cs.get(ck) || (g.cs.set(ck, { r, S: 0 }), g.cs.get(ck)); c.S += traded(r); });
-  const mp = i => Y > THIS_YEAR ? 0 : list.reduce((a, s) => a + (monthProd(s, Y, i) || 0), 0);
-  const nm = m => MON[m - 1], fmt = v => nf(v, 0);
-  const expText = (m0, m1) => (m0 === m1 ? `${nm(m0)}` : `${nm(m0)}–${nm(m1)}`) + ` ${Y + 1}`;
-  const shortP = p => p.replace(/-/g, "–").replace(/ (\d{4})/, (m, y) => " " + y.slice(2));
-  const cols = []; let carry = 0, carryExp = 0;
-  const ordered = Object.entries(groups).filter(([k]) => k !== "fy").map(([, g]) => g).sort((a, b) => a.m0 - b.m0 || a.m1 - b.m1);
-  if (groups.fy) ordered.push({ ...groups.fy, fy: true });
-  ordered.forEach(g => {
-    const cs = [...g.cs.values()].sort((a, b) => a.r.delivery_date < b.r.delivery_date ? -1 : a.r.delivery_date > b.r.delivery_date ? 1 : 0).map(c => ({ S: c.S, buyer: (c.r.buyer || "").split(" ")[0],
-      del: c.r.amended_delivery ? `${c.r.delivery_date} → ${c.r.amended_delivery}` : c.r.delivery_date }));
-    const S = cs.reduce((a, c) => a + c.S, 0); let P, Pe = 0;
-    if (g.fy) P = carry; else { P = 0; for (let i = g.m0 - 1; i < g.m1; i++) { const v = mp(i); P += v; if (expOf(ym(Y, i)) < TODAY) Pe += v; } }
-    const rem = Math.max(0, P - S), remExp = g.fy ? (carry ? rem * carryExp / carry : 0) : (P ? rem * Pe / P : 0);
-    if (!g.fy) { carry += rem; carryExp += remExp; }
-    const first = [...g.cs.values()][0].r.period;
-    cols.push({ label: g.fy ? `Q1–Q4 ${yy}` : shortP(first.replace(/ \(2nd\)/, "")), cs, P, S, rem, remExp, over: Math.max(0, S - P), exp: g.fy ? expText(1, 12) : expText(g.m0, g.m1), fy: !!g.fy,
-      note: g.fy ? "full-year contracts vs. the production left over by the Q1–Q2 / Q3–Q4 contracts" : Y > THIS_YEAR ? "not produced yet" : Y === THIS_YEAR && g.m1 > +TODAY.slice(5, 7) - 1 ? "period not finished: production to date only" : "" });
+const PALETTE = ["#dff3e3", "#d9ecf7", "#eceff1", "#dbe3fa", "#fff3c4", "#fde2e4", "#e8def8", "#fde8d0"];
+function renderContracts() {
+  const keys = []; rows.forEach(r => { const k = (r.signing_date || "") + "|" + r.buyer; if (!keys.includes(k)) keys.push(k); });
+  const color = {}; keys.forEach((k, i) => { color[k] = k.startsWith("|") ? "#ffffff" : PALETTE[i % PALETTE.length]; });
+  const price = r => r.signed ? r.amount / r.signed : null;
+  let out = "", prevYear = null, tS = 0, tD = 0, tA = 0;
+  keys.forEach(k => {
+    const g = rows.filter(r => (r.signing_date || "") + "|" + r.buyer === k), c = color[k];
+    g.forEach(r => {
+      out += `<tr><td class="l">${r.year !== prevYear ? r.year : ""}</td><td class="l">${r.no}</td><td class="l"><span class="sw" style="background:${c}">${r.signing_date || "–"}</span></td><td class="l">${r.buyer}</td><td class="l">${r.period}</td>
+        <td>${nf(r.signed, 2)}</td><td>${nf(r.delivered, 2)}</td><td class="${r.undelivered > 0.005 ? "neg" : "zero"}">${nf(r.undelivered, 2)}</td><td>${nf(price(r), 4)}</td><td>${nf(r.amount, 2)}</td>
+        <td class="l">${r.delivery_date}</td><td class="l">${r.amended_delivery}</td></tr>`;
+      prevYear = r.year; tS += r.signed; tD += r.delivered; tA += r.amount; });
+    if (g.length > 1) { const S = g.reduce((a, r) => a + r.signed, 0), D = g.reduce((a, r) => a + r.delivered, 0), A = g.reduce((a, r) => a + r.amount, 0);
+      out += `<tr class="sub"><td class="l" colspan="5" style="text-align:right">Contract total · signed ${g[0].signing_date} · ${g[0].buyer}</td><td>${nf(S, 2)}</td><td>${nf(D, 2)}</td><td class="${S - D > 0.005 ? "neg" : "zero"}">${nf(S - D, 2)}</td><td>${nf(S ? A / S : null, 4)}</td><td>${nf(A, 2)}</td><td colspan="2"></td></tr>`; }
   });
-  // last column: the whole year (production of the year, all contracts of the year, what is left)
-  { let Pt = 0, Pte = 0; for (let i = 0; i < 12; i++) { const v = mp(i); Pt += v; if (expOf(ym(Y, i)) < TODAY) Pte += v; }
-    const bb = new Map(); rs.forEach(r => { const b = (r.buyer || "").split(" ")[0]; bb.set(b, (bb.get(b) || 0) + traded(r)); });
-    const cs = [...bb.entries()].map(([buyer, S]) => ({ S, buyer, del: "" })), St = cs.reduce((a, c) => a + c.S, 0), rem = Math.max(0, Pt - St);
-    cols.push({ label: `Total ${yy}`, cs, P: Pt, S: St, rem, remExp: Pt ? rem * Pte / Pt : 0, over: Math.max(0, St - Pt), exp: "", total: true,
-      note: Y > THIS_YEAR ? "not produced yet" : Y === THIS_YEAR ? "year not finished: production to date only" : "whole year: production of the year vs all contracts of the year" }); }
-  const R = v => v > 0.5 ? Math.round(v) : null;
-  const lab2 = { show: true, position: "inside", fontSize: 11, fontWeight: 600, color: "#fff", formatter: p => p.value == null ? "" : nf(p.value, 0) };
-  const rich = { b: { fontWeight: 700, fontSize: 11, color: "#333", lineHeight: 16 }, e: { fontSize: 10, color: "#2e7d4f", lineHeight: 14 }, d: { fontSize: 10, color: "#8a6d3b", lineHeight: 14 } };
-  const multi = c => c.cs.length > 1;
-  const xs = n => ({ type: "category", gridIndex: n, data: cols.map((_, i) => i), axisTick: { alignWithLabel: true }, axisLabel: { fontSize: 11, interval: 0, rich,
-    formatter: (v, i) => { const c = cols[i]; return n === 0 || c.total ? `{b|${c.label}}` : `{b|${c.label}}\n{e|expires ${c.exp}}` + c.cs.map(k => `\n{d|${multi(c) && k.buyer ? k.buyer + " " : ""}delivery ${k.del}}`).join(""); } } });
-  const meterSeries = { name: "Meter production", type: "bar", xAxisIndex: 0, yAxisIndex: 0, barMaxWidth: 56, z: 3,
-    itemStyle: { color: "#455a64", borderColor: "#fff", borderWidth: 1 },
-        data: cols.map(c => R(c.P)),
-    label: { show: true, position: "top", fontSize: 11, fontWeight: 700, color: "#263238", formatter: p => p.value == null ? "" : `${cols[p.dataIndex].fy ? "left over " : ""}${nf(p.value, 0)}` } };
-  const maxK = Math.max(1, ...cols.map(c => c.cs.length)), SHADE = ["#2c7fb8", "#79b4dc", "#1b5a85"];
-  const g2Top = 56 + 200 + 80, G2H = 170, nDel = Math.max(1, ...cols.filter(c => !c.total).map(c => c.cs.length)), H = g2Top + G2H + 80 + 14 * nDel;
-  $("chartT").style.height = H + "px"; chartT.resize();
-  const signedSeries = Array.from({ length: maxK }, (_, k) => ({ name: "Signed GO", type: "bar", stack: "s", xAxisIndex: 0, yAxisIndex: 0, barMaxWidth: 70, itemStyle: { color: SHADE[k % SHADE.length], borderColor: "#fff", borderWidth: 1 },
-    data: cols.map(c => c.cs[k] ? R(c.cs[k].S) : null),
-    label: { show: true, position: "inside", fontSize: 10, color: "#fff", formatter: p => { const c = cols[p.dataIndex], k2 = c && c.cs[k]; return k2 && p.value != null && multi(c) ? `${k2.buyer ? k2.buyer + " " : ""}${nf(p.value, 0)}` : ""; } } }));
-  chartT.setOption({
-    animation: false,
-    legend: [{ top: 0, data: ["Meter production", "Signed GO"], textStyle: { fontSize: 11 } },
-             { right: 20, top: 56 + 200 + 44, data: ["Remain GO, valid", "Remain GO, expired", "Oversold"], textStyle: { fontSize: 11 } }],
-    tooltip: { trigger: "item", confine: true, formatter: p => { const c = cols[p.dataIndex]; if (!c) return "";
-      return `<b>${c.label}</b>${c.note ? `<br><i>${c.note}</i>` : ""}<br>Meter production: <b>${fmt(c.P)} MWh</b><br>Signed GO: <b>${fmt(c.S)} MWh</b>` + c.cs.map(k => `<br>&nbsp;&nbsp;${k.buyer || "contract"}: ${fmt(k.S)}${k.del ? ` (delivery ${k.del})` : ""}`).join("") + "<br>" +
-        (c.over > 0.5 ? `<b style="color:#d35400">Oversold: ${fmt(c.over)}</b>` : `Remain GO: <b>${fmt(c.rem)}</b> (expired ${fmt(c.remExp)}, valid ${fmt(c.rem - c.remExp)})` + (c.exp ? `<br>Expires ${c.exp}` : "")); } },
-    grid: [{ left: 84, right: 20, top: 56, height: 200 }, { left: 84, right: 20, top: g2Top, height: G2H }],
-    xAxis: [xs(0), xs(1)],
-    yAxis: [{ type: "value", gridIndex: 0, max: Math.ceil(Math.max(1000, ...cols.map(c => Math.max(c.P, c.S))) * 1.15 / 1000) * 1000, name: "GO (MWh)", nameLocation: "middle", nameGap: 62, nameTextStyle: { fontSize: 11 } },
-            { type: "value", gridIndex: 1, name: "Remain GO (MWh)", nameLocation: "middle", nameGap: 62, nameTextStyle: { fontSize: 11 } }],
-    series: [
-      meterSeries,
-      ...signedSeries,
-      { name: "Signed GO", type: "bar", stack: "s", xAxisIndex: 0, yAxisIndex: 0, barMaxWidth: 70, itemStyle: { color: "rgba(0,0,0,0)" }, silent: true, tooltip: { show: false }, data: cols.map(c => c.S > 0.5 ? 1 : null),
-        label: { show: true, position: "top", fontSize: 11, fontWeight: 700, color: "#1b5a85", formatter: p => p.value == null ? "" : nf(cols[p.dataIndex].S, 0) } },
-      { name: "Remain GO, expired", type: "bar", stack: "r", xAxisIndex: 1, yAxisIndex: 1, data: cols.map(c => R(c.remExp)), itemStyle: { color: "#b0b7bf" }, barMaxWidth: 56, label: lab2 },
-      { name: "Remain GO, valid", type: "bar", stack: "r", xAxisIndex: 1, yAxisIndex: 1, data: cols.map(c => R(c.rem - c.remExp)), itemStyle: { color: "#27ae60" }, barMaxWidth: 56, label: lab2 },
-      { name: "Oversold", type: "bar", stack: "r", xAxisIndex: 1, yAxisIndex: 1, data: cols.map(c => R(c.over)), itemStyle: { color: "#e67e22" }, barMaxWidth: 56, label: lab2 },
-    ] }, true);
-  const cx = 84 + (chartT.getWidth() - 104) / 2, yearTxt = (txt, y) => ({ type: "text", silent: true, z: 20, style: { text: String(txt), x: cx, y, textAlign: "center", textVerticalAlign: "middle", fill: "#2c3e50", fontSize: 14, fontWeight: 700 } });
-  const xb = 84 + (chartT.getWidth() - 104) * (cols.length - 1) / cols.length;        // boundary in front of the Total column
-  const sep = (y1, y2) => ({ type: "line", silent: true, z: 15, shape: { x1: xb, y1, x2: xb, y2 }, style: { stroke: "#7f8c8d", lineWidth: 1.2, lineDash: [5, 4] } });
-  const W = chartT.getWidth(), tint = (y1, y2) => ({ type: "rect", silent: true, z: 0, shape: { x: xb, y: y1, width: W - 20 - xb, height: y2 - y1 }, style: { fill: "#eaf1f8" } });
-  chartT.setOption({ graphic: { elements: [yearTxt(Y, 56 + 200 + 46), yearTxt(Y + 1, H - 24), ...(cols.length > 1 ? [tint(56, 56 + 200 + 30), tint(g2Top, g2Top + G2H + 30), sep(56, 56 + 200 + 30), sep(g2Top, g2Top + G2H + 30)] : [])] } });
+  $("conTable").innerHTML = `<tr><th class="l">Year</th><th class="l">#</th><th class="l">Contract signed</th><th class="l">Buyer</th><th class="l">Production period</th><th>Signed GO (MWh)</th><th>Delivered (MWh)</th><th>Undelivered (MWh)</th><th>Unit price (EUR/MWh)</th><th>Total amount (EUR)</th><th class="l">Delivery date</th><th class="l">Amended delivery date</th></tr>`
+    + out + `<tr class="total"><td class="l" colspan="5">Total</td><td>${nf(tS, 2)}</td><td>${nf(tD, 2)}</td><td class="${tS - tD > 0.005 ? "neg" : "zero"}">${nf(tS - tD, 2)}</td><td>${nf(tS ? tA / tS : null, 4)}</td><td>${nf(tA, 2)}</td><td colspan="2"></td></tr>`;
 }
 
-function renderAll() {
-  syncUrl({ site: site === "ALL" ? "" : site, year: year === "ALL" ? "" : year });
-  $("year").value = year;
-  [...$("sites").children].forEach(b => b.classList.toggle("active", b.dataset.v === site));
-  renderLedger(); renderBalance(); renderTimeline();
-}
 async function init() {
   try { await loadAll(); } catch (e) { $("status").textContent = "Failed to load: " + e.message; return; }
-  chartT = echarts.init($("chartT")); addEventListener("resize", () => { chartT.resize(); renderTimeline(); });
-  const q = URLQ.get("site"); if (SITES.includes(q)) site = q;
-  $("sites").innerHTML = ["ALL", ...SITES].map(s => `<button data-v="${s}">${s === "ALL" ? "All sites" : s}</button>`).join("");
-  const qy = URLQ.get("year"); if (YEARS.includes(+qy)) year = qy;
-  $("year").innerHTML = `<option value="ALL">All years</option>` + YEARS.map(y => `<option value="${y}">${y}</option>`).join("");
-  $("year").onchange = () => { year = $("year").value; renderAll(); };
-  $("sites").onclick = e => { const b = e.target.closest("button"); if (b) { site = b.dataset.v; renderAll(); } };
-  renderAll();
+  const dues = dueMap(), qa = URLQ.get("asof");
+  $("asof").value = /^\d{4}-\d{2}-\d{2}$/.test(qa || "") ? qa : (dues.find(d => d.date >= TODAY) || dues[0] || {}).date || "";
+  $("asof").onchange = () => { syncUrl({ asof: $("asof").value }); renderDue(); };
+  renderYears(); renderDue(); renderContracts();
 }
 init();
 </script>

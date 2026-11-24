@@ -31,6 +31,8 @@ tr.sub td { font-weight: 600; background: #fafbfc; color: #4a5560; font-size: 12
 .pos { color: #1e8449; font-weight: 600; } .neg { color: #d35400; font-weight: 600; } .zero { color: #888; }
 .tag { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; background: #fdecea; color: #c0392b; margin-left: 6px; }
 select { font-family: inherit; height: 36px; padding: 0 12px; border: 1px solid #ccc; border-radius: 6px; font-size: 14px; color: #2c3e50; background: #fff; cursor: pointer; }
+tr.hl td { background: #fff1a8 !important; }
+tr.pick { cursor: pointer; } tr.pick:hover td { background: #f6f9fc; } tr.pick.sel td { background: #fff1a8; }
 .sw { display: inline-block; padding: 2px 8px; border-radius: 4px; }
 @media (max-width: 700px) {
   body { padding: 8px; } .chart-grid { padding: 14px 16px 16px; }
@@ -79,7 +81,7 @@ function budapestToday() {
   return `${p.year}-${p.month}-${p.day}`;
 }
 const TODAY = budapestToday(), THIS_YEAR = +TODAY.slice(0, 4);
-let rows = [], prod = {}, lastTs = {}, year = "ALL";
+let rows = [], prod = {}, lastTs = {}, year = "ALL", selDue = null;
 
 function parseCSV(text) {
   const out = []; let row = [], cur = "", q = false;
@@ -152,9 +154,16 @@ function dueMap() {
 }
 function renderDue() {
   const dues = dueMap();
-  $("dueTable").innerHTML = `<tr><th class="l">Delivery date (amended date if any)</th><th>Signed GO (MWh)</th><th>Delivered GO (MWh)</th><th>Undelivered GO (MWh)</th><th class="l">Detail: rows of the Contracts table (Signed − Delivered)</th></tr>`
-    + dues.map(d => `<tr><td class="l">${d.date}${d.date < TODAY && d.vol > 0.005 ? '<span class="tag">overdue</span>' : ""}</td><td>${nf(d.sig, 2)}</td><td>${nf(d.del, 2)}</td><td class="${d.vol > 0.005 ? "neg" : "zero"}">${nf(d.vol, 2)}</td>
-        <td class="l" style="white-space:normal">${d.items.map(r => `<b>${r.year} #${r.no}</b> · ${r.buyer ? r.buyer + " · " : ""}${r.period}: ${nf(r.signed, 2)} − ${nf(r.delivered, 2)} = ${nf(r.undelivered, 2)}`).join("<br>")}</td></tr>`).join("");
+  $("dueTable").innerHTML = `<tr><th class="l">Delivery date (amended date if any)</th><th>Signed GO (MWh)</th><th>Delivered GO (MWh)</th><th>Undelivered GO (MWh)</th></tr>`
+    + dues.map(d => `<tr class="pick${selDue === d.date ? " sel" : ""}" data-date="${d.date}"><td class="l">${d.date}${d.date < TODAY && d.vol > 0.005 ? '<span class="tag">overdue</span>' : ""}</td><td>${nf(d.sig, 2)}</td><td>${nf(d.del, 2)}</td><td class="${d.vol > 0.005 ? "neg" : "zero"}">${nf(d.vol, 2)}</td></tr>`).join("");
+  $("dueTable").querySelectorAll("tr.pick").forEach(tr => tr.onclick = () => pickDue(tr.dataset.date));
+}
+// click a delivery date: the rows of the Contracts table that add up to it are highlighted
+function pickDue(date) {
+  selDue = selDue === date ? null : date;
+  if (selDue && year !== "ALL" && rows.some(r => r.due === selDue && r.year !== +year)) { year = "ALL"; $("year").value = "ALL"; syncUrl({}); }
+  renderDue(); renderContracts();
+  if (selDue) { const el = $("conTable").querySelector("tr.hl"); if (el) el.scrollIntoView({ block: "nearest", behavior: "smooth" }); }
 }
 
 const PALETTE = ["#dff3e3", "#d9ecf7", "#eceff1", "#dbe3fa", "#fff3c4", "#fde2e4", "#e8def8", "#fde8d0"];
@@ -166,7 +175,7 @@ function renderContracts() {
   shown.forEach(y => {
     const rs = rows.filter(r => r.year === y); let first = true;
     rs.forEach(r => {
-      out += `<tr><td class="l">${first ? y : ""}</td><td class="l">${r.no}</td><td class="l"><span class="sw" style="background:${color[(r.signing_date || "") + "|" + r.buyer]}">${r.signing_date || "–"}</span></td><td class="l">${r.buyer}</td><td class="l">${r.period}</td>
+      out += `<tr${selDue && r.due === selDue ? ' class="hl"' : ""}><td class="l">${first ? y : ""}</td><td class="l">${r.no}</td><td class="l"><span class="sw" style="background:${color[(r.signing_date || "") + "|" + r.buyer]}">${r.signing_date || "–"}</span></td><td class="l">${r.buyer}</td><td class="l">${r.period}</td>
         <td>${nf(r.signed, 2)}</td><td>${nf(r.delivered, 2)}</td><td class="${r.undelivered > 0.005 ? "neg" : "zero"}">${nf(r.undelivered, 2)}</td><td>${nf(price(r), 4)}</td><td>${nf(r.amount, 2)}</td>
         <td class="l">${r.delivery_date}</td><td class="l">${r.amended_delivery}</td></tr>`; first = false; });
     const S = rs.reduce((a, r) => a + r.signed, 0), D = rs.reduce((a, r) => a + r.delivered, 0), A = rs.reduce((a, r) => a + r.amount, 0), p = y <= THIS_YEAR ? yearProd(y) : null, rem = p == null ? null : p - S;

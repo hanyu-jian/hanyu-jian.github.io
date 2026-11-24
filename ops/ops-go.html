@@ -152,10 +152,10 @@ function dueMap() {
 }
 function renderDue() {
   const dues = dueMap();
-  $("dueTable").innerHTML = `<tr><th class="l">Delivery date (amended date if any)</th><th>Undelivered (MWh)</th><th class="l">Contracts</th></tr>`
+  $("dueTable").innerHTML = `<tr><th class="l">Delivery date (amended date if any)</th><th>Undelivered (MWh)</th><th class="l">Detail: rows of the Contracts table (Signed − Delivered)</th></tr>`
     + (dues.map(d => {
       return `<tr><td class="l">${d.date}${d.date < TODAY ? '<span class="tag">overdue</span>' : ""}</td><td class="neg">${nf(d.vol, 2)}</td>
-        <td class="l" style="white-space:normal">${d.items.map(r => `${r.buyer || "–"} · signed ${r.signing_date || "–"} · ${r.period}: ${nf(r.undelivered, 2)}`).join("<br>")}</td></tr>`; }).join("")
+        <td class="l" style="white-space:normal">${d.items.map(r => `<b>${r.year} #${r.no}</b> · ${r.buyer ? r.buyer + " · " : ""}${r.period}: ${nf(r.signed, 2)} − ${nf(r.delivered, 2)} = ${nf(r.undelivered, 2)}`).join("<br>")}</td></tr>`; }).join("")
       || `<tr><td class="l" colspan="3" style="color:#888">Nothing left to deliver.</td></tr>`);
 }
 

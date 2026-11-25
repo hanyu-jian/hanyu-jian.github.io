@@ -77,6 +77,7 @@ tr.tx td { background: #f4f9fe; color: #2c3e50; }
 <script>
 const SITES = ["Putnok", "Serenyfalva", "Sajokaza", "Szuhakálló 1", "Szuhakálló 2"];   // the five sites are always delivered together
 const FIRST_YEAR = 2024;
+const EXPIRED_MONTHS = { 2026: [5, 6] };      // production months (0 = Jan) whose GO have expired: left out of the production of the year (Jun and Jul 2026)
 const $ = id => document.getElementById(id);
 const nf = (v, d = 0) => v == null || isNaN(v) ? "–" : v.toLocaleString("en-US", { maximumFractionDigits: d, minimumFractionDigits: 0 });
 const URLQ = new URLSearchParams(location.search);
@@ -153,7 +154,7 @@ function monthProd(s, y, i) {
   }
   return m[i];
 }
-function yearProd(y) { let a = 0, any = false; for (const s of SITES) for (let i = 0; i < 12; i++) { const v = monthProd(s, y, i); if (v != null) { a += v; any = true; } } return any ? a : null; }
+function yearProd(y) { let a = 0, any = false; for (const s of SITES) for (let i = 0; i < 12; i++) { if ((EXPIRED_MONTHS[y] || []).includes(i)) continue; const v = monthProd(s, y, i); if (v != null) { a += v; any = true; } } return any ? a : null; }
 const cls = v => v == null ? "" : Math.round(v) > 0 ? "pos" : Math.round(v) < 0 ? "neg" : "zero";
 const sgn = v => { if (v == null) return "–"; const r = Math.round(v); return r === 0 ? "0" : (r > 0 ? "+" : "") + nf(r); };
 
@@ -203,11 +204,11 @@ function renderContracts() {
     rs.forEach(r => {
       out += `<tr${hlRows.has(r.id) ? ' class="hl"' : ""}><td class="l">${first ? y : ""}</td><td class="l">${r.no}</td><td class="l"><span class="sw" style="background:${color[(r.signing_date || "") + "|" + r.buyer]}">${r.signing_date || "–"}</span></td><td class="l">${r.buyer}</td><td class="l">${r.period}</td>
         <td>${nf(r.signed, 2)}</td><td>${nf(r.delivered, 2)}</td><td class="${r.undelivered > 0.005 ? "neg" : "zero"}">${nf(r.undelivered, 2)}</td><td>${nf(price(r), 4)}</td><td>${nf(r.amount, 2)}</td>
-        <td class="l">${r.delivery_date}</td><td class="l">${r.amended_delivery}</td><td></td><td></td></tr>`; first = false; });
+        <td class="l">${r.delivery_date}</td><td class="l">${r.amended_delivery}</td><td></td><td></td><td></td></tr>`; first = false; });
     const S = rs.reduce((a, r) => a + r.signed, 0), D = rs.reduce((a, r) => a + r.delivered, 0), A = rs.reduce((a, r) => a + r.amount, 0), P = y <= THIS_YEAR ? yearProd(y) : null;
-    out += `<tr class="total"><td class="l" colspan="5">${y} total</td><td>${nf(S, 2)}</td><td>${nf(D, 2)}</td><td class="${S - D > 0.005 ? "neg" : "zero"}">${nf(S - D, 2)}</td><td>${nf(S ? rs.reduce((a, r) => a + price(r) * r.signed, 0) / S : null, 4)}</td><td>${nf(A, 2)}</td><td colspan="2"></td>${P == null ? "<td>–</td><td>–</td>" : `<td>${nf(P, 2)}${y === THIS_YEAR ? ' <span class="zero" style="font-weight:400">(to date)</span>' : ""}</td><td class="${cls(P - S)}">${sgn(P - S)}</td>`}</tr>`;
+    out += `<tr class="total"><td class="l" colspan="5">${y} total</td><td>${nf(S, 2)}</td><td>${nf(D, 2)}</td><td class="${S - D > 0.005 ? "neg" : "zero"}">${nf(S - D, 2)}</td><td>${nf(S ? rs.reduce((a, r) => a + price(r) * r.signed, 0) / S : null, 4)}</td><td>${nf(A, 2)}</td><td colspan="2"></td>${P == null ? "<td>–</td><td>–</td><td>–</td>" : `<td>${nf(P, 2)}${y === THIS_YEAR ? ' <span class="zero" style="font-weight:400">(to date)</span>' : ""}</td><td class="${cls(P - D)}">${sgn(P - D)}</td><td class="${cls(P - S)}">${sgn(P - S)}</td>`}</tr>`;
   });
-  $("conTable").innerHTML = `<tr><th class="l">Year</th><th class="l">#</th><th class="l">Contract signed</th><th class="l">Buyer</th><th class="l">Production period</th><th>Signed GO (MWh)</th><th>Delivered (MWh)</th><th>Yet-to-be-delivered (MWh)</th><th>Unit price (EUR/MWh)</th><th>Amount (EUR)</th><th class="l">Delivery date</th><th class="l">Amended date</th><th title="Meter production of the five sites in the year (2024: Aug–Dec; current year: complete months to date)">Production (MWh)</th><th title="Production − Signed GO of the year: GO not yet signed">Unsold GO (MWh)</th></tr>` + out;
+  $("conTable").innerHTML = `<tr><th class="l">Year</th><th class="l">#</th><th class="l">Contract signed</th><th class="l">Buyer</th><th class="l">Production period</th><th>Signed GO (MWh)</th><th>Delivered (MWh)</th><th>Yet-to-be-delivered (MWh)</th><th>Unit price (EUR/MWh)</th><th>Amount (EUR)</th><th class="l">Delivery date</th><th class="l">Amended date</th><th title="Meter production of the five sites in the year (2024: Aug–Dec; current year: complete months to date; months whose GO have expired are left out)">Production (MWh)</th><th title="Production − Delivered of the year: GO in hand that can still be delivered">Available to deliver (MWh)</th><th title="Production − Signed GO of the year: GO not yet signed">Unsold GO (MWh)</th></tr>` + out;
 }
 
 async function init() {

@@ -44,6 +44,16 @@ tr.tx td { background: #f4f9fe; color: #2c3e50; }
 #conTable th, #conTable td { padding: 8px 6px; }
 #conTable th { white-space: normal; vertical-align: bottom; line-height: 1.3; }
 .sw { display: inline-block; padding: 2px 8px; border-radius: 4px; }
+/* wide screens: Contracts on the left, Yet-to-be-delivered GO on the right, to read them side by side */
+@media (min-width: 1650px) {
+  .container { max-width: 2600px; }
+  .chart-grid { grid-template-columns: minmax(0, 1.75fr) minmax(0, 1fr); align-items: start; }
+  #conTable, #dueTable { font-size: 12px; }
+  #conTable th, #conTable td { padding: 7px 4px; }
+  #dueTable th, #dueTable td { padding: 7px 6px; }
+  #dueTable th { white-space: normal; vertical-align: bottom; line-height: 1.3; }
+  #conTable th, #dueTable th { font-size: 11px; }
+}
 @media (max-width: 700px) {
   body { padding: 8px; } .chart-grid { padding: 14px 16px 16px; }
   .sub-nav { padding: 0 10px; overflow-x: auto; } .sub-nav-link { padding: 14px 14px; font-size: 13px; }

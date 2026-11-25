@@ -172,8 +172,8 @@ const sgn = v => { if (v == null) return "–"; const r = Math.round(v); return 
 // a row that is partly delivered and has an amended date is split: the delivered part stays on the delivery date, the rest moves to the amended date.
 // With "original" every row stays on its original delivery date (the plan before any amendment).
 function dueMap() {
-  const m = new Map(), add = (date, r, signed, delivered) => { const k = date + "|" + r.buyer, o = m.get(k) || { key: k, date, buyer: r.buyer, sig: 0, del: 0, vol: 0, rows: new Set() };
-    o.sig += signed; o.del += delivered; o.vol += signed - delivered; o.rows.add(r.id); m.set(k, o); };
+  const m = new Map(), add = (date, r, signed, delivered) => { const k = date + "|" + r.buyer, o = m.get(k) || { key: k, date, buyer: r.buyer, sig: 0, del: 0, vol: 0, rows: new Set(), byYear: {} };
+    o.byYear[r.year] = (o.byYear[r.year] || 0) + delivered; o.sig += signed; o.del += delivered; o.vol += signed - delivered; o.rows.add(r.id); m.set(k, o); };
   rows.forEach(r => {
     if (dmode === "original") add(r.delivery_date, r, r.signed, r.delivered);
     else if (r.amended_delivery && r.delivered > 0.005 && r.delivered < r.signed - 0.005) { add(r.delivery_date, r, r.delivered, r.delivered); add(r.amended_delivery, r, r.signed - r.delivered, 0); }
@@ -184,22 +184,25 @@ function dueMap() {
 const bcls = b => "b" + ([...(b || "")].reduce((a, c) => a + c.charCodeAt(0), 0) % 4);      // a stable colour per buyer
 function renderDue() {
   const dues = dueMap(), years = [...new Set(dues.map(d => d.date.slice(0, 4)))].filter(y => year === "ALL" || y === String(year)); let out = "";   // follows the year option of the Contracts table
+  // GO in hand at the end of a year that can still be delivered: what is left of the production of this year and of the previous year (a GO is valid for the year it is produced in and the next one, older GO are not counted),
+  // i.e. each production year's meter production (without the expired months) − what has been delivered of its contracts by the end of this year
+  const stock = y => { let a = 0; for (let yy = y - 1; yy <= y; yy++) { if (yy < FIRST_YEAR || yy > THIS_YEAR) continue; a += (yearProd(yy) || 0) - dues.filter(d => +d.date.slice(0, 4) <= y).reduce((t, d) => t + (d.byYear[yy] || 0), 0); } return a; };
 
   years.forEach(y => {
     const ds = dues.filter(d => d.date.slice(0, 4) === y);
     ds.forEach(d => {
       out += `<tr class="pick${selDue === d.key ? " sel" : ""}" data-key="${d.key}"><td class="l">${d.date}${d.date < TODAY && d.vol > 0.005 ? '<span class="tag">overdue</span>' : ""}</td>`
-        + `<td>${nf(d.sig, 2)}</td><td>${nf(d.del, 2)}</td><td class="${d.vol > 0.005 ? "neg" : "zero"}">${nf(d.vol, 2)}</td><td></td><td class="l">${d.buyer || "–"}</td></tr>`;
+        + `<td>${nf(d.sig, 0)}</td><td>${nf(d.del, 0)}</td><td class="${d.vol > 0.005 ? "neg" : "zero"}">${nf(d.vol, 0)}</td><td></td><td class="l">${d.buyer || "–"}</td></tr>`;
       const t = selDue === d.key ? tx.filter(x => x.delivery_date === d.date && x.buyer === d.buyer) : [];
       if (t.length) out += `<tr class="txh"><td colspan="6" class="l"><div class="txr"><span>Transaction date</span><span>Volume (MWh)</span><span>Buyer</span></div></td></tr>`
-        + t.map(x => `<tr class="tx"><td colspan="6" class="l"><div class="txr"><span>${x.transaction_date || '<span class="na" title="date not known">—</span>'}</span><span>${nf(x.vol, 2)}</span><span><span class="bd ${bcls(x.buyer)}">${x.buyer}</span>${x.note ? `<span class="nt">${x.note}</span>` : ""}</span></div></td></tr>`).join("");
+        + t.map(x => `<tr class="tx"><td colspan="6" class="l"><div class="txr"><span>${x.transaction_date || '<span class="na" title="date not known">—</span>'}</span><span>${nf(x.vol, 0)}</span><span><span class="bd ${bcls(x.buyer)}">${x.buyer}</span>${x.note ? `<span class="nt">${x.note}</span>` : ""}</span></div></td></tr>`).join("");
     });
     // year summary: whole-year production (without the expired months) and what is left of it after the deliveries of the year
-    const S = ds.reduce((a, d) => a + d.sig, 0), D = ds.reduce((a, d) => a + d.del, 0), U = S - D, P = +y <= THIS_YEAR ? yearProd(+y) : null;
-    out += `<tr class="total"><td class="l">${y} total</td><td>${nf(S, 2)}</td><td>${nf(D, 2)}</td><td class="${U > 0.005 ? "neg" : "zero"}">${nf(U, 2)}</td>`
-      + (P == null ? `<td>–</td>` : `<td class="${cls(P - D)}">${sgn(P - D)}</td>`) + `<td></td></tr>`;
+    const S = ds.reduce((a, d) => a + d.sig, 0), D = ds.reduce((a, d) => a + d.del, 0), U = S - D, P = +y <= THIS_YEAR ? stock(+y) : null;
+    out += `<tr class="total"><td class="l">${y} total</td><td>${nf(S, 0)}</td><td>${nf(D, 0)}</td><td class="${U > 0.005 ? "neg" : "zero"}">${nf(U, 0)}</td>`
+      + (P == null ? `<td>–</td>` : `<td class="${cls(P)}">${sgn(P)}</td>`) + `<td></td></tr>`;
   });
-  $("dueTable").innerHTML = `<tr><th class="l">Delivery date</th><th>Signed GO (MWh)</th><th>Delivered GO (MWh)</th><th>Yet-to-be-delivered GO (MWh)</th><th title="Production − Delivered of the year (production of the five sites, complete months, without the expired months): GO in hand that can still be delivered">Available to deliver (MWh)</th><th class="l">Buyer</th></tr>` + out;
+  $("dueTable").innerHTML = `<tr><th class="l">Delivery date</th><th>Signed GO (MWh)</th><th>Delivered GO (MWh)</th><th>Yet-to-be-delivered GO (MWh)</th><th title="GO in hand at the end of the year that can still be delivered: what is left of the production of this year and of the previous year (five sites, complete months, without the expired months) after the deliveries made up to the end of the year. GO older than that are not counted.">Available to deliver (MWh)</th><th class="l">Buyer</th></tr>` + out;
   $("dueTable").querySelectorAll("tr.pick").forEach(tr => tr.onclick = () => pickDue(tr.dataset.key));
 }
 // click a delivery line: the rows of the Contracts table that add up to it are highlighted, and its transactions (transaction date / volume / buyer) open underneath
@@ -221,14 +224,14 @@ function renderContracts() {
     const rs = rows.filter(r => r.year === y); let first = true;
     rs.forEach(r => {
       out += `<tr${hlRows.has(r.id) ? ' class="hl"' : ""}><td class="l">${first ? y : ""}</td><td class="l">${r.no}</td><td class="l"><span class="sw" style="background:${color[(r.signing_date || "") + "|" + r.buyer]}">${r.signing_date || "–"}</span></td><td class="l">${r.buyer}</td><td class="l">${r.period}</td>
-        <td>${nf(r.signed, 2)}</td><td>${nf(r.delivered, 2)}</td><td class="${r.undelivered > 0.005 ? "neg" : "zero"}">${nf(r.undelivered, 2)}</td><td>${nf(price(r), 4)}</td><td>${nf(r.amount, 2)}</td>
-        <td class="l">${r.delivery_date}</td><td class="l">${r.amended_delivery}</td><td></td><td></td><td></td></tr>`; first = false; });
+        <td>${nf(r.signed, 0)}</td><td>${nf(r.delivered, 0)}</td><td class="${r.undelivered > 0.005 ? "neg" : "zero"}">${nf(r.undelivered, 0)}</td><td>${nf(price(r), 4)}</td><td>${nf(r.amount, 2)}</td>
+        <td class="l">${r.delivery_date}</td><td class="l">${r.amended_delivery}</td><td></td><td></td></tr>`; first = false; });
     const ex = yearExpired(y);      // the production whose GO have expired: one row, only the period and the production (marked expired) are filled
-    if (ex != null) out += `<tr class="exp"><td></td><td></td><td></td><td></td><td class="l">${expiredLabel(y)}</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td>${nf(ex, 2)} <span class="tag" style="margin-left:4px">expired</span></td><td></td><td></td></tr>`;
+    if (ex != null) out += `<tr class="exp"><td></td><td></td><td></td><td></td><td class="l">${expiredLabel(y)}</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td>${nf(ex, 0)} <span class="tag" style="margin-left:4px">expired</span></td><td></td></tr>`;
     const S = rs.reduce((a, r) => a + r.signed, 0), D = rs.reduce((a, r) => a + r.delivered, 0), A = rs.reduce((a, r) => a + r.amount, 0), P = y <= THIS_YEAR ? yearProd(y) : null;
-    out += `<tr class="total"><td class="l" colspan="5">${y} total</td><td>${nf(S, 2)}</td><td>${nf(D, 2)}</td><td class="${S - D > 0.005 ? "neg" : "zero"}">${nf(S - D, 2)}</td><td>${nf(S ? rs.reduce((a, r) => a + price(r) * r.signed, 0) / S : null, 4)}</td><td>${nf(A, 2)}</td><td colspan="2"></td>${P == null ? "<td>–</td><td>–</td><td>–</td>" : `<td>${nf(P, 2)}${y === THIS_YEAR ? ' <span class="zero" style="font-weight:400">(to date)</span>' : ""}</td><td class="${cls(P - D)}">${sgn(P - D)}</td><td class="${cls(P - S)}">${sgn(P - S)}</td>`}</tr>`;
+    out += `<tr class="total"><td class="l" colspan="5">${y} total</td><td>${nf(S, 0)}</td><td>${nf(D, 0)}</td><td class="${S - D > 0.005 ? "neg" : "zero"}">${nf(S - D, 0)}</td><td>${nf(S ? rs.reduce((a, r) => a + price(r) * r.signed, 0) / S : null, 4)}</td><td>${nf(A, 2)}</td><td colspan="2"></td>${P == null ? "<td>–</td><td>–</td>" : `<td>${nf(P, 0)}${y === THIS_YEAR ? ' <span class="zero" style="font-weight:400">(to date)</span>' : ""}</td><td class="${cls(P - S)}">${sgn(P - S)}</td>`}</tr>`;
   });
-  $("conTable").innerHTML = `<tr><th class="l">Year</th><th class="l">#</th><th class="l">Contract signed</th><th class="l">Buyer</th><th class="l">Production period</th><th>Signed GO (MWh)</th><th>Delivered (MWh)</th><th>Yet-to-be-delivered (MWh)</th><th>Unit price (EUR/MWh)</th><th>Amount (EUR)</th><th class="l">Delivery date</th><th class="l">Amended date</th><th title="Meter production of the five sites in the year (2024: Aug–Dec; current year: complete months to date; months whose GO have expired are left out)">Production (MWh)</th><th title="Production − Delivered of the year: GO in hand that can still be delivered">Available to deliver (MWh)</th><th title="Production − Signed GO of the year: GO not yet signed">Unsold GO (MWh)</th></tr>` + out;
+  $("conTable").innerHTML = `<tr><th class="l">Year</th><th class="l">#</th><th class="l">Contract signed</th><th class="l">Buyer</th><th class="l">Production period</th><th>Signed GO (MWh)</th><th>Delivered (MWh)</th><th>Yet-to-be-delivered (MWh)</th><th>Unit price (EUR/MWh)</th><th>Amount (EUR)</th><th class="l">Delivery date</th><th class="l">Amended date</th><th title="Meter production of the five sites in the year (2024: Aug–Dec; current year: complete months to date; months whose GO have expired are left out)">Production (MWh)</th><th title="Production − Signed GO of the year: GO not yet signed">Unsigned GO (MWh)</th></tr>` + out;
 }
 
 async function init() {

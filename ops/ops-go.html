@@ -184,6 +184,8 @@ function dueMap() {
 const bcls = b => "b" + ([...(b || "")].reduce((a, c) => a + c.charCodeAt(0), 0) % 4);      // a stable colour per buyer
 function renderDue() {
   const dues = dueMap(), years = [...new Set(dues.map(d => d.date.slice(0, 4)))].filter(y => year === "ALL" || y === String(year)); let out = "";   // follows the year option of the Contracts table
+  // GO in hand at the end of a year = production of all years up to it (without the expired months) − everything delivered up to its end; what is left of a year carries over into the next one
+  const stock = y => { let p = 0; for (let yy = FIRST_YEAR; yy <= y; yy++) p += (yy <= THIS_YEAR ? yearProd(yy) : null) || 0; return p - dues.filter(d => +d.date.slice(0, 4) <= y).reduce((a, d) => a + d.del, 0); };
 
   years.forEach(y => {
     const ds = dues.filter(d => d.date.slice(0, 4) === y);
@@ -195,11 +197,11 @@ function renderDue() {
         + t.map(x => `<tr class="tx"><td colspan="6" class="l"><div class="txr"><span>${x.transaction_date || '<span class="na" title="date not known">—</span>'}</span><span>${nf(x.vol, 2)}</span><span><span class="bd ${bcls(x.buyer)}">${x.buyer}</span>${x.note ? `<span class="nt">${x.note}</span>` : ""}</span></div></td></tr>`).join("");
     });
     // year summary: whole-year production (without the expired months) and what is left of it after the deliveries of the year
-    const S = ds.reduce((a, d) => a + d.sig, 0), D = ds.reduce((a, d) => a + d.del, 0), U = S - D, P = +y <= THIS_YEAR ? yearProd(+y) : null;
+    const S = ds.reduce((a, d) => a + d.sig, 0), D = ds.reduce((a, d) => a + d.del, 0), U = S - D, P = +y <= THIS_YEAR ? stock(+y) : null;
     out += `<tr class="total"><td class="l">${y} total</td><td>${nf(S, 2)}</td><td>${nf(D, 2)}</td><td class="${U > 0.005 ? "neg" : "zero"}">${nf(U, 2)}</td>`
-      + (P == null ? `<td>–</td>` : `<td class="${cls(P - D)}">${sgn(P - D)}</td>`) + `<td></td></tr>`;
+      + (P == null ? `<td>–</td>` : `<td class="${cls(P)}">${sgn(P)}</td>`) + `<td></td></tr>`;
   });
-  $("dueTable").innerHTML = `<tr><th class="l">Delivery date</th><th>Signed GO (MWh)</th><th>Delivered GO (MWh)</th><th>Yet-to-be-delivered GO (MWh)</th><th title="Production − Delivered of the year (production of the five sites, complete months, without the expired months): GO in hand that can still be delivered">Available to deliver (MWh)</th><th class="l">Buyer</th></tr>` + out;
+  $("dueTable").innerHTML = `<tr><th class="l">Delivery date</th><th>Signed GO (MWh)</th><th>Delivered GO (MWh)</th><th>Yet-to-be-delivered GO (MWh)</th><th title="GO in hand at the end of the year that can still be delivered: production of all years up to it (five sites, complete months, without the expired months) − all GO delivered up to the end of the year. What is left of a year carries over into the next one.">Available to deliver (MWh)</th><th class="l">Buyer</th></tr>` + out;
   $("dueTable").querySelectorAll("tr.pick").forEach(tr => tr.onclick = () => pickDue(tr.dataset.key));
 }
 // click a delivery line: the rows of the Contracts table that add up to it are highlighted, and its transactions (transaction date / volume / buyer) open underneath

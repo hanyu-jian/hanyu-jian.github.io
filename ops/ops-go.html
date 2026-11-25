@@ -31,6 +31,7 @@ tr.sub td { font-weight: 600; background: #fafbfc; color: #4a5560; font-size: 12
 .pos { color: #1e8449; font-weight: 600; } .neg { color: #d35400; font-weight: 600; } .zero { color: #888; }
 .tag { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; background: #fdecea; color: #c0392b; margin-left: 6px; }
 select { font-family: inherit; height: 36px; padding: 0 12px; border: 1px solid #ccc; border-radius: 6px; font-size: 14px; color: #2c3e50; background: #fff; cursor: pointer; }
+tr.exp td { color: #8a96a3; background: #fbfbfc; }
 tr.hl td { background: #d6e9fb !important; }
 tr.pick { cursor: pointer; } tr.pick:hover td { background: #f1f7fd; } tr.pick.sel td { background: #d6e9fb; }
 tr.txhead td { padding: 0; background: #f4f9fe; }
@@ -156,6 +157,14 @@ function monthProd(s, y, i) {
   return m[i];
 }
 function yearProd(y) { let a = 0, any = false; for (const s of SITES) for (let i = 0; i < 12; i++) { if (expiredSet.has(`${y}-${String(i + 1).padStart(2, "0")}`)) continue; const v = monthProd(s, y, i); if (v != null) { a += v; any = true; } } return any ? a : null; }
+// production of the months whose GO have expired (MWh): shown next to the production that is left
+function yearExpired(y) { let a = 0, any = false; for (const s of SITES) for (let i = 0; i < 12; i++) { if (!expiredSet.has(`${y}-${String(i + 1).padStart(2, "0")}`)) continue; const v = monthProd(s, y, i); if (v != null) { a += v; any = true; } } return any ? a : null; }
+const MONN = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+function expiredLabel(y) {
+  const ms = [...expiredSet].filter(k => +k.slice(0, 4) === y).map(k => +k.slice(5) - 1).sort((a, b) => a - b);
+  if (!ms.length) return "";
+  return (ms.every((m, i) => i === 0 || m === ms[i - 1] + 1) ? (ms.length > 1 ? `${MONN[ms[0]]}-${MONN[ms[ms.length - 1]]}` : MONN[ms[0]]) : ms.map(m => MONN[m]).join(", ")) + " " + y;
+}
 const cls = v => v == null ? "" : Math.round(v) > 0 ? "pos" : Math.round(v) < 0 ? "neg" : "zero";
 const sgn = v => { if (v == null) return "–"; const r = Math.round(v); return r === 0 ? "0" : (r > 0 ? "+" : "") + nf(r); };
 
@@ -174,15 +183,23 @@ function dueMap() {
 }
 const bcls = b => "b" + ([...(b || "")].reduce((a, c) => a + c.charCodeAt(0), 0) % 4);      // a stable colour per buyer
 function renderDue() {
-  const dues = dueMap(); let out = "";
-  dues.forEach(d => {
-    out += `<tr class="pick${selDue === d.key ? " sel" : ""}" data-key="${d.key}"><td class="l">${d.date}${d.date < TODAY && d.vol > 0.005 ? '<span class="tag">overdue</span>' : ""}</td>`
-      + `<td>${nf(d.sig, 2)}</td><td>${nf(d.del, 2)}</td><td class="${d.vol > 0.005 ? "neg" : "zero"}">${nf(d.vol, 2)}</td><td class="l">${d.buyer || "–"}</td></tr>`;
-    const t = selDue === d.key ? tx.filter(x => x.delivery_date === d.date && x.buyer === d.buyer) : [];
-    if (t.length) out += `<tr class="txh"><td colspan="5" class="l"><div class="txr"><span>Transaction date</span><span>Volume (MWh)</span><span>Buyer</span></div></td></tr>`
-      + t.map(x => `<tr class="tx"><td colspan="5" class="l"><div class="txr"><span>${x.transaction_date || '<span class="na" title="date not known">—</span>'}</span><span>${nf(x.vol, 2)}</span><span><span class="bd ${bcls(x.buyer)}">${x.buyer}</span>${x.note ? `<span class="nt">${x.note}</span>` : ""}</span></div></td></tr>`).join("");
+  const dues = dueMap(), years = [...new Set(dues.map(d => d.date.slice(0, 4)))].filter(y => year === "ALL" || y === String(year)); let out = "";   // follows the year option of the Contracts table
+
+  years.forEach(y => {
+    const ds = dues.filter(d => d.date.slice(0, 4) === y);
+    ds.forEach(d => {
+      out += `<tr class="pick${selDue === d.key ? " sel" : ""}" data-key="${d.key}"><td class="l">${d.date}${d.date < TODAY && d.vol > 0.005 ? '<span class="tag">overdue</span>' : ""}</td>`
+        + `<td>${nf(d.sig, 2)}</td><td>${nf(d.del, 2)}</td><td class="${d.vol > 0.005 ? "neg" : "zero"}">${nf(d.vol, 2)}</td><td></td><td class="l">${d.buyer || "–"}</td></tr>`;
+      const t = selDue === d.key ? tx.filter(x => x.delivery_date === d.date && x.buyer === d.buyer) : [];
+      if (t.length) out += `<tr class="txh"><td colspan="6" class="l"><div class="txr"><span>Transaction date</span><span>Volume (MWh)</span><span>Buyer</span></div></td></tr>`
+        + t.map(x => `<tr class="tx"><td colspan="6" class="l"><div class="txr"><span>${x.transaction_date || '<span class="na" title="date not known">—</span>'}</span><span>${nf(x.vol, 2)}</span><span><span class="bd ${bcls(x.buyer)}">${x.buyer}</span>${x.note ? `<span class="nt">${x.note}</span>` : ""}</span></div></td></tr>`).join("");
+    });
+    // year summary: whole-year production (without the expired months) and what is left of it after the deliveries of the year
+    const S = ds.reduce((a, d) => a + d.sig, 0), D = ds.reduce((a, d) => a + d.del, 0), U = S - D, P = +y <= THIS_YEAR ? yearProd(+y) : null;
+    out += `<tr class="total"><td class="l">${y} total</td><td>${nf(S, 2)}</td><td>${nf(D, 2)}</td><td class="${U > 0.005 ? "neg" : "zero"}">${nf(U, 2)}</td>`
+      + (P == null ? `<td>–</td>` : `<td class="${cls(P - D)}">${sgn(P - D)}</td>`) + `<td></td></tr>`;
   });
-  $("dueTable").innerHTML = `<tr><th class="l">Delivery date</th><th>Signed GO (MWh)</th><th>Delivered GO (MWh)</th><th>Yet-to-be-delivered GO (MWh)</th><th class="l">Buyer</th></tr>` + out;
+  $("dueTable").innerHTML = `<tr><th class="l">Delivery date</th><th>Signed GO (MWh)</th><th>Delivered GO (MWh)</th><th>Yet-to-be-delivered GO (MWh)</th><th title="Production − Delivered of the year (production of the five sites, complete months, without the expired months): GO in hand that can still be delivered">Available to deliver (MWh)</th><th class="l">Buyer</th></tr>` + out;
   $("dueTable").querySelectorAll("tr.pick").forEach(tr => tr.onclick = () => pickDue(tr.dataset.key));
 }
 // click a delivery line: the rows of the Contracts table that add up to it are highlighted, and its transactions (transaction date / volume / buyer) open underneath
@@ -206,6 +223,8 @@ function renderContracts() {
       out += `<tr${hlRows.has(r.id) ? ' class="hl"' : ""}><td class="l">${first ? y : ""}</td><td class="l">${r.no}</td><td class="l"><span class="sw" style="background:${color[(r.signing_date || "") + "|" + r.buyer]}">${r.signing_date || "–"}</span></td><td class="l">${r.buyer}</td><td class="l">${r.period}</td>
         <td>${nf(r.signed, 2)}</td><td>${nf(r.delivered, 2)}</td><td class="${r.undelivered > 0.005 ? "neg" : "zero"}">${nf(r.undelivered, 2)}</td><td>${nf(price(r), 4)}</td><td>${nf(r.amount, 2)}</td>
         <td class="l">${r.delivery_date}</td><td class="l">${r.amended_delivery}</td><td></td><td></td><td></td></tr>`; first = false; });
+    const ex = yearExpired(y);      // the production whose GO have expired: one row, only the period and the production (marked expired) are filled
+    if (ex != null) out += `<tr class="exp"><td></td><td></td><td></td><td></td><td class="l">${expiredLabel(y)}</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td>${nf(ex, 2)} <span class="tag" style="margin-left:4px">expired</span></td><td></td><td></td></tr>`;
     const S = rs.reduce((a, r) => a + r.signed, 0), D = rs.reduce((a, r) => a + r.delivered, 0), A = rs.reduce((a, r) => a + r.amount, 0), P = y <= THIS_YEAR ? yearProd(y) : null;
     out += `<tr class="total"><td class="l" colspan="5">${y} total</td><td>${nf(S, 2)}</td><td>${nf(D, 2)}</td><td class="${S - D > 0.005 ? "neg" : "zero"}">${nf(S - D, 2)}</td><td>${nf(S ? rs.reduce((a, r) => a + price(r) * r.signed, 0) / S : null, 4)}</td><td>${nf(A, 2)}</td><td colspan="2"></td>${P == null ? "<td>–</td><td>–</td><td>–</td>" : `<td>${nf(P, 2)}${y === THIS_YEAR ? ' <span class="zero" style="font-weight:400">(to date)</span>' : ""}</td><td class="${cls(P - D)}">${sgn(P - D)}</td><td class="${cls(P - S)}">${sgn(P - S)}</td>`}</tr>`;
   });
@@ -218,7 +237,7 @@ async function init() {
   year = ys.includes(+qy) ? qy : "ALL";
   $("year").innerHTML = `<option value="ALL">All years</option>` + ys.map(y => `<option value="${y}">${y}</option>`).join("");
   $("year").value = year;
-  $("year").onchange = () => { year = $("year").value; syncUrl({ year: year === "ALL" ? "" : year }); renderContracts(); };
+  $("year").onchange = () => { year = $("year").value; selDue = null; syncUrl({ year: year === "ALL" ? "" : year }); renderContracts(); renderDue(); };
   dmode = URLQ.get("dates") === "original" ? "original" : "amended"; $("dmode").value = dmode;
   $("dmode").onchange = () => { dmode = $("dmode").value; selDue = null; syncUrl({ year: year === "ALL" ? "" : year, dates: dmode === "original" ? "original" : "" }); renderDue(); renderContracts(); };
   renderContracts(); renderDue();

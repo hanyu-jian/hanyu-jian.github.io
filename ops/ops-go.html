@@ -41,6 +41,7 @@ tr.tx td { background: #f4f9fe; color: #2c3e50; }
 .bd.b1 { background: #efe6fa; color: #6b3fa0; } .bd.b2 { background: #e4f5ea; color: #1e6b3a; } .bd.b3 { background: #fdeede; color: #9a5a12; }
 .nt { color: #8a96a3; font-size: 12px; margin-left: 8px; } .na { color: #a3adb8; }
 #conTable th, #conTable td { padding: 8px 6px; }
+#conTable th { white-space: normal; vertical-align: bottom; line-height: 1.3; }
 .sw { display: inline-block; padding: 2px 8px; border-radius: 4px; }
 @media (max-width: 700px) {
   body { padding: 8px; } .chart-grid { padding: 14px 16px 16px; }
@@ -67,7 +68,7 @@ tr.tx td { background: #f4f9fe; color: #2c3e50; }
     </div>
 
     <div class="chart-card">
-      <div class="chart-card-header"><h3>Undelivered GO</h3><select id="dmode"><option value="amended">Delivery date: amended (current plan)</option><option value="original">Delivery date: original (before amendment)</option></select></div>
+      <div class="chart-card-header"><h3>Yet-to-be-delivered GO</h3><select id="dmode"><option value="amended">Delivery date: amended (current plan)</option><option value="original">Delivery date: original (before amendment)</option></select></div>
       <div class="scroll"><table id="dueTable"></table></div>
     </div>
   </div>
@@ -179,7 +180,7 @@ function renderDue() {
     if (t.length) out += `<tr class="txh"><td colspan="5" class="l"><div class="txr"><span>Transaction date</span><span>Volume (MWh)</span><span>Buyer</span></div></td></tr>`
       + t.map(x => `<tr class="tx"><td colspan="5" class="l"><div class="txr"><span>${x.transaction_date || '<span class="na" title="date not known">—</span>'}</span><span>${nf(x.vol, 2)}</span><span><span class="bd ${bcls(x.buyer)}">${x.buyer}</span>${x.note ? `<span class="nt">${x.note}</span>` : ""}</span></div></td></tr>`).join("");
   });
-  $("dueTable").innerHTML = `<tr><th class="l">Delivery date</th><th>Signed GO (MWh)</th><th>Delivered GO (MWh)</th><th>Undelivered GO (MWh)</th><th class="l">Buyer</th></tr>` + out;
+  $("dueTable").innerHTML = `<tr><th class="l">Delivery date</th><th>Signed GO (MWh)</th><th>Delivered GO (MWh)</th><th>Yet-to-be-delivered GO (MWh)</th><th class="l">Buyer</th></tr>` + out;
   $("dueTable").querySelectorAll("tr.pick").forEach(tr => tr.onclick = () => pickDue(tr.dataset.key));
 }
 // click a delivery line: the rows of the Contracts table that add up to it are highlighted, and its transactions (transaction date / volume / buyer) open underneath
@@ -193,7 +194,7 @@ function pickDue(key) {
 const PALETTE = ["#dff3e3", "#d9ecf7", "#eceff1", "#dbe3fa", "#fff3c4", "#fde2e4", "#e8def8", "#fde8d0"];
 function renderContracts() {
   const keys = []; rows.forEach(r => { const k = (r.signing_date || "") + "|" + r.buyer; if (!keys.includes(k)) keys.push(k); });
-  const color = {}; keys.forEach((k, i) => { color[k] = k.startsWith("|") ? "#ffffff" : PALETTE[i % PALETTE.length]; });
+  const color = {}; keys.forEach((k, i) => { color[k] = /^\d{4}-\d{2}-\d{2}\|/.test(k) ? PALETTE[i % PALETTE.length] : "#ffffff"; });
   const hlRows = new Set((selDue && (dueMap().find(x => x.key === selDue) || {}).rows) || []);
   const price = r => r.price != null ? r.price : (r.signed ? r.amount / r.signed : null), years = [...new Set(rows.map(r => r.year))].sort(), shown = year === "ALL" ? years : [+year];
   let out = "", T = { S: 0, D: 0, A: 0, P: 0, anyP: false, S2: 0 };
@@ -206,7 +207,7 @@ function renderContracts() {
     const S = rs.reduce((a, r) => a + r.signed, 0), D = rs.reduce((a, r) => a + r.delivered, 0), A = rs.reduce((a, r) => a + r.amount, 0), P = y <= THIS_YEAR ? yearProd(y) : null;
     out += `<tr class="total"><td class="l" colspan="5">${y} total</td><td>${nf(S, 2)}</td><td>${nf(D, 2)}</td><td class="${S - D > 0.005 ? "neg" : "zero"}">${nf(S - D, 2)}</td><td>${nf(S ? rs.reduce((a, r) => a + price(r) * r.signed, 0) / S : null, 4)}</td><td>${nf(A, 2)}</td><td colspan="2"></td>${P == null ? "<td>–</td><td>–</td>" : `<td>${nf(P, 2)}${y === THIS_YEAR ? ' <span class="zero" style="font-weight:400">(to date)</span>' : ""}</td><td class="${cls(P - S)}">${sgn(P - S)}</td>`}</tr>`;
   });
-  $("conTable").innerHTML = `<tr><th class="l">Year</th><th class="l">#</th><th class="l">Contract signed</th><th class="l">Buyer</th><th class="l">Production period</th><th>Signed GO (MWh)</th><th>Delivered (MWh)</th><th>Undelivered (MWh)</th><th>Unit price (EUR/MWh)</th><th>Amount (EUR)</th><th class="l">Delivery date</th><th class="l">Amended date</th><th title="Meter production of the five sites in the year (2024: Aug–Dec; current year: complete months to date)">Production (MWh)</th><th title="Production − Signed GO of the year: GO not yet signed">Unsold GO (MWh)</th></tr>` + out;
+  $("conTable").innerHTML = `<tr><th class="l">Year</th><th class="l">#</th><th class="l">Contract signed</th><th class="l">Buyer</th><th class="l">Production period</th><th>Signed GO (MWh)</th><th>Delivered (MWh)</th><th>Yet-to-be-delivered (MWh)</th><th>Unit price (EUR/MWh)</th><th>Amount (EUR)</th><th class="l">Delivery date</th><th class="l">Amended date</th><th title="Meter production of the five sites in the year (2024: Aug–Dec; current year: complete months to date)">Production (MWh)</th><th title="Production − Signed GO of the year: GO not yet signed">Unsold GO (MWh)</th></tr>` + out;
 }
 
 async function init() {

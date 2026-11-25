@@ -172,17 +172,31 @@ function dueMap() {
   });
   return [...m.values()].sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : a.buyer < b.buyer ? -1 : 1);
 }
+// GO produced up to a date (MWh): the complete months of the five sites that end on or before it, from August 2024, without the months whose GO have expired; nothing beyond the latest meter data
+function cumProd(D) {
+  let a = 0;
+  for (let y = FIRST_YEAR; y <= THIS_YEAR; y++) for (let i = 0; i < 12; i++) {
+    if (expiredSet.has(`${y}-${String(i + 1).padStart(2, "0")}`)) continue;
+    const end = `${y}-${String(i + 1).padStart(2, "0")}-${String(new Date(Date.UTC(y, i + 1, 0)).getUTCDate()).padStart(2, "0")}`;
+    if (end > D) continue;
+    for (const s of SITES) { const v = monthProd(s, y, i); if (v != null) a += v; }
+  }
+  return a;
+}
 const bcls = b => "b" + ([...(b || "")].reduce((a, c) => a + c.charCodeAt(0), 0) % 4);      // a stable colour per buyer
 function renderDue() {
-  const dues = dueMap(); let out = "";
+  const dues = dueMap(); let out = "", cumD = 0, lastDate = null, avail = 0;
   dues.forEach(d => {
+    const firstOfDate = d.date !== lastDate;
+    if (firstOfDate) { dues.filter(x => x.date === d.date).forEach(x => { cumD += x.del; }); avail = cumProd(d.date) - cumD; lastDate = d.date; }
     out += `<tr class="pick${selDue === d.key ? " sel" : ""}" data-key="${d.key}"><td class="l">${d.date}${d.date < TODAY && d.vol > 0.005 ? '<span class="tag">overdue</span>' : ""}</td>`
+      + (firstOfDate ? `<td class="${cls(avail)}">${sgn(avail)}</td>` : `<td></td>`)
       + `<td>${nf(d.sig, 2)}</td><td>${nf(d.del, 2)}</td><td class="${d.vol > 0.005 ? "neg" : "zero"}">${nf(d.vol, 2)}</td><td class="l">${d.buyer || "–"}</td></tr>`;
     const t = selDue === d.key ? tx.filter(x => x.delivery_date === d.date && x.buyer === d.buyer) : [];
-    if (t.length) out += `<tr class="txh"><td colspan="5" class="l"><div class="txr"><span>Transaction date</span><span>Volume (MWh)</span><span>Buyer</span></div></td></tr>`
-      + t.map(x => `<tr class="tx"><td colspan="5" class="l"><div class="txr"><span>${x.transaction_date || '<span class="na" title="date not known">—</span>'}</span><span>${nf(x.vol, 2)}</span><span><span class="bd ${bcls(x.buyer)}">${x.buyer}</span>${x.note ? `<span class="nt">${x.note}</span>` : ""}</span></div></td></tr>`).join("");
+    if (t.length) out += `<tr class="txh"><td colspan="6" class="l"><div class="txr"><span>Transaction date</span><span>Volume (MWh)</span><span>Buyer</span></div></td></tr>`
+      + t.map(x => `<tr class="tx"><td colspan="6" class="l"><div class="txr"><span>${x.transaction_date || '<span class="na" title="date not known">—</span>'}</span><span>${nf(x.vol, 2)}</span><span><span class="bd ${bcls(x.buyer)}">${x.buyer}</span>${x.note ? `<span class="nt">${x.note}</span>` : ""}</span></div></td></tr>`).join("");
   });
-  $("dueTable").innerHTML = `<tr><th class="l">Delivery date</th><th>Signed GO (MWh)</th><th>Delivered GO (MWh)</th><th>Yet-to-be-delivered GO (MWh)</th><th class="l">Buyer</th></tr>` + out;
+  $("dueTable").innerHTML = `<tr><th class="l">Delivery date</th><th title="Production up to this date (five sites, complete months, without the expired months) − Delivered up to this date: GO in hand that can still be delivered">Available to deliver (MWh)</th><th>Signed GO (MWh)</th><th>Delivered GO (MWh)</th><th>Yet-to-be-delivered GO (MWh)</th><th class="l">Buyer</th></tr>` + out;
   $("dueTable").querySelectorAll("tr.pick").forEach(tr => tr.onclick = () => pickDue(tr.dataset.key));
 }
 // click a delivery line: the rows of the Contracts table that add up to it are highlighted, and its transactions (transaction date / volume / buyer) open underneath

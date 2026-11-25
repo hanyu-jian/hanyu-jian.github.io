@@ -189,17 +189,17 @@ function renderDue() {
     const ds = dues.filter(d => d.date.slice(0, 4) === y);
     ds.forEach(d => {
       out += `<tr class="pick${selDue === d.key ? " sel" : ""}" data-key="${d.key}"><td class="l">${d.date}${d.date < TODAY && d.vol > 0.005 ? '<span class="tag">overdue</span>' : ""}</td>`
-        + `<td>${nf(d.sig, 2)}</td><td>${nf(d.del, 2)}</td><td class="${d.vol > 0.005 ? "neg" : "zero"}">${nf(d.vol, 2)}</td><td></td><td></td><td class="l">${d.buyer || "–"}</td></tr>`;
+        + `<td>${nf(d.sig, 2)}</td><td>${nf(d.del, 2)}</td><td class="${d.vol > 0.005 ? "neg" : "zero"}">${nf(d.vol, 2)}</td><td></td><td class="l">${d.buyer || "–"}</td></tr>`;
       const t = selDue === d.key ? tx.filter(x => x.delivery_date === d.date && x.buyer === d.buyer) : [];
-      if (t.length) out += `<tr class="txh"><td colspan="7" class="l"><div class="txr"><span>Transaction date</span><span>Volume (MWh)</span><span>Buyer</span></div></td></tr>`
-        + t.map(x => `<tr class="tx"><td colspan="7" class="l"><div class="txr"><span>${x.transaction_date || '<span class="na" title="date not known">—</span>'}</span><span>${nf(x.vol, 2)}</span><span><span class="bd ${bcls(x.buyer)}">${x.buyer}</span>${x.note ? `<span class="nt">${x.note}</span>` : ""}</span></div></td></tr>`).join("");
+      if (t.length) out += `<tr class="txh"><td colspan="6" class="l"><div class="txr"><span>Transaction date</span><span>Volume (MWh)</span><span>Buyer</span></div></td></tr>`
+        + t.map(x => `<tr class="tx"><td colspan="6" class="l"><div class="txr"><span>${x.transaction_date || '<span class="na" title="date not known">—</span>'}</span><span>${nf(x.vol, 2)}</span><span><span class="bd ${bcls(x.buyer)}">${x.buyer}</span>${x.note ? `<span class="nt">${x.note}</span>` : ""}</span></div></td></tr>`).join("");
     });
     // year summary: whole-year production (without the expired months) and what is left of it after the deliveries of the year
     const S = ds.reduce((a, d) => a + d.sig, 0), D = ds.reduce((a, d) => a + d.del, 0), U = S - D, P = +y <= THIS_YEAR ? yearProd(+y) : null;
     out += `<tr class="total"><td class="l">${y} total</td><td>${nf(S, 2)}</td><td>${nf(D, 2)}</td><td class="${U > 0.005 ? "neg" : "zero"}">${nf(U, 2)}</td>`
-      + (P == null ? `<td>–</td><td>–</td>` : `<td>${nf(P, 2)}${+y === THIS_YEAR ? ' <span class="zero" style="font-weight:400">(to date)</span>' : ""}</td><td class="${cls(P - D)}">${sgn(P - D)}</td>`) + `<td></td></tr>`;
+      + (P == null ? `<td>–</td>` : `<td class="${cls(P - D)}">${sgn(P - D)}</td>`) + `<td></td></tr>`;
   });
-  $("dueTable").innerHTML = `<tr><th class="l">Delivery date</th><th>Signed GO (MWh)</th><th>Delivered GO (MWh)</th><th>Yet-to-be-delivered GO (MWh)</th><th title="Meter production of the five sites in the year (complete months to date; months whose GO have expired are left out)">Production (MWh)</th><th title="Production − Delivered of the year: GO in hand that can still be delivered">Available to deliver (MWh)</th><th class="l">Buyer</th></tr>` + out;
+  $("dueTable").innerHTML = `<tr><th class="l">Delivery date</th><th>Signed GO (MWh)</th><th>Delivered GO (MWh)</th><th>Yet-to-be-delivered GO (MWh)</th><th title="Production − Delivered of the year (production of the five sites, complete months, without the expired months): GO in hand that can still be delivered">Available to deliver (MWh)</th><th class="l">Buyer</th></tr>` + out;
   $("dueTable").querySelectorAll("tr.pick").forEach(tr => tr.onclick = () => pickDue(tr.dataset.key));
 }
 // click a delivery line: the rows of the Contracts table that add up to it are highlighted, and its transactions (transaction date / volume / buyer) open underneath

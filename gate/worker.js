@@ -666,6 +666,7 @@ async function handleTheoretical(url, env) {
 //   inverter  → data/inverter settle point/<年>/15min/<场站>.csv（列：Date, Active power [%]，PPC 有功功率设定值）
 //   id-inputs → data/id curtailment/<年>/<场站>.csv（手工输入：EB reference、aFRR、检修、历史 inverter 设定值）
 const VCOM_YEAR_CSV = {
+  irradiance: (y, name) => `data/irradiance/${y}/15min/${name}.csv`,        // 15-min POA / GHI per sensor (used by the workbook export)
   inverter: (y, name) => `data/inverter settle point/${y}/15min/${name}.csv`,
   "id-inputs": (y, name) => `data/id curtailment/${y}/${name}.csv`,
 };
@@ -817,12 +818,12 @@ async function handleOps(request, env, url, path) {
     }
   }
 
-  if (path === "/ops/api/inverter" || path === "/ops/api/id-inputs" || path === "/ops/api/id-params") {
+  if (path === "/ops/api/inverter" || path === "/ops/api/id-inputs" || path === "/ops/api/id-params" || path === "/ops/api/irradiance") {
     if (request.method !== "GET") return new Response("Method not allowed", { status: 405 });
     if (!env.GITHUB_TOKEN) return json({ error: "GITHUB_TOKEN is not configured" }, 500);
     try {
       if (path === "/ops/api/id-params") return await handleIdParams(env);
-      return await handleVcomYearCsv(path === "/ops/api/inverter" ? "inverter" : "id-inputs", url, env);
+      return await handleVcomYearCsv(path === "/ops/api/inverter" ? "inverter" : path === "/ops/api/irradiance" ? "irradiance" : "id-inputs", url, env);
     } catch (e) {
       return json({ error: String(e.message || e) }, 502);
     }

@@ -43,6 +43,10 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background:
 .note code { background: #f3f5f7; padding: 1px 5px; border-radius: 3px; font-size: 12px; color: #4a5560; }
 .scroll { overflow-x: auto; }
 table { border-collapse: collapse; width: 100%; font-size: 13px; }
+th.param { background: #fff; border-bottom: none; padding: 8px 10px 0; font-weight: 600; }
+.plabel { display: block; font-size: 11px; color: #6c757d; margin-bottom: 3px; white-space: nowrap; }
+.pinput { width: 90px; height: 32px; padding: 0 8px; border: 1px solid #ccc; border-radius: 6px; font-family: inherit; font-size: 13px; color: #2c3e50; text-align: right; }
+.pinput:focus { outline: none; border-color: #2c3e50; }
 th, td { padding: 8px 10px; text-align: right; border-bottom: 1px solid #eef0f3; white-space: nowrap; }
 th:first-child, td:first-child { text-align: left; }
 th { background: #f3f5f7; font-size: 12px; color: #4a5560; }
@@ -88,10 +92,6 @@ tr.total td { font-weight: 700; background: #fafbfc; }
             <button data-freq="weekly">Weekly</button>
             <button data-freq="monthly">Monthly</button>
           </div>
-          <label>Loss (%)</label>
-          <input class="ctrl-select" id="loss" type="number" step="0.1" min="0" style="width:80px;">
-          <label>Tolerance (MWh)</label>
-          <input class="ctrl-select" id="tol" type="number" step="0.1" style="width:90px;">
           <label>Year</label>
           <select class="ctrl-select" id="yearSelect"></select>
           <button class="export-btn" id="exportBtn">Export CSV</button>
@@ -104,7 +104,7 @@ tr.total td { font-weight: 700; background: #fafbfc; }
       <div class="chart-card-header" style="margin-bottom:10px;align-items:center;">
         <div><h3>Summary</h3></div>
       </div>
-      <div class="scroll"><table id="sumTable"></table></div>
+      <div class="scroll"><table id="sumTable"><thead><tr id="paramRow"></tr><tr id="headRow"></tr></thead><tbody id="sumBody"></tbody></table></div>
     </div>
   </div>
 </div>
@@ -296,8 +296,8 @@ function renderTable() {
     const cls = k === "net" || k === "pct" ? (v > 0.05 ? "pos" : v < -0.05 ? "neg" : "") : "";
     return `<td class="${cls}">${k === "pct" ? (v == null ? "–" : v.toFixed(1) + "%") : fmt(v)}</td>`;
   };
-  $("sumTable").innerHTML = `<thead><tr><th>${state.year}</th>${COLS.map(c => `<th>${c[1]}</th>`).join("")}</tr></thead><tbody>` +
-    sumRows.map(([n, a], i) => `<tr class="${i === sumRows.length - 1 ? "total" : ""}"><td>${n}</td>${COLS.map(c => cell(c[0], a)).join("")}</tr>`).join("") + "</tbody>";
+  $("headRow").innerHTML = `<th>${state.year}</th>${COLS.map(c => `<th>${c[1]}</th>`).join("")}`;
+  $("sumBody").innerHTML = sumRows.map(([n, a], i) => `<tr class="${i === sumRows.length - 1 ? "total" : ""}"><td>${n}</td>${COLS.map(c => cell(c[0], a)).join("")}</tr>`).join("");
 }
 
 /* ── Status line ─────────────────────────────────────────── */
@@ -329,6 +329,8 @@ function buildControls() {
   const ys = []; for (let y = THIS_YEAR; y >= FIRST_YEAR; y--) ys.push(y);
   $("yearSelect").innerHTML = ys.map(y => `<option value="${y}">${y}</option>`).join("");
   $("yearSelect").value = state.year;
+  const PARAMS = { T: ["Loss (%)", "loss", "0", "0.1", "100"], net: ["Tolerance (MWh)", "tol", "", "0.1", ""] };   // each input sits above the column it changes
+  $("paramRow").innerHTML = `<th class="param"></th>` + COLS.map(c => PARAMS[c[0]] ? `<th class="param"><span class="plabel">${PARAMS[c[0]][0]}</span><input class="pinput" id="${PARAMS[c[0]][1]}" type="number" step="0.1"></th>` : `<th class="param"></th>`).join("");
   $("loss").value = state.loss;
   $("loss").oninput = e => { const v = parseFloat(e.target.value); if (Number.isFinite(v) && v >= 0 && v < 100) { state.loss = v; render(); } };
   $("tol").value = state.tol;

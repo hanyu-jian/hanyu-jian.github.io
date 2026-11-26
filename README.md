@@ -346,12 +346,12 @@ token 只在服务端，不会发给浏览器；数据不会进入本仓库，�
 **ID Curtailment 页面口径**（`ops/ops-id-curtailment.html`，`/ops/id-curtailment`，二级导航最后一项；一张 Remaining 图 + 月度汇总表）
 - 完全照 EB（平衡公司）S 包 ID curtailment 工作簿的算法，对象是 Sajokaza、Szuhakálló 1、Szuhakálló 2，逐 15 分钟计算后按日 / 周 / 月（表里按月）加总。
 - 参数在 vcom 仓库 `data/id curtailment/parameters.csv`（目前只用到 AC 限值），Worker `/ops/api/id-params` 原样转发。
-- 每个 15 分钟：`W` = vcom 理论发电量（已含 DC→AC 限值，不再重算 POA；图右上角 Loss (%) 可选，默认 0，填 1.8 即 `W × (1 − 1.8 %)`，对应工作簿的损耗，网址参数 `loss`）；`经济性限电 = W`（日前价 ≤ 0，价格为空也算）；
+- 每个 15 分钟：`W` = vcom 理论发电量（已含 DC→AC 限值，不再重算 POA；Summary 表里 Theoretical 列上方的 Loss (%) 可选，默认 0，填 1.8 即 `W × (1 − 1.8 %)`，对应工作簿的损耗，网址参数 `loss`）；`经济性限电 = W`（日前价 ≤ 0，价格为空也算）；
   `Inverter actions U = max(0, W − 设定值% × AC限值)`（设定值为空记 0）；
   `Remaining (MWh) = 0`（设定值 > 95 %），否则 `W − aFRR − 检修 − 表计 − 经济性限电`（设定值为空照常计算）；
   汇总表 `Remaining (%) = 计入的 Remaining / W`（周期内合计值；工作簿 Remaining % 列的原公式是 (W − 经济性限电 − 表计 − 检修 − aFRR − U) / W，不含 tolerance）。
   表计为空记 0；只算到最后一个有表计读数的时段。
-- Tolerance（图右上角输入框，默认 1 MWh，对应工作簿 BM–BO 列的阈值，三个场站共用，网址参数 `tol`）：只有 15 分钟 Remaining > tolerance 的时段才计入（工作簿的 “check” 标记和 BQ–BS 列），图和汇总表里的 Remaining 都随它变化；Remaining (%) = 计入的 Remaining / W，同样随 tolerance 变化。
+- Tolerance（Summary 表里 Remaining 列上方的输入框，默认 1 MWh，对应工作簿 BM–BO 列的阈值，三个场站共用，网址参数 `tol`）：只有 15 分钟 Remaining > tolerance 的时段才计入（工作簿的 “check” 标记和 BQ–BS 列），图和汇总表里的 Remaining 都随它变化；Remaining (%) = 计入的 Remaining / W，同样随 tolerance 变化。
 - 图：柱子是每个周期内 15 分钟 Remaining 的正值之和（蓝）/ 负值之和（橙），折线是净值；正值 = 扣掉所有可解释的限电后还有余量。
 - 数据：POA 取 `/ops/api/theoretical`（vcom 理论发电量 CSV 的 `POA avg` 列）、表计 `/ops/api/metered`、inverter 设定值 `/ops/api/inverter`、日前价 `/ops/api/price`（HU 列）。
 - 手工输入：`/ops/api/id-inputs` 转发 vcom 仓库 `data/id curtailment/<年>/<场站>.csv`，列 `Date, EB reference [MWh], aFRR [MWh], Tech maintenance [MWh]`。

@@ -285,7 +285,7 @@ aFRR 容量（Balancing 下，Imbalance Prices 后面的 aFRR Capacity 页）。
 
 ## Hungary Operations 运营数据（独立权限）
 
-入口：`project.html` 里点 TOKAJ 卡片 → `/ops/overview`（文件 `ops/ops-overview.html`）。页面全英文，样式和主看板一致：共用 `html/nav.js` 的头部（运营会话通过 `/ops/nav.js` 取到同一份），`/ops` 页面的一级导航是单独的 TOKAJ 标签（`nav.js` 里的 `OPS_NAV_ITEMS`），二级导航是 Overview / Capture Price / Imbalance / GO；点左上角标题 “European Electricity Dashboard” 回到看板。
+入口：`project.html` 里点 TOKAJ 卡片 → `/ops/overview`（文件 `ops/ops-overview.html`）。页面全英文，样式和主看板一致：共用 `html/nav.js` 的头部（运营会话通过 `/ops/nav.js` 取到同一份），`/ops` 页面的一级导航是单独的 TOKAJ 标签（`nav.js` 里的 `OPS_NAV_ITEMS`），二级导航是 Overview / Capture Price / Imbalance / GO / ID Curtailment；点左上角标题 “European Electricity Dashboard” 回到看板。
 
 **新增运营页面**：① 建 `ops/ops-<name>.html`（页首加 `<script src="/ops/nav.js"></script>`，并写好二级导航 `.sub-nav`）；② 把 `<name>` 加进 `gate/worker.js` 的 `OPS_PAGE_NAMES`；
 ③ 在每个运营页的 `.sub-nav` 里加一项（目前有 Overview、Capture Price 和 Imbalance）。对外地址是 `/ops/<name>`。
@@ -342,6 +342,21 @@ token 只在服务端，不会发给浏览器；数据不会进入本仓库，�
   ② Yet-to-be-delivered GO：按交付日 + 买方汇总（同一交付日买方不同分开），右上角可选交付日口径：amended（有 amended date 的按 amended date，当前计划）或 original（都按原交付日，看原计划）。每个交付日一行，列是 Signed GO、Delivered GO、Yet-to-be-delivered GO（= 已签 − 已交付）和 Buyer；每个日历年（按交付日的年份）的最后一行是年度汇总：Signed、Delivered、Yet-to-be-delivered 的合计，加上 Available to deliver（年底手上还能交付的 GO：当年和上一年生产的 GO 各自的 Production（五站表计合计、读满的月份、不含已失效的月份）减去它们的合同到当年年底为止已交付的量，再相加；超过一年的 GO 不计入，如 2024 年剩下的不会进到 2026 年），只在年度汇总行里有；这张表跟 Contracts 表的年份下拉走（选哪一年只显示交付日在那一年的行）。交付日有 amended date 且只交付了一部分的合同行，在 amended 口径下拆开：已交付的部分留在原交付日，剩下的放到 amended date。点一行：上面 Contracts 表里相加得到这一行的那几行高亮成浅蓝（涉及别的年份时年份下拉自动切到 All years），同时展开这一行的 transaction 明细（Transaction date / Volume / Buyer），再点一次收起；早于今天且还没交付完的标 overdue。网址参数 `/ops/go?year=&dates=original`。
 - transaction 明细在 vcom 仓库的 `data/go/tokaj_go_transactions.csv`（delivery_date, buyer, transaction_date, volume_mwh, note），Worker 的 `/ops/api/go-transactions` 原样转发；有了新的交付明细往这个文件里加即可。合同、价格、买方和交付量都在私有的 vcom 仓库里，不要写进本仓库（包括 README）。
 - 全年电量用 `/ops/api/metered?resolution=hourly`（五站小时表计，页面按月求和）。
+
+**ID Curtailment 页面口径**（`ops/ops-id-curtailment.html`，`/ops/id-curtailment`，二级导航最后一项；一张 Remaining 图 + 月度汇总表）
+- 完全照 EB（平衡公司）S 包 ID curtailment 工作簿的算法，对象是 Sajokaza、Szuhakálló 1、Szuhakálló 2，逐 15 分钟计算后按日 / 周 / 月（表里按月）加总。
+- 参数在 vcom 仓库 `data/id curtailment/parameters.csv`（目前只用到 AC 限值），Worker `/ops/api/id-params` 原样转发。
+- 每个 15 分钟：`W` = vcom 理论发电量（已含 DC→AC 限值，不再重算 POA；Summary 表里 Theoretical 列上方的 Loss (%) 可选，默认 0，填 1.8 即 `W × (1 − 1.8 %)`，对应工作簿的损耗，网址参数 `loss`）；`经济性限电 = W`（日前价 ≤ 0，价格为空也算）；
+  `Inverter actions U = max(0, W − 设定值% × AC限值)`（设定值为空记 0）；
+  `Remaining (MWh) = 0`（设定值 > 95 %），否则 `W − aFRR − 检修 − 表计 − 经济性限电`（设定值为空照常计算）；
+  汇总表 `Remaining (%) = 计入的 Remaining / W`（周期内合计值；工作簿 Remaining % 列的原公式是 (W − 经济性限电 − 表计 − 检修 − aFRR − U) / W，不含 tolerance）。
+  表计为空记 0；只算到最后一个有表计读数的时段。
+- Tolerance（Summary 表里 Remaining 列上方的输入框，默认 1 MWh，对应工作簿 BM–BO 列的阈值，三个场站共用，网址参数 `tol`）：只有 15 分钟 Remaining > tolerance 的时段才计入（工作簿的 “check” 标记和 BQ–BS 列），图和汇总表里的 Remaining 都随它变化；Remaining (%) = 计入的 Remaining / W，同样随 tolerance 变化。
+- 图：柱子是每个周期内 15 分钟 Remaining 的正值之和（蓝）/ 负值之和（橙），折线是净值；正值 = 扣掉所有可解释的限电后还有余量。
+- 数据：POA 取 `/ops/api/theoretical`（vcom 理论发电量 CSV 的 `POA avg` 列）、表计 `/ops/api/metered`、inverter 设定值 `/ops/api/inverter`、日前价 `/ops/api/price`（HU 列）。
+- 手工输入：`/ops/api/id-inputs` 转发 vcom 仓库 `data/id curtailment/<年>/<场站>.csv`，列 `Date, EB reference [MWh], aFRR [MWh], Tech maintenance [MWh]`。
+- Export XLSX：导出和 ID curtailment 工作簿一样的表格（`15min` + `PR_Capacity` 两个 sheet，格式、列、公式与工作簿一致，三个场站，按页面所选年份、按 15 分钟）。POA 三个传感器取自 `/ops/api/irradiance`（vcom `data/irradiance`），表里的 Loss（S6:U6）、Tolerance（BM5:BO5）、AC 限值（W6:Y6）取页面当前设置，Theoretical 用 POA 在表里按公式算（容量和 PR 在 `PR_Capacity`），数据只填到各场站最后一个表计读数。文件在浏览器里生成（fflate 打包，大量使用共享公式），不保存计算结果，Excel 打开时自动重算。Remaining (%) = 计入的 Remaining ÷ W，和页面一致。
+- 网址参数：`site`（`ALL` 或场站名）、`year`、`freq`（`daily|weekly|monthly`）。
 
 **Ops 页面的网址参数**（Overview / Capture Price / Imbalance 三个页面）：页面上的选择会同步写进地址栏（`history.replaceState`，不增加浏览器历史记录），打开带参数的链接时按参数恢复；缺少或不合法的参数忽略，用默认值。链接里只有选择，没有数据，打开仍要登录 ops。
 - `/ops/overview?site=&start=&end=&res=15min|hourly&lead=&bdate=`（`site` = ALL 或站点名，`lead` = 提前量分钟数，`bdate` = 第二张卡片的日期）

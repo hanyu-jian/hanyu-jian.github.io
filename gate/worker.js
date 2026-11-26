@@ -21,7 +21,7 @@ const PAGES = new Set([
 ]);
 const OPS_COOKIE = "ops_token";
 // 运营页面：对外地址 /ops/<name> → 文件 ops/ops-<name>.html。新增页面（如 capture-price）时把名字加进来即可。
-const OPS_PAGE_NAMES = new Set(["overview", "capture-price", "imbalance", "go"]);
+const OPS_PAGE_NAMES = new Set(["overview", "capture-price", "imbalance", "go", "id-curtailment"]);
 const OPS_HOME = "/ops/overview";
 const MAX_AGE = 60 * 60 * 24 * 30;
 
@@ -662,6 +662,35 @@ async function handleTheoretical(url, env) {
   });
 }
 
+// ID Curtailment 页面：转发 vcom 仓库整年的 15 分钟 CSV 原文（不解析）。
+//   inverter  → data/inverter settle point/<年>/15min/<场站>.csv（列：Date, Active power [%]，PPC 有功功率设定值）
+//   id-inputs → data/id curtailment/<年>/<场站>.csv（手工输入：EB reference、aFRR、检修、历史 inverter 设定值）
+const VCOM_YEAR_CSV = {
+  irradiance: (y, name) => `data/irradiance/${y}/15min/${name}.csv`,        // 15-min POA / GHI per sensor (used by the workbook export)
+  inverter: (y, name) => `data/inverter settle point/${y}/15min/${name}.csv`,
+  "id-inputs": (y, name) => `data/id curtailment/${y}/${name}.csv`,
+};
+// 页面参数（DC 容量、AC 限值、损耗、按月 PR）：data/id curtailment/parameters.csv，原样转发
+async function handleIdParams(env) {
+  const text = await loadFile(env, "data/id curtailment/parameters.csv");
+  if (text === null) return json({ error: "parameters.csv not found" }, 404);
+  return new Response(text, {
+    headers: { "content-type": "text/csv; charset=utf-8", "Cache-Control": "private, no-store", "X-Robots-Tag": "noindex" },
+  });
+}
+async function handleVcomYearCsv(kind, url, env) {
+  const site = url.searchParams.get("site");
+  const year = url.searchParams.get("year") || "";
+  if (!SITES.includes(site)) return json({ error: `site must be one of ${SITES.join(" / ")}` }, 400);
+  if (!/^\d{4}$/.test(year) || Number(year) < FIRST_YEAR || Number(year) > FIRST_YEAR + 20)
+    return json({ error: `year must be ${FIRST_YEAR} or later` }, 400);
+  const text = await loadFile(env, VCOM_YEAR_CSV[kind](year, encodeURIComponent(site)));
+  if (text === null) return json({ error: "No data for this site / year" }, 404);
+  return new Response(text, {
+    headers: { "content-type": "text/csv; charset=utf-8", "Cache-Control": "private, no-store", "X-Robots-Tag": "noindex" },
+  });
+}
+
 // ── 运营数据（/ops/…）：独立的 token 和 Cookie，Cookie 只在 /ops 路径下发送 ──────────────
 const OPS_LOGIN = { action: "/ops/login", title: "Operations Access", sub: "Enter your operations access token" };
 
@@ -784,6 +813,17 @@ async function handleOps(request, env, url, path) {
     if (!env.GITHUB_TOKEN) return json({ error: "GITHUB_TOKEN is not configured" }, 500);
     try {
       return await handleTheoretical(url, env);
+    } catch (e) {
+      return json({ error: String(e.message || e) }, 502);
+    }
+  }
+
+  if (path === "/ops/api/inverter" || path === "/ops/api/id-inputs" || path === "/ops/api/id-params" || path === "/ops/api/irradiance") {
+    if (request.method !== "GET") return new Response("Method not allowed", { status: 405 });
+    if (!env.GITHUB_TOKEN) return json({ error: "GITHUB_TOKEN is not configured" }, 500);
+    try {
+      if (path === "/ops/api/id-params") return await handleIdParams(env);
+      return await handleVcomYearCsv(path === "/ops/api/inverter" ? "inverter" : path === "/ops/api/irradiance" ? "irradiance" : "id-inputs", url, env);
     } catch (e) {
       return json({ error: String(e.message || e) }, 502);
     }

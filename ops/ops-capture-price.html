@@ -53,6 +53,9 @@ tr.total td { font-weight: 700; background: #fafbfc; }
 .chart-card-controls label { font-size: 13px; font-weight: 600; color: #2c3e50; white-space: nowrap; }
 .ctrl-select { font-family: inherit; height: 36px; padding: 0 12px; border: 1px solid #ccc; border-radius: 6px; font-size: 14px; cursor: pointer; background: white; color: #2c3e50; }
 .ctrl-select:focus { outline: none; border-color: #2c3e50; }
+.ctrl-input { font-family: inherit; height: 36px; width: 92px; padding: 0 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 14px; background: white; color: #2c3e50; }
+.ctrl-input:focus { outline: none; border-color: #2c3e50; }
+.ctrl-input.invalid { border-color: #e74c3c; background: #fdf2f2; }
 .card-divider { border: none; border-top: 1px solid #e6e9ed; margin: 18px 0 16px; }
 .card-section-title { font-size: 13px; font-weight: 600; color: #6c757d; margin-bottom: 10px; display: flex; align-items: center; gap: 6px; }
 .card-section-title::before { content: ''; display: block; width: 3px; height: 14px; background: #2c3e50; border-radius: 2px; }
@@ -141,10 +144,10 @@ tr.total td { font-weight: 700; background: #fafbfc; }
       <div class="chart-card-controls" style="margin-bottom:18px;flex-wrap:nowrap;overflow-x:auto;">
         <div class="btn-group-inline" id="sumSite"></div>
         <label>Threshold</label>
-        <div class="btn-group-inline" id="sumThresh">
-          <button data-t="negative">Price &lt; 0</button>
-          <button class="active" data-t="nonpositive">Price &le; 0</button>
-        </div>
+        <span style="font-size:13px;color:#6c757d;">Price</span>
+        <select class="ctrl-select" id="sumOp" style="min-width:64px;"><option value="lt">&lt;</option><option value="le" selected>&le;</option></select>
+        <input class="ctrl-input" id="sumPrice" type="number" step="any" value="0" inputmode="decimal" title="Price threshold, EUR/MWh">
+        <span style="font-size:13px;color:#6c757d;">&euro;/MWh</span>
         <button class="export-btn" id="sumExport" style="margin-left:auto;flex-shrink:0;">Export CSV</button>
       </div>
       <div class="panels" id="panels"></div>
@@ -171,7 +174,7 @@ function syncUrl(o) {
   try { const p = new URLSearchParams(); for (const [k, v] of Object.entries(o)) if (v != null && v !== "") p.set(k, v);
     const q = p.toString(); history.replaceState(null, "", location.pathname + (q ? "?" + q : "") + location.hash); } catch (e) { /* the address bar is only a convenience */ }
 }
-const syncCp = () => syncUrl({ site: state.site, year: state.year, mode: state.mode, ssite: sum.site, thresh: sum.thresh });
+const syncCp = () => syncUrl({ site: state.site, year: state.year, mode: state.mode, ssite: sum.site, top: sum.op, tp: sum.price });
 const state = { site: "ALL", year: String(THIS_YEAR), mode: "price" };
 let charts = {}, price = null, gen = {}, met = {}, metErr = "", hoursCache = {}, last = {};
 
@@ -352,7 +355,7 @@ function paint() {
 
 /* ── Summary: tables with matching charts, two per row ────── */
 const MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-const sum = { site: 'Total', thresh: 'nonpositive' };
+const sum = { site: 'Total', op: 'le', price: 0 };   // economic curtailment when price < (op 'lt') or <= (op 'le') the threshold price, EUR/MWh
 const YEARS = []; for (let y = FIRST_YEAR; y <= THIS_YEAR; y++) YEARS.push(String(y));
 const YEAR_COLORS = ['#95a5a6', '#2980b9', '#e67e22', '#27ae60', '#8e44ad'];
 const PANELS = [  // key, title, chart type, decimals, unit, hide zero as dash, last-row label
@@ -366,13 +369,13 @@ const PANELS = [  // key, title, chart type, decimals, unit, hide zero as dash, 
 let lastSum = null, panelCharts = {};
 const nf = (v, d = 0) => v == null || isNaN(v) ? '<span style="color:#bbb">–</span>' : v.toLocaleString('en-US', { maximumFractionDigits: d, minimumFractionDigits: d });
 function sumAggregate(hours, year, month) {   // month 1-12, or 0 for the whole year
-  const negOnly = sum.thresh === 'negative';
+  const lt = sum.op === 'lt', P = sum.price;
   let sumPr = 0, cnt = 0, g = 0, gPost = 0, rev = 0;
   for (const h of hours) {
     if (!h.date.startsWith(year)) continue;
     if (month && +h.date.slice(5, 7) !== month) continue;
     sumPr += h.pr; cnt++;
-    const cut = negOnly ? h.pr < 0 : h.pr <= 0, gp = cut ? 0 : h.gen;
+    const cut = lt ? h.pr < P : h.pr <= P, gp = cut ? 0 : h.gen;
     g += h.gen; gPost += gp; rev += gp * h.pr;
   }
   const baseload = cnt ? sumPr / cnt : null, cap = gPost > 0 ? rev / gPost : null;
@@ -415,7 +418,7 @@ function paintSummary() {
   const prodMax = Math.max(0, ...data.slice(0, 12).flatMap(r => r.flatMap(d => [d.gen || 0, d.meter || 0])));
   const step = prodMax > 20000 ? 10000 : prodMax > 5000 ? 5000 : 1000, yMax = Math.max(step, Math.ceil(prodMax / step) * step);
   lastSum = data;
-  $('sumSubtitle').textContent = `${sum.site === 'Total' ? 'Total (all sites)' : sum.site} · curtailed when price ${sum.thresh === 'negative' ? '< 0' : '≤ 0'}`;
+  $('sumSubtitle').textContent = `${sum.site === 'Total' ? 'Total (all sites)' : sum.site} · curtailed when price ${sum.op === 'lt' ? '<' : '≤'} ${sum.price} €/MWh`;
   PANELS.forEach(([k, title, type, dec, unit, dashZero, lastLabel]) => {
     const cell = v => v == null || (dashZero && v < 0.5 && dec === 0) ? nf(null) : nf(v, dec);
     $("pt_" + k).innerHTML = '<tr><th></th>' + YEARS.map(y => `<th>${y}</th>`).join('') + '</tr>' +
@@ -441,7 +444,7 @@ function exportSummary() {
   const blob = new Blob(['\uFEFF' + rows.map(x => x.map(csvEscape).join(',')).join('\r\n')], { type: 'text/csv;charset=utf-8;' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
-  a.download = `ops_capture_summary_${sum.site === 'Total' ? 'total' : sum.site}_${sum.thresh}.csv`;
+  a.download = `ops_capture_summary_${sum.site === 'Total' ? 'total' : sum.site}_price_${sum.op}_${sum.price}.csv`;
   document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(a.href);
 }
 
@@ -469,7 +472,10 @@ async function init() {
   const qy = qget("year", v => /^\d{4}$/.test(v) && +v >= FIRST_YEAR && +v <= THIS_YEAR); if (qy) state.year = qy;
   const qm = qget("mode", v => v === "price" || v === "ratio"); if (qm) state.mode = qm;
   const qss = qget("ssite", v => v === "Total" || SITES.includes(v)); if (qss) sum.site = qss;
-  const qt = qget("thresh", v => v === "negative" || v === "nonpositive"); if (qt) sum.thresh = qt;
+  const qt = qget("thresh", v => v === "negative" || v === "nonpositive");   // old links: Price < 0 / Price <= 0
+  if (qt) { sum.op = qt === "negative" ? "lt" : "le"; sum.price = 0; }
+  const qo = qget("top", v => v === "lt" || v === "le"); if (qo) sum.op = qo;
+  const qp = qget("tp", v => v.trim() !== "" && Number.isFinite(+v)); if (qp) sum.price = +qp;
   $("sites").innerHTML = ["ALL", ...SITES].map(s => `<button data-s="${s}">${s === "ALL" ? "All sites" : s}</button>`).join("");
   $("sites").onclick = e => { const b = e.target.closest("button"); if (!b) return; state.site = b.dataset.s; paint(); };
   $("modeGroup").onclick = e => { const b = e.target.closest("button"); if (!b) return; state.mode = b.dataset.mode; paint(); };
@@ -479,9 +485,14 @@ async function init() {
   $("exportBtn").onclick = exportCSV;
   $("sumSite").innerHTML = [...SITES, "Total"].map(n => `<button data-s="${n}">${n}</button>`).join("");
   $("sumSite").onclick = e => { const b = e.target.closest("button"); if (!b) return; sum.site = b.dataset.s; paintSummary(); };
-  $("sumThresh").onclick = e => { const b = e.target.closest("button"); if (!b) return; sum.thresh = b.dataset.t;
-    document.querySelectorAll("#sumThresh button").forEach(x => x.classList.toggle("active", x === b)); paintSummary(); };
-  document.querySelectorAll("#sumThresh button").forEach(x => x.classList.toggle("active", x.dataset.t === sum.thresh));
+  $("sumOp").value = sum.op; $("sumPrice").value = String(sum.price);
+  $("sumOp").onchange = e => { sum.op = e.target.value; paintSummary(); };
+  $("sumPrice").oninput = e => {   // only a valid number changes the result; anything else is flagged and ignored
+    const s = e.target.value.trim(), v = +s, ok = s !== "" && Number.isFinite(v);
+    e.target.classList.toggle("invalid", !ok);
+    if (ok) { sum.price = v; paintSummary(); }
+  };
+  $("sumPrice").onblur = e => { e.target.value = String(sum.price); e.target.classList.remove("invalid"); };
   $("sumExport").onclick = exportSummary;
   CHARTS.forEach(([freq, id]) => { charts[freq] = echarts.init($(id)); });
   buildPanels();

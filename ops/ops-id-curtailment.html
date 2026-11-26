@@ -191,7 +191,7 @@ async function loadSite(site, years) {
     getText(`/ops/api/inverter?${q(y)}`).then(t => { if (t) parseCsv(t, { v: h => h.includes("[%]") }).forEach((r, k) => d.inv.set(k, r.v)); else n.inverter.push(y); }),
     getText(`/ops/api/id-inputs?${q(y)}`).then(t => {
       if (!t) { n.inputs.push(y); return; }
-      parseCsv(t, { ref: h => h.startsWith("EB reference"), af: h => h.startsWith("aFRR"), mt: h => h.startsWith("Tech maintenance"), spf: h => h.startsWith("Inverter setpoint") })
+      parseCsv(t, { ref: h => h.startsWith("EB reference"), af: h => h.startsWith("aFRR"), mt: h => h.startsWith("Tech maintenance") })
         .forEach((r, k) => d.inp.set(k, r));
     }),
   ]));
@@ -217,7 +217,7 @@ function computeSite(site, year) {
     const inp = d.inp.get(k) || {};
     const ref = inp.ref || 0, af = inp.af || 0, mt = inp.mt || 0;
     const pr = price.get(k), econ = pr === undefined || pr <= 0 ? W : 0;        // economic curtailment = W (an empty price counts as <= 0, as in the workbook)
-    let sp = d.inv.get(k); if (sp === undefined) sp = inp.spf;
+    const sp = d.inv.get(k);
     const U = sp === undefined ? 0 : (W <= sp * P.cap / 100 ? 0 : W - sp * P.cap / 100);   // inverter actions (MWh)
     const rem = sp > SETPOINT_LIMIT ? 0 : W - af - mt - M - econ;               // an empty setpoint is not > 95 -> calculated
     recs.push({ k, date: k.slice(0, 10), T: W, M, ref, af, mt, econ, U, rem });

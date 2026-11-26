@@ -354,7 +354,7 @@ token 只在服务端，不会发给浏览器；数据不会进入本仓库，�
 - Tolerance（图右上角输入框，默认 1 MWh，对应工作簿 BM–BO 列的阈值，三个场站共用，网址参数 `tol`）：只有 15 分钟 Remaining > tolerance 的时段才计入（工作簿的 “check” 标记和 BQ–BS 列），图和汇总表里的 Remaining 都随它变化；Remaining (%) = 计入的 Remaining / W，同样随 tolerance 变化。
 - 图：柱子是每个周期内 15 分钟 Remaining 的正值之和（蓝）/ 负值之和（橙），折线是净值；正值 = 扣掉所有可解释的限电后还有余量。
 - 数据：POA 取 `/ops/api/theoretical`（vcom 理论发电量 CSV 的 `POA avg` 列）、表计 `/ops/api/metered`、inverter 设定值 `/ops/api/inverter`、日前价 `/ops/api/price`（HU 列）。
-- 手工输入：`/ops/api/id-inputs` 转发 vcom 仓库 `data/id curtailment/<年>/<场站>.csv`，列 `Date, EB reference [MWh], aFRR [MWh], Tech maintenance [MWh], Inverter setpoint fallback [%]`；最后一列是 vcom inverter 数据开始之前（2026-01~09）的历史设定值，vcom 有值时优先用 vcom。
+- 手工输入：`/ops/api/id-inputs` 转发 vcom 仓库 `data/id curtailment/<年>/<场站>.csv`，列 `Date, EB reference [MWh], aFRR [MWh], Tech maintenance [MWh]`。
 - 网址参数：`site`（`ALL` 或场站名）、`year`、`freq`（`daily|weekly|monthly`）。
 
 **Ops 页面的网址参数**（Overview / Capture Price / Imbalance 三个页面）：页面上的选择会同步写进地址栏（`history.replaceState`，不增加浏览器历史记录），打开带参数的链接时按参数恢复；缺少或不合法的参数忽略，用默认值。链接里只有选择，没有数据，打开仍要登录 ops。

@@ -292,7 +292,7 @@ function renderTable() {
   }
   sumRows.push(["Year", tot]);
   const cell = (k, a) => {
-    const v = k === "net" ? a.pos + a.neg : k === "pct" ? (a.T ? (a.T - a.econ - a.M - a.mt - a.af - a.U) / a.T * 100 : null) : a[k];
+    const v = k === "net" ? a.pos + a.neg : k === "pct" ? (a.T ? (a.pos + a.neg) / a.T * 100 : null) : a[k];
     const cls = k === "net" || k === "pct" ? (v > 0.05 ? "pos" : v < -0.05 ? "neg" : "") : "";
     return `<td class="${cls}">${k === "pct" ? (v == null ? "–" : v.toFixed(1) + "%") : fmt(v)}</td>`;
   };
@@ -314,7 +314,7 @@ $("exportBtn").onclick = () => {
   const lines = [`# ${state.site} ${state.year} ${state.freq} (MWh)`, ["Period", "Theoretical", "EB reference", "Meter", "aFRR", "Maintenance", "Economic", "Inverter actions", "Remaining +", "Remaining -", "Net"].join(",")];
   rows.forEach(([k, a]) => lines.push([k, a.T, a.ref, a.M, a.af, a.mt, a.econ, a.U, a.pos, a.neg, a.pos + a.neg].map(v => typeof v === "number" ? +v.toFixed(4) : v).join(",")));
   lines.push("", "# Monthly summary", ["Month", ...COLS.map(c => c[1])].join(","));
-  sumRows.forEach(([n, a]) => lines.push([n, ...COLS.map(c => c[0] === "net" ? a.pos + a.neg : c[0] === "pct" ? (a.T ? (a.T - a.econ - a.M - a.mt - a.af - a.U) / a.T * 100 : "") : a[c[0]])].map(v => typeof v === "number" ? +v.toFixed(4) : v).join(",")));
+  sumRows.forEach(([n, a]) => lines.push([n, ...COLS.map(c => c[0] === "net" ? a.pos + a.neg : c[0] === "pct" ? (a.T ? (a.pos + a.neg) / a.T * 100 : "") : a[c[0]])].map(v => typeof v === "number" ? +v.toFixed(4) : v).join(",")));
   const url = URL.createObjectURL(new Blob(["﻿" + lines.join("\n")], { type: "text/csv;charset=utf-8" }));
   const a = document.createElement("a"); a.href = url; a.download = `id-curtailment_${state.site === "ALL" ? "all" : state.site.replace(/\s+/g, "_")}_${state.year}_${state.freq}.csv`; a.click(); URL.revokeObjectURL(url);
 };

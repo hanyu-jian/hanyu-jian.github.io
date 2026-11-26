@@ -349,9 +349,9 @@ token 只在服务端，不会发给浏览器；数据不会进入本仓库，�
 - 每个 15 分钟：`E = max(0, POA) / 1000 × DC × 当月PR / 4`；`W = min(E × (1 − 损耗), AC限值)`（工作簿「DC-to-AC」列）；`经济性限电 = E`（日前价 ≤ 0，价格为空也算）；
   `Inverter actions U = max(0, W − 设定值% × AC限值)`（设定值为空记 0）；
   `Remaining (MWh) = 0`（设定值 > 95 %），否则 `W − aFRR − 检修 − 表计 − 经济性限电`（设定值为空照常计算）；
-  汇总表 `Remaining (%) = (W − 经济性限电 − 表计 − 检修 − aFRR − U) / W`（用周期内合计值，对应工作簿 Remaining % 列）。
+  汇总表 `Remaining (%) = 计入的 Remaining / W`（周期内合计值；工作簿 Remaining % 列的原公式是 (W − 经济性限电 − 表计 − 检修 − aFRR − U) / W，不含 tolerance）。
   表计为空记 0；只算到最后一个有表计读数的时段。
-- Tolerance（图右上角输入框，默认 1 MWh，对应工作簿 BM–BO 列的阈值，三个场站共用，网址参数 `tol`）：只有 15 分钟 Remaining > tolerance 的时段才计入（工作簿的 “check” 标记和 BQ–BS 列），图和汇总表里的 Remaining 都随它变化；Remaining (%) 按工作簿公式不受 tolerance 影响。
+- Tolerance（图右上角输入框，默认 1 MWh，对应工作簿 BM–BO 列的阈值，三个场站共用，网址参数 `tol`）：只有 15 分钟 Remaining > tolerance 的时段才计入（工作簿的 “check” 标记和 BQ–BS 列），图和汇总表里的 Remaining 都随它变化；Remaining (%) = 计入的 Remaining / W，同样随 tolerance 变化。
 - 图：柱子是每个周期内 15 分钟 Remaining 的正值之和（蓝）/ 负值之和（橙），折线是净值；正值 = 扣掉所有可解释的限电后还有余量。
 - 数据：POA 取 `/ops/api/theoretical`（vcom 理论发电量 CSV 的 `POA avg` 列）、表计 `/ops/api/metered`、inverter 设定值 `/ops/api/inverter`、日前价 `/ops/api/price`（HU 列）。
 - 手工输入：`/ops/api/id-inputs` 转发 vcom 仓库 `data/id curtailment/<年>/<场站>.csv`，列 `Date, EB reference [MWh], aFRR [MWh], Tech maintenance [MWh], Inverter setpoint fallback [%]`；最后一列是 vcom inverter 数据开始之前（2026-01~09）的历史设定值，vcom 有值时优先用 vcom。

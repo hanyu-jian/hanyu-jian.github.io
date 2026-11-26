@@ -338,7 +338,44 @@ function parsePoa(text) {
   const maps = parseCsv(text, Object.fromEntries(idx.slice(0, 3).map((i, n) => ["p" + n, h => h === head[i]])));
   return { names, get: (k, n) => { const r = maps.get(k); return r ? r["p" + n] : undefined; } };
 }
-function sheetRowsHead(irr) {
+// A formula cell with its cached result, so viewers that do not recalculate (Protected View, previews, phones) still show the values.
+function fvCell(ref, s, f, v) {
+  const a = `<c r="${ref}"${sA(s)}`, ft = `<f>${xesc(f)}</f>`;
+  if (typeof v === "number") return `${a}>${ft}<v>${Number.isFinite(v) ? v : 0}</v></c>`;
+  if (typeof v === "boolean") return `${a} t="b">${ft}<v>${v ? 1 : 0}</v></c>`;
+  return `${a} t="str">${ft}<v>${xesc(v == null ? "" : v)}</v></c>`;
+}
+// One 15-min row: the values of every column (same arithmetic as the Excel formulas written next to them).
+function calcRow(i, key, irr, lastKey, priceCut) {
+  const R = {}, mo = +key.slice(5, 7), loss = state.loss / 100, tol = state.tol;
+  R.A = mo; R.B = +key.slice(8, 10); R.C = +key.slice(11, 13) + 1; R.D = X.serial0 + i / 96;
+  const pr = key <= priceCut ? price.get(key) : undefined; if (pr !== undefined) R.AY = pr;
+  let any = false;
+  SITES.forEach((s, si) => {
+    const d = data[s], P = params[s], on = key <= lastKey[s], g = n => SC[n][si];
+    const p = [0, 1, 2].map(k => on ? irr[s].get(key, k) : undefined);
+    p.forEach((v, k) => { if (v !== undefined) R[SC.poa[si][k]] = v; });
+    const pv = p.filter(v => v !== undefined);
+    const th = pv.length === 0 ? "" : Math.max(0, pv.reduce((x, y) => x + y, 0) / pv.length) / 1000 * P.dc * P.pr[mo - 1] / 4;
+    const irrV = th === "" ? 0 : th, e = irrV * (1 - loss), w = e > P.cap ? P.cap : e;
+    const inp = on ? (d.inp.get(key) || {}) : {}, sp = on ? d.inv.get(key) : undefined, me = on ? d.me.get(key) : undefined;
+    if (inp.ref !== undefined) R[g("ref")] = inp.ref;
+    if (inp.af !== undefined) R[g("af")] = inp.af;
+    if (inp.mt !== undefined) R[g("mt")] = inp.mt;
+    if (sp !== undefined) R[g("sp")] = sp;
+    if (me !== undefined) R[g("me")] = me;
+    const lim = sp === undefined ? 0 : (w <= sp * P.cap / 100 ? 0 : w - P.cap * sp / 100);
+    const econ = pr === undefined || pr <= 0 ? w : 0;
+    const rem = sp !== undefined && sp > SETPOINT_LIMIT ? 0 : w - (inp.af || 0) - (inp.mt || 0) - (me || 0) - econ;
+    const chk = rem > tol ? "check" : "", flag = chk === "check" ? rem : "";
+    if (chk) any = true;
+    Object.assign(R, { [g("th")]: th, [g("irr")]: irrV, [g("w")]: w, [g("u")]: lim, [g("econ")]: econ, [g("rem")]: rem, [g("chk")]: chk, [g("flag")]: flag,
+      [g("pct")]: w === 0 ? "" : (flag === "" ? 0 : flag) / w, [g("eur")]: flag === "" ? "" : flag * (pr === undefined ? 0 : pr) });
+  });
+  R.BP = any;
+  return R;
+}
+function sheetRowsHead(irr, T) {
   const sumRow5 = new Set(SUM_COLS.filter(c => !SC.chk.includes(c))), out = [];
   const LASTR = X.last;
   for (let r = 1; r <= 8; r++) {
@@ -346,17 +383,16 @@ function sheetRowsHead(irr) {
     for (const [c, s, v] of row.cells) {
       const ref = c + r; let cell;
       if (r === 5) {
-        if (sumRow5.has(c)) cell = fCell(ref, s, `SUM(${c}9:${c}${LASTR})`);
+        if (sumRow5.has(c)) cell = fvCell(ref, s, `SUM(${c}9:${c}${LASTR})`, T.total[c]);
         else if (SC.chk.includes(c)) cell = numCell(ref, s, state.tol);
         else cell = blankCell(ref, s);
       } else if (r === 6) {
-        const si = [0, 1, 2];
         const pi = SC.poa.flat().indexOf(c);
         if (pi >= 0) cell = strCell(ref, s, xesc(irr[SITES[Math.floor(pi / 3)]].names[pi % 3]));
         else if (SC.irr.includes(c)) cell = numCell(ref, s, state.loss / 100);
         else if (SC.w.includes(c)) cell = numCell(ref, s, params[SITES[SC.w.indexOf(c)]].cap);
-        else if (SC.ref.includes(c)) cell = fCell(ref, s, `${c}5-${SC.me[SC.ref.indexOf(c)]}5`);
-        else if (SC.u.includes(c)) cell = fCell(ref, s, `${SC.w[SC.u.indexOf(c)]}6`);
+        else if (SC.ref.includes(c)) { const m = SC.me[SC.ref.indexOf(c)]; cell = fvCell(ref, s, `${c}5-${m}5`, T.total[c] - T.total[m]); }
+        else if (SC.u.includes(c)) cell = fvCell(ref, s, `${SC.w[SC.u.indexOf(c)]}6`, params[SITES[SC.u.indexOf(c)]].cap);
         else cell = blankCell(ref, s);
       } else if (v == null) cell = blankCell(ref, s);
       else if (typeof v === "number") cell = numCell(ref, s, r === 1 ? X.year : v);
@@ -367,41 +403,37 @@ function sheetRowsHead(irr) {
   }
   return out;
 }
-function sheetRowsTail() {
-  const L = X.last, out = [], rows = [];
+function sheetRowsTail(T) {
+  const L = X.last, out = [];
   const sub = L + 2;   // subtotal row, then the 12 month rows two lines below (same offsets as the original workbook)
   let cells = strCell("D" + sub, TPL.subStyle.D, "Subtotal");
-  for (const c of SUM_COLS) cells += fCell(c + sub, TPL.subStyle[c], `SUBTOTAL(9,${c}9:${c}${L})`);
-  SC.pct.forEach((c, i) => { cells += fCell(c + sub, TPL.subStyle[c], `IFERROR(${SC.flag[i]}${sub}/${SC.w[i]}${sub},"")`); });
+  for (const c of SUM_COLS) cells += fvCell(c + sub, TPL.subStyle[c], `SUBTOTAL(9,${c}9:${c}${L})`, T.total[c]);
+  SC.pct.forEach((c, i) => { const w = T.total[SC.w[i]]; cells += fvCell(c + sub, TPL.subStyle[c], `IFERROR(${SC.flag[i]}${sub}/${SC.w[i]}${sub},"")`, w ? T.total[SC.flag[i]] / w : ""); });
   out.push(`<row r="${sub}">${cells}</row>`);
   for (let m = 0; m < 12; m++) {
-    const r = L + 4 + m;
+    const r = L + 4 + m, M = T.m[m];
     let t = numCell("A" + r, null, m + 1);                      // fixed 1-12: the month of this subtotal row
-    for (const c of SUM_COLS) t += fCell(c + r, TPL.monStyle[c], `SUMIF($A$7:$A$${L + 1},$A${r},${c}$7:${c}$${L + 1})`);
-    SC.pct.forEach((c, i) => { t += fCell(c + r, TPL.monStyle[c], `IFERROR(${SC.flag[i]}${r}/${SC.w[i]}${r},"")`); });
+    for (const c of SUM_COLS) t += fvCell(c + r, TPL.monStyle[c], `SUMIF($A$7:$A$${L + 1},$A${r},${c}$7:${c}$${L + 1})`, M[c]);
+    SC.pct.forEach((c, i) => { const w = M[SC.w[i]]; t += fvCell(c + r, TPL.monStyle[c], `IFERROR(${SC.flag[i]}${r}/${SC.w[i]}${r},"")`, w ? M[SC.flag[i]] / w : ""); });
     out.push(`<row r="${r}">${t}</row>`);
   }
   return out;
 }
-function dataSpecs(irr, lastKey, priceCut) {
+// Cell layout of a data row: column, style and (for formula columns) the formula text. Every formula is written out in full (no shared formulas).
+function dataSpecs() {
   const specs = [], st = c => TPL.dataStyle[c], PRC = ["B", "C", "D"];
-  specs.push({ c: "A", f: r => `MONTH(D${r})` }, { c: "B", f: r => `DAY(D${r})` }, { c: "C", f: r => `HOUR(D${r})+1` },
-    { c: "D", s: st("D"), v: i => X.serial0 + i / 96 });
+  specs.push({ c: "A", f: r => `MONTH(D${r})` }, { c: "B", f: r => `DAY(D${r})` }, { c: "C", f: r => `HOUR(D${r})+1` }, { c: "D", s: st("D") });
   SITES.forEach((s, si) => {
-    const d = data[s], last = lastKey[s], g = n => SC[n][si];
-    const inLast = (key, fn) => key <= last ? fn() : undefined;
-    for (let k = 0; k < 3; k++) specs.push({ c: SC.poa[si][k], s: st(SC.poa[si][k]), v: (i, key) => inLast(key, () => irr[s].get(key, k)) });
+    const g = n => SC[n][si];
+    for (let k = 0; k < 3; k++) specs.push({ c: SC.poa[si][k], s: st(SC.poa[si][k]) });
     const a = SC.poa[si][0], z = SC.poa[si][2], pc = PRC[si];
     specs.push(
       { c: g("th"), s: st(g("th")), f: r => `IF(COUNT(${a}${r}:${z}${r})=0,"",MAX(0,AVERAGE(${a}${r}:${z}${r}))/1000*PR_Capacity!${pc}$5*INDEX(PR_Capacity!${pc}$8:${pc}$19,$A${r})/4)` },
       { c: g("irr"), s: st(g("irr")), f: r => `N(${g("th")}${r})` },
       { c: g("w"), s: st(g("w")), f: r => `IF((${g("irr")}${r}*(1-$${g("irr")}$6))>$${g("w")}$6,$${g("w")}$6,${g("irr")}${r}*(1-$${g("irr")}$6))` },
-      { c: g("ref"), s: st(g("ref")), v: (i, key) => inLast(key, () => (d.inp.get(key) || {}).ref) },
-      { c: g("sp"), s: st(g("sp")), v: (i, key) => inLast(key, () => d.inv.get(key)) },
+      { c: g("ref"), s: st(g("ref")) }, { c: g("sp"), s: st(g("sp")) },
       { c: g("u"), s: st(g("u")), f: r => { const sp = g("sp") + r, w = g("w") + r, cap = `$${g("u")}$6`; return `IF(${sp}="",0,(${w}<=(${sp}*${cap}/100))*0+(${w}>(${sp}*${cap}/100))*(-${cap}*${sp}/100+${w}))`; } },
-      { c: g("af"), s: st(g("af")), v: (i, key) => inLast(key, () => (d.inp.get(key) || {}).af) },
-      { c: g("mt"), s: st(g("mt")), v: (i, key) => inLast(key, () => (d.inp.get(key) || {}).mt) },
-      { c: g("me"), s: st(g("me")), v: (i, key) => inLast(key, () => d.me.get(key)) },
+      { c: g("af"), s: st(g("af")) }, { c: g("mt"), s: st(g("mt")) }, { c: g("me"), s: st(g("me")) },
       { c: g("econ"), s: st(g("econ")), f: r => `IF(AY${r}<=0,${g("w")}${r},0)` },
       { c: g("pct"), s: st(g("pct")), f: r => `IFERROR(IF(${g("flag")}${r}="",0,${g("flag")}${r})/${g("w")}${r},"")` },
       { c: g("rem"), s: st(g("rem")), f: r => `IF(${g("sp")}${r}>95,0,${g("w")}${r}-${g("af")}${r}-${g("mt")}${r}-${g("me")}${r}-${g("econ")}${r})` },
@@ -409,10 +441,8 @@ function dataSpecs(irr, lastKey, priceCut) {
       { c: g("flag"), s: st(g("flag")), f: r => `IF(${g("chk")}${r}="check",${g("rem")}${r},"")` },
       { c: g("eur"), s: st(g("eur")), f: r => `IFERROR(${g("flag")}${r}*AY${r},"")` });
   });
-  specs.push({ c: "AY", s: st("AY"), v: (i, key) => key <= priceCut ? price.get(key) : undefined },
-    { c: "BP", f: r => `OR(BM${r}="check",BN${r}="check",BO${r}="check")` });
+  specs.push({ c: "AY", s: st("AY") }, { c: "BP", f: r => `OR(BM${r}="check",BN${r}="check",BO${r}="check")` });
   specs.sort((p, q) => colIdx(p.c) - colIdx(q.c));
-  specs.forEach((sp, n) => { sp.si = n; });
   return specs;
 }
 function prSheet() {
@@ -433,7 +463,7 @@ async function buildWorkbook(year, irr) {
   const slot = []; for (let q = 0; q < 96; q++) slot.push(String(q >> 2).padStart(2, "0") + ":" + String((q & 3) * 15).padStart(2, "0"));
   const lastKey = {}; let priceCut = "";
   SITES.forEach(s => { let l = ""; for (const k of data[s].me.keys()) if (k.startsWith(String(year)) && k > l) l = k; lastKey[s] = l; if (l > priceCut) priceCut = l; });
-  const specs = dataSpecs(irr, lastKey, priceCut), enc = new TextEncoder();
+  const specs = dataSpecs(), enc = new TextEncoder();
   const chunks = []; let done; const finished = new Promise(res => { done = res; });
   const zip = new fflate.Zip((err, chunk, final) => { if (err) throw err; chunks.push(chunk); if (final) done(new Blob(chunks, { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" })); });
   const addSmall = (name, text) => { const f = new fflate.ZipDeflate(name, { level: 6 }); zip.add(f); f.push(enc.encode(text), true); };
@@ -447,23 +477,30 @@ async function buildWorkbook(year, irr) {
   const sheet = new fflate.ZipDeflate("xl/worksheets/sheet1.xml", { level: 3 }); zip.add(sheet);
   const push = (str, final = false) => sheet.push(enc.encode(str), final);
   push(`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><dimension ref="A1:BW${X.last + 15}"/><sheetViews><sheetView tabSelected="1" zoomScale="60" zoomScaleNormal="60" workbookViewId="0"><pane xSplit="4" ySplit="8" topLeftCell="E9" activePane="bottomRight" state="frozen"/><selection pane="topRight"/><selection pane="bottomLeft"/><selection pane="bottomRight" activeCell="E9" sqref="E9"/></sheetView></sheetViews><sheetFormatPr defaultColWidth="9" defaultRowHeight="14"/>${TPL.cols}<sheetData>`);
-  push(sheetRowsHead(irr).join(""));
+  const T = { total: {}, m: Array.from({ length: 12 }, () => ({})) };           // pass 1: values and totals (needed for the cached results of the sum rows)
+  SUM_COLS.forEach(c => { T.total[c] = 0; T.m.forEach(M => { M[c] = 0; }); });
+  const rows = new Array(N), keyOf = i => dayStr[(i / 96) | 0] + " " + slot[i % 96];
+  for (let i = 0; i < N; i++) {
+    const R = calcRow(i, keyOf(i), irr, lastKey, priceCut); rows[i] = R;
+    for (const c of SUM_COLS) { const v = R[c]; if (typeof v === "number") { T.total[c] += v; T.m[R.A - 1][c] += v; } }
+  }
+  push(sheetRowsHead(irr, T).join(""));
   const BATCH = 800;
   for (let r0 = 9; r0 <= X.last; r0 += BATCH) {
     let buf = "";
     for (let r = r0; r < Math.min(r0 + BATCH, X.last + 1); r++) {
-      const i = r - 9, key = dayStr[(i / 96) | 0] + " " + slot[i % 96]; let row = `<row r="${r}">`;
+      const i = r - 9, R = rows[i]; let row = `<row r="${r}">`;
       for (const sp of specs) {
-        const ref = sp.c + r;
-        if (sp.f) row += r === 9 ? `<c r="${ref}"${sA(sp.s)}><f t="shared" ref="${sp.c}9:${sp.c}${X.last}" si="${sp.si}">${xesc(sp.f(9))}</f></c>` : `<c r="${ref}"${sA(sp.s)}><f t="shared" si="${sp.si}"/></c>`;
-        else { const v = sp.v(i, key); if (v !== undefined && Number.isFinite(v)) row += `<c r="${ref}"${sA(sp.s)}><v>${v}</v></c>`; }
+        const ref = sp.c + r, v = R[sp.c];
+        if (sp.f) row += fvCell(ref, sp.s, sp.f(r), v);
+        else if (typeof v === "number" && Number.isFinite(v)) row += `<c r="${ref}"${sA(sp.s)}><v>${v}</v></c>`;
       }
       buf += row + "</row>";
     }
     push(buf);
     await new Promise(res => setTimeout(res, 0));
   }
-  push(sheetRowsTail().join("") + `</sheetData><autoFilter ref="A8:BW${X.last}"/><mergeCells count="3"><mergeCell ref="BM2:BO2"/><mergeCell ref="BQ2:BS2"/><mergeCell ref="BU2:BW2"/></mergeCells><pageMargins left="0.7" right="0.7" top="0.75" bottom="0.75" header="0.3" footer="0.3"/></worksheet>`, true);
+  push(sheetRowsTail(T).join("") + `</sheetData><autoFilter ref="A8:BW${X.last}"/><mergeCells count="3"><mergeCell ref="BM2:BO2"/><mergeCell ref="BQ2:BS2"/><mergeCell ref="BU2:BW2"/></mergeCells><pageMargins left="0.7" right="0.7" top="0.75" bottom="0.75" header="0.3" footer="0.3"/></worksheet>`, true);
   zip.end();
   return finished;
 }

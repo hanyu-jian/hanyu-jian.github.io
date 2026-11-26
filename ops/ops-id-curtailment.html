@@ -96,7 +96,6 @@ tr.total td { font-weight: 700; background: #fafbfc; }
           <label>Year</label>
           <select class="ctrl-select" id="yearSelect"></select>
           <button class="export-btn" id="xlsxBtn">Export XLSX</button>
-          <button class="export-btn" id="exportBtn">Export CSV</button>
         </div>
       </div>
       <div id="chart" style="width:100%;height:480px;"></div>
@@ -315,17 +314,6 @@ function renderStatus() {
   $("status").innerHTML = noInputs.length ? `<span class="warn">No manual input file for ${state.year} (${noInputs.join(", ")}): EB reference, aFRR and maintenance count as 0.</span>` : "&nbsp;";
 }
 
-/* ── Export ──────────────────────────────────────────────── */
-$("exportBtn").onclick = () => {
-  const rows = renderChart();
-  const lines = [`# ${state.site} ${state.year} ${state.freq} (MWh)`, ["Period", "Theoretical", "EB reference", "Meter", "aFRR", "Maintenance", "Economic", "Inverter actions", "Remaining +", "Remaining -", "Net"].join(",")];
-  rows.forEach(([k, a]) => lines.push([k, a.T, a.ref, a.M, a.af, a.mt, a.econ, a.U, a.pos, a.neg, a.pos + a.neg].map(v => typeof v === "number" ? +v.toFixed(4) : v).join(",")));
-  lines.push("", "# Monthly summary", ["Month", ...COLS.map(c => c[1])].join(","));
-  sumRows.forEach(([n, a]) => lines.push([n, ...COLS.map(c => c[0] === "net" ? a.pos + a.neg : c[0] === "pct" ? (a.T ? (a.pos + a.neg) / a.T * 100 : "") : a[c[0]])].map(v => typeof v === "number" ? +v.toFixed(4) : v).join(",")));
-  const url = URL.createObjectURL(new Blob(["﻿" + lines.join("\n")], { type: "text/csv;charset=utf-8" }));
-  const a = document.createElement("a"); a.href = url; a.download = `id-curtailment_${state.site === "ALL" ? "all" : state.site.replace(/\s+/g, "_")}_${state.year}_${state.freq}.csv`; a.click(); URL.revokeObjectURL(url);
-};
-
 /* ── Workbook export: the ID curtailment workbook layout with live Excel formulas, filled with the data and parameters of this page ── */
 const TPL = {"styles":"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","theme":"eNq9lt1umzAYhs8n7R4sn6/m/ydqUqVLoh3sR1q7C3DBEFpjEHbb5e5nDAUTyNpppImU4I/H7+vP/my4vPqdU/BEKp4VbAnNCwMCwqIizli6hL9ud58CCLjALMa0YGQJD4TDq9XHD5d4IfYkJ0D2Z3yBl3AvRLlAiEcyjPlFURIm7yVFlWMhm1WK4go/S92cIsswPJTjjEHAcC5lfyRJFhFwW0vC1Yv4lsofJngdiGh1EylHvYdi4wez/uNVeveZVuAJ0yU01Aei1SXqACrG3E59Wq4F4gdrrLe1Asfs9KxGb8xtg/rb6SkAR5HMYuxtup4RWC2rQc3lhHbom/aQ1/TtsX7oXVvOgLd73hnnuAu3G3fAOz3vjvi1YV2H9oB3e94b8c527VvbAa+gPc3Yw5j2/CDwWrpDkoJ+mcRDzzP8TYv3FNIqp+nPxKk6yvF9Ue0koBYXi4wBcShJgiPJrUtRcLDJeEnxobbBC4K1+00o4kchdCSbZ+w1j++4qornf7PoVZGeo8o4HyasUk0ySm/EgZKvXI2EFzSLdzKoGgrvZrbcy8vWaMClFe6veauUclAWXBYTPCmlUn/MvxVxW6fmy16V+z5jool6fr+BOxnVSrlu5KrObzcz3Akz336bmWnM4RaYf3ND2mzKIga4Popdp3EGPMKUxPX8tqKU/CSRaMQGKzLX6hjWRAqhc6bV6UuB73FMjsMzr08YTtn5wdnXB433IGXDFniW+Vh+LRrhcgkTeVzIy7yU6pylEGCaymd2JJq0yoqLDeb7JgW1UZsh5JkgFaBZLgtPn0fKNJ9QFuo7+Fj1PJ3RBx1PI0kSOfsnIn1T3mtEJu/OD6Opkd2luzmO5dc7HW1l91S1z3baa2b21IYLgy46ffT8/ymjDSGYHIJxYggzPhk0O89+jyPmuKKQ9jqgWqPX7OLuXkpt5OvFIxUc9dDqD9gX40Y=","cols":"<cols><col min=\"1\" max=\"3\" width=\"5.75\" style=\"3\" customWidth=\"1\"/><col min=\"4\" max=\"4\" width=\"12.3333333333333\" style=\"3\" customWidth=\"1\"/><col min=\"5\" max=\"13\" width=\"8.5\" style=\"3\" customWidth=\"1\"/><col min=\"14\" max=\"14\" width=\"3\" style=\"3\" customWidth=\"1\"/><col min=\"15\" max=\"17\" width=\"9.5\" style=\"3\" customWidth=\"1\"/><col min=\"19\" max=\"21\" width=\"8.5\" customWidth=\"1\"/><col min=\"26\" max=\"26\" width=\"8.66666666666667\" style=\"3\" customWidth=\"1\"/><col min=\"27\" max=\"27\" width=\"8.66666666666667\" style=\"4\" customWidth=\"1\"/><col min=\"28\" max=\"28\" width=\"9\" style=\"4\"/><col min=\"29\" max=\"29\" width=\"8.66666666666667\" style=\"4\" customWidth=\"1\"/><col min=\"31\" max=\"33\" width=\"9\" style=\"3\" customWidth=\"1\"/><col min=\"34\" max=\"38\" width=\"9\" style=\"3\"/><col min=\"39\" max=\"39\" width=\"9.75\" style=\"4\" customWidth=\"1\"/><col min=\"40\" max=\"41\" width=\"9\" style=\"4\"/><col min=\"42\" max=\"42\" width=\"9\" style=\"3\"/><col min=\"43\" max=\"45\" width=\"9\" style=\"5\"/><col min=\"46\" max=\"46\" width=\"8.83333333333333\" style=\"6\" customWidth=\"1\"/><col min=\"47\" max=\"49\" width=\"9.41666666666667\" style=\"3\" customWidth=\"1\"/><col min=\"57\" max=\"57\" width=\"9.25\" style=\"3\" customWidth=\"1\"/><col min=\"73\" max=\"73\" width=\"11.4166666666667\" customWidth=\"1\"/><col min=\"74\" max=\"75\" width=\"9.25\" customWidth=\"1\"/></cols>","head":{"1":{"attrs":"s=\"1\" customFormat=\"1\" spans=\"1:75\"","cells":[["E",1,2026.0],["O",1,2026.0],["S",1,2026.0],["W",1,2026.0],["AA",7,2026.0],["AB",7,null],["AC",7,null],["AE",1,2026.0],["AI",1,2026.0],["AM",7,2026.0],["AN",7,null],["AO",7,null],["AQ",8,2026.0],["AR",8,null],["AS",8,null],["AT",6,null],["AU",1,2026.0],["BA",1,2026.0],["BE",1,2026.0],["BI",1,2026.0],["BM",1,2026.0],["BQ",1,2026.0],["BU",1,2026.0]]},"2":{"attrs":"s=\"1\" customFormat=\"1\" ht=\"13.5\" customHeight=\"1\" spans=\"1:75\"","cells":[["E",9,"POA"],["F",9,null],["G",9,null],["H",9,null],["I",9,null],["J",9,null],["K",9,null],["L",9,null],["M",9,null],["O",9,"Theoretical production "],["P",9,null],["Q",9,null],["R",1,null],["S",9,"Irradiance"],["T",9,null],["W",9,"DC-to-AC"],["X",9,null],["AA",10,"Reference by EB"],["AB",10,null],["AC",7,null],["AE",9,"Inverter Actions"],["AF",9,null],["AI",9,"Inverter Actions"],["AJ",9,null],["AM",10,"aFRR"],["AN",10,null],["AO",7,null],["AQ",11,"Tech Maintenance by SEP"],["AR",11,null],["AS",8,null],["AT",6,null],["AU",9,"Meter"],["AV",9,null],["BA",9,"Acceptable Economic Curtailment"],["BB",9,null],["BE",9,"Remaining %"],["BF",9,null],["BG",9,null],["BI",9,"Remaining"],["BJ",9,null],["BM",12,"ID curtailment range (for those &gt;2MWh deviation)"],["BN",12,null],["BO",12,null],["BQ",12,"ID curtailment range (for those &gt;2MWh deviation)"],["BR",12,null],["BS",12,null],["BU",12,"ID curtailment worth (for those &gt;2MWh deviation)"],["BV",12,null],["BW",12,null]]},"3":{"attrs":"s=\"1\" customFormat=\"1\" spans=\"1:75\"","cells":[["AA",7,null],["AB",7,null],["AC",7,null],["AM",7,null],["AN",7,null],["AO",7,null],["AQ",8,null],["AR",8,null],["AS",8,null],["AT",6,null]]},"4":{"attrs":"s=\"2\" customFormat=\"1\" spans=\"1:75\"","cells":[["D",1,null],["E",2,null],["F",2,null],["G",2,null],["H",2,null],["I",2,null],["J",2,null],["K",2,null],["L",2,null],["M",2,null],["N",2,null],["O",2,null],["P",2,null],["Q",2,null],["AA",13,null],["AB",13,null],["AC",13,null],["AM",14,null],["AN",14,null],["AO",14,null],["AQ",15,null],["AR",15,null],["AS",15,null],["AT",6,null],["AU",16,null],["AV",16,null],["AW",16,null],["BA",16,null],["BB",16,null],["BC",16,null],["BE",16,null],["BF",16,null],["BG",16,null],["BI",16,null],["BJ",16,null],["BK",16,null],["BM",2,"Tolerance"],["BN",2,"Tolerance"],["BO",2,"Tolerance"]]},"5":{"attrs":"s=\"2\" customFormat=\"1\" ht=\"15.75\" customHeight=\"1\" spans=\"1:75\"","cells":[["O",17,74952.6354476836],["P",17,63535.3487584677],["Q",17,53774.8744686942],["R",17,null],["S",17,74952.6354620933],["T",17,63535.3489312678],["U",17,53774.874345833],["V",17,null],["W",17,73224.4576841645],["X",17,62334.8792816031],["Y",17,52595.8213369779],["Z",17,null],["AA",17,64632.2647109374],["AB",17,54486.4935338748],["AC",17,45840.4147878499],["AD",17,null],["AE",17,null],["AF",17,null],["AG",17,null],["AH",17,null],["AI",17,15949.0571325596],["AJ",17,13817.3566255493],["AK",17,11803.0397262753],["AL",17,null],["AM",14,8311.83458270549],["AN",14,6256.95726404],["AO",14,5551.399296833],["AP",17,null],["AQ",15,340.118738428822],["AR",15,33.3186288001381],["AS",15,29.559184413638],["AT",6,null],["AU",17,56389.4383589999],["AV",17,48076.8545981],["AW",17,39946.9093083998],["AX",17,null],["AY",17,null],["AZ",17,null],["BA",17,9624.80794744766],["BB",17,8148.46457706493],["BC",17,6894.84280029254],["BD",17,null],["BE",17,null],["BF",17,null],["BG",17,null],["BH",17,null],["BI",17,-2009.00491680846],["BJ",17,-582.888181895998],["BK",17,-553.400978747595],["BM",18,0.0],["BN",18,0.0],["BO",18,0.0],["BQ",17,805.895834369212],["BR",17,1615.84934069108],["BS",17,1274.38951258549],["BU",17,37276.9951425874],["BV",17,70814.2406892068],["BW",17,43954.3911333158]]},"6":{"attrs":"s=\"2\" customFormat=\"1\" spans=\"1:75\"","cells":[["E",19,"TC-03"],["F",19,"TC-08"],["G",19,"TC-13"],["H",19,"TC11"],["I",19,"TC-05"],["J",19,"TC-09"],["K",19,"TC06"],["L",19,"TC09"],["M",19,"TC01"],["S",19,null],["T",19,null],["U",19,null],["W",18,9.57],["X",18,8.1],["Y",18,6.85],["AA",14,8242.82635193749],["AB",14,6409.63893577478],["AC",14,5893.5054794501],["AI",2,9.57],["AJ",2,8.1],["AK",2,6.85],["AM",20,null],["AN",20,null],["AO",20,null],["AQ",18,null],["AR",18,null],["AS",18,null],["AT",6,null]]},"7":{"attrs":"s=\"2\" customFormat=\"1\" spans=\"1:75\"","cells":[["E",21,"KAZ"],["F",21,"KAZ"],["G",21,"KAZ"],["H",21,"SZU"],["I",21,"SZU"],["J",21,"SZU"],["K",21,"SZELES"],["L",21,"SZELES"],["M",21,"SZELES"],["O",21,"KAZ"],["P",21,"SZU"],["Q",21,"SZELES"],["R",2,null],["S",22,"KAZ"],["T",22,"SZU"],["U",22,"SZELES"],["W",22,"KAZ"],["X",22,"SZU"],["Y",22,"SZELES"],["AA",22,"KAZ"],["AB",22,"SZU"],["AC",22,"SZELES"],["AE",21,"KAZ"],["AF",21,"SZU"],["AG",21,"SZELES"],["AI",22,"KAZ"],["AJ",22,"SZU"],["AK",22,"SZELES"],["AM",22,"KAZ"],["AN",22,"SZU"],["AO",22,"SZELES"],["AQ",22,"KAZ"],["AR",22,"SZU"],["AS",22,"SZELES"],["AT",6,null],["AU",21,"KAZ"],["AV",21,"SZU"],["AW",21,"SZELES"],["AY",23,"DA"],["BA",22,"KAZ"],["BB",22,"SZU"],["BC",22,"SZELES"],["BE",22,"KAZ"],["BF",22,"SZU"],["BG",22,"SZELES"],["BI",22,"KAZ"],["BJ",22,"SZU"],["BK",22,"SZELES"],["BM",22,"KAZ"],["BN",22,"SZU"],["BO",22,"SZELES"],["BQ",22,"KAZ"],["BR",22,"SZU"],["BS",22,"SZELES"],["BU",22,"KAZ"],["BV",22,"SZU"],["BW",22,"SER"]]},"8":{"attrs":"s=\"2\" customFormat=\"1\" spans=\"1:75\"","cells":[["A",24,"Month"],["B",24,"Date"],["C",24,"Int"],["D",24,"Time"],["E",21,"W/m²"],["F",21,"W/m²"],["G",21,"W/m²"],["H",21,"W/m²"],["I",21,"W/m²"],["J",21,"W/m²"],["K",21,"W/m²"],["L",21,"W/m²"],["M",21,"W/m²"],["N",2,null],["O",21,"MWh"],["P",21,"MWh"],["Q",21,"MWh"],["R",2,null],["S",22,"MWh"],["T",22,"MWh"],["U",22,"MWh"],["W",22,"MWh"],["X",22,"MWh"],["Y",22,"MWh"],["AA",22,"MWh"],["AB",22,"MWh"],["AC",22,"MWh"],["AE",21,"%"],["AF",21,"%"],["AG",21,"%"],["AI",22,"MWh"],["AJ",22,"MWh"],["AK",22,"MWh"],["AM",22,"MWh"],["AN",22,"MWh"],["AO",22,"MWh"],["AQ",22,"MWh"],["AR",22,"MWh"],["AS",22,"MWh"],["AT",6,null],["AU",21,"MWh"],["AV",21,"MWh"],["AW",21,"MWh"],["AY",23,"EUR/MWh"],["BA",22,"MWh"],["BB",22,"MWh"],["BC",22,"MWh"],["BE",22,"%"],["BF",22,"%"],["BG",22,"%"],["BI",22,"MWh"],["BJ",22,"MWh"],["BK",22,"MWh"],["BM",22,"MWh"],["BN",22,"MWh"],["BO",22,"MWh"],["BQ",22,"MWh"],["BR",22,"MWh"],["BS",22,"MWh"],["BU",22,"EUR"],["BV",22,"EUR"],["BW",22,"EUR"]]}},"dataStyle":{"D":25,"E":26,"F":26,"G":26,"H":26,"I":26,"J":26,"K":26,"L":26,"M":26,"N":3,"O":27,"P":27,"Q":27,"S":28,"T":28,"U":28,"W":28,"X":28,"Y":28,"AA":29,"AB":29,"AC":29,"AE":26,"AF":26,"AG":26,"AH":30,"AI":28,"AJ":28,"AK":28,"AM":29,"AN":29,"AO":29,"AP":31,"AQ":32,"AR":32,"AS":32,"AU":27,"AV":27,"AW":27,"AY":33,"BA":34,"BB":34,"BC":34,"BE":35,"BF":35,"BG":35,"BI":34,"BJ":34,"BK":34,"BM":22,"BN":22,"BO":22,"BQ":36,"BR":36,"BS":36,"BU":37,"BV":37,"BW":37},"subStyle":{"D":3,"O":51,"P":51,"Q":51,"S":52,"T":52,"U":52,"W":52,"X":52,"Y":52,"AA":52,"AB":52,"AC":52,"AE":51,"AF":51,"AG":51,"AI":52,"AJ":52,"AK":52,"AM":52,"AN":52,"AO":52,"AQ":52,"AR":52,"AS":52,"AU":51,"AV":51,"AW":51,"BA":52,"BB":52,"BC":52,"BE":35,"BF":35,"BG":35,"BI":52,"BJ":52,"BK":52,"BM":52,"BN":52,"BO":52,"BQ":52,"BR":52,"BS":52,"BU":52,"BV":52,"BW":52},"monStyle":{"O":51,"P":51,"Q":51,"S":52,"T":52,"U":52,"W":52,"X":52,"Y":52,"AA":52,"AB":52,"AC":52,"AE":51,"AF":51,"AG":51,"AI":52,"AJ":52,"AK":52,"AM":52,"AN":52,"AO":52,"AQ":52,"AR":52,"AS":52,"AU":51,"AV":51,"AW":51,"BA":52,"BB":52,"BC":52,"BE":35,"BF":35,"BG":35,"BI":52,"BJ":52,"BK":52,"BM":52,"BN":52,"BO":52,"BQ":52,"BR":52,"BS":52,"BU":52,"BV":52,"BW":52}};
 const colIdx = c => [...c].reduce((a, ch) => a * 26 + ch.charCodeAt(0) - 64, 0);
@@ -350,7 +338,44 @@ function parsePoa(text) {
   const maps = parseCsv(text, Object.fromEntries(idx.slice(0, 3).map((i, n) => ["p" + n, h => h === head[i]])));
   return { names, get: (k, n) => { const r = maps.get(k); return r ? r["p" + n] : undefined; } };
 }
-function sheetRowsHead(irr) {
+// A formula cell with its cached result, so viewers that do not recalculate (Protected View, previews, phones) still show the values.
+function fvCell(ref, s, f, v) {
+  const a = `<c r="${ref}"${sA(s)}`, ft = `<f>${xesc(f)}</f>`;
+  if (typeof v === "number") return `${a}>${ft}<v>${Number.isFinite(v) ? v : 0}</v></c>`;
+  if (typeof v === "boolean") return `${a} t="b">${ft}<v>${v ? 1 : 0}</v></c>`;
+  return `${a} t="str">${ft}<v>${xesc(v == null ? "" : v)}</v></c>`;
+}
+// One 15-min row: the values of every column (same arithmetic as the Excel formulas written next to them).
+function calcRow(i, key, irr, lastKey, priceCut) {
+  const R = {}, mo = +key.slice(5, 7), loss = state.loss / 100, tol = state.tol;
+  R.A = mo; R.B = +key.slice(8, 10); R.C = +key.slice(11, 13) + 1; R.D = X.serial0 + i / 96;
+  const pr = key <= priceCut ? price.get(key) : undefined; if (pr !== undefined) R.AY = pr;
+  let any = false;
+  SITES.forEach((s, si) => {
+    const d = data[s], P = params[s], on = key <= lastKey[s], g = n => SC[n][si];
+    const p = [0, 1, 2].map(k => on ? irr[s].get(key, k) : undefined);
+    p.forEach((v, k) => { if (v !== undefined) R[SC.poa[si][k]] = v; });
+    const pv = p.filter(v => v !== undefined);
+    const th = pv.length === 0 ? "" : Math.max(0, pv.reduce((x, y) => x + y, 0) / pv.length) / 1000 * P.dc * P.pr[mo - 1] / 4;
+    const irrV = th === "" ? 0 : th, e = irrV * (1 - loss), w = e > P.cap ? P.cap : e;
+    const inp = on ? (d.inp.get(key) || {}) : {}, sp = on ? d.inv.get(key) : undefined, me = on ? d.me.get(key) : undefined;
+    if (inp.ref !== undefined) R[g("ref")] = inp.ref;
+    if (inp.af !== undefined) R[g("af")] = inp.af;
+    if (inp.mt !== undefined) R[g("mt")] = inp.mt;
+    if (sp !== undefined) R[g("sp")] = sp;
+    if (me !== undefined) R[g("me")] = me;
+    const lim = sp === undefined ? 0 : (w <= sp * P.cap / 100 ? 0 : w - P.cap * sp / 100);
+    const econ = pr === undefined || pr <= 0 ? w : 0;
+    const rem = sp !== undefined && sp > SETPOINT_LIMIT ? 0 : w - (inp.af || 0) - (inp.mt || 0) - (me || 0) - econ;
+    const chk = rem > tol ? "check" : "", flag = chk === "check" ? rem : "";
+    if (chk) any = true;
+    Object.assign(R, { [g("th")]: th, [g("irr")]: irrV, [g("w")]: w, [g("u")]: lim, [g("econ")]: econ, [g("rem")]: rem, [g("chk")]: chk, [g("flag")]: flag,
+      [g("pct")]: w === 0 ? "" : (flag === "" ? 0 : flag) / w, [g("eur")]: flag === "" ? "" : flag * (pr === undefined ? 0 : pr) });
+  });
+  R.BP = any;
+  return R;
+}
+function sheetRowsHead(irr, T) {
   const sumRow5 = new Set(SUM_COLS.filter(c => !SC.chk.includes(c))), out = [];
   const LASTR = X.last;
   for (let r = 1; r <= 8; r++) {
@@ -358,17 +383,16 @@ function sheetRowsHead(irr) {
     for (const [c, s, v] of row.cells) {
       const ref = c + r; let cell;
       if (r === 5) {
-        if (sumRow5.has(c)) cell = fCell(ref, s, `SUM(${c}9:${c}${LASTR})`);
+        if (sumRow5.has(c)) cell = fvCell(ref, s, `SUM(${c}9:${c}${LASTR})`, T.total[c]);
         else if (SC.chk.includes(c)) cell = numCell(ref, s, state.tol);
         else cell = blankCell(ref, s);
       } else if (r === 6) {
-        const si = [0, 1, 2];
         const pi = SC.poa.flat().indexOf(c);
         if (pi >= 0) cell = strCell(ref, s, xesc(irr[SITES[Math.floor(pi / 3)]].names[pi % 3]));
         else if (SC.irr.includes(c)) cell = numCell(ref, s, state.loss / 100);
         else if (SC.w.includes(c)) cell = numCell(ref, s, params[SITES[SC.w.indexOf(c)]].cap);
-        else if (SC.ref.includes(c)) cell = fCell(ref, s, `${c}5-${SC.me[SC.ref.indexOf(c)]}5`);
-        else if (SC.u.includes(c)) cell = fCell(ref, s, `${SC.w[SC.u.indexOf(c)]}6`);
+        else if (SC.ref.includes(c)) { const m = SC.me[SC.ref.indexOf(c)]; cell = fvCell(ref, s, `${c}5-${m}5`, T.total[c] - T.total[m]); }
+        else if (SC.u.includes(c)) cell = fvCell(ref, s, `${SC.w[SC.u.indexOf(c)]}6`, params[SITES[SC.u.indexOf(c)]].cap);
         else cell = blankCell(ref, s);
       } else if (v == null) cell = blankCell(ref, s);
       else if (typeof v === "number") cell = numCell(ref, s, r === 1 ? X.year : v);
@@ -379,41 +403,37 @@ function sheetRowsHead(irr) {
   }
   return out;
 }
-function sheetRowsTail() {
-  const L = X.last, out = [], rows = [];
+function sheetRowsTail(T) {
+  const L = X.last, out = [];
   const sub = L + 2;   // subtotal row, then the 12 month rows two lines below (same offsets as the original workbook)
   let cells = strCell("D" + sub, TPL.subStyle.D, "Subtotal");
-  for (const c of SUM_COLS) cells += fCell(c + sub, TPL.subStyle[c], `SUBTOTAL(9,${c}9:${c}${L})`);
-  SC.pct.forEach((c, i) => { cells += fCell(c + sub, TPL.subStyle[c], `IFERROR(${SC.flag[i]}${sub}/${SC.w[i]}${sub},"")`); });
+  for (const c of SUM_COLS) cells += fvCell(c + sub, TPL.subStyle[c], `SUBTOTAL(9,${c}9:${c}${L})`, T.total[c]);
+  SC.pct.forEach((c, i) => { const w = T.total[SC.w[i]]; cells += fvCell(c + sub, TPL.subStyle[c], `IFERROR(${SC.flag[i]}${sub}/${SC.w[i]}${sub},"")`, w ? T.total[SC.flag[i]] / w : ""); });
   out.push(`<row r="${sub}">${cells}</row>`);
   for (let m = 0; m < 12; m++) {
-    const r = L + 4 + m;
-    let t = m === 0 ? numCell("A" + r, null, 1) : fCell("A" + r, null, `A${r - 1}+1`);
-    for (const c of SUM_COLS) t += fCell(c + r, TPL.monStyle[c], `SUMIF($A$7:$A$${L + 1},$A${r},${c}$7:${c}$${L + 1})`);
-    SC.pct.forEach((c, i) => { t += fCell(c + r, TPL.monStyle[c], `IFERROR(${SC.flag[i]}${r}/${SC.w[i]}${r},"")`); });
+    const r = L + 4 + m, M = T.m[m];
+    let t = numCell("A" + r, null, m + 1);                      // fixed 1-12: the month of this subtotal row
+    for (const c of SUM_COLS) t += fvCell(c + r, TPL.monStyle[c], `SUMIF($A$7:$A$${L + 1},$A${r},${c}$7:${c}$${L + 1})`, M[c]);
+    SC.pct.forEach((c, i) => { const w = M[SC.w[i]]; t += fvCell(c + r, TPL.monStyle[c], `IFERROR(${SC.flag[i]}${r}/${SC.w[i]}${r},"")`, w ? M[SC.flag[i]] / w : ""); });
     out.push(`<row r="${r}">${t}</row>`);
   }
   return out;
 }
-function dataSpecs(irr, lastKey, priceCut) {
+// Cell layout of a data row: column, style and (for formula columns) the formula text. Every formula is written out in full (no shared formulas).
+function dataSpecs() {
   const specs = [], st = c => TPL.dataStyle[c], PRC = ["B", "C", "D"];
-  specs.push({ c: "A", f: r => `MONTH(D${r})` }, { c: "B", f: r => `DAY(D${r})` }, { c: "C", f: r => `HOUR(D${r})+1` },
-    { c: "D", s: st("D"), v: i => X.serial0 + i / 96 });
+  specs.push({ c: "A", f: r => `MONTH(D${r})` }, { c: "B", f: r => `DAY(D${r})` }, { c: "C", f: r => `HOUR(D${r})+1` }, { c: "D", s: st("D") });
   SITES.forEach((s, si) => {
-    const d = data[s], last = lastKey[s], g = n => SC[n][si];
-    const inLast = (key, fn) => key <= last ? fn() : undefined;
-    for (let k = 0; k < 3; k++) specs.push({ c: SC.poa[si][k], s: st(SC.poa[si][k]), v: (i, key) => inLast(key, () => irr[s].get(key, k)) });
+    const g = n => SC[n][si];
+    for (let k = 0; k < 3; k++) specs.push({ c: SC.poa[si][k], s: st(SC.poa[si][k]) });
     const a = SC.poa[si][0], z = SC.poa[si][2], pc = PRC[si];
     specs.push(
       { c: g("th"), s: st(g("th")), f: r => `IF(COUNT(${a}${r}:${z}${r})=0,"",MAX(0,AVERAGE(${a}${r}:${z}${r}))/1000*PR_Capacity!${pc}$5*INDEX(PR_Capacity!${pc}$8:${pc}$19,$A${r})/4)` },
       { c: g("irr"), s: st(g("irr")), f: r => `N(${g("th")}${r})` },
       { c: g("w"), s: st(g("w")), f: r => `IF((${g("irr")}${r}*(1-$${g("irr")}$6))>$${g("w")}$6,$${g("w")}$6,${g("irr")}${r}*(1-$${g("irr")}$6))` },
-      { c: g("ref"), s: st(g("ref")), v: (i, key) => inLast(key, () => (d.inp.get(key) || {}).ref) },
-      { c: g("sp"), s: st(g("sp")), v: (i, key) => inLast(key, () => d.inv.get(key)) },
+      { c: g("ref"), s: st(g("ref")) }, { c: g("sp"), s: st(g("sp")) },
       { c: g("u"), s: st(g("u")), f: r => { const sp = g("sp") + r, w = g("w") + r, cap = `$${g("u")}$6`; return `IF(${sp}="",0,(${w}<=(${sp}*${cap}/100))*0+(${w}>(${sp}*${cap}/100))*(-${cap}*${sp}/100+${w}))`; } },
-      { c: g("af"), s: st(g("af")), v: (i, key) => inLast(key, () => (d.inp.get(key) || {}).af) },
-      { c: g("mt"), s: st(g("mt")), v: (i, key) => inLast(key, () => (d.inp.get(key) || {}).mt) },
-      { c: g("me"), s: st(g("me")), v: (i, key) => inLast(key, () => d.me.get(key)) },
+      { c: g("af"), s: st(g("af")) }, { c: g("mt"), s: st(g("mt")) }, { c: g("me"), s: st(g("me")) },
       { c: g("econ"), s: st(g("econ")), f: r => `IF(AY${r}<=0,${g("w")}${r},0)` },
       { c: g("pct"), s: st(g("pct")), f: r => `IFERROR(IF(${g("flag")}${r}="",0,${g("flag")}${r})/${g("w")}${r},"")` },
       { c: g("rem"), s: st(g("rem")), f: r => `IF(${g("sp")}${r}>95,0,${g("w")}${r}-${g("af")}${r}-${g("mt")}${r}-${g("me")}${r}-${g("econ")}${r})` },
@@ -421,10 +441,8 @@ function dataSpecs(irr, lastKey, priceCut) {
       { c: g("flag"), s: st(g("flag")), f: r => `IF(${g("chk")}${r}="check",${g("rem")}${r},"")` },
       { c: g("eur"), s: st(g("eur")), f: r => `IFERROR(${g("flag")}${r}*AY${r},"")` });
   });
-  specs.push({ c: "AY", s: st("AY"), v: (i, key) => key <= priceCut ? price.get(key) : undefined },
-    { c: "BP", f: r => `OR(BM${r}="check",BN${r}="check",BO${r}="check")` });
+  specs.push({ c: "AY", s: st("AY") }, { c: "BP", f: r => `OR(BM${r}="check",BN${r}="check",BO${r}="check")` });
   specs.sort((p, q) => colIdx(p.c) - colIdx(q.c));
-  specs.forEach((sp, n) => { sp.si = n; });
   return specs;
 }
 function prSheet() {
@@ -445,7 +463,7 @@ async function buildWorkbook(year, irr) {
   const slot = []; for (let q = 0; q < 96; q++) slot.push(String(q >> 2).padStart(2, "0") + ":" + String((q & 3) * 15).padStart(2, "0"));
   const lastKey = {}; let priceCut = "";
   SITES.forEach(s => { let l = ""; for (const k of data[s].me.keys()) if (k.startsWith(String(year)) && k > l) l = k; lastKey[s] = l; if (l > priceCut) priceCut = l; });
-  const specs = dataSpecs(irr, lastKey, priceCut), enc = new TextEncoder();
+  const specs = dataSpecs(), enc = new TextEncoder();
   const chunks = []; let done; const finished = new Promise(res => { done = res; });
   const zip = new fflate.Zip((err, chunk, final) => { if (err) throw err; chunks.push(chunk); if (final) done(new Blob(chunks, { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" })); });
   const addSmall = (name, text) => { const f = new fflate.ZipDeflate(name, { level: 6 }); zip.add(f); f.push(enc.encode(text), true); };
@@ -459,23 +477,30 @@ async function buildWorkbook(year, irr) {
   const sheet = new fflate.ZipDeflate("xl/worksheets/sheet1.xml", { level: 3 }); zip.add(sheet);
   const push = (str, final = false) => sheet.push(enc.encode(str), final);
   push(`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><dimension ref="A1:BW${X.last + 15}"/><sheetViews><sheetView tabSelected="1" zoomScale="60" zoomScaleNormal="60" workbookViewId="0"><pane xSplit="4" ySplit="8" topLeftCell="E9" activePane="bottomRight" state="frozen"/><selection pane="topRight"/><selection pane="bottomLeft"/><selection pane="bottomRight" activeCell="E9" sqref="E9"/></sheetView></sheetViews><sheetFormatPr defaultColWidth="9" defaultRowHeight="14"/>${TPL.cols}<sheetData>`);
-  push(sheetRowsHead(irr).join(""));
+  const T = { total: {}, m: Array.from({ length: 12 }, () => ({})) };           // pass 1: values and totals (needed for the cached results of the sum rows)
+  SUM_COLS.forEach(c => { T.total[c] = 0; T.m.forEach(M => { M[c] = 0; }); });
+  const rows = new Array(N), keyOf = i => dayStr[(i / 96) | 0] + " " + slot[i % 96];
+  for (let i = 0; i < N; i++) {
+    const R = calcRow(i, keyOf(i), irr, lastKey, priceCut); rows[i] = R;
+    for (const c of SUM_COLS) { const v = R[c]; if (typeof v === "number") { T.total[c] += v; T.m[R.A - 1][c] += v; } }
+  }
+  push(sheetRowsHead(irr, T).join(""));
   const BATCH = 800;
   for (let r0 = 9; r0 <= X.last; r0 += BATCH) {
     let buf = "";
     for (let r = r0; r < Math.min(r0 + BATCH, X.last + 1); r++) {
-      const i = r - 9, key = dayStr[(i / 96) | 0] + " " + slot[i % 96]; let row = `<row r="${r}">`;
+      const i = r - 9, R = rows[i]; let row = `<row r="${r}">`;
       for (const sp of specs) {
-        const ref = sp.c + r;
-        if (sp.f) row += r === 9 ? `<c r="${ref}"${sA(sp.s)}><f t="shared" ref="${sp.c}9:${sp.c}${X.last}" si="${sp.si}">${xesc(sp.f(9))}</f></c>` : `<c r="${ref}"${sA(sp.s)}><f t="shared" si="${sp.si}"/></c>`;
-        else { const v = sp.v(i, key); if (v !== undefined && Number.isFinite(v)) row += `<c r="${ref}"${sA(sp.s)}><v>${v}</v></c>`; }
+        const ref = sp.c + r, v = R[sp.c];
+        if (sp.f) row += fvCell(ref, sp.s, sp.f(r), v);
+        else if (typeof v === "number" && Number.isFinite(v)) row += `<c r="${ref}"${sA(sp.s)}><v>${v}</v></c>`;
       }
       buf += row + "</row>";
     }
     push(buf);
     await new Promise(res => setTimeout(res, 0));
   }
-  push(sheetRowsTail().join("") + `</sheetData><autoFilter ref="A8:BW${X.last}"/><mergeCells count="3"><mergeCell ref="BM2:BO2"/><mergeCell ref="BQ2:BS2"/><mergeCell ref="BU2:BW2"/></mergeCells><pageMargins left="0.7" right="0.7" top="0.75" bottom="0.75" header="0.3" footer="0.3"/></worksheet>`, true);
+  push(sheetRowsTail(T).join("") + `</sheetData><autoFilter ref="A8:BW${X.last}"/><mergeCells count="3"><mergeCell ref="BM2:BO2"/><mergeCell ref="BQ2:BS2"/><mergeCell ref="BU2:BW2"/></mergeCells><pageMargins left="0.7" right="0.7" top="0.75" bottom="0.75" header="0.3" footer="0.3"/></worksheet>`, true);
   zip.end();
   return finished;
 }

@@ -216,7 +216,7 @@ function computeSite(site, year) {
     // E: theoretical production without the DC-to-AC limit; W (column "DC-to-AC"): E x (1 - loss), capped at the AC limit
     const E = poa === undefined ? 0 : Math.max(0, poa) / 1000 * P.dc * P.pr[+k.slice(5, 7) - 1] / 4;
     const W = Math.min(E * (1 - P.loss), P.cap);
-    const pr = price.get(k), econ = pr === undefined || pr <= 0 ? E : 0;        // an empty price cell counts as <= 0 in the workbook
+    const pr = price.get(k), econ = pr === undefined || pr <= 0 ? W : 0;        // economic curtailment = the limited theoretical production W (an empty price counts as <= 0, as in the workbook)
     let sp = d.inv.get(k); if (sp === undefined) sp = inp.spf;
     const U = sp === undefined ? 0 : (W <= sp * P.cap / 100 ? 0 : W - sp * P.cap / 100);   // inverter actions (MWh)
     const rem = sp > SETPOINT_LIMIT ? 0 : W - af - mt - M - econ;               // an empty setpoint is not > 95 -> calculated

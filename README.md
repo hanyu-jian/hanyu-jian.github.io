@@ -346,7 +346,7 @@ token 只在服务端，不会发给浏览器；数据不会进入本仓库，�
 **ID Curtailment 页面口径**（`ops/ops-id-curtailment.html`，`/ops/id-curtailment`，二级导航最后一项；一张 Remaining 图 + 月度汇总表）
 - 完全照 EB（平衡公司）S 包 ID curtailment 工作簿的算法，对象是 Sajokaza、Szuhakálló 1、Szuhakálló 2，逐 15 分钟计算后按日 / 周 / 月（表里按月）加总。
 - 参数在 vcom 仓库 `data/id curtailment/parameters.csv`（DC 容量、AC 限值、损耗 1.8 %、按月 PR），Worker `/ops/api/id-params` 原样转发。
-- 每个 15 分钟：`E = max(0, POA) / 1000 × DC × 当月PR / 4`；`W = min(E × (1 − 损耗), AC限值)`（工作簿「DC-to-AC」列）；`经济性限电 = E`（日前价 ≤ 0，价格为空也算）；
+- 每个 15 分钟：`E = max(0, POA) / 1000 × DC × 当月PR / 4`；`W = min(E × (1 − 损耗), AC限值)`（工作簿「DC-to-AC」列）；`经济性限电 = W`（日前价 ≤ 0，价格为空也算；工作簿原来用未封顶的 E，这里按要求改用带限值的 W）；
   `Inverter actions U = max(0, W − 设定值% × AC限值)`（设定值为空记 0）；
   `Remaining (MWh) = 0`（设定值 > 95 %），否则 `W − aFRR − 检修 − 表计 − 经济性限电`（设定值为空照常计算）；
   汇总表 `Remaining (%) = 计入的 Remaining / W`（周期内合计值；工作簿 Remaining % 列的原公式是 (W − 经济性限电 − 表计 − 检修 − aFRR − U) / W，不含 tolerance）。

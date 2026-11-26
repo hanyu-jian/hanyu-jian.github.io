@@ -180,10 +180,10 @@ function parseParams(text) {
   return out;
 }
 async function loadSite(site, years) {
-  const d = { poa: new Map(), me: new Map(), inv: new Map(), inp: new Map() }, n = { inputs: [], inverter: [] };
+  const d = { th: new Map(), me: new Map(), inv: new Map(), inp: new Map() }, n = { inputs: [], inverter: [] };
   const q = y => `site=${encodeURIComponent(site)}&year=${y}`;
   await Promise.all(years.flatMap(y => [
-    getText(`/ops/api/theoretical?${q(y)}`).then(t => { if (t) parseCsv(t, { poa: h => h.startsWith("POA avg") }).forEach((r, k) => d.poa.set(k, r.poa)); }),
+    getText(`/ops/api/theoretical?${q(y)}`).then(t => { if (t) parseCsv(t, { v: h => h.includes("[MWh]") }).forEach((r, k) => d.th.set(k, r.v)); }),
     getText(`/ops/api/metered?${q(y)}`).then(t => { if (t) parseCsv(t, { v: h => h.includes("[MWh]") }).forEach((r, k) => d.me.set(k, r.v)); }),
     getText(`/ops/api/inverter?${q(y)}`).then(t => { if (t) parseCsv(t, { v: h => h.includes("[%]") }).forEach((r, k) => d.inv.set(k, r.v)); else n.inverter.push(y); }),
     getText(`/ops/api/id-inputs?${q(y)}`).then(t => {
@@ -207,16 +207,13 @@ function computeSite(site, year) {
   const ck = site + year; if (cache[ck]) return cache[ck];
   const d = data[site], P = params[site], recs = [];
   let last = ""; for (const k of d.me.keys()) if (k > last) last = k;            // the workbook only has rows up to the last meter reading
-  const keys = new Set([...d.poa.keys(), ...d.me.keys()]);
+  const keys = new Set([...d.th.keys(), ...d.me.keys()]);
   for (const k of [...keys].sort()) {
     if (!k.startsWith(year) || k > last) continue;
-    const poa = d.poa.get(k), M = d.me.get(k) || 0;                              // blank = 0, as in the workbook
+    const W = d.th.get(k) || 0, M = d.me.get(k) || 0;                            // vcom theoretical production already includes the DC-to-AC limit; blank = 0
     const inp = d.inp.get(k) || {};
     const ref = inp.ref || 0, af = inp.af || 0, mt = inp.mt || 0;
-    // E: theoretical production without the DC-to-AC limit; W (column "DC-to-AC"): E x (1 - loss), capped at the AC limit
-    const E = poa === undefined ? 0 : Math.max(0, poa) / 1000 * P.dc * P.pr[+k.slice(5, 7) - 1] / 4;
-    const W = Math.min(E * (1 - P.loss), P.cap);
-    const pr = price.get(k), econ = pr === undefined || pr <= 0 ? W : 0;        // economic curtailment = the limited theoretical production W (an empty price counts as <= 0, as in the workbook)
+    const pr = price.get(k), econ = pr === undefined || pr <= 0 ? W : 0;        // economic curtailment = W (an empty price counts as <= 0, as in the workbook)
     let sp = d.inv.get(k); if (sp === undefined) sp = inp.spf;
     const U = sp === undefined ? 0 : (W <= sp * P.cap / 100 ? 0 : W - sp * P.cap / 100);   // inverter actions (MWh)
     const rem = sp > SETPOINT_LIMIT ? 0 : W - af - mt - M - econ;               // an empty setpoint is not > 95 -> calculated

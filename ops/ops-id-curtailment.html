@@ -124,7 +124,7 @@ const state = {
   year: qget("year", v => /^\d{4}$/.test(v) && +v >= FIRST_YEAR && +v <= THIS_YEAR) || String(THIS_YEAR),
   freq: qget("freq", v => ["daily", "weekly", "monthly"].includes(v)) || "daily",
 };
-let chart = null, price = null, data = {}, notes = {}, cache = {};
+let chart = null, price = null, params = {}, data = {}, notes = {}, cache = {};
 
 /* ── Loading ─────────────────────────────────────────────── */
 async function getText(url) {
@@ -167,11 +167,20 @@ function parseCsv(text, wanted) {
   }
   return out;
 }
+function parseParams(text) {
+  const lines = text.replace(/^\uFEFF/, "").split(/\r?\n/), out = {};
+  for (let i = 1; i < lines.length; i++) {
+    if (!lines[i]) continue;
+    const f = lines[i].split(",");
+    out[f[0]] = { dc: +f[1], cap: +f[2], loss: +f[3] / 100, pr: f.slice(4, 16).map(Number) };
+  }
+  return out;
+}
 async function loadSite(site, years) {
-  const d = { th: new Map(), me: new Map(), inv: new Map(), inp: new Map() }, n = { inputs: [], inverter: [] };
+  const d = { poa: new Map(), me: new Map(), inv: new Map(), inp: new Map() }, n = { inputs: [], inverter: [] };
   const q = y => `site=${encodeURIComponent(site)}&year=${y}`;
   await Promise.all(years.flatMap(y => [
-    getText(`/ops/api/theoretical?${q(y)}`).then(t => { if (t) parseCsv(t, { v: h => h.includes("[MWh]") }).forEach((r, k) => d.th.set(k, r.v)); }),
+    getText(`/ops/api/theoretical?${q(y)}`).then(t => { if (t) parseCsv(t, { poa: h => h.startsWith("POA avg") }).forEach((r, k) => d.poa.set(k, r.poa)); }),
     getText(`/ops/api/metered?${q(y)}`).then(t => { if (t) parseCsv(t, { v: h => h.includes("[MWh]") }).forEach((r, k) => d.me.set(k, r.v)); }),
     getText(`/ops/api/inverter?${q(y)}`).then(t => { if (t) parseCsv(t, { v: h => h.includes("[%]") }).forEach((r, k) => d.inv.set(k, r.v)); else n.inverter.push(y); }),
     getText(`/ops/api/id-inputs?${q(y)}`).then(t => {
@@ -184,7 +193,8 @@ async function loadSite(site, years) {
 }
 async function load() {
   const years = []; for (let y = FIRST_YEAR; y <= THIS_YEAR; y++) years.push(y);
-  const jobs = [getText("/ops/api/price").then(t => { price = parsePrice(t); })];
+  const jobs = [getText("/ops/api/price").then(t => { price = parsePrice(t); }),
+    getText("/ops/api/id-params").then(t => { if (!t) throw new Error("parameters.csv (DC capacity, AC limit, loss, PR) not found"); params = parseParams(t); })];
   SITES.forEach(s => jobs.push(loadSite(s, years).then(([d, n]) => { data[s] = d; notes[s] = n; })));
   await Promise.all(jobs);
 }
@@ -192,26 +202,30 @@ async function load() {
 /* ── Calculation (one record per 15-min interval of a site) ── */
 function computeSite(site, year) {
   const ck = site + year; if (cache[ck]) return cache[ck];
-  const d = data[site], recs = []; let noMeter = 0, noSetpoint = 0;
-  for (const [k, T] of d.th) {
-    if (!k.startsWith(year)) continue;
-    const M = d.me.get(k);
-    if (M === undefined) { noMeter++; continue; }               // no meter reading: the interval cannot be judged
+  const d = data[site], P = params[site], recs = [];
+  let last = ""; for (const k of d.me.keys()) if (k > last) last = k;            // the workbook only has rows up to the last meter reading
+  const keys = new Set([...d.poa.keys(), ...d.me.keys()]);
+  for (const k of [...keys].sort()) {
+    if (!k.startsWith(year) || k > last) continue;
+    const poa = d.poa.get(k), M = d.me.get(k) || 0;                              // blank = 0, as in the workbook
     const inp = d.inp.get(k) || {};
     const ref = inp.ref || 0, af = inp.af || 0, mt = inp.mt || 0;
-    const pr = price.get(k), econ = pr !== undefined && pr <= 0 ? T : 0;
-    let sp = d.inv.get(k); if (sp === undefined) sp = inp.spf;   // vcom inverter data first, then the history column of the input file
-    if (sp === undefined) noSetpoint++;
-    const rem = sp !== undefined && sp > SETPOINT_LIMIT ? 0 : T - af - mt - M - econ;
-    recs.push({ k, date: k.slice(0, 10), T, M, ref, af, mt, econ, rem, noSp: sp === undefined });
+    // E: theoretical production without the DC-to-AC limit; W (column "DC-to-AC"): E x (1 - loss), capped at the AC limit
+    const E = poa === undefined ? 0 : Math.max(0, poa) / 1000 * P.dc * P.pr[+k.slice(5, 7) - 1] / 4;
+    const W = Math.min(E * (1 - P.loss), P.cap);
+    const pr = price.get(k), econ = pr === undefined || pr <= 0 ? E : 0;        // an empty price cell counts as <= 0 in the workbook
+    let sp = d.inv.get(k); if (sp === undefined) sp = inp.spf;
+    const U = sp === undefined ? 0 : (W <= sp * P.cap / 100 ? 0 : W - sp * P.cap / 100);   // inverter actions (MWh)
+    const rem = sp > SETPOINT_LIMIT ? 0 : W - af - mt - M - econ;               // an empty setpoint is not > 95 -> calculated
+    recs.push({ k, date: k.slice(0, 10), T: W, M, ref, af, mt, econ, U, rem });
   }
-  return (cache[ck] = { recs, noMeter, noSetpoint });
+  return (cache[ck] = { recs });
 }
-const emptyAgg = () => ({ T: 0, ref: 0, M: 0, af: 0, mt: 0, econ: 0, pos: 0, neg: 0, nSp: 0, n: 0 });
+const emptyAgg = () => ({ T: 0, ref: 0, M: 0, af: 0, mt: 0, econ: 0, U: 0, pos: 0, neg: 0, n: 0 });
 function addRec(g, r) {
-  g.T += r.T; g.ref += r.ref; g.M += r.M; g.af += r.af; g.mt += r.mt; g.econ += r.econ;
+  g.T += r.T; g.ref += r.ref; g.M += r.M; g.af += r.af; g.mt += r.mt; g.econ += r.econ; g.U += r.U;
   if (r.rem > 0) g.pos += r.rem; else g.neg += r.rem;
-  if (r.noSp) g.nSp++; g.n++;
+  g.n++;
 }
 function getISOWeek(dateStr) {
   const d = new Date(dateStr + 'T00:00:00Z');
@@ -246,7 +260,7 @@ function renderChart() {
       const line = (c, n, v) => `<div style="display:flex;justify-content:space-between;gap:24px;font-size:12px"><span><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${c};margin-right:6px"></span>${n}</span><b>${fmt(v)}</b></div>`;
       h += line('#2c7fb8', 'Remaining (+)', g.pos) + line('#e67e22', 'Remaining (−)', g.neg) + line('#2c3e50', 'Net', g.pos + g.neg);
       h += `<div style="border-top:1px solid #eee;margin:5px 0"></div>`;
-      h += [['Theoretical', g.T], ['Meter', g.M], ['aFRR', g.af], ['Maintenance', g.mt], ['Economic curtailment', g.econ]].map(([n, v]) => `<div style="display:flex;justify-content:space-between;gap:24px;font-size:12px;color:#6c757d"><span>${n}</span><span>${fmt(v)}</span></div>`).join('');
+      h += [['Theoretical', g.T], ['Meter', g.M], ['aFRR', g.af], ['Maintenance', g.mt], ['Inverter actions', g.U], ['Economic curtailment', g.econ]].map(([n, v]) => `<div style="display:flex;justify-content:space-between;gap:24px;font-size:12px;color:#6c757d"><span>${n}</span><span>${fmt(v)}</span></div>`).join('');
       return h + `<div style="font-size:11px;color:#aaa;margin-top:4px">MWh</div>`;
     } },
     xAxis: { type: 'category', data: x, ...axisStyle, axisLabel: { color: '#6c757d', fontSize: 11, hideOverlap: true } },
@@ -263,7 +277,7 @@ function renderChart() {
 }
 
 /* ── Summary table (months of the selected year) ───────────── */
-const COLS = [["T", "Theoretical"], ["ref", "EB reference"], ["M", "Meter"], ["af", "aFRR"], ["mt", "Maintenance"], ["econ", "Economic curt."], ["pos", "Remaining (+)"], ["neg", "Remaining (−)"], ["net", "Net remaining"], ["nSp", "No setpoint (15-min)"]];
+const COLS = [["T", "Theoretical"], ["ref", "EB reference"], ["M", "Meter"], ["af", "aFRR"], ["mt", "Maintenance"], ["econ", "Economic curt."], ["U", "Inverter actions"], ["net", "Remaining"], ["pct", "Remaining (%)"]];
 let sumRows = [];
 function renderTable() {
   const g = aggregate(state.site, state.year, r => r.date.slice(5, 7)), tot = emptyAgg();
@@ -275,9 +289,9 @@ function renderTable() {
   }
   sumRows.push(["Year", tot]);
   const cell = (k, a) => {
-    if (k === "net") { const v = a.pos + a.neg; return `<td class="${v > 0.05 ? "pos" : v < -0.05 ? "neg" : ""}">${fmt(v)}</td>`; }
-    if (k === "nSp") return `<td>${a.nSp.toLocaleString("en-US")}</td>`;
-    return `<td class="${k === "pos" ? "pos" : k === "neg" ? "neg" : ""}">${fmt(a[k])}</td>`;
+    const v = k === "net" ? a.pos + a.neg : k === "pct" ? (a.T ? (a.T - a.econ - a.M - a.mt - a.af - a.U) / a.T * 100 : null) : a[k];
+    const cls = k === "net" || k === "pct" ? (v > 0.05 ? "pos" : v < -0.05 ? "neg" : "") : "";
+    return `<td class="${cls}">${k === "pct" ? (v == null ? "–" : v.toFixed(1) + "%") : fmt(v)}</td>`;
   };
   $("sumTable").innerHTML = `<thead><tr><th>${state.year}</th>${COLS.map(c => `<th>${c[1]}</th>`).join("")}</tr></thead><tbody>` +
     sumRows.map(([n, a], i) => `<tr class="${i === sumRows.length - 1 ? "total" : ""}"><td>${n}</td>${COLS.map(c => cell(c[0], a)).join("")}</tr>`).join("") + "</tbody>";
@@ -285,24 +299,19 @@ function renderTable() {
 
 /* ── Status line ─────────────────────────────────────────── */
 function renderStatus() {
-  const sites = state.site === "ALL" ? SITES : [state.site], parts = [];
-  let noMeter = 0, noSp = 0;
-  sites.forEach(s => { const c = computeSite(s, state.year); noMeter += c.noMeter; noSp += c.noSetpoint; });
+  const sites = state.site === "ALL" ? SITES : [state.site];
   const noInputs = sites.filter(s => notes[s].inputs.includes(+state.year));
-  if (noInputs.length) parts.push(`<span class="warn">No manual input file for ${state.year} (${noInputs.join(", ")}): EB reference, aFRR and maintenance count as 0, so Remaining is overstated.</span>`);
-  if (noMeter) parts.push(`${noMeter.toLocaleString("en-US")} 15-min intervals skipped (theoretical production without a meter reading).`);
-  if (noSp) parts.push(`${noSp.toLocaleString("en-US")} intervals without an inverter setpoint (calculated as if ≤ 95 %).`);
   $("status").className = "status";
-  $("status").innerHTML = parts.join("<br>") || "&nbsp;";
+  $("status").innerHTML = noInputs.length ? `<span class="warn">No manual input file for ${state.year} (${noInputs.join(", ")}): EB reference, aFRR and maintenance count as 0.</span>` : "&nbsp;";
 }
 
 /* ── Export ──────────────────────────────────────────────── */
 $("exportBtn").onclick = () => {
   const rows = renderChart();
-  const lines = [`# ${state.site} ${state.year} ${state.freq} (MWh)`, ["Period", "Theoretical", "EB reference", "Meter", "aFRR", "Maintenance", "Economic", "Remaining +", "Remaining -", "Net"].join(",")];
-  rows.forEach(([k, a]) => lines.push([k, a.T, a.ref, a.M, a.af, a.mt, a.econ, a.pos, a.neg, a.pos + a.neg].map(v => typeof v === "number" ? +v.toFixed(4) : v).join(",")));
+  const lines = [`# ${state.site} ${state.year} ${state.freq} (MWh)`, ["Period", "Theoretical", "EB reference", "Meter", "aFRR", "Maintenance", "Economic", "Inverter actions", "Remaining +", "Remaining -", "Net"].join(",")];
+  rows.forEach(([k, a]) => lines.push([k, a.T, a.ref, a.M, a.af, a.mt, a.econ, a.U, a.pos, a.neg, a.pos + a.neg].map(v => typeof v === "number" ? +v.toFixed(4) : v).join(",")));
   lines.push("", "# Monthly summary", ["Month", ...COLS.map(c => c[1])].join(","));
-  sumRows.forEach(([n, a]) => lines.push([n, ...COLS.map(c => c[0] === "net" ? a.pos + a.neg : a[c[0]])].map(v => typeof v === "number" ? +v.toFixed(4) : v).join(",")));
+  sumRows.forEach(([n, a]) => lines.push([n, ...COLS.map(c => c[0] === "net" ? a.pos + a.neg : c[0] === "pct" ? (a.T ? (a.T - a.econ - a.M - a.mt - a.af - a.U) / a.T * 100 : "") : a[c[0]])].map(v => typeof v === "number" ? +v.toFixed(4) : v).join(",")));
   const url = URL.createObjectURL(new Blob(["﻿" + lines.join("\n")], { type: "text/csv;charset=utf-8" }));
   const a = document.createElement("a"); a.href = url; a.download = `id-curtailment_${state.site === "ALL" ? "all" : state.site.replace(/\s+/g, "_")}_${state.year}_${state.freq}.csv`; a.click(); URL.revokeObjectURL(url);
 };

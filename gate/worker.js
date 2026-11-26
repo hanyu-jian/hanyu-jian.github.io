@@ -669,6 +669,14 @@ const VCOM_YEAR_CSV = {
   inverter: (y, name) => `data/inverter settle point/${y}/15min/${name}.csv`,
   "id-inputs": (y, name) => `data/id curtailment/${y}/${name}.csv`,
 };
+// 页面参数（DC 容量、AC 限值、损耗、按月 PR）：data/id curtailment/parameters.csv，原样转发
+async function handleIdParams(env) {
+  const text = await loadFile(env, "data/id curtailment/parameters.csv");
+  if (text === null) return json({ error: "parameters.csv not found" }, 404);
+  return new Response(text, {
+    headers: { "content-type": "text/csv; charset=utf-8", "Cache-Control": "private, no-store", "X-Robots-Tag": "noindex" },
+  });
+}
 async function handleVcomYearCsv(kind, url, env) {
   const site = url.searchParams.get("site");
   const year = url.searchParams.get("year") || "";
@@ -809,10 +817,11 @@ async function handleOps(request, env, url, path) {
     }
   }
 
-  if (path === "/ops/api/inverter" || path === "/ops/api/id-inputs") {
+  if (path === "/ops/api/inverter" || path === "/ops/api/id-inputs" || path === "/ops/api/id-params") {
     if (request.method !== "GET") return new Response("Method not allowed", { status: 405 });
     if (!env.GITHUB_TOKEN) return json({ error: "GITHUB_TOKEN is not configured" }, 500);
     try {
+      if (path === "/ops/api/id-params") return await handleIdParams(env);
       return await handleVcomYearCsv(path === "/ops/api/inverter" ? "inverter" : "id-inputs", url, env);
     } catch (e) {
       return json({ error: String(e.message || e) }, 502);

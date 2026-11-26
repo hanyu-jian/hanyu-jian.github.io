@@ -343,13 +343,17 @@ token 只在服务端，不会发给浏览器；数据不会进入本仓库，�
 - transaction 明细在 vcom 仓库的 `data/go/tokaj_go_transactions.csv`（delivery_date, buyer, transaction_date, volume_mwh, note），Worker 的 `/ops/api/go-transactions` 原样转发；有了新的交付明细往这个文件里加即可。合同、价格、买方和交付量都在私有的 vcom 仓库里，不要写进本仓库（包括 README）。
 - 全年电量用 `/ops/api/metered?resolution=hourly`（五站小时表计，页面按月求和）。
 
-**ID Curtailment 页面口径**（`ops/ops-id-curtailment.html`，`/ops/id-curtailment`，二级导航最后一项；只有「Remaining」一张图 + 月度汇总表）
-- 复现 EB（平衡公司）S 包 ID curtailment 工作簿里的 Remaining 列，对象是 Sajokaza (KAZ)、Szuhakálló 1 (SZU)、Szuhakálló 2 (SZELES) 三个场站，按 15 分钟逐点算，再按日 / 周 / 月加总：
-  `Remaining = 0`（inverter 设定值 > 95 %）；否则 `理论发电量 − aFRR − 检修 − 表计 − 经济性限电`，其中 `经济性限电 = 理论发电量`（HU 日前价 ≤ 0 时），否则 0。
-  设定值缺失时按「不大于 95 %」处理（和工作簿一致，该点照常计算）；理论发电量和表计缺一的 15 分钟不计入；日前价缺失按不限电。
-- 正值（红）= 按理论发电量发电、扣掉所有可解释的限电后还有余量（EB 可能把这部分放到了 ID 市场）；负值（绿）= 实发比理论发电量还多。柱子是每个周期内 15 分钟正值之和 / 负值之和（互不抵消），折线是净值。
-- 数据：理论发电量 `/ops/api/theoretical`（vcom，含 AC 限值，不含工作簿里 E→I 的 1.8 % 损耗）、表计 `/ops/api/metered`、inverter 设定值 `/ops/api/inverter`（vcom `data/inverter settle point/<年>/15min/<场站>.csv`，Worker 原样转发）、日前价 `/ops/api/price`（`entsoe/15min/price.csv` 的 HU 列）。
-- 手工输入：`/ops/api/id-inputs` 转发 vcom 仓库 `data/id curtailment/<年>/<场站>.csv`，列 `Date, EB reference [MWh], aFRR [MWh], Tech maintenance [MWh], Inverter setpoint fallback [%]`（15 分钟、本地时间、区间起点）。EB reference 和 aFRR 按 EB 每月电费账单填，检修数据有了再填；最后一列是 vcom inverter 数据开始之前（2026-01~09）的历史设定值，vcom 有值时优先用 vcom。缺这个文件时页面提示「Remaining 偏大」。
+**ID Curtailment 页面口径**（`ops/ops-id-curtailment.html`，`/ops/id-curtailment`，二级导航最后一项；一张 Remaining 图 + 月度汇总表）
+- 完全照 EB（平衡公司）S 包 ID curtailment 工作簿的算法，对象是 Sajokaza、Szuhakálló 1、Szuhakálló 2，逐 15 分钟计算后按日 / 周 / 月（表里按月）加总。
+- 参数在 vcom 仓库 `data/id curtailment/parameters.csv`（DC 容量、AC 限值、损耗 1.8 %、按月 PR），Worker `/ops/api/id-params` 原样转发。
+- 每个 15 分钟：`E = max(0, POA) / 1000 × DC × 当月PR / 4`；`W = min(E × (1 − 损耗), AC限值)`（工作簿「DC-to-AC」列）；`经济性限电 = E`（日前价 ≤ 0，价格为空也算）；
+  `Inverter actions U = max(0, W − 设定值% × AC限值)`（设定值为空记 0）；
+  `Remaining (MWh) = 0`（设定值 > 95 %），否则 `W − aFRR − 检修 − 表计 − 经济性限电`（设定值为空照常计算）；
+  汇总表 `Remaining (%) = (W − 经济性限电 − 表计 − 检修 − aFRR − U) / W`（用周期内合计值，对应工作簿 Remaining % 列）。
+  表计为空记 0；只算到最后一个有表计读数的时段。
+- 图：柱子是每个周期内 15 分钟 Remaining 的正值之和（蓝）/ 负值之和（橙），折线是净值；正值 = 扣掉所有可解释的限电后还有余量。
+- 数据：POA 取 `/ops/api/theoretical`（vcom 理论发电量 CSV 的 `POA avg` 列）、表计 `/ops/api/metered`、inverter 设定值 `/ops/api/inverter`、日前价 `/ops/api/price`（HU 列）。
+- 手工输入：`/ops/api/id-inputs` 转发 vcom 仓库 `data/id curtailment/<年>/<场站>.csv`，列 `Date, EB reference [MWh], aFRR [MWh], Tech maintenance [MWh], Inverter setpoint fallback [%]`；最后一列是 vcom inverter 数据开始之前（2026-01~09）的历史设定值，vcom 有值时优先用 vcom。
 - 网址参数：`site`（`ALL` 或场站名）、`year`、`freq`（`daily|weekly|monthly`）。
 
 **Ops 页面的网址参数**（Overview / Capture Price / Imbalance 三个页面）：页面上的选择会同步写进地址栏（`history.replaceState`，不增加浏览器历史记录），打开带参数的链接时按参数恢复；缺少或不合法的参数忽略，用默认值。链接里只有选择，没有数据，打开仍要登录 ops。

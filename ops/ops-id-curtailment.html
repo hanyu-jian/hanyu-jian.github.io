@@ -47,7 +47,7 @@ th, td { padding: 8px 10px; text-align: right; border-bottom: 1px solid #eef0f3;
 th:first-child, td:first-child { text-align: left; }
 th { background: #f3f5f7; font-size: 12px; color: #4a5560; }
 tr.total td { font-weight: 700; background: #fafbfc; }
-.pos { color: #c0392b; } .neg { color: #27ae60; }
+.pos { color: #2c7fb8; } .neg { color: #d35400; }
 @media (max-width: 700px) {
   body { padding: 8px; }
   .chart-grid { padding: 16px; }
@@ -244,7 +244,7 @@ function renderChart() {
       const g = rows[ps[0].dataIndex][1];
       let h = `<div style="font-weight:600;margin-bottom:5px;color:#2c3e50">${ps[0].axisValue}</div>`;
       const line = (c, n, v) => `<div style="display:flex;justify-content:space-between;gap:24px;font-size:12px"><span><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${c};margin-right:6px"></span>${n}</span><b>${fmt(v)}</b></div>`;
-      h += line('#c0392b', 'Remaining (+)', g.pos) + line('#27ae60', 'Remaining (−)', g.neg) + line('#2c3e50', 'Net', g.pos + g.neg);
+      h += line('#2c7fb8', 'Remaining (+)', g.pos) + line('#e67e22', 'Remaining (−)', g.neg) + line('#2c3e50', 'Net', g.pos + g.neg);
       h += `<div style="border-top:1px solid #eee;margin:5px 0"></div>`;
       h += [['Theoretical', g.T], ['Meter', g.M], ['aFRR', g.af], ['Maintenance', g.mt], ['Economic curtailment', g.econ]].map(([n, v]) => `<div style="display:flex;justify-content:space-between;gap:24px;font-size:12px;color:#6c757d"><span>${n}</span><span>${fmt(v)}</span></div>`).join('');
       return h + `<div style="font-size:11px;color:#aaa;margin-top:4px">MWh</div>`;
@@ -253,9 +253,9 @@ function renderChart() {
     yAxis: { type: 'value', name: 'MWh', nameTextStyle: { color: '#6c757d', fontSize: 11 }, ...axisStyle },
     dataZoom: x.length > 60 ? [{ type: 'inside' }, { type: 'slider', height: 22, bottom: 14 }] : [],
     series: [
-      { name: 'Remaining (+)', type: 'bar', stack: 'rem', data: pos, itemStyle: { color: '#c0392b' }, barMaxWidth: 22 },
-      { name: 'Remaining (−)', type: 'bar', stack: 'rem', data: neg, itemStyle: { color: '#27ae60' }, barMaxWidth: 22 },
-      { name: 'Net', type: 'line', data: net, symbol: x.length > 40 ? 'none' : 'circle', symbolSize: 6, lineStyle: { color: '#2c3e50', width: 1.5 }, itemStyle: { color: '#2c3e50' } },
+      { name: 'Remaining (+)', type: 'bar', stack: 'rem', data: pos, itemStyle: { color: '#2c7fb8', borderRadius: [2, 2, 0, 0] }, barMaxWidth: 18 },
+      { name: 'Remaining (−)', type: 'bar', stack: 'rem', data: neg, itemStyle: { color: '#e67e22', borderRadius: [0, 0, 2, 2] }, barMaxWidth: 18 },
+      { name: 'Net', type: 'line', data: net, symbol: x.length > 40 ? 'none' : 'circle', symbolSize: 6, lineStyle: { color: '#2c3e50', width: 1.5, type: 'solid' }, itemStyle: { color: '#2c3e50' } },
     ],
   }, true);
   $("cardTitle").textContent = `Remaining after explained curtailment – ${state.site === "ALL" ? "All sites" : state.site}`;

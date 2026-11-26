@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex">
+<title>Operations ID Curtailment</title>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+<script src="/ops/nav.js"></script>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f2f5; padding: 20px; }
+.container { max-width: 1600px; margin: 0 auto; background: white; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,.1); overflow: hidden; }
+
+.sub-nav { background: #f8f9fa; border-bottom: 2px solid #e6e9ed; padding: 0 30px; display: flex; }
+.sub-nav-link { display: inline-block; padding: 14px 22px; font-size: 14px; font-weight: 600; color: #6c757d; text-decoration: none;
+  border-bottom: 3px solid transparent; margin-bottom: -2px; transition: color .2s, border-color .2s; white-space: nowrap; cursor: pointer; }
+.sub-nav-link:hover { color: #2c3e50; }
+.sub-nav-link.active { color: #2c3e50; border-bottom-color: #2c3e50; }
+
+.status { padding: 10px 30px 0; font-size: 13px; color: #888; min-height: 28px; line-height: 1.6; }
+.status.err { color: #e74c3c; }
+.status .warn { color: #b9770e; }
+
+.chart-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px; padding: 24px 30px 30px; }
+.chart-card { background: #fff; border-radius: 8px; border: 1px solid #e6e9ed; padding: 16px; }
+.chart-card-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 14px; }
+.chart-card-header h3 { font-size: 18px; font-weight: 500; color: #2c3e50; border-left: 4px solid #2c3e50; padding-left: 12px; margin: 0; line-height: 1.3; }
+.chart-card-header .subtitle { font-size: 12px; color: #888; margin-top: 4px; padding-left: 16px; max-width: 900px; line-height: 1.5; }
+.chart-card-controls { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.chart-card-controls label { font-size: 13px; font-weight: 600; color: #2c3e50; white-space: nowrap; }
+.ctrl-select { font-family: inherit; height: 36px; padding: 0 12px; border: 1px solid #ccc; border-radius: 6px; font-size: 14px; cursor: pointer; background: white; color: #2c3e50; }
+.ctrl-select:focus { outline: none; border-color: #2c3e50; }
+.btn-group-inline { display: flex; border: 1px solid #ccc; border-radius: 6px; overflow: hidden; height: 36px; }
+.btn-group-inline button { padding: 0 13px; font-size: 13px; font-family: inherit; font-weight: 500; background: #fff; border: none; border-right: 1px solid #ccc; cursor: pointer; color: #555; transition: background .15s, color .15s; white-space: nowrap; }
+.btn-group-inline button:last-child { border-right: none; }
+.btn-group-inline button:hover { background: #f0f2f5; color: #2c3e50; }
+.btn-group-inline button.active { background: #2c3e50; color: #fff; }
+.export-btn { display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; font-size: 12px; font-weight: 600; color: #2c3e50; background: #fff;
+  border: 1px solid #ced4da; border-radius: 6px; cursor: pointer; white-space: nowrap; font-family: inherit; transition: background .15s, border-color .15s; }
+.export-btn:hover { background: #f0f4f8; border-color: #5a8fc2; }
+.note { font-size: 12px; color: #888; line-height: 1.7; margin-top: 12px; }
+.note code { background: #f3f5f7; padding: 1px 5px; border-radius: 3px; font-size: 12px; color: #4a5560; }
+.scroll { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 13px; }
+th, td { padding: 8px 10px; text-align: right; border-bottom: 1px solid #eef0f3; white-space: nowrap; }
+th:first-child, td:first-child { text-align: left; }
+th { background: #f3f5f7; font-size: 12px; color: #4a5560; }
+tr.total td { font-weight: 700; background: #fafbfc; }
+.pos { color: #c0392b; } .neg { color: #27ae60; }
+@media (max-width: 700px) {
+  body { padding: 8px; }
+  .chart-grid { padding: 16px; }
+  .sub-nav { padding: 0 10px; overflow-x: auto; }
+  .sub-nav-link { padding: 14px 14px; font-size: 13px; }
+}
+</style>
+</head>
+<body>
+<div class="container">
+
+  <div class="sub-nav">
+    <a class="sub-nav-link" href="/ops/overview">Overview</a>
+    <a class="sub-nav-link" href="/ops/capture-price">Capture Price</a>
+    <a class="sub-nav-link" href="/ops/imbalance">Imbalance</a>
+    <a class="sub-nav-link" href="/ops/go">GO</a>
+    <a class="sub-nav-link active" href="/ops/id-curtailment">ID Curtailment</a>
+  </div>
+
+  <div class="status" id="status">Loading…</div>
+
+  <div class="chart-grid">
+    <div class="chart-card">
+      <div class="chart-card-header" style="margin-bottom:0;align-items:center;">
+        <div><h3>Site</h3></div>
+        <div class="btn-group-inline" id="sites"></div>
+      </div>
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-card-header">
+        <div>
+          <h3 id="cardTitle">Remaining after explained curtailment</h3>
+          <div class="subtitle">Theoretical production − meter − aFRR − maintenance − economic curtailment, only for 15-min intervals where the inverter setpoint is ≤ 95 %.
+            Red (above zero) = volume EB did not use although we could have produced it; green (below zero) = we delivered more than the theoretical production.</div>
+        </div>
+        <div class="chart-card-controls">
+          <div class="btn-group-inline" id="freqGroup">
+            <button data-freq="daily" class="active">Daily</button>
+            <button data-freq="weekly">Weekly</button>
+            <button data-freq="monthly">Monthly</button>
+          </div>
+          <label>Year</label>
+          <select class="ctrl-select" id="yearSelect"></select>
+          <button class="export-btn" id="exportBtn">Export CSV</button>
+        </div>
+      </div>
+      <div id="chart" style="width:100%;height:480px;"></div>
+      <div class="note">
+        Per 15 minutes, per site (same as the ID curtailment workbook, column “Remaining”):<br>
+        <code>Remaining = 0</code> if the inverter setpoint &gt; 95 %, otherwise
+        <code>Theoretical − aFRR − Maintenance − Meter − Economic</code>, where
+        <code>Economic = Theoretical</code> when the HU day-ahead price ≤ 0, else 0.<br>
+        Bars: the sum of the positive / negative 15-min values in each period (so a negative interval does not hide a positive one); the line is the net.
+        A missing inverter setpoint counts as “not above 95 %” (the workbook does the same), so the interval is calculated.
+      </div>
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-card-header" style="margin-bottom:10px;align-items:center;">
+        <div><h3>Summary</h3><div class="subtitle" id="sumSubtitle"></div></div>
+      </div>
+      <div class="scroll"><table id="sumTable"></table></div>
+      <div class="note">All values in MWh. Theoretical production, meter and inverter setpoint come from vcom; EB reference, aFRR and maintenance are the manual inputs
+        (<code>data/id curtailment/&lt;year&gt;/&lt;site&gt;.csv</code> in the vcom repository, filled in from EB's monthly bills). Only 15-min intervals with both theoretical production and meter data are counted.</div>
+    </div>
+  </div>
+</div>
+
+<script>
+const SITES = ["Sajokaza", "Szuhakálló 1", "Szuhakálló 2"];
+const SHORT = { "Sajokaza": "KAZ", "Szuhakálló 1": "SZU", "Szuhakálló 2": "SZELES" };   // names used in the workbook
+const FIRST_YEAR = 2026, THIS_YEAR = new Date().getFullYear();
+const SETPOINT_LIMIT = 95;
+const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const $ = id => document.getElementById(id);
+
+// The selection is mirrored into the address bar (history.replaceState) and restored from it when the page opens.
+const URLQ = new URLSearchParams(location.search);
+const qget = (k, ok) => { const v = URLQ.get(k); return v != null && ok(v) ? v : null; };
+function syncUrl() {
+  try { const p = new URLSearchParams(); for (const [k, v] of Object.entries({ site: state.site, year: state.year, freq: state.freq })) if (v) p.set(k, v);
+    history.replaceState(null, "", location.pathname + "?" + p.toString() + location.hash); } catch (e) { /* the address bar is only a convenience */ }
+}
+const state = {
+  site: qget("site", v => v === "ALL" || SITES.includes(v)) || "ALL",
+  year: qget("year", v => /^\d{4}$/.test(v) && +v >= FIRST_YEAR && +v <= THIS_YEAR) || String(THIS_YEAR),
+  freq: qget("freq", v => ["daily", "weekly", "monthly"].includes(v)) || "daily",
+};
+let chart = null, price = null, data = {}, notes = {}, cache = {};
+
+/* ── Loading ─────────────────────────────────────────────── */
+async function getText(url) {
+  const r = await fetch(url, { credentials: "same-origin" });
+  if (r.status === 401) { location.href = "/ops/login?next=" + encodeURIComponent(location.pathname + location.search); throw new Error("Session expired"); }
+  if (r.status === 404) return null;
+  if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error(`${url.split("?")[0]}: ${j.error || r.status}`); }
+  return r.text();
+}
+function priceKey(s) {       // "2026/1/1 0:00" -> "2026-01-01 00:00"
+  const m = s.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2}) (\d{1,2}):(\d{2})/);
+  return m ? `${m[1]}-${m[2].padStart(2, "0")}-${m[3].padStart(2, "0")} ${m[4].padStart(2, "0")}:${m[5]}` : null;
+}
+function parsePrice(text) {
+  const lines = text.split(/\r?\n/), col = lines[0].split(",").map(h => h.trim()).indexOf("HU");
+  if (col < 0) throw new Error("HU column not found in price data");
+  const m = new Map();
+  for (let i = 1; i < lines.length; i++) {
+    if (!lines[i]) continue;
+    const f = lines[i].split(","), k = priceKey(f[0]), v = parseFloat(f[col]);
+    if (k && Number.isFinite(v)) m.set(k, v);
+  }
+  return m;
+}
+// Generic 15-min CSV (first column = local time, interval start) -> Map(key -> {column name: number}); blanks are left out.
+function parseCsv(text, wanted) {
+  const lines = text.replace(/^﻿/, "").split(/\r?\n/), head = lines[0].split(",");
+  const idx = {};
+  for (const [name, test] of Object.entries(wanted)) { const c = head.findIndex(h => test(h)); if (c >= 0) idx[name] = c; }
+  const out = new Map();
+  for (let i = 1; i < lines.length; i++) {
+    if (!lines[i]) continue;
+    const f = lines[i].split(","); let rec = null;
+    for (const [name, c] of Object.entries(idx)) {
+      const t = f[c]; if (t === undefined || t === "") continue;
+      const v = +t; if (!Number.isFinite(v)) continue;
+      (rec || (rec = {}))[name] = v;
+    }
+    if (rec) out.set(f[0].slice(0, 16), rec);
+  }
+  return out;
+}
+async function loadSite(site, years) {
+  const d = { th: new Map(), me: new Map(), inv: new Map(), inp: new Map() }, n = { inputs: [], inverter: [] };
+  const q = y => `site=${encodeURIComponent(site)}&year=${y}`;
+  await Promise.all(years.flatMap(y => [
+    getText(`/ops/api/theoretical?${q(y)}`).then(t => { if (t) parseCsv(t, { v: h => h.includes("[MWh]") }).forEach((r, k) => d.th.set(k, r.v)); }),
+    getText(`/ops/api/metered?${q(y)}`).then(t => { if (t) parseCsv(t, { v: h => h.includes("[MWh]") }).forEach((r, k) => d.me.set(k, r.v)); }),
+    getText(`/ops/api/inverter?${q(y)}`).then(t => { if (t) parseCsv(t, { v: h => h.includes("[%]") }).forEach((r, k) => d.inv.set(k, r.v)); else n.inverter.push(y); }),
+    getText(`/ops/api/id-inputs?${q(y)}`).then(t => {
+      if (!t) { n.inputs.push(y); return; }
+      parseCsv(t, { ref: h => h.startsWith("EB reference"), af: h => h.startsWith("aFRR"), mt: h => h.startsWith("Tech maintenance"), spf: h => h.startsWith("Inverter setpoint") })
+        .forEach((r, k) => d.inp.set(k, r));
+    }),
+  ]));
+  return [d, n];
+}
+async function load() {
+  const years = []; for (let y = FIRST_YEAR; y <= THIS_YEAR; y++) years.push(y);
+  const jobs = [getText("/ops/api/price").then(t => { price = parsePrice(t); })];
+  SITES.forEach(s => jobs.push(loadSite(s, years).then(([d, n]) => { data[s] = d; notes[s] = n; })));
+  await Promise.all(jobs);
+}
+
+/* ── Calculation (one record per 15-min interval of a site) ── */
+function computeSite(site, year) {
+  const ck = site + year; if (cache[ck]) return cache[ck];
+  const d = data[site], recs = []; let noMeter = 0, noSetpoint = 0;
+  for (const [k, T] of d.th) {
+    if (!k.startsWith(year)) continue;
+    const M = d.me.get(k);
+    if (M === undefined) { noMeter++; continue; }               // no meter reading: the interval cannot be judged
+    const inp = d.inp.get(k) || {};
+    const ref = inp.ref || 0, af = inp.af || 0, mt = inp.mt || 0;
+    const pr = price.get(k), econ = pr !== undefined && pr <= 0 ? T : 0;
+    let sp = d.inv.get(k); if (sp === undefined) sp = inp.spf;   // vcom inverter data first, then the history column of the input file
+    if (sp === undefined) noSetpoint++;
+    const rem = sp !== undefined && sp > SETPOINT_LIMIT ? 0 : T - af - mt - M - econ;
+    recs.push({ k, date: k.slice(0, 10), T, M, ref, af, mt, econ, rem, noSp: sp === undefined });
+  }
+  return (cache[ck] = { recs, noMeter, noSetpoint });
+}
+const emptyAgg = () => ({ T: 0, ref: 0, M: 0, af: 0, mt: 0, econ: 0, pos: 0, neg: 0, nSp: 0, n: 0 });
+function addRec(g, r) {
+  g.T += r.T; g.ref += r.ref; g.M += r.M; g.af += r.af; g.mt += r.mt; g.econ += r.econ;
+  if (r.rem > 0) g.pos += r.rem; else g.neg += r.rem;
+  if (r.noSp) g.nSp++; g.n++;
+}
+function getISOWeek(dateStr) {
+  const d = new Date(dateStr + 'T00:00:00Z');
+  d.setUTCDate(d.getUTCDate() + 3 - (d.getUTCDay() + 6) % 7);
+  const week1 = new Date(Date.UTC(d.getUTCFullYear(), 0, 4));
+  const wk = 1 + Math.round(((d - week1) / 86400000 - 3 + (week1.getUTCDay() + 6) % 7) / 7);
+  return `${d.getUTCFullYear()}-W${String(wk).padStart(2, '0')}`;
+}
+const groupKey = (date, freq) => freq === "daily" ? date : freq === "weekly" ? getISOWeek(date) : date.slice(0, 7);
+// Aggregate the selected site(s): Total = sum of the per-site results (each site applies its own setpoint rule).
+function aggregate(sel, year, keyFn) {
+  const sites = sel === "ALL" ? SITES : [sel], groups = {};
+  sites.forEach(s => computeSite(s, year).recs.forEach(r => { const key = keyFn(r), g = groups[key] || (groups[key] = emptyAgg()); addRec(g, r); }));
+  return groups;
+}
+const sortedEntries = o => Object.entries(o).sort((a, b) => a[0] < b[0] ? -1 : 1);
+
+/* ── Chart ───────────────────────────────────────────────── */
+const axisStyle = { axisLine: { lineStyle: { color: '#ccc' } }, axisLabel: { color: '#6c757d', fontSize: 11 }, splitLine: { lineStyle: { color: '#f0f2f5' } } };
+const fmt = v => v == null ? "–" : v.toLocaleString("en-US", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+function renderChart() {
+  const rows = sortedEntries(aggregate(state.site, state.year, r => groupKey(r.date, state.freq)));
+  const x = rows.map(r => r[0]), pos = rows.map(r => +r[1].pos.toFixed(3)), neg = rows.map(r => +r[1].neg.toFixed(3)), net = rows.map(r => +(r[1].pos + r[1].neg).toFixed(3));
+  if (!chart) { chart = echarts.init($("chart")); window.addEventListener("resize", () => chart.resize()); }
+  chart.setOption({
+    animation: false,
+    legend: { top: 0, textStyle: { color: '#6c757d' } },
+    grid: { left: 60, right: 30, top: 40, bottom: x.length > 60 ? 80 : 40 },
+    tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' }, formatter: ps => {
+      const g = rows[ps[0].dataIndex][1];
+      let h = `<div style="font-weight:600;margin-bottom:5px;color:#2c3e50">${ps[0].axisValue}</div>`;
+      const line = (c, n, v) => `<div style="display:flex;justify-content:space-between;gap:24px;font-size:12px"><span><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${c};margin-right:6px"></span>${n}</span><b>${fmt(v)}</b></div>`;
+      h += line('#c0392b', 'Remaining (+)', g.pos) + line('#27ae60', 'Remaining (−)', g.neg) + line('#2c3e50', 'Net', g.pos + g.neg);
+      h += `<div style="border-top:1px solid #eee;margin:5px 0"></div>`;
+      h += [['Theoretical', g.T], ['Meter', g.M], ['aFRR', g.af], ['Maintenance', g.mt], ['Economic curtailment', g.econ]].map(([n, v]) => `<div style="display:flex;justify-content:space-between;gap:24px;font-size:12px;color:#6c757d"><span>${n}</span><span>${fmt(v)}</span></div>`).join('');
+      return h + `<div style="font-size:11px;color:#aaa;margin-top:4px">MWh</div>`;
+    } },
+    xAxis: { type: 'category', data: x, ...axisStyle, axisLabel: { color: '#6c757d', fontSize: 11, hideOverlap: true } },
+    yAxis: { type: 'value', name: 'MWh', nameTextStyle: { color: '#6c757d', fontSize: 11 }, ...axisStyle },
+    dataZoom: x.length > 60 ? [{ type: 'inside' }, { type: 'slider', height: 22, bottom: 14 }] : [],
+    series: [
+      { name: 'Remaining (+)', type: 'bar', stack: 'rem', data: pos, itemStyle: { color: '#c0392b' }, barMaxWidth: 22 },
+      { name: 'Remaining (−)', type: 'bar', stack: 'rem', data: neg, itemStyle: { color: '#27ae60' }, barMaxWidth: 22 },
+      { name: 'Net', type: 'line', data: net, symbol: x.length > 40 ? 'none' : 'circle', symbolSize: 6, lineStyle: { color: '#2c3e50', width: 1.5 }, itemStyle: { color: '#2c3e50' } },
+    ],
+  }, true);
+  $("cardTitle").textContent = `Remaining after explained curtailment – ${state.site === "ALL" ? "all three sites" : `${state.site} (${SHORT[state.site]})`}`;
+  return rows;
+}
+
+/* ── Summary table (months of the selected year) ───────────── */
+const COLS = [["T", "Theoretical"], ["ref", "EB reference"], ["M", "Meter"], ["af", "aFRR"], ["mt", "Maintenance"], ["econ", "Economic curt."], ["pos", "Remaining (+)"], ["neg", "Remaining (−)"], ["net", "Net remaining"], ["nSp", "No setpoint (15-min)"]];
+let sumRows = [];
+function renderTable() {
+  const g = aggregate(state.site, state.year, r => r.date.slice(5, 7)), tot = emptyAgg();
+  sumRows = [];
+  for (let m = 1; m <= 12; m++) {
+    const a = g[String(m).padStart(2, "0")]; if (!a) continue;
+    for (const k of Object.keys(tot)) tot[k] += a[k];
+    sumRows.push([MONTHS[m - 1], a]);
+  }
+  sumRows.push(["Year", tot]);
+  const cell = (k, a) => {
+    if (k === "net") { const v = a.pos + a.neg; return `<td class="${v > 0.05 ? "pos" : v < -0.05 ? "neg" : ""}">${fmt(v)}</td>`; }
+    if (k === "nSp") return `<td>${a.nSp.toLocaleString("en-US")}</td>`;
+    return `<td class="${k === "pos" ? "pos" : k === "neg" ? "neg" : ""}">${fmt(a[k])}</td>`;
+  };
+  $("sumTable").innerHTML = `<thead><tr><th>${state.year}</th>${COLS.map(c => `<th>${c[1]}</th>`).join("")}</tr></thead><tbody>` +
+    sumRows.map(([n, a], i) => `<tr class="${i === sumRows.length - 1 ? "total" : ""}"><td>${n}</td>${COLS.map(c => cell(c[0], a)).join("")}</tr>`).join("") + "</tbody>";
+  $("sumSubtitle").textContent = state.site === "ALL" ? "Sajokaza (KAZ) + Szuhakálló 1 (SZU) + Szuhakálló 2 (SZELES)" : `${state.site} (${SHORT[state.site]})`;
+}
+
+/* ── Status line ─────────────────────────────────────────── */
+function renderStatus() {
+  const sites = state.site === "ALL" ? SITES : [state.site], parts = [];
+  let noMeter = 0, noSp = 0;
+  sites.forEach(s => { const c = computeSite(s, state.year); noMeter += c.noMeter; noSp += c.noSetpoint; });
+  const noInputs = sites.filter(s => notes[s].inputs.includes(+state.year));
+  if (noInputs.length) parts.push(`<span class="warn">No manual input file for ${state.year} (${noInputs.join(", ")}): EB reference, aFRR and maintenance count as 0, so Remaining is overstated.</span>`);
+  if (noMeter) parts.push(`${noMeter.toLocaleString("en-US")} 15-min intervals skipped (theoretical production without a meter reading).`);
+  if (noSp) parts.push(`${noSp.toLocaleString("en-US")} intervals without an inverter setpoint (calculated as if ≤ 95 %).`);
+  $("status").className = "status";
+  $("status").innerHTML = parts.join("<br>") || "&nbsp;";
+}
+
+/* ── Export ──────────────────────────────────────────────── */
+$("exportBtn").onclick = () => {
+  const rows = renderChart();
+  const lines = [`# ${state.site} ${state.year} ${state.freq} (MWh)`, ["Period", "Theoretical", "EB reference", "Meter", "aFRR", "Maintenance", "Economic", "Remaining +", "Remaining -", "Net"].join(",")];
+  rows.forEach(([k, a]) => lines.push([k, a.T, a.ref, a.M, a.af, a.mt, a.econ, a.pos, a.neg, a.pos + a.neg].map(v => typeof v === "number" ? +v.toFixed(4) : v).join(",")));
+  lines.push("", "# Monthly summary", ["Month", ...COLS.map(c => c[1])].join(","));
+  sumRows.forEach(([n, a]) => lines.push([n, ...COLS.map(c => c[0] === "net" ? a.pos + a.neg : a[c[0]])].map(v => typeof v === "number" ? +v.toFixed(4) : v).join(",")));
+  const url = URL.createObjectURL(new Blob(["﻿" + lines.join("\n")], { type: "text/csv;charset=utf-8" }));
+  const a = document.createElement("a"); a.href = url; a.download = `id-curtailment_${state.site === "ALL" ? "all" : SHORT[state.site]}_${state.year}_${state.freq}.csv`; a.click(); URL.revokeObjectURL(url);
+};
+
+/* ── Controls ────────────────────────────────────────────── */
+function render() { syncUrl(); renderChart(); renderTable(); renderStatus(); }
+function buildControls() {
+  const names = [["ALL", "All sites"], ...SITES.map(s => [s, `${s} (${SHORT[s]})`])];
+  $("sites").innerHTML = names.map(([v, l]) => `<button data-site="${v}" class="${v === state.site ? "active" : ""}">${l}</button>`).join("");
+  $("sites").onclick = e => { const b = e.target.closest("button"); if (!b) return; state.site = b.dataset.site;
+    [...$("sites").children].forEach(c => c.classList.toggle("active", c === b)); render(); };
+  const ys = []; for (let y = THIS_YEAR; y >= FIRST_YEAR; y--) ys.push(y);
+  $("yearSelect").innerHTML = ys.map(y => `<option value="${y}">${y}</option>`).join("");
+  $("yearSelect").value = state.year;
+  $("yearSelect").onchange = e => { state.year = e.target.value; render(); };
+  [...$("freqGroup").children].forEach(b => b.classList.toggle("active", b.dataset.freq === state.freq));
+  $("freqGroup").onclick = e => { const b = e.target.closest("button"); if (!b) return; state.freq = b.dataset.freq;
+    [...$("freqGroup").children].forEach(c => c.classList.toggle("active", c === b)); render(); };
+}
+(async () => {
+  try { buildControls(); await load(); render(); }
+  catch (e) { $("status").className = "status err"; $("status").textContent = e.message || String(e); }
+})();
+</script>
+</body>
+</html>

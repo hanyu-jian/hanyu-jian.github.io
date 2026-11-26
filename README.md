@@ -285,7 +285,7 @@ aFRR 容量（Balancing 下，Imbalance Prices 后面的 aFRR Capacity 页）。
 
 ## Hungary Operations 运营数据（独立权限）
 
-入口：`project.html` 里点 TOKAJ 卡片 → `/ops/overview`（文件 `ops/ops-overview.html`）。页面全英文，样式和主看板一致：共用 `html/nav.js` 的头部（运营会话通过 `/ops/nav.js` 取到同一份），`/ops` 页面的一级导航是单独的 TOKAJ 标签（`nav.js` 里的 `OPS_NAV_ITEMS`），二级导航是 Overview / Capture Price / Imbalance / GO；点左上角标题 “European Electricity Dashboard” 回到看板。
+入口：`project.html` 里点 TOKAJ 卡片 → `/ops/overview`（文件 `ops/ops-overview.html`）。页面全英文，样式和主看板一致：共用 `html/nav.js` 的头部（运营会话通过 `/ops/nav.js` 取到同一份），`/ops` 页面的一级导航是单独的 TOKAJ 标签（`nav.js` 里的 `OPS_NAV_ITEMS`），二级导航是 Overview / Capture Price / Imbalance / GO / ID Curtailment；点左上角标题 “European Electricity Dashboard” 回到看板。
 
 **新增运营页面**：① 建 `ops/ops-<name>.html`（页首加 `<script src="/ops/nav.js"></script>`，并写好二级导航 `.sub-nav`）；② 把 `<name>` 加进 `gate/worker.js` 的 `OPS_PAGE_NAMES`；
 ③ 在每个运营页的 `.sub-nav` 里加一项（目前有 Overview、Capture Price 和 Imbalance）。对外地址是 `/ops/<name>`。
@@ -342,6 +342,15 @@ token 只在服务端，不会发给浏览器；数据不会进入本仓库，�
   ② Undelivered GO：按交付日 + 买方汇总（同一交付日买方不同分开），右上角可选交付日口径：amended（有 amended date 的按 amended date，当前计划）或 original（都按原交付日，看原计划）。每个交付日一行，列是 Signed GO、Delivered GO、Undelivered GO（= 已签 − 已交付）和 Buyer。交付日有 amended date 且只交付了一部分的合同行，在 amended 口径下拆开：已交付的部分留在原交付日，剩下的放到 amended date。点一行：上面 Contracts 表里相加得到这一行的那几行高亮成浅蓝（涉及别的年份时年份下拉自动切到 All years），同时展开这一行的 transaction 明细（Transaction date / Volume / Buyer），再点一次收起；早于今天且还没交付完的标 overdue。网址参数 `/ops/go?year=&dates=original`。
 - transaction 明细在 vcom 仓库的 `data/go/tokaj_go_transactions.csv`（delivery_date, buyer, transaction_date, volume_mwh, note），Worker 的 `/ops/api/go-transactions` 原样转发；有了新的交付明细往这个文件里加即可。合同、价格、买方和交付量都在私有的 vcom 仓库里，不要写进本仓库（包括 README）。
 - 全年电量用 `/ops/api/metered?resolution=hourly`（五站小时表计，页面按月求和）。
+
+**ID Curtailment 页面口径**（`ops/ops-id-curtailment.html`，`/ops/id-curtailment`，二级导航最后一项；只有「Remaining」一张图 + 月度汇总表）
+- 复现 EB（平衡公司）S 包 ID curtailment 工作簿里的 Remaining 列，对象是 Sajokaza (KAZ)、Szuhakálló 1 (SZU)、Szuhakálló 2 (SZELES) 三个场站，按 15 分钟逐点算，再按日 / 周 / 月加总：
+  `Remaining = 0`（inverter 设定值 > 95 %）；否则 `理论发电量 − aFRR − 检修 − 表计 − 经济性限电`，其中 `经济性限电 = 理论发电量`（HU 日前价 ≤ 0 时），否则 0。
+  设定值缺失时按「不大于 95 %」处理（和工作簿一致，该点照常计算）；理论发电量和表计缺一的 15 分钟不计入；日前价缺失按不限电。
+- 正值（红）= 按理论发电量发电、扣掉所有可解释的限电后还有余量（EB 可能把这部分放到了 ID 市场）；负值（绿）= 实发比理论发电量还多。柱子是每个周期内 15 分钟正值之和 / 负值之和（互不抵消），折线是净值。
+- 数据：理论发电量 `/ops/api/theoretical`（vcom，含 AC 限值，不含工作簿里 E→I 的 1.8 % 损耗）、表计 `/ops/api/metered`、inverter 设定值 `/ops/api/inverter`（vcom `data/inverter settle point/<年>/15min/<场站>.csv`，Worker 原样转发）、日前价 `/ops/api/price`（`entsoe/15min/price.csv` 的 HU 列）。
+- 手工输入：`/ops/api/id-inputs` 转发 vcom 仓库 `data/id curtailment/<年>/<场站>.csv`，列 `Date, EB reference [MWh], aFRR [MWh], Tech maintenance [MWh], Inverter setpoint fallback [%]`（15 分钟、本地时间、区间起点）。EB reference 和 aFRR 按 EB 每月电费账单填，检修数据有了再填；最后一列是 vcom inverter 数据开始之前（2026-01~09）的历史设定值，vcom 有值时优先用 vcom。缺这个文件时页面提示「Remaining 偏大」。
+- 网址参数：`site`（`ALL` 或场站名）、`year`、`freq`（`daily|weekly|monthly`）。
 
 **Ops 页面的网址参数**（Overview / Capture Price / Imbalance 三个页面）：页面上的选择会同步写进地址栏（`history.replaceState`，不增加浏览器历史记录），打开带参数的链接时按参数恢复；缺少或不合法的参数忽略，用默认值。链接里只有选择，没有数据，打开仍要登录 ops。
 - `/ops/overview?site=&start=&end=&res=15min|hourly&lead=&bdate=`（`site` = ALL 或站点名，`lead` = 提前量分钟数，`bdate` = 第二张卡片的日期）

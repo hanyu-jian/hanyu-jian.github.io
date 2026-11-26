@@ -81,8 +81,6 @@ tr.total td { font-weight: 700; background: #fafbfc; }
       <div class="chart-card-header">
         <div>
           <h3 id="cardTitle">Remaining after explained curtailment</h3>
-          <div class="subtitle">Theoretical production − meter − aFRR − maintenance − economic curtailment, only for 15-min intervals where the inverter setpoint is ≤ 95 %.
-            Red (above zero) = volume EB did not use although we could have produced it; green (below zero) = we delivered more than the theoretical production.</div>
         </div>
         <div class="chart-card-controls">
           <div class="btn-group-inline" id="freqGroup">
@@ -96,23 +94,13 @@ tr.total td { font-weight: 700; background: #fafbfc; }
         </div>
       </div>
       <div id="chart" style="width:100%;height:480px;"></div>
-      <div class="note">
-        Per 15 minutes, per site (same as the ID curtailment workbook, column “Remaining”):<br>
-        <code>Remaining = 0</code> if the inverter setpoint &gt; 95 %, otherwise
-        <code>Theoretical − aFRR − Maintenance − Meter − Economic</code>, where
-        <code>Economic = Theoretical</code> when the HU day-ahead price ≤ 0, else 0.<br>
-        Bars: the sum of the positive / negative 15-min values in each period (so a negative interval does not hide a positive one); the line is the net.
-        A missing inverter setpoint counts as “not above 95 %” (the workbook does the same), so the interval is calculated.
-      </div>
     </div>
 
     <div class="chart-card">
       <div class="chart-card-header" style="margin-bottom:10px;align-items:center;">
-        <div><h3>Summary</h3><div class="subtitle" id="sumSubtitle"></div></div>
+        <div><h3>Summary</h3></div>
       </div>
       <div class="scroll"><table id="sumTable"></table></div>
-      <div class="note">All values in MWh. Theoretical production, meter and inverter setpoint come from vcom; EB reference, aFRR and maintenance are the manual inputs
-        (<code>data/id curtailment/&lt;year&gt;/&lt;site&gt;.csv</code> in the vcom repository, filled in from EB's monthly bills). Only 15-min intervals with both theoretical production and meter data are counted.</div>
     </div>
   </div>
 </div>
@@ -294,7 +282,6 @@ function renderTable() {
   };
   $("sumTable").innerHTML = `<thead><tr><th>${state.year}</th>${COLS.map(c => `<th>${c[1]}</th>`).join("")}</tr></thead><tbody>` +
     sumRows.map(([n, a], i) => `<tr class="${i === sumRows.length - 1 ? "total" : ""}"><td>${n}</td>${COLS.map(c => cell(c[0], a)).join("")}</tr>`).join("") + "</tbody>";
-  $("sumSubtitle").textContent = state.site === "ALL" ? "Sajokaza (KAZ) + Szuhakálló 1 (SZU) + Szuhakálló 2 (SZELES)" : `${state.site} (${SHORT[state.site]})`;
 }
 
 /* ── Status line ─────────────────────────────────────────── */

@@ -107,7 +107,6 @@ tr.total td { font-weight: 700; background: #fafbfc; }
 
 <script>
 const SITES = ["Sajokaza", "Szuhakálló 1", "Szuhakálló 2"];
-const SHORT = { "Sajokaza": "KAZ", "Szuhakálló 1": "SZU", "Szuhakálló 2": "SZELES" };   // names used in the workbook
 const FIRST_YEAR = 2026, THIS_YEAR = new Date().getFullYear();
 const SETPOINT_LIMIT = 95;
 const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
@@ -259,7 +258,7 @@ function renderChart() {
       { name: 'Net', type: 'line', data: net, symbol: x.length > 40 ? 'none' : 'circle', symbolSize: 6, lineStyle: { color: '#2c3e50', width: 1.5 }, itemStyle: { color: '#2c3e50' } },
     ],
   }, true);
-  $("cardTitle").textContent = `Remaining after explained curtailment – ${state.site === "ALL" ? "all three sites" : `${state.site} (${SHORT[state.site]})`}`;
+  $("cardTitle").textContent = `Remaining after explained curtailment – ${state.site === "ALL" ? "All sites" : state.site}`;
   return rows;
 }
 
@@ -305,13 +304,13 @@ $("exportBtn").onclick = () => {
   lines.push("", "# Monthly summary", ["Month", ...COLS.map(c => c[1])].join(","));
   sumRows.forEach(([n, a]) => lines.push([n, ...COLS.map(c => c[0] === "net" ? a.pos + a.neg : a[c[0]])].map(v => typeof v === "number" ? +v.toFixed(4) : v).join(",")));
   const url = URL.createObjectURL(new Blob(["﻿" + lines.join("\n")], { type: "text/csv;charset=utf-8" }));
-  const a = document.createElement("a"); a.href = url; a.download = `id-curtailment_${state.site === "ALL" ? "all" : SHORT[state.site]}_${state.year}_${state.freq}.csv`; a.click(); URL.revokeObjectURL(url);
+  const a = document.createElement("a"); a.href = url; a.download = `id-curtailment_${state.site === "ALL" ? "all" : state.site.replace(/\s+/g, "_")}_${state.year}_${state.freq}.csv`; a.click(); URL.revokeObjectURL(url);
 };
 
 /* ── Controls ────────────────────────────────────────────── */
 function render() { syncUrl(); renderChart(); renderTable(); renderStatus(); }
 function buildControls() {
-  const names = [["ALL", "All sites"], ...SITES.map(s => [s, `${s} (${SHORT[s]})`])];
+  const names = [["ALL", "All sites"], ...SITES.map(s => [s, s])];
   $("sites").innerHTML = names.map(([v, l]) => `<button data-site="${v}" class="${v === state.site ? "active" : ""}">${l}</button>`).join("");
   $("sites").onclick = e => { const b = e.target.closest("button"); if (!b) return; state.site = b.dataset.site;
     [...$("sites").children].forEach(c => c.classList.toggle("active", c === b)); render(); };

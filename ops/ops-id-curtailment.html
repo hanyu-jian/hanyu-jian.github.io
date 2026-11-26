@@ -88,6 +88,8 @@ tr.total td { font-weight: 700; background: #fafbfc; }
             <button data-freq="weekly">Weekly</button>
             <button data-freq="monthly">Monthly</button>
           </div>
+          <label>Tolerance (MWh)</label>
+          <input class="ctrl-select" id="tol" type="number" step="0.1" style="width:90px;">
           <label>Year</label>
           <select class="ctrl-select" id="yearSelect"></select>
           <button class="export-btn" id="exportBtn">Export CSV</button>
@@ -116,13 +118,14 @@ const $ = id => document.getElementById(id);
 const URLQ = new URLSearchParams(location.search);
 const qget = (k, ok) => { const v = URLQ.get(k); return v != null && ok(v) ? v : null; };
 function syncUrl() {
-  try { const p = new URLSearchParams(); for (const [k, v] of Object.entries({ site: state.site, year: state.year, freq: state.freq })) if (v) p.set(k, v);
+  try { const p = new URLSearchParams(); for (const [k, v] of Object.entries({ site: state.site, year: state.year, freq: state.freq, tol: state.tol })) if (v) p.set(k, v);
     history.replaceState(null, "", location.pathname + "?" + p.toString() + location.hash); } catch (e) { /* the address bar is only a convenience */ }
 }
 const state = {
   site: qget("site", v => v === "ALL" || SITES.includes(v)) || "ALL",
   year: qget("year", v => /^\d{4}$/.test(v) && +v >= FIRST_YEAR && +v <= THIS_YEAR) || String(THIS_YEAR),
   freq: qget("freq", v => ["daily", "weekly", "monthly"].includes(v)) || "daily",
+  tol: +(qget("tol", v => v.trim() !== "" && Number.isFinite(+v)) ?? 1),     // per-site, per-15-min threshold (workbook default 1 MWh)
 };
 let chart = null, price = null, params = {}, data = {}, notes = {}, cache = {};
 
@@ -224,7 +227,7 @@ function computeSite(site, year) {
 const emptyAgg = () => ({ T: 0, ref: 0, M: 0, af: 0, mt: 0, econ: 0, U: 0, pos: 0, neg: 0, n: 0 });
 function addRec(g, r) {
   g.T += r.T; g.ref += r.ref; g.M += r.M; g.af += r.af; g.mt += r.mt; g.econ += r.econ; g.U += r.U;
-  if (r.rem > 0) g.pos += r.rem; else g.neg += r.rem;
+  if (r.rem > state.tol) { if (r.rem > 0) g.pos += r.rem; else g.neg += r.rem; }   // only intervals above the tolerance are flagged ("check")
   g.n++;
 }
 function getISOWeek(dateStr) {
@@ -326,6 +329,8 @@ function buildControls() {
   const ys = []; for (let y = THIS_YEAR; y >= FIRST_YEAR; y--) ys.push(y);
   $("yearSelect").innerHTML = ys.map(y => `<option value="${y}">${y}</option>`).join("");
   $("yearSelect").value = state.year;
+  $("tol").value = state.tol;
+  $("tol").oninput = e => { const v = parseFloat(e.target.value); if (Number.isFinite(v)) { state.tol = v; render(); } };
   $("yearSelect").onchange = e => { state.year = e.target.value; render(); };
   [...$("freqGroup").children].forEach(b => b.classList.toggle("active", b.dataset.freq === state.freq));
   $("freqGroup").onclick = e => { const b = e.target.closest("button"); if (!b) return; state.freq = b.dataset.freq;

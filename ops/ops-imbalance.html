@@ -344,6 +344,14 @@ function checkRange() {
   return true;
 }
 
+// Auto refresh: while the tab is visible the data is reloaded quietly every 10 minutes (same selection, nothing is reset), so a repository update shows up without reloading the page.
+const REFRESH_MS = 10 * 60000;
+let lastOk = Date.now();
+const hhmm = () => new Date().toLocaleTimeString("en-GB", { timeZone: "Europe/Budapest", hour: "2-digit", minute: "2-digit" });
+setInterval(() => { if (!document.hidden && Date.now() - lastOk >= REFRESH_MS - 1000) refreshNow(); }, 30000);
+document.addEventListener("visibilitychange", () => { if (!document.hidden && Date.now() - lastOk >= REFRESH_MS) refreshNow(); });
+function refreshNow() { lastOk = Date.now(); if (!loading) load(true); }
+
 function init() {
   $("lead").innerHTML = LEADS.map(h => `<option value="${h}"${h === DEFAULT_LEAD ? " selected" : ""}>${h} min${h === DEFAULT_LEAD ? " (default)" : h === MIN_TRADABLE ? " (shortest tradable)" : h < MIN_TRADABLE ? " (not tradable)" : ""}</option>`).join("");
   $("sites").innerHTML = ["ALL", ...SITES].map(s => `<button data-s="${s}">${s === "ALL" ? "All sites" : s}</button>`).join("");
@@ -415,7 +423,8 @@ async function fetchChunk(site, a, b, lead) {
   return j;
 }
 let dataYear = null, loading = "";
-async function load() {
+let updatedAt = "";
+async function load(silent = false) {
   const seq = ++loadSeq, lead = $("lead").value;
   if (!checkRange()) return;
   const s = $("start").value, e = $("end").value, year = e.slice(0, 4);
@@ -426,7 +435,7 @@ async function load() {
   const near = j => j.a <= e && j.b >= s;
   jobs.sort((x, y) => (near(y) - near(x)) || (x.a < y.a ? -1 : x.a > y.a ? 1 : 0));
   const firstBatch = jobs.filter(near).length;
-  dataYear = null; loading = `Loading ${year}: 0 / ${jobs.length}…`; setStatus(loading);
+  if (!silent) { dataYear = null; loading = `Loading ${year}: 0 / ${jobs.length}…`; setStatus(loading); }
   let next = 0, done = 0; const results = [];
   const build = () => {
     store = {};
@@ -442,15 +451,16 @@ async function load() {
         const job = jobs[next++]; const j = await fetchChunk(job.site, job.a, job.b, lead);
         if (seq !== loadSeq) return;
         results.push({ job, j }); done++;
+        if (silent) continue;                                                       // auto refresh: swap the data in once, at the end
         loading = `Loading ${year}: ${done} / ${jobs.length}…`;
         if (done === firstBatch && done < jobs.length) { build(); paint(); }       // the selected period is complete: draw it now
         else if (done < jobs.length) setStatus(loading + " (the rest of the year is still loading)");
       }
     }));
     if (seq !== loadSeq) return;
-    build(); dataYear = year; loading = ""; paint();
+    build(); dataYear = year; loading = ""; lastOk = Date.now(); updatedAt = hhmm(); paint();
   } catch (err) {
-    if (seq === loadSeq) { loading = ""; setStatus("Failed to load: " + err.message, true); }
+    if (seq === loadSeq && !silent) { loading = ""; setStatus("Failed to load: " + err.message, true); }
   }
 }
 // Days without any DA price or without any imbalance price (usually the newest days) are left out of every figure.
@@ -642,7 +652,7 @@ function paint() {
   const cloudNote = [[dacc, "day1", cloudDA, "DA"], [idcc, isrc, cloudIDC, "IDC"]].filter(([c]) => c != null)
     .map(([, src, n, nm]) => cloudState[ckey(src)] === "error" ? `cloud forecast data unavailable (${nm}, ${modelLabel()})` : cloudState[ckey(src)] === "loading" || !cloud[ckey(src)] ? `loading cloud forecast (${nm})` : `${nf(n)} cloudy intervals (${nm})`).join(" · ");
   const modeTxt = strategyText(p, mode, lead) + thrTxt;
-  setStatus(rows.length ? `${name} · ${modeTxt}` + (thr != null ? ` · ${nf(curt)} intervals (${nf(curtMWh, 0)} MWh) curtailed` : "") + (cloudNote ? ` · ${cloudNote}` : "") + (skipped ? ` · ${skipped} site-days left out (no DA / imbalance price yet)` : "") + (loading ? ` · ${loading} (the rest of the year is still loading)` : "")
+  setStatus(rows.length ? `${name} · ${modeTxt}` + (thr != null ? ` · ${nf(curt)} intervals (${nf(curtMWh, 0)} MWh) curtailed` : "") + (cloudNote ? ` · ${cloudNote}` : "") + (skipped ? ` · ${skipped} site-days left out (no DA / imbalance price yet)` : "") + (loading ? ` · ${loading} (the rest of the year is still loading)` : "") + (updatedAt && !loading ? ` · updated ${updatedAt}` : "")
     : skipped ? `No data to show: all ${skipped} site-days in this period have no DA / imbalance price yet. Pick an earlier period, or check that the price table is up to date (the &ldquo;Build HU Combined Data&rdquo; workflow runs daily at 10:30 UTC).`
     : "No data for this selection.", !rows.length);
   $("revTitle").textContent = `${name} · revenue and total revenue`;

@@ -345,6 +345,8 @@ token 只在服务端，不会发给浏览器；数据不会进入本仓库，�
 - 发电量用 `/ops/api/metered?resolution=hourly`（小时文件，页面按月求和）。2024 年只算 8–12 月，当年只算读满的月份。
 - 网址参数：`/ops/go?site=&year=`（site 缺省 = All sites）。
 
+**自动刷新**：Overview 每 5 分钟、Imbalance 每 10 分钟在后台重新加载当前所选的数据（只在页面可见时；选择、缩放、策略都不变，加载失败就保留旧数据），仓库更新后不用刷新页面，状态栏显示 `updated HH:MM`。
+
 **Ops 页面的网址参数**（Overview / Capture Price / Imbalance 三个页面）：页面上的选择会同步写进地址栏（`history.replaceState`，不增加浏览器历史记录），打开带参数的链接时按参数恢复；缺少或不合法的参数忽略，用默认值。链接里只有选择，没有数据，打开仍要登录 ops。
 - `/ops/overview?site=&start=&end=&res=15min|hourly&lead=&bdate=`（`site` = ALL 或站点名，`lead` = 提前量分钟数，`bdate` = 第二张卡片的日期，`sfrom`、`sto` = Summary by site 的起止月份 YYYY-MM，两个都有才生效，最多 12 个月）
 - `/ops/imbalance?site=&start=&end=&freq=&lead=&pct=&mode=idc|imb&thr=&cloud=&cm=&dacc=&dabc=&isrc=&il=&icc=&ibc=&ibid=&from=&to=`（`freq` = 15min / hour / day / week / month / quarter / year，`from`、`to` = Summary table 的月份 1–12）

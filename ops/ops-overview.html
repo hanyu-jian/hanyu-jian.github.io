@@ -226,6 +226,17 @@ const pc = v => v == null ? "–" : (v >= 0 ? "+" : "") + nf(v, 1) + "%";
 // Every control reloads automatically (short debounce so typing a date does not fire several requests).
 function scheduleLoad(delay = 250) { syncOv(); clearTimeout(loadTimer); loadTimer = setTimeout(load, delay); }
 
+// Auto refresh: while the tab is visible the data is reloaded quietly every 5 minutes (same selection, nothing is reset), so a repository update shows up without reloading the page.
+const REFRESH_MS = 5 * 60000;
+let lastOk = Date.now();
+const hhmm = () => new Date().toLocaleTimeString("en-GB", { timeZone: "Europe/Budapest", hour: "2-digit", minute: "2-digit" });
+setInterval(() => { if (!document.hidden && Date.now() - lastOk >= REFRESH_MS - 1000) refreshNow(); }, 30000);
+document.addEventListener("visibilitychange", () => { if (!document.hidden && Date.now() - lastOk >= REFRESH_MS) refreshNow(); });
+function refreshNow() {
+  lastOk = Date.now();
+  load(true); loadB(true); if (sumRange()) loadSum(true);
+}
+
 function init() {
   $("slider").value = STEPS.indexOf(DEFAULT_H);
   $("sites").innerHTML = ["ALL", ...SITES].map(s => `<button data-s="${s}">${s === "ALL" ? "All sites" : s}</button>`).join("");
@@ -269,21 +280,22 @@ async function fetchRange(s, start, end, res) {
   return j;
 }
 
-async function load() {
+async function load(silent = false) {
   const seq = ++loadSeq;                           // a newer load supersedes this one; stale responses are dropped
   if (!$("start").value || !$("end").value) return setStatus("Pick a start and an end date.", true);
   if ($("end").value < $("start").value) return setStatus("End date is before the start date.", true);
   capRange();
-  setStatus("Loading…");
+  if (!silent) setStatus("Loading…");
   try {
     const out = await Promise.all(SITES.map(async s => [s, await fetchRange(s, $("start").value, $("end").value, $("res").value)]));
     if (seq !== loadSeq) return;
     store = Object.fromEntries(out.filter(([, j]) => j));
     const n = Object.keys(store).length;
-    setStatus(n ? `Loaded ${n} of ${SITES.length} sites, ${store[Object.keys(store)[0]].rows.length} rows each` : "No data for this period.");
+    lastOk = Date.now();
+    setStatus(n ? `Loaded ${n} of ${SITES.length} sites, ${store[Object.keys(store)[0]].rows.length} rows each · updated ${hhmm()}` : "No data for this period.");
     paint();
   } catch (e) {
-    if (seq === loadSeq) setStatus("Failed to load: " + e.message, true);
+    if (seq === loadSeq) setStatus(silent ? `Auto refresh failed (${e.message}); showing the data from ${hhmm()} or earlier` : "Failed to load: " + e.message, true);
   }
 }
 
@@ -390,7 +402,7 @@ function sumRange() {                                   // null = use the chart 
   return { f, t, a: f + "-01", b: b > today ? today : b };
 }
 function scheduleSum(delay = 300) { syncOv(); clearTimeout(sumTimer); sumTimer = setTimeout(loadSum, delay); }
-async function loadSum() {
+async function loadSum(silent = false) {
   const r = sumRange(), seq = ++sumSeq;
   if (!r) { sumStore = null; $("sumStatus").textContent = ""; return summary(); }
   const months = (+r.t.slice(0, 4) - +r.f.slice(0, 4)) * 12 + (+r.t.slice(5, 7) - +r.f.slice(5, 7)) + 1;
@@ -399,7 +411,7 @@ async function loadSum() {
   const jobs = [];
   for (const s of SITES) for (let a = r.a; a <= r.b; a = addDays(a, MAX_DAYS)) { const b = addDays(a, MAX_DAYS - 1); jobs.push({ s, a, b: b > r.b ? r.b : b }); }
   let next = 0, done = 0; const parts = {};
-  const msg = () => { $("sumStatus").textContent = `Loading ${r.f} to ${r.t}: ${done} / ${jobs.length}…`; };
+  const msg = () => { if (!silent) $("sumStatus").textContent = `Loading ${r.f} to ${r.t}: ${done} / ${jobs.length}…`; };
   msg();
   try {
     await Promise.all(Array.from({ length: Math.min(SUM_CONC, jobs.length) }, async () => {
@@ -414,7 +426,7 @@ async function loadSum() {
     sumStore = Object.fromEntries(Object.entries(parts).map(([s, p]) => [s, { rows: p.sort((x, y) => x.a < y.a ? -1 : 1).flatMap(x => x.rows) }]));
     $("sumStatus").textContent = Object.keys(sumStore).length ? "" : "No data for these months.";
     summary();
-  } catch (e) { if (seq === sumSeq) $("sumStatus").textContent = "Failed to load: " + e.message; }
+  } catch (e) { if (seq === sumSeq && !silent) $("sumStatus").textContent = "Failed to load: " + e.message; }
 }
 
 function summary() {
@@ -443,10 +455,10 @@ function initB() {
   scheduleB(0);
 }
 function scheduleB(delay = 250) { syncOv(); clearTimeout(bTimer); bTimer = setTimeout(loadB, delay); }
-async function loadB() {
+async function loadB(silent = false) {
   const seq = ++bSeq, day = $("bDate").value;
   if (!day) return;
-  bMsg = "Loading…"; bIssue = null; paintB();
+  if (!silent) { bMsg = "Loading…"; bIssue = null; paintB(); }
   try {
     const out = await Promise.all(SITES.map(async s => [s, await fetchRange(s, day, day, "15min")]));
     if (seq !== bSeq) return;
@@ -454,6 +466,7 @@ async function loadB() {
     bMsg = Object.keys(bStore).length ? "" : "No data for this day.";
   } catch (e) {
     if (seq !== bSeq) return;
+    if (silent) return;                         // keep what is shown
     bStore = {}; bMsg = "Failed to load: " + e.message;
   }
   paintB();
